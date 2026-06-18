@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">ArtFlow POS logo</title>
+  <desc id="desc">A minimal ArtFlow POS mark with a stylized letter A, flowing stroke, and sales check.</desc>
+  <defs>
+    <linearGradient id="g" x1="32" y1="24" x2="128" y2="136" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="0.56" stop-color="#0f9f6e"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect x="18" y="18" width="124" height="124" rx="28" fill="#102033"/>
+  <path d="M45 113 75 47c2-5 8-5 10 0l30 66" fill="none" stroke="url(#g)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M61 88h38" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+  <path d="M47 103c25 11 49 4 66-22" fill="none" stroke="#35d399" stroke-width="10" stroke-linecap="round"/>
+  <path d="m88 105 12 12 25-31" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

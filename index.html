@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đăng nhập | ArtFlow POS</title>
+  <meta name="description" content="ArtFlow POS - hệ thống quản lý bán hàng nội bộ." />
+  <link rel="manifest" href="./site.webmanifest" />
+  <link rel="icon" href="./assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./assets/css/base.css" />
+  <link rel="stylesheet" href="./assets/css/app.css" />
+</head>
+<body data-page="auth" data-root=".">
+  <main class="auth-screen" data-auth-screen>
+    <section class="auth-panel" aria-label="Đăng nhập ArtFlow POS">
+      <div class="auth-copy">
+        <div class="auth-brand">
+          <img class="brand-logo large" src="./assets/images/artflow-pos-logo.svg" alt="ArtFlow POS" />
+          <h1>ArtFlow POS</h1>
+          <p>Không gian quản lý bán hàng riêng cho team ArtFlow: đăng nhập nội bộ, phân quyền nhân viên và sẵn sàng kết nối dữ liệu thật qua Google Apps Script.</p>
+        </div>
+        <div class="auth-points" aria-label="Điểm nổi bật">
+          <span>Không mở đăng ký công khai</span>
+          <span>Tài khoản do admin cấp trực tiếp</span>
+          <span>Dữ liệu đi qua Cloudflare Worker trước khi ghi vào Google Sheet</span>
+        </div>
+      </div>
+
+      <form class="login-card" data-login-form aria-live="polite">
+        <div class="form-skeleton">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <div class="toast" data-toast hidden></div>
+  <div class="loading-overlay" data-loading-overlay hidden>
+    <div class="loading-card" role="status" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <strong data-loading-text>Đang xử lý...</strong>
+    </div>
+  </div>
+
+  <script src="./assets/js/config.js"></script>
+  <script src="./assets/js/data.js"></script>
+  <script src="./assets/js/storage.js"></script>
+  <script src="./assets/js/app.js"></script>
+</body>
+</html>

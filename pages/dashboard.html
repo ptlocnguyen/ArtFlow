@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tổng quan | ArtFlow POS</title>
+  <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+</head>
+<body data-page="dashboard" data-root="..">
+  <div class="app-shell" data-app-shell hidden>
+    <aside class="sidebar">
+      <a class="brand" href="./dashboard.html" aria-label="ArtFlow POS">
+        <img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" />
+        <span><strong>ArtFlow POS</strong><small>Sales workspace</small></span>
+      </a>
+      <nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav>
+      <div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
+        <div><p class="eyebrow">ArtFlow POS</p><h1 data-page-title>Tổng quan</h1></div>
+        <div class="topbar-actions">
+          <label class="search-box"><span>⌕</span><input data-global-search type="search" placeholder="Tìm nhanh..." /></label>
+          <button class="button primary" type="button" data-open-order>Tạo đơn</button>
+          <div class="user-chip" data-current-user></div>
+          <button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button>
+        </div>
+      </header>
+
+      <section class="view active">
+        <div class="kpi-grid" data-kpis></div>
+        <div class="content-grid">
+          <section class="panel">
+            <div class="panel-header"><div><h2>Doanh thu 7 ngày</h2><p>Theo các đơn đã thanh toán hoặc hoàn tất.</p></div><span class="pill">Tuần này</span></div>
+            <div class="chart" data-revenue-chart></div>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><div><h2>Cảnh báo kho</h2><p>Sản phẩm chạm ngưỡng cần nhập thêm.</p></div></div>
+            <div class="mini-list" data-low-stock></div>
+          </section>
+        </div>
+        <section class="panel">
+          <div class="panel-header split"><div><h2>Đơn gần đây</h2><p>Năm giao dịch mới nhất trong hệ thống.</p></div><a class="text-link" href="./orders.html">Xem tất cả</a></div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Mã đơn</th><th>Khách hàng</th><th>Sản phẩm</th><th>Trạng thái</th><th>Tổng tiền</th><th>Ngày</th></tr></thead><tbody data-recent-orders></tbody></table>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div data-shared-ui></div>
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/storage.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>
