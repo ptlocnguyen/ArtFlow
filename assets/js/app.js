@@ -22,8 +22,6 @@
   };
 
   const qs = selector => document.querySelector(selector);
-  const qsa = selector => Array.from(document.querySelectorAll(selector));
-
   const els = {
     authScreen: qs("[data-auth-screen]"),
     appShell: qs("[data-app-shell]"),
@@ -112,11 +110,17 @@
     const token = getToken();
     if (token) payload.token = token;
 
-    const response = await fetch(config.apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ ...payload, action })
-    });
+    let response;
+    try {
+      response = await fetch(config.apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ ...payload, action })
+      });
+    } catch {
+      throw new Error("Không thể kết nối máy chủ. Hãy kiểm tra mạng hoặc Worker.");
+    }
+
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) throw new Error(data.error || "Yêu cầu API thất bại.");
     return data;
@@ -174,6 +178,27 @@
 
   function byId(collection, id) {
     return (state[collection] || []).find(item => item.id === id);
+  }
+
+  function hasOrdersForProduct(productId) {
+    return state.orders.some(order => order.productId === productId);
+  }
+
+  function hasOrdersForCustomer(customerId) {
+    return state.orders.some(order => order.customerId === customerId);
+  }
+
+  function applyOrderRollback(order) {
+    const product = byId("products", order.productId);
+    const customer = byId("customers", order.customerId);
+    if (product) product.stock += Number(order.quantity || 0);
+    if (customer) {
+      customer.totalSpent = Math.max(0, Number(customer.totalSpent || 0) - Number(order.total || 0));
+      const remainingOrders = state.orders
+        .filter(item => item.id !== order.id && item.customerId === customer.id)
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      customer.lastOrderAt = remainingOrders[0] ? remainingOrders[0].createdAt : "";
+    }
   }
 
   function uid(prefix) {
@@ -611,13 +636,18 @@
           const salePrice = Number(data.salePrice);
           const stock = Number(data.stock);
           const lowStock = Number(data.lowStock);
+          const sku = String(data.sku || "").trim();
+          const name = String(data.name || "").trim();
+          const category = String(data.category || "").trim();
+          if (!sku || !name || !category) throw new Error("Vui lòng nhập đầy đủ SKU, tên và danh mục.");
+          if (state.products.some(product => product.sku.toLowerCase() === sku.toLowerCase())) throw new Error("SKU này đã tồn tại.");
           if (salePrice < costPrice) throw new Error("Giá bán nên lớn hơn hoặc bằng giá vốn.");
           if (stock < 0 || lowStock < 0) throw new Error("Tồn kho và ngưỡng cảnh báo không được âm.");
           state.products.unshift({
             id: uid("prd"),
-            sku: data.sku,
-            name: data.name,
-            category: data.category,
+            sku,
+            name,
+            category,
             costPrice,
             salePrice,
             stock,
@@ -638,7 +668,13 @@
         ]),
         submit(form) {
           const data = Object.fromEntries(new FormData(form));
-          state.customers.unshift({ id: uid("cus"), name: data.name, phone: data.phone, email: data.email, group: data.group, totalSpent: 0, lastOrderAt: "" });
+          const name = String(data.name || "").trim();
+          const phone = String(data.phone || "").trim();
+          const email = String(data.email || "").trim();
+          const group = String(data.group || "").trim();
+          if (!name || !phone || !group) throw new Error("Vui lòng nhập tên, số điện thoại và nhóm khách.");
+          if (state.customers.some(customer => customer.phone === phone)) throw new Error("Số điện thoại khách hàng đã tồn tại.");
+          state.customers.unshift({ id: uid("cus"), name, phone, email, group, totalSpent: 0, lastOrderAt: "" });
           saveAndRender("Đã thêm khách hàng mới.");
         }
       },
@@ -718,6 +754,29 @@
     saveAndRender(message);
   }
 
+  function deleteProduct(productId) {
+    if (hasOrdersForProduct(productId)) {
+      showToast("Không thể xóa sản phẩm đã có trong đơn hàng. Hãy xóa đơn liên quan trước.", "error");
+      return;
+    }
+    deleteEntity("products", productId, "Đã xóa sản phẩm.");
+  }
+
+  function deleteCustomer(customerId) {
+    if (hasOrdersForCustomer(customerId)) {
+      showToast("Không thể xóa khách hàng đã có đơn hàng. Hãy xóa đơn liên quan trước.", "error");
+      return;
+    }
+    deleteEntity("customers", customerId, "Đã xóa khách hàng.");
+  }
+
+  function deleteOrder(orderId) {
+    const order = byId("orders", orderId);
+    if (!order) return;
+    applyOrderRollback(order);
+    deleteEntity("orders", orderId, "Đã xóa đơn hàng và hoàn lại tồn kho.");
+  }
+
   function bindEvents() {
     if (els.loginForm) {
       els.loginForm.addEventListener("submit", event => {
@@ -748,14 +807,18 @@
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
       if (target.matches("[data-logout]")) await logout();
 
-      if (target.dataset.deleteProduct && window.confirm("Xóa sản phẩm này?")) deleteEntity("products", target.dataset.deleteProduct, "Đã xóa sản phẩm.");
-      if (target.dataset.deleteCustomer && window.confirm("Xóa khách hàng này?")) deleteEntity("customers", target.dataset.deleteCustomer, "Đã xóa khách hàng.");
-      if (target.dataset.deleteOrder && window.confirm("Xóa đơn hàng này?")) deleteEntity("orders", target.dataset.deleteOrder, "Đã xóa đơn hàng.");
+      if (target.dataset.deleteProduct && window.confirm("Xóa sản phẩm này?")) deleteProduct(target.dataset.deleteProduct);
+      if (target.dataset.deleteCustomer && window.confirm("Xóa khách hàng này?")) deleteCustomer(target.dataset.deleteCustomer);
+      if (target.dataset.deleteOrder && window.confirm("Xóa đơn hàng này?")) deleteOrder(target.dataset.deleteOrder);
 
       const completeOrderId = target.dataset.completeOrder;
       if (completeOrderId) {
         const order = byId("orders", completeOrderId);
         if (order) {
+          if (order.status === "completed") {
+            showToast("Đơn này đã hoàn tất.");
+            return;
+          }
           order.status = "completed";
           saveAndRender("Đã chuyển đơn sang hoàn tất.");
         }

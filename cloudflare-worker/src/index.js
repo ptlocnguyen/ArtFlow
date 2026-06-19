@@ -51,7 +51,14 @@ export default {
     const allowedOrigin = getAllowedOrigin(request, env);
 
     if (!allowedOrigin) {
-      return new Response("Forbidden origin", { status: 403 });
+      return new Response(JSON.stringify({ ok: false, error: "Forbidden origin" }), {
+        status: 403,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff"
+        }
+      });
     }
 
     if (request.method === "OPTIONS") {

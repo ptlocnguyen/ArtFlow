@@ -91,6 +91,8 @@ function setupDatabase() {
       sheet = ss.insertSheet(name);
       sheet.appendRow(SHEETS[name]);
       sheet.setFrozenRows(1);
+    } else {
+      ensureHeaders(sheet, SHEETS[name]);
     }
     sheetCache[name] = sheet;
   });
@@ -116,6 +118,27 @@ function getSheet(name) {
   }
 
   return sheetCache[name];
+}
+
+function ensureHeaders(sheet, expectedHeaders) {
+  const lastColumn = Math.max(sheet.getLastColumn(), expectedHeaders.length);
+  const currentHeaders = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
+  let changed = false;
+
+  expectedHeaders.forEach(function (header, index) {
+    if (currentHeaders[index] !== header) {
+      currentHeaders[index] = header;
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    sheet.getRange(1, 1, 1, expectedHeaders.length).setValues([expectedHeaders]);
+  }
+
+  if (sheet.getFrozenRows() < 1) {
+    sheet.setFrozenRows(1);
+  }
 }
 
 function readRows(name) {
@@ -258,6 +281,18 @@ function requireAdmin(token) {
     throw new Error("Admin access required");
   }
   return user;
+}
+
+function activeAdminCount() {
+  return readRows("users").filter(function (user) {
+    return user.role === "admin" && user.status === "active";
+  }).length;
+}
+
+function assertNotLastActiveAdmin(user) {
+  if (user.role === "admin" && user.status === "active" && activeAdminCount() <= 1) {
+    throw new Error("Cannot disable or delete the last active admin");
+  }
 }
 
 function bootstrapStatus() {
@@ -429,6 +464,9 @@ function toggleUser(body) {
   }
 
   const nextStatus = user.status === "active" ? "disabled" : "active";
+  if (nextStatus === "disabled") {
+    assertNotLastActiveAdmin(user);
+  }
   removeCachedSession(user.session_token);
   updateRow("users", user._row, {
     status: nextStatus,
@@ -456,6 +494,7 @@ function deleteUser(body) {
     return { ok: false, error: "Không tìm thấy nhân viên" };
   }
 
+  assertNotLastActiveAdmin(user);
   removeCachedSession(user.session_token);
   updateRow("users", user._row, {
     status: "deleted",
