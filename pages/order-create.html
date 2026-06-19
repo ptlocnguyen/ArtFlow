@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tạo đơn | ArtFlow POS</title>
+  <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+</head>
+<body data-page="orderCreate" data-root="..">
+  <div class="app-shell" data-app-shell hidden>
+    <aside class="sidebar">
+      <a class="brand" href="./dashboard.html">
+        <img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" />
+        <span><strong>ArtFlow POS</strong><small>Sales workspace</small></span>
+      </a>
+      <nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav>
+      <div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div>
+    </aside>
+    <main class="workspace">
+      <header class="topbar">
+        <button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
+        <div>
+          <p class="eyebrow">Bán hàng</p>
+          <h1 data-page-title>Tạo đơn</h1>
+        </div>
+        <div class="topbar-actions">
+          <a class="button ghost" href="./orders.html">Danh sách đơn</a>
+          <div class="user-chip" data-current-user></div>
+          <button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button>
+        </div>
+      </header>
+
+      <section class="view active">
+        <form class="order-create-form" data-order-create-form></form>
+      </section>
+    </main>
+  </div>
+  <div data-shared-ui></div>
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/storage.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

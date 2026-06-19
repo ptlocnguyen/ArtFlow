@@ -572,7 +572,7 @@
 }
 
 .table-wrap table {
-  min-width: 920px;
+  min-width: 980px;
 }
 
 .filter-bar {
@@ -613,6 +613,12 @@
   gap: 8px;
 }
 
+.compact-actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  min-width: 174px;
+}
+
 .link-button {
   min-height: 32px;
   padding: 0 10px;
@@ -625,6 +631,10 @@
 
 .link-button:hover {
   border-color: var(--blue);
+}
+
+.danger-link {
+  color: #912018;
 }
 
 .inventory-grid,
@@ -748,6 +758,92 @@
   border: 1px solid #bfdbfe;
   border-radius: 8px;
   font-weight: 900;
+}
+
+.order-create-form {
+  display: block;
+}
+
+.order-compose-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 18px;
+  align-items: start;
+}
+
+.order-compose-main {
+  display: grid;
+  gap: 18px;
+}
+
+.order-compose-section .panel-header {
+  padding-bottom: 8px;
+}
+
+.compact-grid,
+.summary-grid {
+  padding-top: 8px;
+}
+
+.order-items-large {
+  padding: 0 18px 18px;
+}
+
+.order-items-large .order-item-row {
+  grid-template-columns: minmax(280px, 1fr) 140px 44px;
+  background: #fff;
+}
+
+.order-summary-panel {
+  min-width: 0;
+}
+
+.sticky-summary {
+  position: sticky;
+  top: 18px;
+}
+
+.summary-lines {
+  display: grid;
+  gap: 10px;
+  padding: 0 20px 18px;
+}
+
+.summary-lines div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.summary-lines strong {
+  color: var(--text);
+}
+
+.summary-total {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.summary-total span,
+.summary-total strong {
+  color: var(--text);
+  font-size: 18px;
+}
+
+.order-submit-actions {
+  padding: 0 20px 20px;
+}
+
+.order-submit-actions .button {
+  flex: 1;
+}
+
+.empty-state {
+  padding: 24px;
 }
 
 .form-actions {
@@ -933,6 +1029,14 @@
     order: 3;
     width: 100%;
   }
+
+  .order-compose-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sticky-summary {
+    position: static;
+  }
 }
 
 @media (max-width: 640px) {
@@ -982,7 +1086,15 @@
     grid-template-columns: 1fr;
   }
 
+  .order-items-large .order-item-row {
+    grid-template-columns: 1fr;
+  }
+
   .order-item-row .icon-button {
     width: 100%;
+  }
+
+  .order-submit-actions {
+    display: grid;
   }
 }
