@@ -62,6 +62,7 @@
           <form class="form-grid" data-modal-form></form>
         </section>
       </div>
+      <button class="menu-scrim" type="button" data-menu-close aria-label="Đóng menu"></button>
       <div class="toast" data-toast hidden></div>
       <div class="loading-overlay" data-loading-overlay hidden>
         <div class="loading-card" role="status" aria-live="polite">
@@ -216,6 +217,10 @@
     return ["paid", "completed"].includes(order.status);
   }
 
+  function canCreateOrder() {
+    return state.products.length > 0 && state.customers.length > 0;
+  }
+
   function filtered(items, fields) {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return items;
@@ -301,7 +306,7 @@
     els.navList.innerHTML = Object.entries(pages).map(([key, item]) => {
       if (item.adminOnly && !isAdmin()) return "";
       return `
-        <a class="nav-link ${key === page ? "active" : ""}" href="${item.href}" data-nav-page="${key}">
+        <a class="nav-link ${key === page ? "active" : ""}" href="${item.href}" data-nav-page="${key}" ${key === page ? "aria-current=\"page\"" : ""}>
           <span class="nav-icon">${item.icon}</span>
           <span>${item.title}</span>
         </a>
@@ -416,10 +421,10 @@
 
   function renderLowStock() {
     if (!els.lowStock) return;
-    const products = state.products.filter(product => product.stock <= product.lowStock).sort((a, b) => a.stock - b.stock);
+    const products = filtered(state.products.filter(product => product.stock <= product.lowStock), ["sku", "name", "category"]).sort((a, b) => a.stock - b.stock);
     els.lowStock.innerHTML = products.length ? products.map(product => `
       <div class="mini-item"><div><strong>${product.name}</strong><small>${product.sku} · Ngưỡng ${product.lowStock}</small></div><span class="badge low">${product.stock} còn</span></div>
-    `).join("") : `<div class="empty">Chưa có cảnh báo tồn kho.</div>`;
+    `).join("") : `<div class="empty">${searchTerm ? "Không tìm thấy cảnh báo kho phù hợp." : "Chưa có cảnh báo tồn kho."}</div>`;
   }
 
   function renderOrdersRows(target, rows, limit) {
@@ -532,10 +537,11 @@
   function renderPage() {
     const sortedOrders = [...state.orders].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     const orders = filtered(sortedOrders, ["code", "status"]);
+    const recentOrders = page === "dashboard" ? filtered(sortedOrders, ["code", "status"]) : sortedOrders;
     renderKpis();
     renderChart();
     renderLowStock();
-    renderOrdersRows(els.recentOrders, sortedOrders, 5);
+    renderOrdersRows(els.recentOrders, recentOrders, 5);
     renderOrdersRows(els.ordersTable, orders);
     renderProducts();
     renderCustomers();
@@ -551,10 +557,10 @@
   }
 
   function renderTextFields(fields) {
-    return fields.map(([name, label, type, placeholder]) => `
+    return fields.map(([name, label, type, placeholder, extra = ""]) => `
       <div class="field">
         <label for="${name}">${label}</label>
-        <input id="${name}" name="${name}" type="${type}" placeholder="${placeholder}" required />
+        <input id="${name}" name="${name}" type="${type}" placeholder="${placeholder}" ${extra} required />
       </div>
     `).join("");
   }
@@ -574,13 +580,18 @@
     return `
       <div class="field"><label for="name">Tên nhân viên</label><input id="name" name="name" type="text" placeholder="Nguyễn Văn A" required /></div>
       <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" placeholder="staff@artflow.vn" required /></div>
-      <div class="field"><label for="password">Mật khẩu tạm</label><input id="password" name="password" type="text" placeholder="Ít nhất 8 ký tự" minlength="8" required /></div>
+      <div class="field"><label for="password">Mật khẩu tạm</label><input id="password" name="password" type="password" placeholder="Ít nhất 8 ký tự" minlength="8" autocomplete="new-password" required /></div>
       <div class="field"><label for="role">Vai trò</label><select id="role" name="role" required><option value="sales">Bán hàng</option><option value="inventory">Kho</option><option value="viewer">Chỉ xem</option><option value="admin">Admin</option></select></div>
     `;
   }
 
   function openModal(type) {
     if (!els.modalBackdrop || !els.modalForm) return;
+    if (type === "order" && !canCreateOrder()) {
+      showToast("Cần có ít nhất một sản phẩm và một khách hàng trước khi tạo đơn.", "error");
+      return;
+    }
+
     const definitions = {
       product: {
         eyebrow: "Danh mục",
@@ -589,22 +600,28 @@
           ["sku", "SKU", "text", "AF-NEW-001"],
           ["name", "Tên sản phẩm", "text", "Bộ cọ vẽ chi tiết"],
           ["category", "Danh mục", "text", "Dụng cụ vẽ"],
-          ["costPrice", "Giá vốn", "number", "65000"],
-          ["salePrice", "Giá bán", "number", "119000"],
-          ["stock", "Tồn kho", "number", "12"],
-          ["lowStock", "Ngưỡng cảnh báo", "number", "5"]
+          ["costPrice", "Giá vốn", "number", "65000", "min=\"0\" step=\"1000\""],
+          ["salePrice", "Giá bán", "number", "119000", "min=\"0\" step=\"1000\""],
+          ["stock", "Tồn kho", "number", "12", "min=\"0\" step=\"1\""],
+          ["lowStock", "Ngưỡng cảnh báo", "number", "5", "min=\"0\" step=\"1\""]
         ]),
         submit(form) {
           const data = Object.fromEntries(new FormData(form));
+          const costPrice = Number(data.costPrice);
+          const salePrice = Number(data.salePrice);
+          const stock = Number(data.stock);
+          const lowStock = Number(data.lowStock);
+          if (salePrice < costPrice) throw new Error("Giá bán nên lớn hơn hoặc bằng giá vốn.");
+          if (stock < 0 || lowStock < 0) throw new Error("Tồn kho và ngưỡng cảnh báo không được âm.");
           state.products.unshift({
             id: uid("prd"),
             sku: data.sku,
             name: data.name,
             category: data.category,
-            costPrice: Number(data.costPrice),
-            salePrice: Number(data.salePrice),
-            stock: Number(data.stock),
-            lowStock: Number(data.lowStock),
+            costPrice,
+            salePrice,
+            stock,
+            lowStock,
             status: "active"
           });
           saveAndRender("Đã thêm sản phẩm mới.");
@@ -722,6 +739,8 @@
       if (!target || target.disabled) return;
 
       if (target.matches("[data-menu-toggle]")) document.body.classList.toggle("menu-open");
+      if (target.matches("[data-menu-close]")) document.body.classList.remove("menu-open");
+      if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
       if (target.matches("[data-close-modal]")) closeModal();
       if (target.matches("[data-open-product]")) openModal("product");
       if (target.matches("[data-open-customer]")) openModal("customer");
@@ -729,9 +748,9 @@
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
       if (target.matches("[data-logout]")) await logout();
 
-      if (target.dataset.deleteProduct) deleteEntity("products", target.dataset.deleteProduct, "Đã xóa sản phẩm.");
-      if (target.dataset.deleteCustomer) deleteEntity("customers", target.dataset.deleteCustomer, "Đã xóa khách hàng.");
-      if (target.dataset.deleteOrder) deleteEntity("orders", target.dataset.deleteOrder, "Đã xóa đơn hàng.");
+      if (target.dataset.deleteProduct && window.confirm("Xóa sản phẩm này?")) deleteEntity("products", target.dataset.deleteProduct, "Đã xóa sản phẩm.");
+      if (target.dataset.deleteCustomer && window.confirm("Xóa khách hàng này?")) deleteEntity("customers", target.dataset.deleteCustomer, "Đã xóa khách hàng.");
+      if (target.dataset.deleteOrder && window.confirm("Xóa đơn hàng này?")) deleteEntity("orders", target.dataset.deleteOrder, "Đã xóa đơn hàng.");
 
       const completeOrderId = target.dataset.completeOrder;
       if (completeOrderId) {
@@ -743,7 +762,7 @@
       }
 
       const userId = target.dataset.deleteUser;
-      if (userId && isAdmin() && userId !== currentUser.id) {
+      if (userId && isAdmin() && userId !== currentUser.id && window.confirm("Xóa tài khoản nhân viên này?")) {
         await withLoading("Đang xóa nhân viên...", async () => {
           await apiRequest("/users/delete", { method: "POST", body: JSON.stringify({ id: userId }) });
           await loadStaffUsers();

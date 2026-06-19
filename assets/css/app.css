@@ -199,6 +199,15 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+.nav-link:focus-visible,
+.button:focus-visible,
+.icon-button:focus-visible,
+.link-button:focus-visible,
+.text-link:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.26);
+  outline-offset: 2px;
+}
+
 .nav-icon {
   display: grid;
   width: 24px;
@@ -441,6 +450,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 18px 18px 0;
 }
@@ -498,7 +508,7 @@
   align-items: end;
   gap: 12px;
   height: 260px;
-  padding: 22px 18px 18px;
+  padding: 38px 18px 44px;
 }
 
 .chart-bar {
@@ -559,6 +569,10 @@
   width: 100%;
   overflow-x: auto;
   padding-top: 10px;
+}
+
+.table-wrap table {
+  min-width: 760px;
 }
 
 .text-link {
@@ -714,6 +728,10 @@
   display: none;
 }
 
+.menu-scrim {
+  display: none;
+}
+
 .loading-card {
   display: inline-flex;
   align-items: center;
@@ -813,6 +831,23 @@
 
   body.menu-open .sidebar {
     transform: translateX(0);
+  }
+
+  .menu-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 14;
+    display: block;
+    background: rgba(15, 23, 42, 0.38);
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+
+  body.menu-open .menu-scrim {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .workspace {
