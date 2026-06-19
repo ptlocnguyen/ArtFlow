@@ -105,7 +105,11 @@
       "/customers": "listCustomers",
       "/customers/create": "createCustomer",
       "/customers/update": "updateCustomer",
-      "/customers/archive": "archiveCustomer"
+      "/customers/archive": "archiveCustomer",
+      "/orders": "listOrders",
+      "/orders/create": "createOrder",
+      "/orders/status": "updateOrderStatus",
+      "/orders/cancel": "cancelOrder"
     }[path] || "";
   }
 
@@ -188,31 +192,6 @@
     return (state[collection] || []).find(item => item.id === id);
   }
 
-  function hasOrdersForProduct(productId) {
-    return state.orders.some(order => order.productId === productId);
-  }
-
-  function hasOrdersForCustomer(customerId) {
-    return state.orders.some(order => order.customerId === customerId);
-  }
-
-  function applyOrderRollback(order) {
-    const product = byId("products", order.productId);
-    const customer = byId("customers", order.customerId);
-    if (product) product.stock += Number(order.quantity || 0);
-    if (customer) {
-      customer.totalSpent = Math.max(0, Number(customer.totalSpent || 0) - Number(order.total || 0));
-      const remainingOrders = state.orders
-        .filter(item => item.id !== order.id && item.customerId === customer.id)
-        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-      customer.lastOrderAt = remainingOrders[0] ? remainingOrders[0].createdAt : "";
-    }
-  }
-
-  function uid(prefix) {
-    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 6)}`;
-  }
-
   function formatDate(value) {
     if (!value) return "Chưa có";
     return dateFormat.format(new Date(`${String(value).slice(0, 10)}T00:00:00`));
@@ -227,6 +206,10 @@
   }
 
   function canManageCustomers() {
+    return currentUser && ["admin", "sales"].includes(currentUser.role);
+  }
+
+  function canManageOrders() {
     return currentUser && ["admin", "sales"].includes(currentUser.role);
   }
 
@@ -247,10 +230,6 @@
     }[status] || status;
   }
 
-  function getProduct(order) {
-    return byId("products", order.productId) || { name: "Sản phẩm đã xóa", sku: "N/A", salePrice: 0, costPrice: 0 };
-  }
-
   function getCustomer(order) {
     return byId("customers", order.customerId) || { name: "Khách lẻ" };
   }
@@ -259,8 +238,20 @@
     return ["paid", "completed"].includes(order.status);
   }
 
+  function orderCost(order) {
+    return (order.items || []).reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
+  }
+
+  function orderItemSummary(order) {
+    const items = order.items || [];
+    if (!items.length) return "Chưa có sản phẩm";
+    const first = items[0];
+    const suffix = items.length > 1 ? ` +${items.length - 1} sản phẩm` : "";
+    return `${first.name} × ${first.quantity}${suffix}`;
+  }
+
   function canCreateOrder() {
-    return state.products.some(product => product.status === "active") && state.customers.some(customer => customer.status === "active");
+    return canManageOrders() && state.products.some(product => product.status === "active") && state.customers.some(customer => customer.status === "active");
   }
 
   function normalizeProduct(product) {
@@ -319,16 +310,60 @@
     }
   }
 
+  function normalizeOrderItem(item) {
+    return {
+      id: item.id,
+      orderId: item.orderId || "",
+      productId: item.productId || "",
+      sku: item.sku || "",
+      name: item.name || "",
+      quantity: Number(item.quantity || 0),
+      unitPrice: Number(item.unitPrice || 0),
+      costPrice: Number(item.costPrice || 0),
+      lineTotal: Number(item.lineTotal || 0),
+      createdAt: item.createdAt || ""
+    };
+  }
+
+  function normalizeOrder(order) {
+    const items = (order.items || []).map(normalizeOrderItem);
+    return {
+      id: order.id,
+      code: order.code || "",
+      customerId: order.customerId || "",
+      status: order.status || "pending",
+      paymentStatus: order.paymentStatus || "unpaid",
+      paymentMethod: order.paymentMethod || "cash",
+      subtotal: Number(order.subtotal || 0),
+      discount: Number(order.discount || 0),
+      shippingFee: Number(order.shippingFee || 0),
+      total: Number(order.total || 0),
+      note: order.note || "",
+      createdBy: order.createdBy || "",
+      createdAt: order.createdAt || "",
+      updatedAt: order.updatedAt || "",
+      productId: items[0] ? items[0].productId : "",
+      quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+      items
+    };
+  }
+
+  async function loadOrders(options = {}) {
+    try {
+      const data = await apiRequest("/orders");
+      state.orders = (data.orders || []).map(normalizeOrder);
+      window.ArtFlowPosStore.save(state);
+      return true;
+    } catch (error) {
+      if (!options.quiet) showToast(error.message, "error");
+      return false;
+    }
+  }
+
   function filtered(items, fields) {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return items;
     return items.filter(item => fields.some(field => String(item[field] || "").toLowerCase().includes(term)));
-  }
-
-  function saveAndRender(message) {
-    window.ArtFlowPosStore.save(state);
-    renderPage();
-    if (message) showToast(message);
   }
 
   function renderApiMissing(message) {
@@ -419,6 +454,9 @@
     document.querySelectorAll("[data-open-customer]").forEach(button => {
       button.hidden = !canManageCustomers();
     });
+    document.querySelectorAll("[data-open-order]").forEach(button => {
+      button.hidden = !canManageOrders();
+    });
   }
 
   async function loadStaffUsers() {
@@ -443,7 +481,8 @@
 
     await withLoading("Đang tải dữ liệu bán hàng...", () => Promise.all([
       loadProducts({ quiet: true }),
-      loadCustomers({ quiet: true })
+      loadCustomers({ quiet: true }),
+      loadOrders({ quiet: true })
     ]));
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
     renderPage();
@@ -500,7 +539,7 @@
     if (!els.kpis) return;
     const paidOrders = state.orders.filter(isPaid);
     const revenue = paidOrders.reduce((sum, order) => sum + order.total, 0);
-    const cost = paidOrders.reduce((sum, order) => sum + (getProduct(order).costPrice * order.quantity), 0);
+    const cost = paidOrders.reduce((sum, order) => sum + orderCost(order), 0);
     const lowStockCount = state.products.filter(product => product.status === "active" && product.stock <= product.lowStock).length;
     const pendingOrders = state.orders.filter(order => order.status === "pending").length;
     const cards = [
@@ -521,7 +560,7 @@
       date.setDate(date.getDate() - (6 - index));
       return date.toISOString().slice(0, 10);
     });
-    const values = days.map(day => state.orders.filter(order => order.createdAt === day && isPaid(order)).reduce((sum, order) => sum + order.total, 0));
+    const values = days.map(day => state.orders.filter(order => String(order.createdAt).slice(0, 10) === day && isPaid(order)).reduce((sum, order) => sum + order.total, 0));
     const max = Math.max(...values, 1);
     els.revenueChart.innerHTML = days.map((day, index) => {
       const height = Math.max(18, Math.round((values[index] / max) * 200));
@@ -544,15 +583,14 @@
     const selectedRows = limit ? rows.slice(0, limit) : rows;
     target.innerHTML = selectedRows.length ? selectedRows.map(order => {
       const customer = getCustomer(order);
-      const product = getProduct(order);
       const actions = target === els.ordersTable
-        ? `<div class="row-actions"><button class="link-button" data-complete-order="${order.id}">Hoàn tất</button><button class="link-button" data-delete-order="${order.id}">Xóa</button></div>`
+        ? `<div class="row-actions">${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button" data-complete-order="${order.id}">Hoàn tất</button>` : ""}${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button" data-cancel-order="${order.id}">Hủy đơn</button>` : ""}</div>`
         : formatDate(order.createdAt);
       return `
         <tr>
           <td><strong>${order.code}</strong></td>
           <td>${customer.name}</td>
-          <td>${product.name} × ${order.quantity}</td>
+          <td>${orderItemSummary(order)}</td>
           <td><span class="badge ${order.status}">${statusLabel(order.status)}</span></td>
           <td><strong>${money.format(order.total)}</strong></td>
           <td>${actions}</td>
@@ -641,10 +679,14 @@
     if (!els.reportCards) return;
     const paidOrders = state.orders.filter(isPaid);
     const averageOrder = paidOrders.length ? paidOrders.reduce((sum, order) => sum + order.total, 0) / paidOrders.length : 0;
+    const soldByProduct = paidOrders.reduce((map, order) => {
+      (order.items || []).forEach(item => {
+        map[item.productId] = (map[item.productId] || 0) + item.quantity;
+      });
+      return map;
+    }, {});
     const bestProduct = [...state.products].filter(product => product.status === "active").sort((a, b) => {
-      const soldA = paidOrders.filter(order => order.productId === a.id).reduce((sum, order) => sum + order.quantity, 0);
-      const soldB = paidOrders.filter(order => order.productId === b.id).reduce((sum, order) => sum + order.quantity, 0);
-      return soldB - soldA;
+      return (soldByProduct[b.id] || 0) - (soldByProduct[a.id] || 0);
     })[0];
     const vipCustomer = [...state.customers].sort((a, b) => b.totalSpent - a.totalSpent)[0];
     const cards = [
@@ -659,8 +701,21 @@
 
   function renderPage() {
     const sortedOrders = [...state.orders].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-    const orders = filtered(sortedOrders, ["code", "status"]);
-    const recentOrders = page === "dashboard" ? filtered(sortedOrders, ["code", "status"]) : sortedOrders;
+    const orderMatches = order => {
+      const term = searchTerm.trim().toLowerCase();
+      if (!term) return true;
+      const customer = getCustomer(order);
+      const text = [
+        order.code,
+        statusLabel(order.status),
+        order.status,
+        customer.name,
+        ...(order.items || []).flatMap(item => [item.name, item.sku])
+      ].join(" ").toLowerCase();
+      return text.includes(term);
+    };
+    const orders = sortedOrders.filter(orderMatches);
+    const recentOrders = page === "dashboard" ? sortedOrders.filter(orderMatches) : sortedOrders;
     renderKpis();
     renderChart();
     renderLowStock();
@@ -688,15 +743,59 @@
     `).join("");
   }
 
+  function renderOrderItemRow() {
+    const productOptions = state.products
+      .filter(product => product.status === "active")
+      .map(product => `<option value="${product.id}">${product.name} - ${money.format(product.salePrice)} (${product.stock} còn)</option>`)
+      .join("");
+
+    return `
+      <div class="order-item-row" data-order-item-row>
+        <div class="field">
+          <label>Sản phẩm</label>
+          <select name="productId" data-order-product required>${productOptions}</select>
+        </div>
+        <div class="field compact-field">
+          <label>Số lượng</label>
+          <input name="quantity" data-order-quantity type="number" min="1" value="1" required />
+        </div>
+        <button class="icon-button" type="button" data-remove-order-item aria-label="Xóa dòng">×</button>
+      </div>
+    `;
+  }
+
   function renderOrderForm() {
-    const productOptions = state.products.filter(product => product.status === "active").map(product => `<option value="${product.id}">${product.name} - ${money.format(product.salePrice)} (${product.stock} còn)</option>`).join("");
     const customerOptions = state.customers.filter(customer => customer.status === "active").map(customer => `<option value="${customer.id}">${customer.name}</option>`).join("");
     return `
       <div class="field"><label for="customerId">Khách hàng</label><select id="customerId" name="customerId" required>${customerOptions}</select></div>
-      <div class="field"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${productOptions}</select></div>
-      <div class="field"><label for="quantity">Số lượng</label><input id="quantity" name="quantity" type="number" min="1" value="1" required /></div>
       <div class="field"><label for="status">Trạng thái</label><select id="status" name="status" required><option value="pending">Chờ xử lý</option><option value="paid">Đã thanh toán</option><option value="completed">Hoàn tất</option></select></div>
+      <div class="field"><label for="paymentMethod">Thanh toán</label><select id="paymentMethod" name="paymentMethod" required><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option><option value="cod">COD</option><option value="ecommerce">Sàn TMĐT</option></select></div>
+      <div class="field"><label for="discount">Giảm giá</label><input id="discount" name="discount" type="number" min="0" step="1000" value="0" data-order-money /></div>
+      <div class="field"><label for="shippingFee">Phí giao hàng</label><input id="shippingFee" name="shippingFee" type="number" min="0" step="1000" value="0" data-order-money /></div>
+      <div class="field full">
+        <div class="order-builder-header">
+          <label>Sản phẩm trong đơn</label>
+          <button class="link-button" type="button" data-add-order-item>Thêm dòng</button>
+        </div>
+        <div class="order-items" data-order-items>${renderOrderItemRow()}</div>
+      </div>
+      <div class="field full"><label for="note">Ghi chú</label><input id="note" name="note" type="text" placeholder="Ghi chú giao hàng, kênh bán, mã sàn..." /></div>
+      <div class="order-total full" data-order-total>Tạm tính: ${money.format(0)}</div>
     `;
+  }
+
+  function updateOrderTotalPreview(form) {
+    if (!form) return;
+    const output = form.querySelector("[data-order-total]");
+    if (!output) return;
+    const subtotal = [...form.querySelectorAll("[data-order-item-row]")].reduce((sum, row) => {
+      const product = byId("products", row.querySelector("[data-order-product]").value);
+      const quantity = Number(row.querySelector("[data-order-quantity]").value || 0);
+      return sum + (product ? product.salePrice * quantity : 0);
+    }, 0);
+    const discount = Number(form.discount && form.discount.value || 0);
+    const shippingFee = Number(form.shippingFee && form.shippingFee.value || 0);
+    output.textContent = `Tạm tính: ${money.format(subtotal)} · Tổng thanh toán: ${money.format(Math.max(0, subtotal - discount + shippingFee))}`;
   }
 
   function renderUserForm() {
@@ -719,7 +818,7 @@
       return;
     }
     if (type === "order" && !canCreateOrder()) {
-      showToast("Cần có ít nhất một sản phẩm và một khách hàng trước khi tạo đơn.", "error");
+      showToast(canManageOrders() ? "Cần có ít nhất một sản phẩm và một khách hàng trước khi tạo đơn." : "Bạn không có quyền tạo đơn hàng.", "error");
       return;
     }
 
@@ -825,28 +924,36 @@
         eyebrow: "Bán hàng",
         title: "Tạo đơn hàng",
         body: renderOrderForm(),
-        submit(form) {
+        async submit(form) {
           const data = Object.fromEntries(new FormData(form));
-          const product = byId("products", data.productId);
           const customer = byId("customers", data.customerId);
-          const quantity = Number(data.quantity);
-          if (!product || !customer || quantity < 1) throw new Error("Cần có ít nhất một sản phẩm và một khách hàng để tạo đơn.");
-          if (product.stock < quantity) throw new Error("Tồn kho không đủ để tạo đơn.");
-          const total = product.salePrice * quantity;
-          product.stock -= quantity;
-          customer.totalSpent += total;
-          customer.lastOrderAt = new Date().toISOString().slice(0, 10);
-          state.orders.unshift({
-            id: uid("ord"),
-            code: `AF-${String(1001 + state.orders.length).padStart(4, "0")}`,
-            customerId: customer.id,
-            status: data.status,
-            productId: product.id,
-            quantity,
-            total,
-            createdAt: new Date().toISOString().slice(0, 10)
+          const items = [...form.querySelectorAll("[data-order-item-row]")].map(row => ({
+            productId: row.querySelector("[data-order-product]").value,
+            quantity: Number(row.querySelector("[data-order-quantity]").value)
+          }));
+          if (!customer || !items.length) throw new Error("Cần chọn khách hàng và ít nhất một sản phẩm.");
+          items.forEach(item => {
+            const product = byId("products", item.productId);
+            if (!product || item.quantity < 1) throw new Error("Dòng sản phẩm trong đơn chưa hợp lệ.");
+            if (product.stock < item.quantity) throw new Error(`Tồn kho không đủ cho ${product.name}.`);
           });
-          saveAndRender("Đã tạo đơn và trừ tồn kho.");
+          const dataFromApi = await apiRequest("/orders/create", {
+            method: "POST",
+            body: JSON.stringify({
+              customerId: data.customerId,
+              status: data.status,
+              paymentMethod: data.paymentMethod,
+              discount: Number(data.discount || 0),
+              shippingFee: Number(data.shippingFee || 0),
+              note: data.note || "",
+              items
+            })
+          });
+          state.orders.unshift(normalizeOrder(dataFromApi.order));
+          await Promise.all([loadProducts({ quiet: true }), loadCustomers({ quiet: true })]);
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          showToast("Đã tạo đơn và trừ tồn kho.");
         }
       },
       user: {
@@ -888,13 +995,9 @@
       }
     };
     els.modalBackdrop.hidden = false;
+    if (type === "order") updateOrderTotalPreview(els.modalForm);
     const firstInput = els.modalForm.querySelector("input, select");
     if (firstInput) firstInput.focus();
-  }
-
-  function deleteEntity(collection, id, message) {
-    state[collection] = state[collection].filter(item => item.id !== id);
-    saveAndRender(message);
   }
 
   async function archiveProduct(productId, status) {
@@ -925,11 +1028,29 @@
     showToast(savedCustomer.status === "active" ? "Đã kích hoạt khách hàng." : "Đã ngừng theo dõi khách hàng.");
   }
 
-  function deleteOrder(orderId) {
-    const order = byId("orders", orderId);
-    if (!order) return;
-    applyOrderRollback(order);
-    deleteEntity("orders", orderId, "Đã xóa đơn hàng và hoàn lại tồn kho.");
+  async function updateOrderStatus(orderId, status) {
+    const data = await apiRequest("/orders/status", {
+      method: "POST",
+      body: JSON.stringify({ id: orderId, status })
+    });
+    const savedOrder = normalizeOrder(data.order);
+    state.orders = state.orders.map(order => order.id === savedOrder.id ? savedOrder : order);
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    showToast("Đã cập nhật trạng thái đơn hàng.");
+  }
+
+  async function cancelOrder(orderId) {
+    const data = await apiRequest("/orders/cancel", {
+      method: "POST",
+      body: JSON.stringify({ id: orderId })
+    });
+    const savedOrder = normalizeOrder(data.order);
+    state.orders = state.orders.map(order => order.id === savedOrder.id ? savedOrder : order);
+    await Promise.all([loadProducts({ quiet: true }), loadCustomers({ quiet: true })]);
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    showToast("Đã hủy đơn và hoàn lại tồn kho.");
   }
 
   function bindEvents() {
@@ -976,7 +1097,25 @@
       if (target.dataset.archiveCustomer && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại khách hàng này?" : "Ngừng theo dõi khách hàng này?")) {
         await withLoading("Đang cập nhật khách hàng...", () => archiveCustomer(target.dataset.archiveCustomer, target.dataset.nextStatus));
       }
-      if (target.dataset.deleteOrder && window.confirm("Xóa đơn hàng này?")) deleteOrder(target.dataset.deleteOrder);
+      if (target.matches("[data-add-order-item]")) {
+        const list = els.modalForm && els.modalForm.querySelector("[data-order-items]");
+        if (list) {
+          list.insertAdjacentHTML("beforeend", renderOrderItemRow());
+          updateOrderTotalPreview(els.modalForm);
+        }
+      }
+      if (target.matches("[data-remove-order-item]")) {
+        const rows = els.modalForm ? els.modalForm.querySelectorAll("[data-order-item-row]") : [];
+        if (rows.length <= 1) {
+          showToast("Đơn hàng cần ít nhất một dòng sản phẩm.", "error");
+          return;
+        }
+        target.closest("[data-order-item-row]").remove();
+        updateOrderTotalPreview(els.modalForm);
+      }
+      if (target.dataset.cancelOrder && window.confirm("Hủy đơn hàng này và hoàn lại tồn kho?")) {
+        await withLoading("Đang hủy đơn hàng...", () => cancelOrder(target.dataset.cancelOrder));
+      }
 
       const completeOrderId = target.dataset.completeOrder;
       if (completeOrderId) {
@@ -986,8 +1125,7 @@
             showToast("Đơn này đã hoàn tất.");
             return;
           }
-          order.status = "completed";
-          saveAndRender("Đã chuyển đơn sang hoàn tất.");
+          await withLoading("Đang cập nhật đơn hàng...", () => updateOrderStatus(order.id, "completed"));
         }
       }
 
@@ -1014,6 +1152,14 @@
 
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") closeModal();
+    });
+
+    document.addEventListener("input", event => {
+      if (event.target.matches("[data-order-quantity], [data-order-money]")) updateOrderTotalPreview(els.modalForm);
+    });
+
+    document.addEventListener("change", event => {
+      if (event.target.matches("[data-order-product]")) updateOrderTotalPreview(els.modalForm);
     });
 
     document.addEventListener("click", event => {
