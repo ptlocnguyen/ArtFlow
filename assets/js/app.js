@@ -687,7 +687,7 @@
     const values = days.map(day => state.orders.filter(order => String(order.createdAt).slice(0, 10) === day && isPaid(order)).reduce((sum, order) => sum + order.total, 0));
     const max = Math.max(...values, 1);
     els.revenueChart.innerHTML = days.map((day, index) => {
-      const height = Math.max(18, Math.round((values[index] / max) * 200));
+      const height = Math.max(18, Math.round((values[index] / max) * 140));
       const label = day.slice(5).replace("-", "/");
       const value = values[index] ? money.format(values[index]).replace(/\s?₫/, "") : "0";
       return `<div class="chart-bar" style="--bar-height: ${height}px"><strong>${value}</strong><span>${label}</span></div>`;
