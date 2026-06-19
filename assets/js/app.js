@@ -101,7 +101,11 @@
       "/products": "listProducts",
       "/products/create": "createProduct",
       "/products/update": "updateProduct",
-      "/products/archive": "archiveProduct"
+      "/products/archive": "archiveProduct",
+      "/customers": "listCustomers",
+      "/customers/create": "createCustomer",
+      "/customers/update": "updateCustomer",
+      "/customers/archive": "archiveCustomer"
     }[path] || "";
   }
 
@@ -222,6 +226,10 @@
     return currentUser && ["admin", "inventory"].includes(currentUser.role);
   }
 
+  function canManageCustomers() {
+    return currentUser && ["admin", "sales"].includes(currentUser.role);
+  }
+
   function roleLabel(role) {
     return { admin: "Admin", sales: "Bán hàng", inventory: "Kho", viewer: "Chỉ xem" }[role] || role;
   }
@@ -252,7 +260,7 @@
   }
 
   function canCreateOrder() {
-    return state.products.some(product => product.status === "active") && state.customers.length > 0;
+    return state.products.some(product => product.status === "active") && state.customers.some(customer => customer.status === "active");
   }
 
   function normalizeProduct(product) {
@@ -275,6 +283,34 @@
     try {
       const data = await apiRequest("/products");
       state.products = (data.products || []).map(normalizeProduct);
+      window.ArtFlowPosStore.save(state);
+      return true;
+    } catch (error) {
+      if (!options.quiet) showToast(error.message, "error");
+      return false;
+    }
+  }
+
+  function normalizeCustomer(customer) {
+    return {
+      id: customer.id,
+      name: customer.name || "",
+      phone: customer.phone || "",
+      email: customer.email || "",
+      group: customer.group || "Bán lẻ",
+      status: customer.status || "active",
+      totalSpent: Number(customer.totalSpent || 0),
+      lastOrderAt: customer.lastOrderAt || "",
+      note: customer.note || "",
+      createdAt: customer.createdAt || "",
+      updatedAt: customer.updatedAt || ""
+    };
+  }
+
+  async function loadCustomers(options = {}) {
+    try {
+      const data = await apiRequest("/customers");
+      state.customers = (data.customers || []).map(normalizeCustomer);
       window.ArtFlowPosStore.save(state);
       return true;
     } catch (error) {
@@ -380,6 +416,9 @@
     document.querySelectorAll("[data-open-product]").forEach(button => {
       button.hidden = !canManageProducts();
     });
+    document.querySelectorAll("[data-open-customer]").forEach(button => {
+      button.hidden = !canManageCustomers();
+    });
   }
 
   async function loadStaffUsers() {
@@ -402,7 +441,10 @@
     renderNav();
     applyPermissions();
 
-    await withLoading("Đang tải danh mục sản phẩm...", () => loadProducts({ quiet: true }));
+    await withLoading("Đang tải dữ liệu bán hàng...", () => Promise.all([
+      loadProducts({ quiet: true }),
+      loadCustomers({ quiet: true })
+    ]));
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
     renderPage();
   }
@@ -549,9 +591,14 @@
         <td><span class="badge">${customer.group}</span></td>
         <td>${money.format(customer.totalSpent)}</td>
         <td>${formatDate(customer.lastOrderAt)}</td>
-        <td><div class="row-actions"><button class="link-button" data-delete-customer="${customer.id}">Xóa</button></div></td>
+        <td><span class="badge ${customer.status}">${statusLabel(customer.status)}</span></td>
+        <td>
+          <div class="row-actions">
+            ${canManageCustomers() ? `<button class="link-button" data-edit-customer="${customer.id}">Sửa</button><button class="link-button" data-archive-customer="${customer.id}" data-next-status="${customer.status === "active" ? "archived" : "active"}">${customer.status === "active" ? "Ngừng theo dõi" : "Kích hoạt"}</button>` : ""}
+          </div>
+        </td>
       </tr>
-    `).join("") : `<tr><td colspan="6" class="empty">Chưa có khách hàng. Hãy thêm khách hàng đầu tiên.</td></tr>`;
+    `).join("") : `<tr><td colspan="7" class="empty">Chưa có khách hàng. Hãy thêm khách hàng đầu tiên.</td></tr>`;
   }
 
   function renderUsers() {
@@ -633,17 +680,17 @@
   }
 
   function renderTextFields(fields) {
-    return fields.map(([name, label, type, placeholder, extra = "", value = ""]) => `
+    return fields.map(([name, label, type, placeholder, extra = "", value = "", required = true]) => `
       <div class="field">
         <label for="${name}">${label}</label>
-        <input id="${name}" name="${name}" type="${type}" placeholder="${placeholder}" value="${String(value).replace(/"/g, "&quot;")}" ${extra} required />
+        <input id="${name}" name="${name}" type="${type}" placeholder="${placeholder}" value="${String(value).replace(/"/g, "&quot;")}" ${extra} ${required ? "required" : ""} />
       </div>
     `).join("");
   }
 
   function renderOrderForm() {
     const productOptions = state.products.filter(product => product.status === "active").map(product => `<option value="${product.id}">${product.name} - ${money.format(product.salePrice)} (${product.stock} còn)</option>`).join("");
-    const customerOptions = state.customers.map(customer => `<option value="${customer.id}">${customer.name}</option>`).join("");
+    const customerOptions = state.customers.filter(customer => customer.status === "active").map(customer => `<option value="${customer.id}">${customer.name}</option>`).join("");
     return `
       <div class="field"><label for="customerId">Khách hàng</label><select id="customerId" name="customerId" required>${customerOptions}</select></div>
       <div class="field"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${productOptions}</select></div>
@@ -667,12 +714,17 @@
       showToast("Bạn không có quyền quản lý sản phẩm.", "error");
       return;
     }
+    if (type === "customer" && !canManageCustomers()) {
+      showToast("Bạn không có quyền quản lý khách hàng.", "error");
+      return;
+    }
     if (type === "order" && !canCreateOrder()) {
       showToast("Cần có ít nhất một sản phẩm và một khách hàng trước khi tạo đơn.", "error");
       return;
     }
 
     const editingProduct = options.product || null;
+    const editingCustomer = options.customer || null;
     const definitions = {
       product: {
         eyebrow: "Danh mục",
@@ -727,23 +779,46 @@
       },
       customer: {
         eyebrow: "Khách hàng",
-        title: "Thêm khách hàng",
+        title: editingCustomer ? "Sửa khách hàng" : "Thêm khách hàng",
         body: renderTextFields([
-          ["name", "Tên khách hàng", "text", "Khách hàng mới"],
-          ["phone", "Số điện thoại", "text", "09xx xxx xxx"],
-          ["email", "Email", "email", "customer@example.com"],
-          ["group", "Nhóm khách", "text", "Bán lẻ"]
+          ["name", "Tên khách hàng", "text", "Khách hàng mới", "", editingCustomer ? editingCustomer.name : ""],
+          ["phone", "Số điện thoại", "text", "09xx xxx xxx", "", editingCustomer ? editingCustomer.phone : ""],
+          ["email", "Email", "email", "customer@example.com", "", editingCustomer ? editingCustomer.email : "", false],
+          ["group", "Nhóm khách", "text", "Bán lẻ", "", editingCustomer ? editingCustomer.group : "Bán lẻ"],
+          ["note", "Ghi chú", "text", "Nguồn khách, sở thích, lưu ý giao hàng...", "", editingCustomer ? editingCustomer.note : "", false]
         ]),
-        submit(form) {
+        async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           const name = String(data.name || "").trim();
-          const phone = String(data.phone || "").trim();
+          const phone = String(data.phone || "").trim().replace(/\s+/g, "");
           const email = String(data.email || "").trim();
           const group = String(data.group || "").trim();
+          const note = String(data.note || "").trim();
           if (!name || !phone || !group) throw new Error("Vui lòng nhập tên, số điện thoại và nhóm khách.");
-          if (state.customers.some(customer => customer.phone === phone)) throw new Error("Số điện thoại khách hàng đã tồn tại.");
-          state.customers.unshift({ id: uid("cus"), name, phone, email, group, totalSpent: 0, lastOrderAt: "" });
-          saveAndRender("Đã thêm khách hàng mới.");
+          if (state.customers.some(customer => customer.id !== (editingCustomer && editingCustomer.id) && customer.phone === phone)) throw new Error("Số điện thoại khách hàng đã tồn tại.");
+          if (email && state.customers.some(customer => customer.id !== (editingCustomer && editingCustomer.id) && customer.email.toLowerCase() === email.toLowerCase())) throw new Error("Email khách hàng đã tồn tại.");
+          const payload = {
+            id: editingCustomer ? editingCustomer.id : undefined,
+            name,
+            phone,
+            email,
+            group,
+            note,
+            status: editingCustomer ? editingCustomer.status : "active"
+          };
+          const dataFromApi = await apiRequest(editingCustomer ? "/customers/update" : "/customers/create", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          const savedCustomer = normalizeCustomer(dataFromApi.customer);
+          if (editingCustomer) {
+            state.customers = state.customers.map(customer => customer.id === savedCustomer.id ? savedCustomer : customer);
+          } else {
+            state.customers.unshift(savedCustomer);
+          }
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          showToast(editingCustomer ? "Đã cập nhật khách hàng." : "Đã thêm khách hàng mới.");
         }
       },
       order: {
@@ -836,12 +911,18 @@
     showToast(savedProduct.status === "active" ? "Đã kích hoạt sản phẩm." : "Đã ngừng bán sản phẩm.");
   }
 
-  function deleteCustomer(customerId) {
-    if (hasOrdersForCustomer(customerId)) {
-      showToast("Không thể xóa khách hàng đã có đơn hàng. Hãy xóa đơn liên quan trước.", "error");
-      return;
-    }
-    deleteEntity("customers", customerId, "Đã xóa khách hàng.");
+  async function archiveCustomer(customerId, status) {
+    const customer = byId("customers", customerId);
+    if (!customer) return;
+    const data = await apiRequest("/customers/archive", {
+      method: "POST",
+      body: JSON.stringify({ id: customerId, status })
+    });
+    const savedCustomer = normalizeCustomer(data.customer);
+    state.customers = state.customers.map(item => item.id === savedCustomer.id ? savedCustomer : item);
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    showToast(savedCustomer.status === "active" ? "Đã kích hoạt khách hàng." : "Đã ngừng theo dõi khách hàng.");
   }
 
   function deleteOrder(orderId) {
@@ -888,7 +969,13 @@
       if (target.dataset.archiveProduct && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại sản phẩm này?" : "Ngừng bán sản phẩm này?")) {
         await withLoading("Đang cập nhật sản phẩm...", () => archiveProduct(target.dataset.archiveProduct, target.dataset.nextStatus));
       }
-      if (target.dataset.deleteCustomer && window.confirm("Xóa khách hàng này?")) deleteCustomer(target.dataset.deleteCustomer);
+      if (target.dataset.editCustomer) {
+        const customer = byId("customers", target.dataset.editCustomer);
+        if (customer) openModal("customer", { customer });
+      }
+      if (target.dataset.archiveCustomer && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại khách hàng này?" : "Ngừng theo dõi khách hàng này?")) {
+        await withLoading("Đang cập nhật khách hàng...", () => archiveCustomer(target.dataset.archiveCustomer, target.dataset.nextStatus));
+      }
       if (target.dataset.deleteOrder && window.confirm("Xóa đơn hàng này?")) deleteOrder(target.dataset.deleteOrder);
 
       const completeOrderId = target.dataset.completeOrder;
