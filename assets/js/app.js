@@ -38,6 +38,7 @@
     customersTable: qs("[data-customers-table]"),
     usersTable: qs("[data-users-table]"),
     inventoryCards: qs("[data-inventory-cards]"),
+    stockMovementsTable: qs("[data-stock-movements-table]"),
     reportCards: qs("[data-report-cards]"),
     toast: qs("[data-toast]"),
     loadingOverlay: qs("[data-loading-overlay]"),
@@ -109,7 +110,10 @@
       "/orders": "listOrders",
       "/orders/create": "createOrder",
       "/orders/status": "updateOrderStatus",
-      "/orders/cancel": "cancelOrder"
+      "/orders/cancel": "cancelOrder",
+      "/stock-movements": "listStockMovements",
+      "/stock/receive": "receiveStock",
+      "/stock/adjust": "adjustStock"
     }[path] || "";
   }
 
@@ -205,6 +209,10 @@
     return currentUser && ["admin", "inventory"].includes(currentUser.role);
   }
 
+  function canManageInventory() {
+    return canManageProducts();
+  }
+
   function canManageCustomers() {
     return currentUser && ["admin", "sales"].includes(currentUser.role);
   }
@@ -226,7 +234,13 @@
       cancelled: "Đã hủy",
       active: "Đang hoạt động",
       archived: "Ngừng bán",
-      disabled: "Đã khóa"
+      disabled: "Đã khóa",
+      initial: "Tồn ban đầu",
+      receive: "Nhập kho",
+      adjustment: "Điều chỉnh",
+      product_edit: "Sửa sản phẩm",
+      sale: "Bán hàng",
+      order_cancel: "Hủy đơn"
     }[status] || status;
   }
 
@@ -360,6 +374,37 @@
     }
   }
 
+  function normalizeStockMovement(movement) {
+    return {
+      id: movement.id,
+      productId: movement.productId || "",
+      sku: movement.sku || "",
+      productName: movement.productName || "",
+      type: movement.type || "",
+      quantityDelta: Number(movement.quantityDelta || 0),
+      stockBefore: Number(movement.stockBefore || 0),
+      stockAfter: Number(movement.stockAfter || 0),
+      reason: movement.reason || "",
+      referenceType: movement.referenceType || "",
+      referenceId: movement.referenceId || "",
+      createdBy: movement.createdBy || "",
+      createdAt: movement.createdAt || ""
+    };
+  }
+
+  async function loadStockMovements(options = {}) {
+    try {
+      const data = await apiRequest("/stock-movements");
+      state.stockMovements = (data.movements || []).map(normalizeStockMovement);
+      window.ArtFlowPosStore.save(state);
+      return true;
+    } catch (error) {
+      state.stockMovements = state.stockMovements || [];
+      if (!options.quiet) showToast(error.message, "error");
+      return false;
+    }
+  }
+
   function filtered(items, fields) {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return items;
@@ -457,6 +502,9 @@
     document.querySelectorAll("[data-open-order]").forEach(button => {
       button.hidden = !canManageOrders();
     });
+    document.querySelectorAll("[data-open-stock-receive], [data-open-stock-adjust]").forEach(button => {
+      button.hidden = !canManageInventory();
+    });
   }
 
   async function loadStaffUsers() {
@@ -482,7 +530,8 @@
     await withLoading("Đang tải dữ liệu bán hàng...", () => Promise.all([
       loadProducts({ quiet: true }),
       loadCustomers({ quiet: true }),
-      loadOrders({ quiet: true })
+      loadOrders({ quiet: true }),
+      loadStockMovements({ quiet: true })
     ]));
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
     renderPage();
@@ -665,14 +714,39 @@
     const totalUnits = activeProducts.reduce((sum, product) => sum + product.stock, 0);
     const inventoryValue = activeProducts.reduce((sum, product) => sum + product.stock * product.costPrice, 0);
     const topStock = [...activeProducts].sort((a, b) => b.stock - a.stock)[0];
+    const outOfStock = activeProducts.filter(product => product.stock <= 0).length;
+    const suggestedRestock = activeProducts
+      .filter(product => product.stock <= product.lowStock)
+      .reduce((sum, product) => sum + Math.max(0, product.lowStock * 2 - product.stock), 0);
     const cards = [
       ["Tổng tồn kho", `${totalUnits} sản phẩm`, "Cộng tất cả SKU đang hoạt động."],
       ["Giá trị tồn", money.format(inventoryValue), "Tính theo giá vốn hiện tại."],
-      ["SKU tồn nhiều nhất", topStock ? topStock.name : "Chưa có", topStock ? `${topStock.stock} sản phẩm trong kho.` : "Hãy thêm sản phẩm đầu tiên."]
+      ["SKU tồn nhiều nhất", topStock ? topStock.name : "Chưa có", topStock ? `${topStock.stock} sản phẩm trong kho.` : "Hãy thêm sản phẩm đầu tiên."],
+      ["Hết hàng", outOfStock.toString(), "SKU đang về 0 và cần xử lý."],
+      ["Gợi ý nhập thêm", `${suggestedRestock} sản phẩm`, "Ước tính để vượt ngưỡng an toàn."]
     ];
     els.inventoryCards.innerHTML = cards.map(([title, value, note]) => `
       <article class="inventory-card"><h3>${title}</h3><strong>${value}</strong><p>${note}</p></article>
     `).join("");
+  }
+
+  function renderStockMovements() {
+    if (!els.stockMovementsTable) return;
+    const rows = filtered([...(state.stockMovements || [])], ["sku", "productName", "type", "reason"]).slice(0, 80);
+    els.stockMovementsTable.innerHTML = rows.length ? rows.map(movement => {
+      const delta = movement.quantityDelta > 0 ? `+${movement.quantityDelta}` : String(movement.quantityDelta);
+      const deltaClass = movement.quantityDelta < 0 ? "cancelled" : "active";
+      return `
+        <tr>
+          <td><strong>${movement.sku}</strong><br><small>${movement.productName}</small></td>
+          <td><span class="badge ${movement.type === "sale" ? "pending" : "active"}">${statusLabel(movement.type)}</span></td>
+          <td><span class="badge ${deltaClass}">${delta}</span></td>
+          <td>${movement.stockBefore} → ${movement.stockAfter}</td>
+          <td>${movement.reason || "Không có ghi chú"}</td>
+          <td>${formatDate(movement.createdAt)}</td>
+        </tr>
+      `;
+    }).join("") : `<tr><td colspan="6" class="empty">Chưa có biến động kho.</td></tr>`;
   }
 
   function renderReports() {
@@ -725,6 +799,7 @@
     renderCustomers();
     renderUsers();
     renderInventory();
+    renderStockMovements();
     renderReports();
   }
 
@@ -761,6 +836,29 @@
         </div>
         <button class="icon-button" type="button" data-remove-order-item aria-label="Xóa dòng">×</button>
       </div>
+    `;
+  }
+
+  function renderInventoryProductOptions() {
+    return state.products
+      .filter(product => product.status === "active")
+      .map(product => `<option value="${product.id}">${product.sku} · ${product.name} (${product.stock} hiện có)</option>`)
+      .join("");
+  }
+
+  function renderStockReceiveForm() {
+    return `
+      <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptions()}</select></div>
+      <div class="field"><label for="quantity">Số lượng nhập thêm</label><input id="quantity" name="quantity" type="number" min="1" step="1" value="1" required /></div>
+      <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" placeholder="Nhập hàng từ nhà cung cấp" /></div>
+    `;
+  }
+
+  function renderStockAdjustForm() {
+    return `
+      <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptions()}</select></div>
+      <div class="field"><label for="stock">Tồn thực tế sau kiểm</label><input id="stock" name="stock" type="number" min="0" step="1" value="0" required /></div>
+      <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" placeholder="Kiểm kho định kỳ, hàng lỗi, thất lạc..." /></div>
     `;
   }
 
@@ -819,6 +917,14 @@
     }
     if (type === "order" && !canCreateOrder()) {
       showToast(canManageOrders() ? "Cần có ít nhất một sản phẩm và một khách hàng trước khi tạo đơn." : "Bạn không có quyền tạo đơn hàng.", "error");
+      return;
+    }
+    if ((type === "stockReceive" || type === "stockAdjust") && !canManageInventory()) {
+      showToast("Bạn không có quyền quản lý kho.", "error");
+      return;
+    }
+    if ((type === "stockReceive" || type === "stockAdjust") && !state.products.some(product => product.status === "active")) {
+      showToast("Cần có ít nhất một sản phẩm đang hoạt động để thao tác kho.", "error");
       return;
     }
 
@@ -956,6 +1062,56 @@
           showToast("Đã tạo đơn và trừ tồn kho.");
         }
       },
+      stockReceive: {
+        eyebrow: "Kho hàng",
+        title: "Nhập kho",
+        body: renderStockReceiveForm(),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const product = byId("products", data.productId);
+          const quantity = Number(data.quantity);
+          if (!product || quantity < 1) throw new Error("Vui lòng chọn sản phẩm và số lượng nhập hợp lệ.");
+          const dataFromApi = await apiRequest("/stock/receive", {
+            method: "POST",
+            body: JSON.stringify({
+              productId: data.productId,
+              quantity,
+              reason: data.reason || ""
+            })
+          });
+          const savedProduct = normalizeProduct(dataFromApi.product);
+          state.products = state.products.map(item => item.id === savedProduct.id ? savedProduct : item);
+          await loadStockMovements({ quiet: true });
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          showToast("Đã nhập kho và ghi lịch sử.");
+        }
+      },
+      stockAdjust: {
+        eyebrow: "Kiểm kho",
+        title: "Điều chỉnh tồn",
+        body: renderStockAdjustForm(),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const product = byId("products", data.productId);
+          const stock = Number(data.stock);
+          if (!product || stock < 0) throw new Error("Vui lòng chọn sản phẩm và tồn thực tế hợp lệ.");
+          const dataFromApi = await apiRequest("/stock/adjust", {
+            method: "POST",
+            body: JSON.stringify({
+              productId: data.productId,
+              stock,
+              reason: data.reason || ""
+            })
+          });
+          const savedProduct = normalizeProduct(dataFromApi.product);
+          state.products = state.products.map(item => item.id === savedProduct.id ? savedProduct : item);
+          await loadStockMovements({ quiet: true });
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          showToast("Đã điều chỉnh tồn kho.");
+        }
+      },
       user: {
         eyebrow: "Phân quyền",
         title: "Thêm nhân viên",
@@ -1080,6 +1236,8 @@
       if (target.matches("[data-open-product]")) openModal("product");
       if (target.matches("[data-open-customer]")) openModal("customer");
       if (target.matches("[data-open-order]")) openModal("order");
+      if (target.matches("[data-open-stock-receive]")) openModal("stockReceive");
+      if (target.matches("[data-open-stock-adjust]")) openModal("stockAdjust");
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
       if (target.matches("[data-logout]")) await logout();
 
