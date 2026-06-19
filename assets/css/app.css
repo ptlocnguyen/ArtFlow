@@ -572,7 +572,34 @@
 }
 
 .table-wrap table {
-  min-width: 760px;
+  min-width: 920px;
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  padding: 0 18px 8px;
+}
+
+.filter-bar .field {
+  gap: 5px;
+}
+
+.filter-bar span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.inline-select {
+  min-height: 34px;
+  width: 100%;
+  min-width: 132px;
+  padding: 0 30px 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  background-color: #fff;
 }
 
 .text-link {
@@ -944,6 +971,10 @@
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-bar {
     grid-template-columns: 1fr;
   }
 

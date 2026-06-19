@@ -10,6 +10,40 @@
   let currentUser = null;
   let staffUsers = [];
   let searchTerm = "";
+  const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
+
+  const channels = {
+    pos: "POS",
+    website: "Website",
+    shopee: "Shopee",
+    lazada: "Lazada",
+    tiktok: "TikTok Shop",
+    facebook: "Facebook"
+  };
+
+  const shippingStatuses = {
+    none: "Chưa giao",
+    preparing: "Đang chuẩn bị",
+    shipping: "Đang giao",
+    delivered: "Đã giao",
+    returned: "Hoàn hàng"
+  };
+
+  const paymentStatuses = {
+    unpaid: "Chưa thanh toán",
+    paid: "Đã thanh toán",
+    refunded: "Đã hoàn tiền"
+  };
+
+  const carriers = {
+    none: "Chưa chọn",
+    ghn: "GHN",
+    ghtk: "GHTK",
+    viettel_post: "Viettel Post",
+    jt: "J&T Express",
+    shopee_express: "Shopee Express",
+    other: "Khác"
+  };
 
   const pages = {
     dashboard: { title: "Tổng quan", href: "./dashboard.html", icon: "▦" },
@@ -34,6 +68,10 @@
     revenueChart: qs("[data-revenue-chart]"),
     recentOrders: qs("[data-recent-orders]"),
     ordersTable: qs("[data-orders-table]"),
+    orderChannelFilter: qs("[data-order-channel-filter]"),
+    orderStatusFilter: qs("[data-order-status-filter]"),
+    orderPaymentFilter: qs("[data-order-payment-filter]"),
+    orderShippingFilter: qs("[data-order-shipping-filter]"),
     productsTable: qs("[data-products-table]"),
     customersTable: qs("[data-customers-table]"),
     usersTable: qs("[data-users-table]"),
@@ -110,6 +148,7 @@
       "/orders": "listOrders",
       "/orders/create": "createOrder",
       "/orders/status": "updateOrderStatus",
+      "/orders/fulfillment": "updateOrderFulfillment",
       "/orders/cancel": "cancelOrder",
       "/stock-movements": "listStockMovements",
       "/stock/receive": "receiveStock",
@@ -229,6 +268,9 @@
     return {
       draft: "Nháp",
       pending: "Chờ xử lý",
+      confirmed: "Đã xác nhận",
+      packed: "Đã đóng gói",
+      shipping: "Đang giao",
       paid: "Đã thanh toán",
       completed: "Hoàn tất",
       cancelled: "Đã hủy",
@@ -240,8 +282,30 @@
       adjustment: "Điều chỉnh",
       product_edit: "Sửa sản phẩm",
       sale: "Bán hàng",
-      order_cancel: "Hủy đơn"
+      order_cancel: "Hủy đơn",
+      none: "Chưa giao",
+      preparing: "Đang chuẩn bị",
+      delivered: "Đã giao",
+      returned: "Hoàn hàng",
+      unpaid: "Chưa thanh toán",
+      refunded: "Đã hoàn tiền"
     }[status] || status;
+  }
+
+  function channelLabel(channel) {
+    return channels[channel] || channel || "POS";
+  }
+
+  function shippingLabel(status) {
+    return shippingStatuses[status] || statusLabel(status);
+  }
+
+  function paymentLabel(status) {
+    return paymentStatuses[status] || statusLabel(status);
+  }
+
+  function carrierLabel(carrier) {
+    return carriers[carrier] || carrier || "Chưa chọn";
   }
 
   function getCustomer(order) {
@@ -249,7 +313,7 @@
   }
 
   function isPaid(order) {
-    return ["paid", "completed"].includes(order.status);
+    return order.paymentStatus === "paid" || ["paid", "completed"].includes(order.status);
   }
 
   function orderCost(order) {
@@ -356,6 +420,10 @@
       createdBy: order.createdBy || "",
       createdAt: order.createdAt || "",
       updatedAt: order.updatedAt || "",
+      channel: order.channel || "pos",
+      shippingStatus: order.shippingStatus || "none",
+      carrier: order.carrier || "",
+      trackingCode: order.trackingCode || "",
       productId: items[0] ? items[0].productId : "",
       quantity: items.reduce((sum, item) => sum + item.quantity, 0),
       items
@@ -632,20 +700,54 @@
     const selectedRows = limit ? rows.slice(0, limit) : rows;
     target.innerHTML = selectedRows.length ? selectedRows.map(order => {
       const customer = getCustomer(order);
-      const actions = target === els.ordersTable
-        ? `<div class="row-actions">${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button" data-complete-order="${order.id}">Hoàn tất</button>` : ""}${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button" data-cancel-order="${order.id}">Hủy đơn</button>` : ""}</div>`
-        : formatDate(order.createdAt);
+      if (target !== els.ordersTable) {
+        return `
+          <tr>
+            <td><strong>${order.code}</strong></td>
+            <td>${customer.name}</td>
+            <td>${orderItemSummary(order)}</td>
+            <td><span class="badge ${order.status}">${statusLabel(order.status)}</span></td>
+            <td><strong>${money.format(order.total)}</strong></td>
+            <td>${formatDate(order.createdAt)}</td>
+          </tr>
+        `;
+      }
+
+      const actions = `<div class="row-actions">${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button" data-edit-order-fulfillment="${order.id}">Vận đơn</button>` : ""}${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button" data-complete-order="${order.id}">Hoàn tất</button>` : ""}${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button" data-cancel-order="${order.id}">Hủy đơn</button>` : ""}</div>`;
       return `
         <tr>
-          <td><strong>${order.code}</strong></td>
-          <td>${customer.name}</td>
+          <td><strong>${order.code}</strong><br><span class="badge">${channelLabel(order.channel)}</span></td>
+          <td>${customer.name}<br><small>${formatDate(order.createdAt)}</small></td>
           <td>${orderItemSummary(order)}</td>
-          <td><span class="badge ${order.status}">${statusLabel(order.status)}</span></td>
+          <td>${target === els.ordersTable && canManageOrders() && order.status !== "cancelled" ? renderInlineOrderSelect("status", order.id, order.status) : `<span class="badge ${order.status}">${statusLabel(order.status)}</span>`}</td>
+          <td>${target === els.ordersTable && canManageOrders() && order.status !== "cancelled" ? renderInlineOrderSelect("paymentStatus", order.id, order.paymentStatus) : `<span class="badge ${order.paymentStatus}">${paymentLabel(order.paymentStatus)}</span>`}</td>
+          <td>
+            ${target === els.ordersTable && canManageOrders() && order.status !== "cancelled" ? renderInlineOrderSelect("shippingStatus", order.id, order.shippingStatus) : `<span class="badge ${order.shippingStatus}">${shippingLabel(order.shippingStatus)}</span>`}
+            <small>${carrierLabel(order.carrier)}${order.trackingCode ? ` · ${order.trackingCode}` : ""}</small>
+          </td>
           <td><strong>${money.format(order.total)}</strong></td>
           <td>${actions}</td>
         </tr>
       `;
-    }).join("") : `<tr><td colspan="6" class="empty">Chưa có đơn hàng.</td></tr>`;
+    }).join("") : `<tr><td colspan="${target === els.ordersTable ? 8 : 6}" class="empty">Chưa có đơn hàng.</td></tr>`;
+  }
+
+  function renderInlineOrderSelect(field, orderId, value) {
+    const optionMap = {
+      status: {
+        pending: "Chờ xử lý",
+        confirmed: "Đã xác nhận",
+        packed: "Đã đóng gói",
+        shipping: "Đang giao",
+        paid: "Đã thanh toán",
+        completed: "Hoàn tất"
+      },
+      paymentStatus: paymentStatuses,
+      shippingStatus: shippingStatuses
+    }[field] || {};
+
+    const options = Object.entries(optionMap).map(([key, label]) => `<option value="${key}" ${key === value ? "selected" : ""}>${label}</option>`).join("");
+    return `<select class="inline-select" data-order-inline="${field}" data-order-id="${orderId}" aria-label="Cập nhật ${field}">${options}</select>`;
   }
 
   function renderProducts() {
@@ -777,11 +879,22 @@
     const sortedOrders = [...state.orders].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     const orderMatches = order => {
       const term = searchTerm.trim().toLowerCase();
+      const matchesFilters =
+        (orderFilters.channel === "all" || order.channel === orderFilters.channel) &&
+        (orderFilters.status === "all" || order.status === orderFilters.status) &&
+        (orderFilters.paymentStatus === "all" || order.paymentStatus === orderFilters.paymentStatus) &&
+        (orderFilters.shippingStatus === "all" || order.shippingStatus === orderFilters.shippingStatus);
+      if (!matchesFilters) return false;
       if (!term) return true;
       const customer = getCustomer(order);
       const text = [
         order.code,
+        channelLabel(order.channel),
         statusLabel(order.status),
+        paymentLabel(order.paymentStatus),
+        shippingLabel(order.shippingStatus),
+        carrierLabel(order.carrier),
+        order.trackingCode,
         order.status,
         customer.name,
         ...(order.items || []).flatMap(item => [item.name, item.sku])
@@ -846,6 +959,10 @@
       .join("");
   }
 
+  function renderOptions(options, selected = "") {
+    return Object.entries(options).map(([value, label]) => `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`).join("");
+  }
+
   function renderStockReceiveForm() {
     return `
       <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptions()}</select></div>
@@ -862,14 +979,28 @@
     `;
   }
 
+  function renderOrderFulfillmentForm(order) {
+    order = order || {};
+    return `
+      <div class="field"><label for="shippingStatus">Vận chuyển</label><select id="shippingStatus" name="shippingStatus" required>${renderOptions(shippingStatuses, order.shippingStatus || "none")}</select></div>
+      <div class="field"><label for="carrier">Đơn vị giao</label><select id="carrier" name="carrier">${renderOptions(carriers, order.carrier || "none")}</select></div>
+      <div class="field full"><label for="trackingCode">Mã vận đơn</label><input id="trackingCode" name="trackingCode" type="text" placeholder="Mã từ sàn hoặc đơn vị vận chuyển" value="${String(order.trackingCode || "").replace(/"/g, "&quot;")}" /></div>
+    `;
+  }
+
   function renderOrderForm() {
     const customerOptions = state.customers.filter(customer => customer.status === "active").map(customer => `<option value="${customer.id}">${customer.name}</option>`).join("");
     return `
       <div class="field"><label for="customerId">Khách hàng</label><select id="customerId" name="customerId" required>${customerOptions}</select></div>
-      <div class="field"><label for="status">Trạng thái</label><select id="status" name="status" required><option value="pending">Chờ xử lý</option><option value="paid">Đã thanh toán</option><option value="completed">Hoàn tất</option></select></div>
-      <div class="field"><label for="paymentMethod">Thanh toán</label><select id="paymentMethod" name="paymentMethod" required><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option><option value="cod">COD</option><option value="ecommerce">Sàn TMĐT</option></select></div>
+      <div class="field"><label for="channel">Kênh bán</label><select id="channel" name="channel" required>${renderOptions(channels, "pos")}</select></div>
+      <div class="field"><label for="status">Trạng thái đơn</label><select id="status" name="status" required><option value="pending">Chờ xử lý</option><option value="confirmed">Đã xác nhận</option><option value="packed">Đã đóng gói</option><option value="shipping">Đang giao</option><option value="completed">Hoàn tất</option></select></div>
+      <div class="field"><label for="paymentStatus">Thanh toán</label><select id="paymentStatus" name="paymentStatus" required>${renderOptions(paymentStatuses, "unpaid")}</select></div>
+      <div class="field"><label for="paymentMethod">Phương thức</label><select id="paymentMethod" name="paymentMethod" required><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option><option value="cod">COD</option><option value="ecommerce">Sàn TMĐT</option></select></div>
+      <div class="field"><label for="shippingStatus">Vận chuyển</label><select id="shippingStatus" name="shippingStatus" required>${renderOptions(shippingStatuses, "none")}</select></div>
+      <div class="field"><label for="carrier">Đơn vị giao</label><select id="carrier" name="carrier">${renderOptions(carriers, "none")}</select></div>
       <div class="field"><label for="discount">Giảm giá</label><input id="discount" name="discount" type="number" min="0" step="1000" value="0" data-order-money /></div>
       <div class="field"><label for="shippingFee">Phí giao hàng</label><input id="shippingFee" name="shippingFee" type="number" min="0" step="1000" value="0" data-order-money /></div>
+      <div class="field full"><label for="trackingCode">Mã vận đơn</label><input id="trackingCode" name="trackingCode" type="text" placeholder="VD: SPXVN..., GHTK..., GHN..." /></div>
       <div class="field full">
         <div class="order-builder-header">
           <label>Sản phẩm trong đơn</label>
@@ -927,9 +1058,14 @@
       showToast("Cần có ít nhất một sản phẩm đang hoạt động để thao tác kho.", "error");
       return;
     }
+    if (type === "orderFulfillment" && !options.order) {
+      showToast("Không tìm thấy đơn hàng cần cập nhật.", "error");
+      return;
+    }
 
     const editingProduct = options.product || null;
     const editingCustomer = options.customer || null;
+    const editingOrder = options.order || null;
     const definitions = {
       product: {
         eyebrow: "Danh mục",
@@ -1048,7 +1184,12 @@
             body: JSON.stringify({
               customerId: data.customerId,
               status: data.status,
+              paymentStatus: data.paymentStatus,
               paymentMethod: data.paymentMethod,
+              channel: data.channel,
+              shippingStatus: data.shippingStatus,
+              carrier: data.carrier === "none" ? "" : data.carrier,
+              trackingCode: data.trackingCode || "",
               discount: Number(data.discount || 0),
               shippingFee: Number(data.shippingFee || 0),
               note: data.note || "",
@@ -1110,6 +1251,19 @@
           window.ArtFlowPosStore.save(state);
           renderPage();
           showToast("Đã điều chỉnh tồn kho.");
+        }
+      },
+      orderFulfillment: {
+        eyebrow: "Vận chuyển",
+        title: editingOrder ? `Cập nhật ${editingOrder.code}` : "Cập nhật vận đơn",
+        body: renderOrderFulfillmentForm(editingOrder),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          await updateOrderFulfillment(editingOrder.id, {
+            shippingStatus: data.shippingStatus,
+            carrier: data.carrier === "none" ? "" : data.carrier,
+            trackingCode: data.trackingCode || ""
+          });
         }
       },
       user: {
@@ -1196,6 +1350,18 @@
     showToast("Đã cập nhật trạng thái đơn hàng.");
   }
 
+  async function updateOrderFulfillment(orderId, patch) {
+    const data = await apiRequest("/orders/fulfillment", {
+      method: "POST",
+      body: JSON.stringify({ id: orderId, ...patch })
+    });
+    const savedOrder = normalizeOrder(data.order);
+    state.orders = state.orders.map(order => order.id === savedOrder.id ? savedOrder : order);
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    showToast("Đã cập nhật đơn hàng.");
+  }
+
   async function cancelOrder(orderId) {
     const data = await apiRequest("/orders/cancel", {
       method: "POST",
@@ -1224,6 +1390,19 @@
         renderPage();
       });
     }
+
+    [
+      [els.orderChannelFilter, "channel"],
+      [els.orderStatusFilter, "status"],
+      [els.orderPaymentFilter, "paymentStatus"],
+      [els.orderShippingFilter, "shippingStatus"]
+    ].forEach(([select, key]) => {
+      if (!select) return;
+      select.addEventListener("change", event => {
+        orderFilters[key] = event.target.value;
+        renderPage();
+      });
+    });
 
     document.addEventListener("click", async event => {
       const target = event.target.closest("button, a");
@@ -1274,6 +1453,10 @@
       if (target.dataset.cancelOrder && window.confirm("Hủy đơn hàng này và hoàn lại tồn kho?")) {
         await withLoading("Đang hủy đơn hàng...", () => cancelOrder(target.dataset.cancelOrder));
       }
+      if (target.dataset.editOrderFulfillment) {
+        const order = byId("orders", target.dataset.editOrderFulfillment);
+        if (order) openModal("orderFulfillment", { order });
+      }
 
       const completeOrderId = target.dataset.completeOrder;
       if (completeOrderId) {
@@ -1316,8 +1499,21 @@
       if (event.target.matches("[data-order-quantity], [data-order-money]")) updateOrderTotalPreview(els.modalForm);
     });
 
-    document.addEventListener("change", event => {
+    document.addEventListener("change", async event => {
       if (event.target.matches("[data-order-product]")) updateOrderTotalPreview(els.modalForm);
+      if (event.target.matches("[data-order-inline]")) {
+        const field = event.target.dataset.orderInline;
+        const orderId = event.target.dataset.orderId;
+        const value = event.target.value;
+        if (field && orderId) {
+          try {
+            await withLoading("Đang cập nhật đơn hàng...", () => updateOrderFulfillment(orderId, { [field]: value }));
+          } catch (error) {
+            showToast(error.message, "error");
+            renderPage();
+          }
+        }
+      }
     });
 
     document.addEventListener("click", event => {
