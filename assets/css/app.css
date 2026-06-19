@@ -575,6 +575,23 @@
   min-width: 980px;
 }
 
+.orders-table {
+  table-layout: fixed;
+}
+
+.orders-table th:nth-child(1) { width: 14%; }
+.orders-table th:nth-child(2) { width: 15%; }
+.orders-table th:nth-child(3) { width: 13%; }
+.orders-table th:nth-child(4) { width: 10%; }
+.orders-table th:nth-child(5) { width: 12%; }
+.orders-table th:nth-child(6) { width: 15%; }
+.orders-table th:nth-child(7) { width: 9%; }
+.orders-table th:nth-child(8) { width: 12%; }
+
+.orders-table td {
+  vertical-align: middle;
+}
+
 .filter-bar {
   display: grid;
   grid-template-columns: repeat(4, minmax(150px, 1fr));
@@ -616,7 +633,7 @@
 .compact-actions {
   flex-wrap: wrap;
   justify-content: flex-start;
-  min-width: 174px;
+  gap: 8px 6px;
 }
 
 .link-button {
@@ -635,6 +652,41 @@
 
 .danger-link {
   color: #912018;
+}
+
+.order-code-cell,
+.customer-channel-cell,
+.fulfillment-cell {
+  display: grid;
+  gap: 6px;
+  align-content: center;
+}
+
+.order-code-cell strong,
+.customer-channel-cell strong {
+  line-height: 1.25;
+}
+
+.order-code-cell small,
+.fulfillment-cell small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.fulfillment-cell .badge,
+.customer-channel-cell .badge {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.item-summary {
+  display: block;
+  line-height: 1.45;
+}
+
+.money-cell {
+  white-space: nowrap;
 }
 
 .inventory-grid,

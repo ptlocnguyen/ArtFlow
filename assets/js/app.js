@@ -721,18 +721,19 @@
       }
 
       const actions = `<div class="row-actions compact-actions">${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button" data-edit-order-fulfillment="${order.id}">Cập nhật</button>` : ""}${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button" data-complete-order="${order.id}">Hoàn tất</button>` : ""}${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button danger-link" data-cancel-order="${order.id}">Hủy</button>` : ""}</div>`;
+      const shippingMeta = `${carrierLabel(order.carrier)}${order.trackingCode ? ` · ${order.trackingCode}` : ""}`;
       return `
         <tr>
-          <td><strong>${order.code}</strong><br><small>${formatDate(order.createdAt)}</small></td>
-          <td>${customer.name}<br><span class="badge">${channelLabel(order.channel)}</span></td>
-          <td>${orderItemSummary(order)}</td>
+          <td><div class="order-code-cell"><strong>${order.code}</strong><small>${formatDate(order.createdAt)}</small></div></td>
+          <td><div class="customer-channel-cell"><strong>${customer.name}</strong><span class="badge">${channelLabel(order.channel)}</span></div></td>
+          <td><span class="item-summary">${orderItemSummary(order)}</span></td>
           <td><span class="badge ${order.status}">${statusLabel(order.status)}</span></td>
           <td><span class="badge ${order.paymentStatus}">${paymentLabel(order.paymentStatus)}</span></td>
-          <td>
+          <td><div class="fulfillment-cell">
             <span class="badge ${order.shippingStatus}">${shippingLabel(order.shippingStatus)}</span>
-            <small>${carrierLabel(order.carrier)}${order.trackingCode ? ` · ${order.trackingCode}` : ""}</small>
-          </td>
-          <td><strong>${money.format(order.total)}</strong></td>
+            <small>${shippingMeta}</small>
+          </div></td>
+          <td class="money-cell"><strong>${money.format(order.total)}</strong></td>
           <td>${actions}</td>
         </tr>
       `;
