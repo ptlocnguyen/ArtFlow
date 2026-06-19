@@ -6,3 +6,10 @@ node_modules/
 .dev.vars
 dist/
 .wrangler/
+apps-script/
+*.local
+*.secret
+secrets.json
+service-account*.json
+credentials*.json
+token*.json

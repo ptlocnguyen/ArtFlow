@@ -45,8 +45,6 @@ ArtFlow/
       app.js
     images/
       artflow-pos-logo.svg
-  apps-script/
-    Code.gs
   cloudflare-worker/
     src/index.js
     package.json
