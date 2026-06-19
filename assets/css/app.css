@@ -126,7 +126,9 @@
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .app-shell[hidden] {
@@ -250,15 +252,20 @@
 
 .workspace {
   min-width: 0;
+  min-height: 0;
   padding: 28px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .topbar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .topbar h1 {
@@ -396,6 +403,9 @@
 .view.active {
   display: grid;
   gap: 20px;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .kpi-grid {
@@ -443,6 +453,7 @@
 
 .panel {
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -567,7 +578,8 @@
 
 .table-wrap {
   width: 100%;
-  overflow-x: auto;
+  min-height: 0;
+  overflow: auto;
   padding-top: 10px;
 }
 
@@ -590,6 +602,83 @@
 
 .orders-table td {
   vertical-align: middle;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+body[data-page="orders"] .view.active,
+body[data-page="products"] .view.active,
+body[data-page="customers"] .view.active,
+body[data-page="users"] .view.active {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+body[data-page="orders"] .view.active > .panel,
+body[data-page="products"] .view.active > .panel,
+body[data-page="customers"] .view.active > .panel,
+body[data-page="users"] .view.active > .panel {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+body[data-page="orders"] .table-wrap,
+body[data-page="products"] .table-wrap,
+body[data-page="customers"] .table-wrap,
+body[data-page="users"] .table-wrap {
+  flex: 1 1 auto;
+}
+
+body[data-page="dashboard"] .view.active {
+  grid-template-rows: auto minmax(0, 1.1fr) minmax(0, 0.9fr);
+}
+
+body[data-page="dashboard"] .content-grid,
+body[data-page="reports"] .view.active,
+body[data-page="inventory"] .view.active {
+  min-height: 0;
+}
+
+body[data-page="dashboard"] .content-grid > .panel,
+body[data-page="dashboard"] .view.active > .panel,
+body[data-page="reports"] .view.active > .panel,
+body[data-page="inventory"] .view.active > .panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+body[data-page="dashboard"] .chart,
+body[data-page="reports"] .chart {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}
+
+body[data-page="dashboard"] .mini-list,
+body[data-page="inventory"] .mini-list,
+body[data-page="reports"] .report-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+body[data-page="dashboard"] .view.active > .panel .table-wrap,
+body[data-page="inventory"] .table-wrap {
+  flex: 1 1 auto;
+}
+
+body[data-page="inventory"] .view.active {
+  grid-template-rows: auto minmax(0, 0.55fr) minmax(0, 1fr);
+}
+
+body[data-page="reports"] .view.active {
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .filter-bar {
@@ -814,6 +903,9 @@
 
 .order-create-form {
   display: block;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .order-compose-grid {
@@ -821,11 +913,22 @@
   grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
   gap: 18px;
   align-items: start;
+  height: 100%;
+  min-height: 0;
 }
 
 .order-compose-main {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 18px;
+  min-height: 0;
+}
+
+.order-compose-main > .panel,
+.order-summary-panel > .panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .order-compose-section .panel-header {
@@ -838,6 +941,9 @@
 }
 
 .order-items-large {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
   padding: 0 18px 18px;
 }
 
@@ -853,6 +959,8 @@
 .sticky-summary {
   position: sticky;
   top: 18px;
+  max-height: 100%;
+  overflow: auto;
 }
 
 .summary-lines {
@@ -1029,6 +1137,9 @@
 
   .app-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
   }
 
   .sidebar {
@@ -1063,6 +1174,14 @@
 
   .workspace {
     padding: 18px;
+    overflow: visible;
+  }
+
+  .view.active,
+  .order-create-form,
+  .order-compose-grid {
+    height: auto;
+    overflow: visible;
   }
 
   .menu-button {
