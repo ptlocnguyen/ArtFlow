@@ -97,7 +97,11 @@
       "/users": "listUsers",
       "/users/create": "createUser",
       "/users/toggle": "toggleUser",
-      "/users/delete": "deleteUser"
+      "/users/delete": "deleteUser",
+      "/products": "listProducts",
+      "/products/create": "createProduct",
+      "/products/update": "updateProduct",
+      "/products/archive": "archiveProduct"
     }[path] || "";
   }
 
@@ -214,6 +218,10 @@
     return currentUser && currentUser.role === "admin";
   }
 
+  function canManageProducts() {
+    return currentUser && ["admin", "inventory"].includes(currentUser.role);
+  }
+
   function roleLabel(role) {
     return { admin: "Admin", sales: "Bán hàng", inventory: "Kho", viewer: "Chỉ xem" }[role] || role;
   }
@@ -226,6 +234,7 @@
       completed: "Hoàn tất",
       cancelled: "Đã hủy",
       active: "Đang hoạt động",
+      archived: "Ngừng bán",
       disabled: "Đã khóa"
     }[status] || status;
   }
@@ -243,7 +252,35 @@
   }
 
   function canCreateOrder() {
-    return state.products.length > 0 && state.customers.length > 0;
+    return state.products.some(product => product.status === "active") && state.customers.length > 0;
+  }
+
+  function normalizeProduct(product) {
+    return {
+      id: product.id,
+      sku: product.sku || "",
+      name: product.name || "",
+      category: product.category || "",
+      costPrice: Number(product.costPrice || 0),
+      salePrice: Number(product.salePrice || 0),
+      stock: Number(product.stock || 0),
+      lowStock: Number(product.lowStock || 0),
+      status: product.status || "active",
+      createdAt: product.createdAt || "",
+      updatedAt: product.updatedAt || ""
+    };
+  }
+
+  async function loadProducts(options = {}) {
+    try {
+      const data = await apiRequest("/products");
+      state.products = (data.products || []).map(normalizeProduct);
+      window.ArtFlowPosStore.save(state);
+      return true;
+    } catch (error) {
+      if (!options.quiet) showToast(error.message, "error");
+      return false;
+    }
   }
 
   function filtered(items, fields) {
@@ -339,6 +376,12 @@
     }).join("");
   }
 
+  function applyPermissions() {
+    document.querySelectorAll("[data-open-product]").forEach(button => {
+      button.hidden = !canManageProducts();
+    });
+  }
+
   async function loadStaffUsers() {
     if (!isAdmin()) return;
     const data = await apiRequest("/users");
@@ -357,7 +400,9 @@
     if (els.title && pages[page]) els.title.textContent = pages[page].title;
     if (els.currentUser) els.currentUser.innerHTML = `<strong>${user.name}</strong><span>${roleLabel(user.role)}</span>`;
     renderNav();
+    applyPermissions();
 
+    await withLoading("Đang tải danh mục sản phẩm...", () => loadProducts({ quiet: true }));
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
     renderPage();
   }
@@ -414,7 +459,7 @@
     const paidOrders = state.orders.filter(isPaid);
     const revenue = paidOrders.reduce((sum, order) => sum + order.total, 0);
     const cost = paidOrders.reduce((sum, order) => sum + (getProduct(order).costPrice * order.quantity), 0);
-    const lowStockCount = state.products.filter(product => product.stock <= product.lowStock).length;
+    const lowStockCount = state.products.filter(product => product.status === "active" && product.stock <= product.lowStock).length;
     const pendingOrders = state.orders.filter(order => order.status === "pending").length;
     const cards = [
       ["Doanh thu", money.format(revenue), "Từ đơn đã thanh toán"],
@@ -446,7 +491,7 @@
 
   function renderLowStock() {
     if (!els.lowStock) return;
-    const products = filtered(state.products.filter(product => product.stock <= product.lowStock), ["sku", "name", "category"]).sort((a, b) => a.stock - b.stock);
+    const products = filtered(state.products.filter(product => product.status === "active" && product.stock <= product.lowStock), ["sku", "name", "category"]).sort((a, b) => a.stock - b.stock);
     els.lowStock.innerHTML = products.length ? products.map(product => `
       <div class="mini-item"><div><strong>${product.name}</strong><small>${product.sku} · Ngưỡng ${product.lowStock}</small></div><span class="badge low">${product.stock} còn</span></div>
     `).join("") : `<div class="empty">${searchTerm ? "Không tìm thấy cảnh báo kho phù hợp." : "Chưa có cảnh báo tồn kho."}</div>`;
@@ -484,9 +529,14 @@
         <td>${product.category}</td>
         <td>${money.format(product.salePrice)}</td>
         <td><span class="badge ${product.stock <= product.lowStock ? "low" : "active"}">${product.stock}</span></td>
-        <td><div class="row-actions"><button class="link-button" data-delete-product="${product.id}">Xóa</button></div></td>
+        <td><span class="badge ${product.status}">${statusLabel(product.status)}</span></td>
+        <td>
+          <div class="row-actions">
+            ${canManageProducts() ? `<button class="link-button" data-edit-product="${product.id}">Sửa</button><button class="link-button" data-archive-product="${product.id}" data-next-status="${product.status === "active" ? "archived" : "active"}">${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}</button>` : ""}
+          </div>
+        </td>
       </tr>
-    `).join("") : `<tr><td colspan="6" class="empty">Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên.</td></tr>`;
+    `).join("") : `<tr><td colspan="7" class="empty">Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên.</td></tr>`;
   }
 
   function renderCustomers() {
@@ -526,9 +576,10 @@
 
   function renderInventory() {
     if (!els.inventoryCards) return;
-    const totalUnits = state.products.reduce((sum, product) => sum + product.stock, 0);
-    const inventoryValue = state.products.reduce((sum, product) => sum + product.stock * product.costPrice, 0);
-    const topStock = [...state.products].sort((a, b) => b.stock - a.stock)[0];
+    const activeProducts = state.products.filter(product => product.status === "active");
+    const totalUnits = activeProducts.reduce((sum, product) => sum + product.stock, 0);
+    const inventoryValue = activeProducts.reduce((sum, product) => sum + product.stock * product.costPrice, 0);
+    const topStock = [...activeProducts].sort((a, b) => b.stock - a.stock)[0];
     const cards = [
       ["Tổng tồn kho", `${totalUnits} sản phẩm`, "Cộng tất cả SKU đang hoạt động."],
       ["Giá trị tồn", money.format(inventoryValue), "Tính theo giá vốn hiện tại."],
@@ -543,7 +594,7 @@
     if (!els.reportCards) return;
     const paidOrders = state.orders.filter(isPaid);
     const averageOrder = paidOrders.length ? paidOrders.reduce((sum, order) => sum + order.total, 0) / paidOrders.length : 0;
-    const bestProduct = [...state.products].sort((a, b) => {
+    const bestProduct = [...state.products].filter(product => product.status === "active").sort((a, b) => {
       const soldA = paidOrders.filter(order => order.productId === a.id).reduce((sum, order) => sum + order.quantity, 0);
       const soldB = paidOrders.filter(order => order.productId === b.id).reduce((sum, order) => sum + order.quantity, 0);
       return soldB - soldA;
@@ -582,16 +633,16 @@
   }
 
   function renderTextFields(fields) {
-    return fields.map(([name, label, type, placeholder, extra = ""]) => `
+    return fields.map(([name, label, type, placeholder, extra = "", value = ""]) => `
       <div class="field">
         <label for="${name}">${label}</label>
-        <input id="${name}" name="${name}" type="${type}" placeholder="${placeholder}" ${extra} required />
+        <input id="${name}" name="${name}" type="${type}" placeholder="${placeholder}" value="${String(value).replace(/"/g, "&quot;")}" ${extra} required />
       </div>
     `).join("");
   }
 
   function renderOrderForm() {
-    const productOptions = state.products.map(product => `<option value="${product.id}">${product.name} - ${money.format(product.salePrice)} (${product.stock} còn)</option>`).join("");
+    const productOptions = state.products.filter(product => product.status === "active").map(product => `<option value="${product.id}">${product.name} - ${money.format(product.salePrice)} (${product.stock} còn)</option>`).join("");
     const customerOptions = state.customers.map(customer => `<option value="${customer.id}">${customer.name}</option>`).join("");
     return `
       <div class="field"><label for="customerId">Khách hàng</label><select id="customerId" name="customerId" required>${customerOptions}</select></div>
@@ -610,27 +661,32 @@
     `;
   }
 
-  function openModal(type) {
+  function openModal(type, options = {}) {
     if (!els.modalBackdrop || !els.modalForm) return;
+    if (type === "product" && !canManageProducts()) {
+      showToast("Bạn không có quyền quản lý sản phẩm.", "error");
+      return;
+    }
     if (type === "order" && !canCreateOrder()) {
       showToast("Cần có ít nhất một sản phẩm và một khách hàng trước khi tạo đơn.", "error");
       return;
     }
 
+    const editingProduct = options.product || null;
     const definitions = {
       product: {
         eyebrow: "Danh mục",
-        title: "Thêm sản phẩm",
+        title: editingProduct ? "Sửa sản phẩm" : "Thêm sản phẩm",
         body: renderTextFields([
-          ["sku", "SKU", "text", "AF-NEW-001"],
-          ["name", "Tên sản phẩm", "text", "Bộ cọ vẽ chi tiết"],
-          ["category", "Danh mục", "text", "Dụng cụ vẽ"],
-          ["costPrice", "Giá vốn", "number", "65000", "min=\"0\" step=\"1000\""],
-          ["salePrice", "Giá bán", "number", "119000", "min=\"0\" step=\"1000\""],
-          ["stock", "Tồn kho", "number", "12", "min=\"0\" step=\"1\""],
-          ["lowStock", "Ngưỡng cảnh báo", "number", "5", "min=\"0\" step=\"1\""]
+          ["sku", "SKU", "text", "AF-NEW-001", "", editingProduct ? editingProduct.sku : ""],
+          ["name", "Tên sản phẩm", "text", "Bộ cọ vẽ chi tiết", "", editingProduct ? editingProduct.name : ""],
+          ["category", "Danh mục", "text", "Dụng cụ vẽ", "", editingProduct ? editingProduct.category : ""],
+          ["costPrice", "Giá vốn", "number", "65000", "min=\"0\" step=\"1000\"", editingProduct ? editingProduct.costPrice : ""],
+          ["salePrice", "Giá bán", "number", "119000", "min=\"0\" step=\"1000\"", editingProduct ? editingProduct.salePrice : ""],
+          ["stock", "Tồn kho", "number", "12", "min=\"0\" step=\"1\"", editingProduct ? editingProduct.stock : ""],
+          ["lowStock", "Ngưỡng cảnh báo", "number", "5", "min=\"0\" step=\"1\"", editingProduct ? editingProduct.lowStock : ""]
         ]),
-        submit(form) {
+        async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           const costPrice = Number(data.costPrice);
           const salePrice = Number(data.salePrice);
@@ -640,11 +696,11 @@
           const name = String(data.name || "").trim();
           const category = String(data.category || "").trim();
           if (!sku || !name || !category) throw new Error("Vui lòng nhập đầy đủ SKU, tên và danh mục.");
-          if (state.products.some(product => product.sku.toLowerCase() === sku.toLowerCase())) throw new Error("SKU này đã tồn tại.");
+          if (state.products.some(product => product.id !== (editingProduct && editingProduct.id) && product.sku.toLowerCase() === sku.toLowerCase())) throw new Error("SKU này đã tồn tại.");
           if (salePrice < costPrice) throw new Error("Giá bán nên lớn hơn hoặc bằng giá vốn.");
           if (stock < 0 || lowStock < 0) throw new Error("Tồn kho và ngưỡng cảnh báo không được âm.");
-          state.products.unshift({
-            id: uid("prd"),
+          const payload = {
+            id: editingProduct ? editingProduct.id : undefined,
             sku,
             name,
             category,
@@ -652,9 +708,21 @@
             salePrice,
             stock,
             lowStock,
-            status: "active"
+            status: editingProduct ? editingProduct.status : "active"
+          };
+          const dataFromApi = await apiRequest(editingProduct ? "/products/update" : "/products/create", {
+            method: "POST",
+            body: JSON.stringify(payload)
           });
-          saveAndRender("Đã thêm sản phẩm mới.");
+          const savedProduct = normalizeProduct(dataFromApi.product);
+          if (editingProduct) {
+            state.products = state.products.map(product => product.id === savedProduct.id ? savedProduct : product);
+          } else {
+            state.products.unshift(savedProduct);
+          }
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          showToast(editingProduct ? "Đã cập nhật sản phẩm." : "Đã thêm sản phẩm mới.");
         }
       },
       customer: {
@@ -754,12 +822,18 @@
     saveAndRender(message);
   }
 
-  function deleteProduct(productId) {
-    if (hasOrdersForProduct(productId)) {
-      showToast("Không thể xóa sản phẩm đã có trong đơn hàng. Hãy xóa đơn liên quan trước.", "error");
-      return;
-    }
-    deleteEntity("products", productId, "Đã xóa sản phẩm.");
+  async function archiveProduct(productId, status) {
+    const product = byId("products", productId);
+    if (!product) return;
+    const data = await apiRequest("/products/archive", {
+      method: "POST",
+      body: JSON.stringify({ id: productId, status })
+    });
+    const savedProduct = normalizeProduct(data.product);
+    state.products = state.products.map(item => item.id === savedProduct.id ? savedProduct : item);
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    showToast(savedProduct.status === "active" ? "Đã kích hoạt sản phẩm." : "Đã ngừng bán sản phẩm.");
   }
 
   function deleteCustomer(customerId) {
@@ -807,7 +881,13 @@
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
       if (target.matches("[data-logout]")) await logout();
 
-      if (target.dataset.deleteProduct && window.confirm("Xóa sản phẩm này?")) deleteProduct(target.dataset.deleteProduct);
+      if (target.dataset.editProduct) {
+        const product = byId("products", target.dataset.editProduct);
+        if (product) openModal("product", { product });
+      }
+      if (target.dataset.archiveProduct && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại sản phẩm này?" : "Ngừng bán sản phẩm này?")) {
+        await withLoading("Đang cập nhật sản phẩm...", () => archiveProduct(target.dataset.archiveProduct, target.dataset.nextStatus));
+      }
       if (target.dataset.deleteCustomer && window.confirm("Xóa khách hàng này?")) deleteCustomer(target.dataset.deleteCustomer);
       if (target.dataset.deleteOrder && window.confirm("Xóa đơn hàng này?")) deleteOrder(target.dataset.deleteOrder);
 
