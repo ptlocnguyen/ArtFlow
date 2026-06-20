@@ -11,6 +11,7 @@
   let staffUsers = [];
   let searchTerm = "";
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
+  const accountingFilters = { type: "all", accountId: "all", range: "30" };
 
   const channels = {
     pos: "POS",
@@ -84,6 +85,9 @@
     accountingAccounts: qs("[data-accounting-accounts]"),
     accountingCategories: qs("[data-accounting-categories]"),
     accountingTransactionsTable: qs("[data-accounting-transactions-table]"),
+    accountingReceivables: qs("[data-accounting-receivables]"),
+    accountingAccountFilter: qs("[data-accounting-account-filter]"),
+    accountingRangeFilter: qs("[data-accounting-range-filter]"),
     reportCards: qs("[data-report-cards]"),
     toast: qs("[data-toast]"),
     loadingOverlay: qs("[data-loading-overlay]"),
@@ -960,8 +964,23 @@
   function renderAccounting() {
     if (!els.accountingKpis && !els.accountingTransactionsTable) return;
     const term = searchTerm.trim().toLowerCase();
+    if (els.accountingAccountFilter) {
+      const current = accountingFilters.accountId;
+      els.accountingAccountFilter.innerHTML = `<option value="all">Tất cả tài khoản</option>${(state.accountingAccounts || []).map(account => `<option value="${account.id}">${account.name}</option>`).join("")}`;
+      els.accountingAccountFilter.value = current;
+    }
+    if (els.accountingRangeFilter) els.accountingRangeFilter.value = accountingFilters.range;
+
+    const cutoff = accountingFilters.range === "all" ? null : (() => {
+      const date = new Date();
+      date.setDate(date.getDate() - Number(accountingFilters.range));
+      return date.toISOString().slice(0, 10);
+    })();
     const transactions = [...(state.cashTransactions || [])]
       .filter(transaction => {
+        if (accountingFilters.type !== "all" && transaction.type !== accountingFilters.type) return false;
+        if (accountingFilters.accountId !== "all" && transaction.accountId !== accountingFilters.accountId) return false;
+        if (cutoff && String(transaction.transactionDate || transaction.createdAt).slice(0, 10) < cutoff) return false;
         if (!term) return true;
         const account = getAccountingAccount(transaction.accountId);
         const category = getAccountingCategory(transaction.categoryId);
@@ -980,12 +999,13 @@
     const expense = transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
     const totalBalance = (state.accountingAccounts || []).reduce((sum, account) => sum + account.currentBalance, 0);
     const pendingReceivable = state.orders.filter(order => order.paymentStatus !== "paid" && order.status !== "cancelled").reduce((sum, order) => sum + order.total, 0);
+    const netCash = income - expense;
 
     if (els.accountingKpis) {
       const cards = [
         ["Số dư quỹ", money.format(totalBalance), "Tổng số dư các tài khoản tiền."],
-        ["Tổng thu", money.format(income), "Theo sổ thu/chi đang lọc."],
-        ["Tổng chi", money.format(expense), "Theo sổ thu/chi đang lọc."],
+        ["Tổng thu", money.format(income), "Theo sổ quỹ đang lọc."],
+        ["Dòng tiền ròng", money.format(netCash), "Tổng thu trừ tổng chi đang lọc."],
         ["Công nợ bán hàng", money.format(pendingReceivable), "Đơn chưa thanh toán, chưa hủy."]
       ];
       els.accountingKpis.innerHTML = cards.map(([label, value, note]) => `
@@ -1000,6 +1020,28 @@
           <b>${money.format(account.currentBalance)}</b>
         </article>
       `).join("") : `<div class="empty">Chưa có tài khoản tiền.</div>`;
+    }
+
+    if (els.accountingReceivables) {
+      const receivables = state.orders
+        .filter(order => order.paymentStatus !== "paid" && order.status !== "cancelled")
+        .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+        .slice(0, 5);
+      els.accountingReceivables.innerHTML = receivables.length ? receivables.map(order => {
+        const customer = getCustomer(order);
+        return `
+          <article class="todo-item">
+            <div>
+              <strong>${order.code}</strong>
+              <small>${customer.name} · ${formatDate(order.createdAt)}</small>
+            </div>
+            <div>
+              <b>${money.format(order.total)}</b>
+              ${canManageAccounting() ? `<button class="link-button" type="button" data-record-order-payment="${order.id}">Ghi thu</button>` : ""}
+            </div>
+          </article>
+        `;
+      }).join("") : `<div class="empty">Không còn đơn bán hàng cần thu tiền.</div>`;
     }
 
     if (els.accountingCategories) {
@@ -1840,6 +1882,32 @@
     showToast("Đã hủy đơn và hoàn lại tồn kho.");
   }
 
+  async function recordOrderPayment(orderId) {
+    const order = byId("orders", orderId);
+    if (!order) throw new Error("Không tìm thấy đơn cần ghi thu.");
+    const account = (state.accountingAccounts || []).find(item => item.status === "active");
+    const category = (state.accountingCategories || []).find(item => item.status === "active" && item.type === "income");
+    if (!account || !category) throw new Error("Cần có tài khoản tiền và danh mục thu trước khi ghi thu.");
+
+    await apiRequest("/accounting/transactions/create", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "income",
+        accountId: account.id,
+        categoryId: category.id,
+        amount: order.total,
+        transactionDate: new Date().toISOString().slice(0, 10),
+        description: "Thu tiền đơn " + order.code,
+        referenceType: "order",
+        referenceId: order.code
+      })
+    });
+    await updateOrderFulfillment(order.id, { paymentStatus: "paid", status: order.status === "pending" ? "paid" : order.status });
+    await loadAccountingData({ quiet: true });
+    renderPage();
+    showToast("Đã ghi thu và cập nhật thanh toán đơn hàng.");
+  }
+
   function bindEvents() {
     if (els.loginForm) {
       els.loginForm.addEventListener("submit", event => {
@@ -1868,6 +1936,20 @@
         renderPage();
       });
     });
+
+    if (els.accountingAccountFilter) {
+      els.accountingAccountFilter.addEventListener("change", event => {
+        accountingFilters.accountId = event.target.value;
+        renderPage();
+      });
+    }
+
+    if (els.accountingRangeFilter) {
+      els.accountingRangeFilter.addEventListener("change", event => {
+        accountingFilters.range = event.target.value;
+        renderPage();
+      });
+    }
 
     if (els.orderCreateForm) {
       els.orderCreateForm.addEventListener("submit", async event => {
@@ -1904,6 +1986,13 @@
       if (target.matches("[data-open-cash-transaction]")) openModal("cashTransaction");
       if (target.matches("[data-open-accounting-account]")) openModal("accountingAccount");
       if (target.matches("[data-open-accounting-category]")) openModal("accountingCategory");
+      if (target.dataset.accountingTypeFilter) {
+        accountingFilters.type = target.dataset.accountingTypeFilter;
+        document.querySelectorAll("[data-accounting-type-filter]").forEach(button => {
+          button.classList.toggle("active", button.dataset.accountingTypeFilter === accountingFilters.type);
+        });
+        renderPage();
+      }
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
       if (target.matches("[data-logout]")) await logout();
       if (target.dataset.addProductToOrder) {
@@ -1956,6 +2045,9 @@
         });
         renderPage();
         showToast("Đã xóa giao dịch thu/chi.");
+      }
+      if (target.dataset.recordOrderPayment) {
+        await withLoading("Đang ghi nhận thu tiền...", () => recordOrderPayment(target.dataset.recordOrderPayment));
       }
       if (target.dataset.editOrderFulfillment) {
         const order = byId("orders", target.dataset.editOrderFulfillment);

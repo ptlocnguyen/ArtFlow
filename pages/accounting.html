@@ -17,10 +17,23 @@
         <div class="kpi-grid" data-accounting-kpis></div>
         <section class="accounting-layout">
           <section class="panel accounting-ledger">
-            <div class="panel-header split"><div><h2>Sổ thu/chi</h2><p>Theo dõi dòng tiền thực tế theo tài khoản và danh mục.</p></div><button class="button ghost" type="button" data-open-cash-transaction>Thêm giao dịch</button></div>
+            <div class="panel-header split"><div><h2>Sổ quỹ</h2><p>Theo dõi tiền vào/ra theo tài khoản, danh mục và tham chiếu nghiệp vụ.</p></div><button class="button ghost" type="button" data-open-cash-transaction>Thêm giao dịch</button></div>
+            <div class="accounting-toolbar">
+              <div class="segmented-control" role="group" aria-label="Lọc loại giao dịch">
+                <button class="active" type="button" data-accounting-type-filter="all">Tất cả</button>
+                <button type="button" data-accounting-type-filter="income">Thu</button>
+                <button type="button" data-accounting-type-filter="expense">Chi</button>
+              </div>
+              <select aria-label="Lọc tài khoản" data-accounting-account-filter><option value="all">Tất cả tài khoản</option></select>
+              <select aria-label="Lọc thời gian" data-accounting-range-filter><option value="30">30 ngày</option><option value="7">7 ngày</option><option value="all">Tất cả thời gian</option></select>
+            </div>
             <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Loại</th><th>Danh mục/Tài khoản</th><th>Nội dung</th><th>Số tiền</th><th>Thao tác</th></tr></thead><tbody data-accounting-transactions-table></tbody></table></div>
           </section>
           <aside class="accounting-side">
+            <section class="panel accounting-side-panel accounting-actions-panel">
+              <div class="panel-header"><div><h2>Việc cần xử lý</h2><p>Ưu tiên các khoản chưa thu để đóng dòng tiền.</p></div></div>
+              <div class="accounting-todo-list" data-accounting-receivables></div>
+            </section>
             <section class="panel accounting-side-panel">
               <div class="panel-header split"><div><h2>Tài khoản tiền</h2><p>Số dư tính từ đầu kỳ và giao dịch.</p></div><button class="link-button" type="button" data-open-accounting-account>Thêm</button></div>
               <div class="account-card-list" data-accounting-accounts></div>

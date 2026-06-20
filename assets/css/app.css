@@ -709,13 +709,46 @@ body[data-page="accounting"] .view.active {
 
 .accounting-side {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(160px, 0.75fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
   min-height: 0;
 }
 
+.accounting-toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(150px, 1fr) minmax(130px, 0.7fr);
+  gap: 10px;
+  padding: 12px 16px 6px;
+}
+
+.segmented-control {
+  display: inline-flex;
+  min-height: 42px;
+  padding: 3px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.segmented-control button {
+  min-width: 64px;
+  padding: 0 12px;
+  color: #334155;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.segmented-control button.active {
+  color: #fff;
+  background: var(--blue);
+}
+
 .account-card-list,
-.category-chip-list {
+.category-chip-list,
+.accounting-todo-list {
   display: grid;
   align-content: start;
   gap: 10px;
@@ -748,6 +781,33 @@ body[data-page="accounting"] .view.active {
 }
 
 .account-card b {
+  white-space: nowrap;
+}
+
+.todo-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+}
+
+.todo-item strong,
+.todo-item small {
+  display: block;
+}
+
+.todo-item small {
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.todo-item b {
+  display: block;
+  margin-bottom: 8px;
   white-space: nowrap;
 }
 
@@ -1418,9 +1478,21 @@ body[data-page="accounting"] .view.active {
     overflow: auto;
   }
 
+  .accounting-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .accounting-toolbar .segmented-control {
+    grid-column: 1 / -1;
+  }
+
   .accounting-side {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: minmax(260px, auto);
+    grid-template-rows: minmax(240px, auto) minmax(260px, auto);
+  }
+
+  .accounting-actions-panel {
+    grid-column: 1 / -1;
   }
 
   body[data-page="orderCreate"] .order-customer-section .field.full:first-child,
@@ -1558,6 +1630,15 @@ body[data-page="accounting"] .view.active {
 
   .category-chip-list {
     grid-template-columns: 1fr;
+  }
+
+  .accounting-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .segmented-control button {
+    flex: 1;
+    min-width: 0;
   }
 
   .form-grid {
