@@ -955,7 +955,7 @@ body[data-page="accounting"] .view.active {
 
 .category-chip-stats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   padding-top: 8px;
   border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
@@ -970,6 +970,21 @@ body[data-page="accounting"] .view.active {
 .category-chip-actions {
   justify-content: flex-end;
   padding-top: 2px;
+}
+
+.category-share-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.category-share-bar span {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: inherit;
+  background: currentColor;
 }
 
 .category-chip small {
@@ -1893,6 +1908,10 @@ body[data-page="accounting"] .view.active {
 
   .category-chip-list {
     grid-template-columns: 1fr;
+  }
+
+  .category-chip-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .debt-summary {

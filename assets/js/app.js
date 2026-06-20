@@ -1106,9 +1106,16 @@
 
     if (els.accountingCategories) {
       const categories = state.accountingCategories || [];
+      const categoryTotalsByType = (state.cashTransactions || []).reduce((totals, transaction) => {
+        if (transaction.status === "deleted") return totals;
+        totals[transaction.type] = (totals[transaction.type] || 0) + transaction.amount;
+        return totals;
+      }, {});
       els.accountingCategories.innerHTML = categories.length ? categories.map(category => {
         const relatedTransactions = (state.cashTransactions || []).filter(transaction => transaction.categoryId === category.id && transaction.status !== "deleted");
         const totalAmount = relatedTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+        const categoryTotal = categoryTotalsByType[category.type] || 0;
+        const share = categoryTotal > 0 ? Math.round((totalAmount / categoryTotal) * 1000) / 10 : 0;
         const lastUsed = relatedTransactions
           .map(transaction => transaction.transactionDate || transaction.createdAt)
           .filter(Boolean)
@@ -1125,9 +1132,11 @@
               <span>${relatedTransactions.length} GD</span>
             </div>
             <div class="category-chip-stats">
-              <span><small>Tổng phát sinh</small><b>${money.format(totalAmount)}</b></span>
-              <span><small>Lần gần nhất</small><b>${lastUsed ? formatDate(lastUsed) : "Chưa dùng"}</b></span>
+              <span><small>Phát sinh</small><b>${money.format(totalAmount)}</b></span>
+              <span><small>Tỷ trọng</small><b>${share}% ${accountingTypeLabel(category.type)}</b></span>
+              <span><small>Gần nhất</small><b>${lastUsed ? formatDate(lastUsed) : "Chưa dùng"}</b></span>
             </div>
+            <div class="category-share-bar" aria-label="Tỷ trọng ${share}%"><span style="width: ${Math.min(100, share)}%"></span></div>
             ${canManageAccounting() ? `
               <div class="category-chip-actions">
                 <button class="link-button" type="button" data-edit-accounting-category="${category.id}">Sửa</button>
