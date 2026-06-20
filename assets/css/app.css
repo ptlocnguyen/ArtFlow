@@ -1269,6 +1269,39 @@ body[data-page="reports"] .view.active {
   .content-grid {
     grid-template-columns: 1fr;
   }
+
+  body[data-page="orderCreate"] .order-compose-grid {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    align-items: start;
+    overflow: auto;
+  }
+
+  body[data-page="orderCreate"] .order-create-form {
+    overflow: auto;
+  }
+
+  body[data-page="orderCreate"] .order-compose-main {
+    grid-template-rows: auto auto;
+  }
+
+  body[data-page="orderCreate"] .order-compose-main > .panel:first-child {
+    min-height: 440px;
+  }
+
+  body[data-page="orderCreate"] .order-summary-panel {
+    min-height: 520px;
+  }
+
+  body[data-page="orderCreate"] .order-builder-layout,
+  body[data-page="orderCreate"] .order-customer-section .compact-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body[data-page="orderCreate"] .order-customer-section .field.full:first-child,
+  body[data-page="orderCreate"] .order-customer-section .field.full:last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 820px) {
@@ -1400,6 +1433,40 @@ body[data-page="reports"] .view.active {
 
   .filter-bar {
     grid-template-columns: 1fr;
+  }
+
+  .product-picker-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .product-picker-search {
+    order: 1;
+  }
+
+  .product-picker-toolbar .pill {
+    order: 2;
+    width: fit-content;
+  }
+
+  body[data-page="orderCreate"] .order-compose-grid,
+  body[data-page="orderCreate"] .order-builder-layout,
+  body[data-page="orderCreate"] .order-customer-section .compact-grid,
+  body[data-page="orderCreate"] .summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body[data-page="orderCreate"] .order-summary-panel {
+    min-height: 0;
+  }
+
+  body[data-page="orderCreate"] .order-compose-main > .panel:first-child {
+    min-height: 0;
+  }
+
+  body[data-page="orderCreate"] .order-customer-section .field.full:first-child,
+  body[data-page="orderCreate"] .order-customer-section .field.full:last-child {
+    grid-column: 1 / -1;
   }
 
   .order-item-row {
