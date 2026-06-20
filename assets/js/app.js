@@ -175,6 +175,7 @@
       "/stock-movements": "listStockMovements",
       "/stock/receive": "receiveStock",
       "/stock/adjust": "adjustStock",
+      "/page-data": "getPageData",
       "/accounting": "getAccountingData",
       "/accounting/transactions/create": "createCashTransaction",
       "/accounting/transactions/archive": "archiveCashTransaction",
@@ -756,6 +757,71 @@
     }
   }
 
+  function dataScopesForPage() {
+    const scopesByPage = {
+      dashboard: ["products", "customers", "orders"],
+      orders: ["customers", "orders", "accounting"],
+      orderCreate: ["products", "customers"],
+      products: ["products"],
+      customers: ["customers"],
+      inventory: ["products", "stockMovements"],
+      accounting: ["customers", "orders", "accounting"],
+      purchasing: ["purchasing"],
+      purchaseCreate: ["products", "purchasing"],
+      reports: ["products", "customers", "orders"],
+      users: []
+    };
+    const scopes = [...(scopesByPage[page] || [])];
+    if (page === "purchasing" && canPayPurchases()) scopes.push("accounting");
+    return [...new Set(scopes)];
+  }
+
+  function applyPageData(data, scopes) {
+    if (scopes.includes("products")) state.products = (data.products || []).map(normalizeProduct);
+    if (scopes.includes("customers")) state.customers = (data.customers || []).map(normalizeCustomer);
+    if (scopes.includes("orders")) state.orders = (data.orders || []).map(normalizeOrder);
+    if (scopes.includes("stockMovements")) state.stockMovements = (data.movements || []).map(normalizeStockMovement);
+    if (scopes.includes("accounting")) {
+      state.accountingAccounts = (data.accounts || []).map(normalizeAccountingAccount);
+      state.accountingCategories = (data.categories || []).map(normalizeAccountingCategory);
+      state.accountingReconciliations = (data.reconciliations || []).map(normalizeAccountingReconciliation);
+      state.cashTransactions = (data.transactions || []).map(normalizeCashTransaction);
+    }
+    if (scopes.includes("purchasing")) {
+      state.suppliers = (data.suppliers || []).map(normalizeSupplier);
+      state.purchaseOrders = (data.purchaseOrders || []).map(normalizePurchaseOrder);
+      state.supplierPayments = (data.supplierPayments || []).map(normalizeSupplierPayment);
+    }
+    window.ArtFlowPosStore.save(state);
+  }
+
+  async function loadPageData(scopes, options = {}) {
+    if (!scopes.length) return true;
+    try {
+      const data = await apiRequest("/page-data", {
+        method: "POST",
+        body: JSON.stringify({ scopes })
+      });
+      applyPageData(data, scopes);
+      return true;
+    } catch (error) {
+      if (String(error.message || "").toLowerCase().includes("unknown action")) {
+        const legacyLoaders = {
+          products: loadProducts,
+          customers: loadCustomers,
+          orders: loadOrders,
+          stockMovements: loadStockMovements,
+          accounting: loadAccountingData,
+          purchasing: loadPurchasingData
+        };
+        await Promise.all(scopes.map(scope => legacyLoaders[scope]({ quiet: true })));
+        return true;
+      }
+      if (!options.quiet) showToast(error.message, "error");
+      return false;
+    }
+  }
+
   function filtered(items, fields) {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return items;
@@ -891,15 +957,9 @@
     if (els.currentUser) els.currentUser.innerHTML = `<strong>${user.name}</strong><span>${roleLabel(user.role)}</span>`;
     renderNav();
     applyPermissions();
+    renderPage();
 
-    await withLoading("Đang tải dữ liệu bán hàng...", () => Promise.all([
-      loadProducts({ quiet: true }),
-      loadCustomers({ quiet: true }),
-      loadOrders({ quiet: true }),
-      loadStockMovements({ quiet: true }),
-      loadAccountingData({ quiet: true }),
-      loadPurchasingData({ quiet: true })
-    ]));
+    await loadPageData(dataScopesForPage());
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
     renderPage();
   }
