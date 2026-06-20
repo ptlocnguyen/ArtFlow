@@ -940,17 +940,50 @@
     `).join("");
   }
 
+  function escapeAttribute(value) {
+    return String(value || "").replace(/"/g, "&quot;");
+  }
+
+  function productSearchLabel(product) {
+    return `${product.sku} · ${product.name} · ${product.category} · ${money.format(product.salePrice)} · ${product.stock} còn`;
+  }
+
+  function findProductFromSearch(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized) return null;
+    return state.products.find(product => product.status === "active" && (
+      product.id.toLowerCase() === normalized ||
+      product.sku.toLowerCase() === normalized ||
+      productSearchLabel(product).toLowerCase() === normalized
+    )) || null;
+  }
+
+  function syncOrderProductSearch(input) {
+    const row = input && input.closest("[data-order-item-row]");
+    if (!row) return null;
+    const hidden = row.querySelector("[data-order-product]");
+    const product = findProductFromSearch(input.value);
+    hidden.value = product ? product.id : "";
+    row.dataset.productValid = product ? "true" : "false";
+    return product;
+  }
+
   function renderOrderItemRow() {
-    const productOptions = state.products
-      .filter(product => product.status === "active")
-      .map(product => `<option value="${product.id}">${product.name} - ${money.format(product.salePrice)} (${product.stock} còn)</option>`)
+    const rowId = `products-${Date.now()}-${Math.round(Math.random() * 100000)}`;
+    const activeProducts = state.products.filter(product => product.status === "active");
+    const firstProduct = activeProducts[0] || null;
+    const productOptions = activeProducts
+      .map(product => `<option value="${escapeAttribute(productSearchLabel(product))}"></option>`)
       .join("");
+    const initialLabel = firstProduct ? productSearchLabel(firstProduct) : "";
 
     return `
-      <div class="order-item-row" data-order-item-row>
-        <div class="field">
+      <div class="order-item-row" data-order-item-row data-product-valid="${firstProduct ? "true" : "false"}">
+        <div class="field order-product-field">
           <label>Sản phẩm</label>
-          <select name="productId" data-order-product required>${productOptions}</select>
+          <input type="search" list="${rowId}" value="${escapeAttribute(initialLabel)}" placeholder="Tìm SKU, tên sản phẩm..." autocomplete="off" data-order-product-search required />
+          <input type="hidden" name="productId" value="${firstProduct ? firstProduct.id : ""}" data-order-product required />
+          <datalist id="${rowId}">${productOptions}</datalist>
         </div>
         <div class="field compact-field">
           <label>Số lượng</label>
@@ -1598,10 +1631,18 @@
     });
 
     document.addEventListener("input", event => {
+      if (event.target.matches("[data-order-product-search]")) {
+        syncOrderProductSearch(event.target);
+        updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
+      }
       if (event.target.matches("[data-order-quantity], [data-order-money]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
     });
 
     document.addEventListener("change", async event => {
+      if (event.target.matches("[data-order-product-search]")) {
+        syncOrderProductSearch(event.target);
+        updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
+      }
       if (event.target.matches("[data-order-product]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-order-inline]")) {
         const field = event.target.dataset.orderInline;
