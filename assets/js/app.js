@@ -12,6 +12,7 @@
   let searchTerm = "";
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
   const accountingFilters = { view: "receivables", type: "all", accountId: "all", range: "30", receivable: "all" };
+  const purchasingFilters = { view: "orders", status: "all", paymentStatus: "all" };
 
   const channels = {
     pos: "POS",
@@ -52,6 +53,8 @@
     orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "+", hidden: true },
     products: { title: "Sản phẩm", href: "./products.html", icon: "◇" },
     customers: { title: "Khách hàng", href: "./customers.html", icon: "○" },
+    purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "⇣" },
+    purchaseCreate: { title: "Tạo phiếu mua", href: "./purchase-create.html", icon: "+", hidden: true },
     inventory: { title: "Kho hàng", href: "./inventory.html", icon: "▤" },
     accounting: { title: "Kế toán", href: "./accounting.html", icon: "≋" },
     reports: { title: "Báo cáo", href: "./reports.html", icon: "↗" },
@@ -72,6 +75,7 @@
     recentOrders: qs("[data-recent-orders]"),
     ordersTable: qs("[data-orders-table]"),
     orderCreateForm: qs("[data-order-create-form]"),
+    purchaseCreateForm: qs("[data-purchase-create-form]"),
     orderChannelFilter: qs("[data-order-channel-filter]"),
     orderStatusFilter: qs("[data-order-status-filter]"),
     orderPaymentFilter: qs("[data-order-payment-filter]"),
@@ -90,6 +94,11 @@
     accountingDebtSummary: qs("[data-accounting-debt-summary]"),
     accountingAccountFilter: qs("[data-accounting-account-filter]"),
     accountingRangeFilter: qs("[data-accounting-range-filter]"),
+    purchasingKpis: qs("[data-purchasing-kpis]"),
+    purchaseOrdersTable: qs("[data-purchase-orders-table]"),
+    suppliersList: qs("[data-suppliers-list]"),
+    purchaseStatusFilter: qs("[data-purchase-status-filter]"),
+    purchasePaymentFilter: qs("[data-purchase-payment-filter]"),
     reportCards: qs("[data-report-cards]"),
     toast: qs("[data-toast]"),
     loadingOverlay: qs("[data-loading-overlay]"),
@@ -175,7 +184,15 @@
       "/accounting/reconciliations/create": "createAccountingReconciliation",
       "/accounting/categories/create": "createAccountingCategory",
       "/accounting/categories/update": "updateAccountingCategory",
-      "/accounting/categories/archive": "archiveAccountingCategory"
+      "/accounting/categories/archive": "archiveAccountingCategory",
+      "/purchasing": "getPurchasingData",
+      "/suppliers/create": "createSupplier",
+      "/suppliers/update": "updateSupplier",
+      "/suppliers/archive": "archiveSupplier",
+      "/purchase-orders/create": "createPurchaseOrder",
+      "/purchase-orders/receive": "receivePurchaseOrder",
+      "/purchase-orders/pay": "payPurchaseOrder",
+      "/purchase-orders/cancel": "cancelPurchaseOrder"
     }[path] || "";
   }
 
@@ -258,6 +275,10 @@
     window.location.href = "./order-create.html";
   }
 
+  function navigateToPurchaseCreate() {
+    window.location.href = "./purchase-create.html";
+  }
+
   function byId(collection, id) {
     return (state[collection] || []).find(item => item.id === id);
   }
@@ -291,6 +312,14 @@
     return currentUser && currentUser.role === "admin";
   }
 
+  function canManagePurchasing() {
+    return currentUser && ["admin", "inventory"].includes(currentUser.role);
+  }
+
+  function canPayPurchases() {
+    return currentUser && currentUser.role === "admin";
+  }
+
   function roleLabel(role) {
     return { admin: "Admin", sales: "Bán hàng", inventory: "Kho", viewer: "Chỉ xem" }[role] || role;
   }
@@ -301,6 +330,8 @@
       pending: "Chờ xử lý",
       confirmed: "Đã xác nhận",
       packed: "Đã đóng gói",
+      received: "Đã nhận hàng",
+      partial: "Thanh toán một phần",
       shipping: "Đang giao",
       paid: "Đã thanh toán",
       completed: "Hoàn tất",
@@ -314,6 +345,8 @@
       product_edit: "Sửa sản phẩm",
       sale: "Bán hàng",
       order_cancel: "Hủy đơn",
+      purchase_receive: "Nhận hàng mua",
+      purchase_cancel: "Hủy nhập hàng",
       none: "Chưa giao",
       preparing: "Đang chuẩn bị",
       delivered: "Đã giao",
@@ -364,6 +397,17 @@
     return byId("customers", order.customerId) || { name: "Khách lẻ" };
   }
 
+  function getSupplier(order) {
+    return byId("suppliers", order.supplierId) || { name: "Nhà cung cấp không xác định", code: "" };
+  }
+
+  function purchaseItemSummary(order) {
+    const items = order.items || [];
+    if (!items.length) return "Chưa có hàng hóa";
+    const quantity = items.reduce((sum, item) => sum + item.quantity, 0);
+    return `${items[0].name}${items.length > 1 ? ` +${items.length - 1} mặt hàng` : ""} · ${quantity} SP`;
+  }
+
   function isPaid(order) {
     return order.paymentStatus === "paid" || ["paid", "completed"].includes(order.status);
   }
@@ -404,6 +448,12 @@
 
   function canCreateOrder() {
     return canManageOrders() && state.products.some(product => product.status === "active") && state.customers.some(customer => customer.status === "active");
+  }
+
+  function canCreatePurchase() {
+    return canManagePurchasing()
+      && state.products.some(product => product.status === "active")
+      && state.suppliers.some(supplier => supplier.status === "active");
   }
 
   function normalizeProduct(product) {
@@ -622,6 +672,90 @@
     }
   }
 
+  function normalizeSupplier(supplier) {
+    return {
+      id: supplier.id,
+      code: supplier.code || "",
+      name: supplier.name || "",
+      phone: supplier.phone || "",
+      email: supplier.email || "",
+      taxCode: supplier.taxCode || "",
+      address: supplier.address || "",
+      status: supplier.status || "active",
+      totalPurchased: Number(supplier.totalPurchased || 0),
+      outstanding: Number(supplier.outstanding || 0),
+      lastPurchaseAt: supplier.lastPurchaseAt || "",
+      note: supplier.note || "",
+      createdAt: supplier.createdAt || "",
+      updatedAt: supplier.updatedAt || ""
+    };
+  }
+
+  function normalizePurchaseOrder(order) {
+    return {
+      id: order.id,
+      code: order.code || "",
+      supplierId: order.supplierId || "",
+      status: order.status || "draft",
+      paymentStatus: order.paymentStatus || "unpaid",
+      subtotal: Number(order.subtotal || 0),
+      discount: Number(order.discount || 0),
+      shippingFee: Number(order.shippingFee || 0),
+      total: Number(order.total || 0),
+      paidAmount: Number(order.paidAmount || 0),
+      outstanding: Number(order.outstanding === undefined ? Math.max(0, Number(order.total || 0) - Number(order.paidAmount || 0)) : order.outstanding),
+      dueDate: order.dueDate || "",
+      invoiceNumber: order.invoiceNumber || "",
+      note: order.note || "",
+      createdBy: order.createdBy || "",
+      receivedAt: order.receivedAt || "",
+      createdAt: order.createdAt || "",
+      updatedAt: order.updatedAt || "",
+      items: (order.items || []).map(item => ({
+        id: item.id,
+        purchaseOrderId: item.purchaseOrderId || order.id,
+        productId: item.productId || "",
+        sku: item.sku || "",
+        name: item.name || "",
+        quantity: Number(item.quantity || 0),
+        unitCost: Number(item.unitCost || 0),
+        lineTotal: Number(item.lineTotal || 0),
+        createdAt: item.createdAt || ""
+      }))
+    };
+  }
+
+  function normalizeSupplierPayment(payment) {
+    return {
+      id: payment.id,
+      purchaseOrderId: payment.purchaseOrderId || "",
+      supplierId: payment.supplierId || "",
+      cashTransactionId: payment.cashTransactionId || "",
+      amount: Number(payment.amount || 0),
+      paymentDate: payment.paymentDate || "",
+      note: payment.note || "",
+      createdBy: payment.createdBy || "",
+      createdAt: payment.createdAt || ""
+    };
+  }
+
+  async function loadPurchasingData(options = {}) {
+    try {
+      const data = await apiRequest("/purchasing");
+      state.suppliers = (data.suppliers || []).map(normalizeSupplier);
+      state.purchaseOrders = (data.purchaseOrders || []).map(normalizePurchaseOrder);
+      state.supplierPayments = (data.supplierPayments || []).map(normalizeSupplierPayment);
+      window.ArtFlowPosStore.save(state);
+      return true;
+    } catch (error) {
+      state.suppliers = state.suppliers || [];
+      state.purchaseOrders = state.purchaseOrders || [];
+      state.supplierPayments = state.supplierPayments || [];
+      if (!options.quiet) showToast(error.message, "error");
+      return false;
+    }
+  }
+
   function filtered(items, fields) {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return items;
@@ -726,6 +860,12 @@
     document.querySelectorAll("[data-open-cash-transaction], [data-open-accounting-account], [data-open-accounting-category], [data-open-accounting-reconciliation]").forEach(button => {
       button.hidden = !canManageAccounting();
     });
+    document.querySelectorAll("[data-open-supplier], [data-open-purchase], [data-receive-purchase], [data-cancel-purchase]").forEach(button => {
+      button.hidden = !canManagePurchasing();
+    });
+    document.querySelectorAll("[data-pay-purchase]").forEach(button => {
+      button.hidden = !canPayPurchases();
+    });
   }
 
   async function loadStaffUsers() {
@@ -738,6 +878,10 @@
     currentUser = user;
     if (page === "users" && !isAdmin()) {
       window.location.href = "./dashboard.html";
+      return;
+    }
+    if (page === "purchaseCreate" && !canManagePurchasing()) {
+      window.location.href = "./purchasing.html";
       return;
     }
 
@@ -753,7 +897,8 @@
       loadCustomers({ quiet: true }),
       loadOrders({ quiet: true }),
       loadStockMovements({ quiet: true }),
-      loadAccountingData({ quiet: true })
+      loadAccountingData({ quiet: true }),
+      loadPurchasingData({ quiet: true })
     ]));
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
     renderPage();
@@ -1224,6 +1369,91 @@
     }
   }
 
+  function syncPurchasingView() {
+    document.querySelectorAll("[data-purchasing-view-filter]").forEach(button => {
+      button.classList.toggle("active", button.dataset.purchasingViewFilter === purchasingFilters.view);
+    });
+    document.querySelectorAll("[data-purchasing-section]").forEach(section => {
+      section.hidden = section.dataset.purchasingSection !== purchasingFilters.view;
+    });
+  }
+
+  function renderPurchasing() {
+    if (!els.purchasingKpis && !els.purchaseOrdersTable && !els.suppliersList) return;
+    syncPurchasingView();
+    const term = searchTerm.trim().toLowerCase();
+    const today = new Date().toISOString().slice(0, 10);
+    const monthPrefix = today.slice(0, 7);
+    const activeOrders = (state.purchaseOrders || []).filter(order => order.status !== "cancelled");
+    const payableOrders = activeOrders.filter(order => order.status === "received");
+    const outstanding = payableOrders.reduce((sum, order) => sum + order.outstanding, 0);
+    const overdue = payableOrders.filter(order => order.outstanding > 0 && order.dueDate && order.dueDate < today).reduce((sum, order) => sum + order.outstanding, 0);
+    const monthPurchases = activeOrders.filter(order => order.status === "received" && String(order.receivedAt || order.createdAt).slice(0, 7) === monthPrefix).reduce((sum, order) => sum + order.total, 0);
+    const activeSuppliers = (state.suppliers || []).filter(supplier => supplier.status === "active").length;
+
+    if (els.purchasingKpis) {
+      const cards = [
+        ["Phải trả", money.format(outstanding), "Công nợ nhà cung cấp hiện tại."],
+        ["Quá hạn", money.format(overdue), "Khoản đã vượt ngày thanh toán."],
+        ["Mua trong tháng", money.format(monthPurchases), "Giá trị phiếu đã nhận hàng."],
+        ["Nhà cung cấp", String(activeSuppliers), "Đang hoạt động."]
+      ];
+      els.purchasingKpis.innerHTML = cards.map(([label, value, note]) => `<article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>`).join("");
+    }
+
+    const orders = [...(state.purchaseOrders || [])]
+      .filter(order => {
+        if (purchasingFilters.status !== "all" && order.status !== purchasingFilters.status) return false;
+        if (purchasingFilters.paymentStatus !== "all" && order.paymentStatus !== purchasingFilters.paymentStatus) return false;
+        if (!term) return true;
+        const supplier = getSupplier(order);
+        return [order.code, order.invoiceNumber, supplier.name, supplier.code, ...(order.items || []).flatMap(item => [item.name, item.sku])].join(" ").toLowerCase().includes(term);
+      })
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+
+    if (els.purchaseOrdersTable) {
+      els.purchaseOrdersTable.innerHTML = orders.length ? orders.map(order => {
+        const supplier = getSupplier(order);
+        const isOverdue = order.outstanding > 0 && order.dueDate && order.dueDate < today;
+        const actions = [];
+        if (canManagePurchasing() && order.status === "draft") actions.push(`<button class="link-button" type="button" data-receive-purchase="${order.id}">Nhận hàng</button>`);
+        if (canPayPurchases() && order.status === "received" && order.outstanding > 0) actions.push(`<button class="link-button" type="button" data-pay-purchase="${order.id}">Thanh toán</button>`);
+        if (canManagePurchasing() && ["draft", "received"].includes(order.status) && order.paidAmount <= 0) actions.push(`<button class="link-button danger-link" type="button" data-cancel-purchase="${order.id}">Hủy</button>`);
+        return `
+          <tr class="${isOverdue ? "overdue-row" : ""}">
+            <td><strong>${order.code}</strong><br><small>${order.invoiceNumber || "Chưa có số hóa đơn"}</small></td>
+            <td><strong>${supplier.name}</strong><br><small>${supplier.code}</small></td>
+            <td>${purchaseItemSummary(order)}</td>
+            <td><span class="badge ${order.status === "received" ? "active" : order.status === "cancelled" ? "cancelled" : "pending"}">${statusLabel(order.status)}</span><br><small>${statusLabel(order.paymentStatus)}</small></td>
+            <td><strong>${money.format(order.status === "draft" ? order.total : order.outstanding)}</strong><br><small>${order.status === "draft" ? "Dự kiến, chưa ghi công nợ" : `Đã trả ${money.format(order.paidAmount)}`}</small></td>
+            <td><span class="${isOverdue ? "danger-text" : ""}">${order.dueDate ? formatDate(order.dueDate) : "Chưa đặt hạn"}</span></td>
+            <td><div class="row-actions">${actions.join("") || "—"}</div></td>
+          </tr>
+        `;
+      }).join("") : `<tr><td colspan="7" class="empty">Chưa có phiếu mua phù hợp.</td></tr>`;
+    }
+
+    if (els.suppliersList) {
+      const suppliers = (state.suppliers || []).filter(supplier => {
+        if (!term) return true;
+        return [supplier.code, supplier.name, supplier.phone, supplier.email, supplier.taxCode].join(" ").toLowerCase().includes(term);
+      });
+      const totalPurchased = suppliers.reduce((sum, supplier) => sum + supplier.totalPurchased, 0);
+      els.suppliersList.innerHTML = suppliers.length ? suppliers.map(supplier => {
+        const share = totalPurchased > 0 ? Math.round((supplier.totalPurchased / totalPurchased) * 1000) / 10 : 0;
+        const isArchived = supplier.status === "archived";
+        return `
+          <article class="supplier-card ${isArchived ? "archived" : ""}">
+            <div class="supplier-card-head"><div><strong>${supplier.name}</strong><small>${supplier.code} · ${supplier.phone}</small></div><span class="badge ${supplier.outstanding > 0 ? "pending" : "active"}">${supplier.outstanding > 0 ? "Còn nợ" : "Đã cân"}</span></div>
+            <div class="supplier-card-stats"><span><small>Đã mua</small><b>${money.format(supplier.totalPurchased)}</b></span><span><small>Phải trả</small><b>${money.format(supplier.outstanding)}</b></span><span><small>Tỷ trọng</small><b>${share}%</b></span></div>
+            <div class="category-share-bar"><span style="width:${Math.min(100, share)}%"></span></div>
+            <div class="supplier-card-foot"><small>${supplier.taxCode ? `MST ${supplier.taxCode}` : "Chưa có mã số thuế"} · ${supplier.lastPurchaseAt ? `Mua gần nhất ${formatDate(supplier.lastPurchaseAt)}` : "Chưa phát sinh mua"}</small><div class="row-actions">${canManagePurchasing() ? `<button class="link-button" type="button" data-edit-supplier="${supplier.id}">Sửa</button><button class="link-button ${isArchived ? "" : "danger-link"}" type="button" data-archive-supplier="${supplier.id}" data-next-status="${isArchived ? "active" : "archived"}" ${!isArchived && supplier.outstanding > 0 ? 'disabled title="Cần thanh toán hết công nợ trước khi ẩn"' : ""}>${isArchived ? "Kích hoạt" : "Ẩn"}</button>` : ""}</div></div>
+          </article>
+        `;
+      }).join("") : `<div class="empty">Chưa có nhà cung cấp phù hợp.</div>`;
+    }
+  }
+
   function renderReports() {
     if (!els.reportCards) return;
     const paidOrders = state.orders.filter(isPaid);
@@ -1298,8 +1528,10 @@
     renderInventory();
     renderStockMovements();
     renderAccounting();
+    renderPurchasing();
     renderReports();
     renderOrderCreatePage();
+    renderPurchaseCreatePage();
     enhanceResponsiveTables();
   }
 
@@ -1706,6 +1938,159 @@
     updateOrderTotalPreview(els.orderCreateForm);
   }
 
+  function renderPurchaseProductPicker() {
+    const products = state.products.filter(product => product.status === "active").sort((a, b) => a.name.localeCompare(b.name));
+    return `
+      <div class="product-picker purchase-product-picker">
+        <div class="product-picker-toolbar"><label class="search-box product-picker-search"><span>⌕</span><input type="search" placeholder="Tìm SKU, tên, danh mục..." data-purchase-product-search /></label><span class="pill" data-purchase-product-count>${products.length} sản phẩm</span></div>
+        <div class="product-picker-list" data-purchase-product-list>${products.map(product => `
+          <button class="product-card" type="button" data-add-product-to-purchase="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}">
+            <span><strong>${product.name}</strong><small>${product.sku} · ${product.category}</small></span>
+            <span><strong>${money.format(product.costPrice)}</strong><small>Giá vốn · tồn ${product.stock}</small></span>
+          </button>
+        `).join("")}</div>
+      </div>
+    `;
+  }
+
+  function renderPurchaseItemRow(productId) {
+    const product = byId("products", productId);
+    if (!product) return "";
+    return `
+      <div class="purchase-item-row" data-purchase-item-row>
+        <div class="cart-product-summary"><strong>${product.name}</strong><small>${product.sku} · tồn ${product.stock}</small><input type="hidden" value="${product.id}" data-purchase-product required /></div>
+        <div class="field compact-field purchase-quantity-field"><label>Số lượng</label><input type="number" min="1" step="1" value="1" data-purchase-quantity required /></div>
+        <div class="field compact-field purchase-cost-field"><label>Đơn giá nhập</label><input type="number" min="0" step="1000" value="${product.costPrice}" data-purchase-cost required /></div>
+        <strong class="purchase-line-total" data-purchase-line-total>${money.format(product.costPrice)}</strong>
+        <button class="icon-button" type="button" data-remove-purchase-item aria-label="Xóa dòng">×</button>
+      </div>
+    `;
+  }
+
+  function filterPurchaseProductPicker(input) {
+    const panel = input && input.closest(".product-picker");
+    if (!panel) return;
+    const term = String(input.value || "").trim().toLowerCase();
+    let visible = 0;
+    panel.querySelectorAll("[data-add-product-to-purchase]").forEach(card => {
+      const matched = !term || card.dataset.productSearch.indexOf(term) !== -1;
+      card.hidden = !matched;
+      if (matched) visible += 1;
+    });
+    const count = panel.querySelector("[data-purchase-product-count]");
+    if (count) count.textContent = `${visible} sản phẩm`;
+  }
+
+  function addProductToPurchase(form, productId) {
+    const list = form && form.querySelector("[data-purchase-items]");
+    const product = byId("products", productId);
+    if (!list || !product) return;
+    const existing = [...list.querySelectorAll("[data-purchase-item-row]")].find(row => row.querySelector("[data-purchase-product]").value === product.id);
+    if (existing) {
+      const quantity = existing.querySelector("[data-purchase-quantity]");
+      quantity.value = Number(quantity.value || 0) + 1;
+    } else {
+      list.insertAdjacentHTML("beforeend", renderPurchaseItemRow(product.id));
+    }
+    updatePurchaseTotalPreview(form);
+  }
+
+  function updatePurchaseTotalPreview(form) {
+    if (!form) return;
+    const rows = [...form.querySelectorAll("[data-purchase-item-row]")];
+    let subtotal = 0;
+    rows.forEach(row => {
+      const quantity = Number(row.querySelector("[data-purchase-quantity]").value || 0);
+      const cost = Number(row.querySelector("[data-purchase-cost]").value || 0);
+      const lineTotal = Math.max(0, quantity * cost);
+      subtotal += lineTotal;
+      const output = row.querySelector("[data-purchase-line-total]");
+      if (output) output.textContent = money.format(lineTotal);
+    });
+    const discount = Number(form.discount && form.discount.value || 0);
+    const shippingFee = Number(form.shippingFee && form.shippingFee.value || 0);
+    const total = Math.max(0, subtotal - discount + shippingFee);
+    const outputs = {
+      "[data-purchase-summary-subtotal]": subtotal,
+      "[data-purchase-summary-discount]": discount,
+      "[data-purchase-summary-shipping]": shippingFee,
+      "[data-purchase-summary-total]": total
+    };
+    Object.entries(outputs).forEach(([selector, value]) => { const output = form.querySelector(selector); if (output) output.textContent = money.format(value); });
+    const empty = form.querySelector("[data-purchase-empty-cart]");
+    const count = form.querySelector("[data-purchase-cart-count]");
+    if (empty) empty.hidden = rows.length > 0;
+    if (count) count.textContent = `${rows.length} dòng`;
+  }
+
+  async function submitPurchaseForm(form) {
+    const data = Object.fromEntries(new FormData(form));
+    const supplier = byId("suppliers", data.supplierId);
+    const items = [...form.querySelectorAll("[data-purchase-item-row]")].map(row => ({
+      productId: row.querySelector("[data-purchase-product]").value,
+      quantity: Number(row.querySelector("[data-purchase-quantity]").value),
+      unitCost: Number(row.querySelector("[data-purchase-cost]").value)
+    }));
+    if (!supplier || !items.length) throw new Error("Cần chọn nhà cung cấp và ít nhất một sản phẩm.");
+    if (items.some(item => !item.productId || item.quantity < 1 || item.unitCost < 0)) throw new Error("Dòng hàng nhập chưa hợp lệ.");
+    const response = await apiRequest("/purchase-orders/create", { method: "POST", body: JSON.stringify({
+      supplierId: data.supplierId,
+      dueDate: data.dueDate || "",
+      invoiceNumber: data.invoiceNumber || "",
+      discount: Number(data.discount || 0),
+      shippingFee: Number(data.shippingFee || 0),
+      note: data.note || "",
+      items
+    }) });
+    state.purchaseOrders.unshift(normalizePurchaseOrder(response.purchaseOrder));
+    await loadPurchasingData({ quiet: true });
+    window.ArtFlowPosStore.save(state);
+    return response.purchaseOrder;
+  }
+
+  function renderPurchaseCreatePage() {
+    if (!els.purchaseCreateForm) return;
+    if (!canCreatePurchase()) {
+      els.purchaseCreateForm.innerHTML = `<section class="panel empty-state"><h2>Cần dữ liệu mua hàng</h2><p>Hãy tạo nhà cung cấp và sản phẩm đang hoạt động trước khi lập phiếu mua.</p><div class="form-actions"><a class="button ghost" href="./purchasing.html">Nhà cung cấp</a><a class="button primary" href="./products.html">Sản phẩm</a></div></section>`;
+      return;
+    }
+    const suppliers = state.suppliers.filter(supplier => supplier.status === "active").map(supplier => `<option value="${supplier.id}">${supplier.name} · ${supplier.phone}</option>`).join("");
+    els.purchaseCreateForm.innerHTML = `
+      <section class="order-compose-grid purchase-compose-grid">
+        <div class="order-compose-main">
+          <section class="panel order-compose-section"><div class="panel-header"><div><h2>Hàng hóa cần mua</h2><p>Tìm sản phẩm, nhập số lượng và đơn giá từ báo giá nhà cung cấp.</p></div></div><div class="order-builder-layout purchase-builder-layout">${renderPurchaseProductPicker()}<div class="order-cart-panel"><div class="order-cart-heading"><strong>Danh sách nhập</strong><span data-purchase-cart-count>0 dòng</span></div><div class="order-empty-cart" data-purchase-empty-cart>Chọn sản phẩm để thêm vào phiếu mua.</div><div class="order-items order-items-large purchase-items" data-purchase-items></div></div></div></section>
+          <section class="panel order-compose-section order-customer-section"><div class="panel-header"><div><h2>Nhà cung cấp</h2><p>Thông tin đối tác và chứng từ mua hàng.</p></div></div><div class="form-grid compact-grid"><div class="field full"><label for="supplierId">Nhà cung cấp</label><select id="supplierId" name="supplierId" required>${suppliers}</select></div><div class="field"><label for="invoiceNumber">Số hóa đơn</label><input id="invoiceNumber" name="invoiceNumber" placeholder="Mẫu số / số hóa đơn" /></div><div class="field"><label for="dueDate">Hạn thanh toán</label><input id="dueDate" name="dueDate" type="date" /></div><div class="field full"><label for="note">Ghi chú</label><input id="note" name="note" placeholder="Điều khoản mua, người giao, số báo giá..." /></div></div></section>
+        </div>
+        <aside class="order-summary-panel"><section class="panel order-compose-section sticky-summary"><div class="panel-header"><div><h2>Tổng phiếu mua</h2><p>Phiếu được lưu ở trạng thái nháp trước khi nhận hàng.</p></div></div><div class="form-grid summary-grid"><div class="field"><label for="discount">Chiết khấu</label><input id="discount" name="discount" type="number" min="0" step="1000" value="0" data-purchase-money /></div><div class="field"><label for="shippingFee">Phí vận chuyển</label><input id="shippingFee" name="shippingFee" type="number" min="0" step="1000" value="0" data-purchase-money /></div></div><div class="summary-lines"><div><span>Tạm tính</span><strong data-purchase-summary-subtotal>${money.format(0)}</strong></div><div><span>Chiết khấu</span><strong data-purchase-summary-discount>${money.format(0)}</strong></div><div><span>Phí vận chuyển</span><strong data-purchase-summary-shipping>${money.format(0)}</strong></div><div class="summary-total"><span>Tổng phải trả</span><strong data-purchase-summary-total>${money.format(0)}</strong></div></div><div class="form-actions order-submit-actions"><a class="button ghost" href="./purchasing.html">Hủy</a><button class="button primary" type="submit">Lưu phiếu mua</button></div></section></aside>
+      </section>
+    `;
+    updatePurchaseTotalPreview(els.purchaseCreateForm);
+  }
+
+  function renderSupplierForm(supplier) {
+    return renderTextFields([
+      ["name", "Tên nhà cung cấp", "text", "Công ty / hộ kinh doanh", "", supplier ? supplier.name : ""],
+      ["phone", "Số điện thoại", "text", "09xx xxx xxx", "", supplier ? supplier.phone : ""],
+      ["email", "Email", "email", "ketoan@nhacungcap.vn", "", supplier ? supplier.email : "", false],
+      ["taxCode", "Mã số thuế", "text", "010xxxxxxx", "", supplier ? supplier.taxCode : "", false],
+      ["address", "Địa chỉ", "text", "Địa chỉ xuất hóa đơn", "", supplier ? supplier.address : "", false],
+      ["note", "Ghi chú", "text", "Điều khoản thanh toán, người liên hệ...", "", supplier ? supplier.note : "", false]
+    ]);
+  }
+
+  function renderPurchasePaymentForm(order) {
+    const today = new Date().toISOString().slice(0, 10);
+    const supplier = getSupplier(order);
+    return `
+      <div class="modal-summary full"><strong>${order.code} · ${supplier.name}</strong><span>Còn phải trả ${money.format(order.outstanding)} · Đã trả ${money.format(order.paidAmount)}</span></div>
+      <div class="field"><label for="paymentDate">Ngày thanh toán</label><input id="paymentDate" name="paymentDate" type="date" value="${today}" required /></div>
+      <div class="field"><label for="amount">Số tiền</label><input id="amount" name="amount" type="number" min="1" max="${Math.max(1, order.outstanding)}" step="1" value="${order.outstanding}" required /></div>
+      <div class="field"><label for="accountId">Tài khoản chi</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions()}</select></div>
+      <div class="field"><label for="categoryId">Danh mục chi</label><select id="categoryId" name="categoryId" required>${renderAccountingCategoryOptions("expense")}</select></div>
+      <div class="field full"><label for="note">Nội dung</label><input id="note" name="note" value="Thanh toán ${order.code}" required /></div>
+    `;
+  }
+
   function renderUserForm() {
     return `
       <div class="field"><label for="name">Tên nhân viên</label><input id="name" name="name" type="text" placeholder="Nguyễn Văn A" required /></div>
@@ -1735,6 +2120,22 @@
     }
     if (["cashTransaction", "orderPayment", "accountingAccount", "accountingCategory", "accountingReconciliation"].includes(type) && !canManageAccounting()) {
       showToast("Bạn không có quyền quản lý kế toán.", "error");
+      return;
+    }
+    if (type === "supplier" && !canManagePurchasing()) {
+      showToast("Bạn không có quyền quản lý nhà cung cấp.", "error");
+      return;
+    }
+    if (type === "purchasePayment" && !canPayPurchases()) {
+      showToast("Chỉ admin có quyền thanh toán công nợ nhà cung cấp.", "error");
+      return;
+    }
+    if (type === "purchasePayment" && (!options.purchaseOrder || options.purchaseOrder.outstanding <= 0)) {
+      showToast("Phiếu mua này không còn công nợ phải trả.", "error");
+      return;
+    }
+    if (type === "purchasePayment" && (!state.accountingAccounts.some(account => account.status === "active") || !state.accountingCategories.some(category => category.status === "active" && category.type === "expense"))) {
+      showToast("Cần có tài khoản tiền và danh mục chi trước khi thanh toán nhà cung cấp.", "error");
       return;
     }
     if ((type === "stockReceive" || type === "stockAdjust") && !state.products.some(product => product.status === "active")) {
@@ -1767,6 +2168,8 @@
     const editingOrder = options.order || null;
     const editingAccountingAccount = options.account || null;
     const editingAccountingCategory = options.category || null;
+    const editingSupplier = options.supplier || null;
+    const editingPurchaseOrder = options.purchaseOrder || null;
     const definitions = {
       product: {
         eyebrow: "Danh mục",
@@ -2056,6 +2459,35 @@
           showToast(editingAccountingCategory ? "Đã cập nhật danh mục kế toán." : "Đã thêm danh mục kế toán.");
         }
       },
+      supplier: {
+        eyebrow: "Nhà cung cấp",
+        title: editingSupplier ? "Sửa nhà cung cấp" : "Thêm nhà cung cấp",
+        body: renderSupplierForm(editingSupplier),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const path = editingSupplier ? "/suppliers/update" : "/suppliers/create";
+          const response = await apiRequest(path, { method: "POST", body: JSON.stringify({ ...data, id: editingSupplier ? editingSupplier.id : undefined }) });
+          const saved = normalizeSupplier(response.supplier);
+          state.suppliers = editingSupplier ? state.suppliers.map(item => item.id === saved.id ? saved : item) : [saved, ...state.suppliers];
+          await loadPurchasingData({ quiet: true });
+          renderPage();
+          showToast(editingSupplier ? "Đã cập nhật nhà cung cấp." : "Đã thêm nhà cung cấp.");
+        }
+      },
+      purchasePayment: {
+        eyebrow: "Công nợ phải trả",
+        title: editingPurchaseOrder ? `Thanh toán ${editingPurchaseOrder.code}` : "Thanh toán phiếu mua",
+        body: editingPurchaseOrder ? renderPurchasePaymentForm(editingPurchaseOrder) : "",
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const response = await apiRequest("/purchase-orders/pay", { method: "POST", body: JSON.stringify({ id: editingPurchaseOrder.id, amount: Number(data.amount), accountId: data.accountId, categoryId: data.categoryId, paymentDate: data.paymentDate, note: data.note || "" }) });
+          const saved = normalizePurchaseOrder(response.purchaseOrder);
+          state.purchaseOrders = state.purchaseOrders.map(item => item.id === saved.id ? saved : item);
+          await Promise.all([loadPurchasingData({ quiet: true }), loadAccountingData({ quiet: true })]);
+          renderPage();
+          showToast(saved.outstanding <= 0 ? "Đã thanh toán đủ công nợ phiếu mua." : "Đã ghi nhận thanh toán một phần.");
+        }
+      },
       user: {
         eyebrow: "Phân quyền",
         title: "Thêm nhân viên",
@@ -2239,6 +2671,19 @@
       });
     }
 
+    if (els.purchaseStatusFilter) {
+      els.purchaseStatusFilter.addEventListener("change", event => {
+        purchasingFilters.status = event.target.value;
+        renderPage();
+      });
+    }
+    if (els.purchasePaymentFilter) {
+      els.purchasePaymentFilter.addEventListener("change", event => {
+        purchasingFilters.paymentStatus = event.target.value;
+        renderPage();
+      });
+    }
+
     if (els.orderCreateForm) {
       els.orderCreateForm.addEventListener("submit", async event => {
         event.preventDefault();
@@ -2247,6 +2692,22 @@
         try {
           await withLoading("Đang tạo đơn hàng...", () => submitOrderForm(event.currentTarget));
           window.location.href = "./orders.html";
+        } catch (error) {
+          showToast(error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+    }
+
+    if (els.purchaseCreateForm) {
+      els.purchaseCreateForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        const button = event.currentTarget.querySelector("button[type='submit']");
+        setBusy(button, true, "Đang lưu...");
+        try {
+          await withLoading("Đang tạo phiếu mua...", () => submitPurchaseForm(event.currentTarget));
+          window.location.href = "./purchasing.html";
         } catch (error) {
           showToast(error.message, "error");
         } finally {
@@ -2269,6 +2730,11 @@
         event.preventDefault();
         navigateToOrderCreate();
       }
+      if (target.matches("[data-open-purchase]")) {
+        event.preventDefault();
+        navigateToPurchaseCreate();
+      }
+      if (target.matches("[data-open-supplier]")) openModal("supplier");
       if (target.matches("[data-open-stock-receive]")) openModal("stockReceive");
       if (target.matches("[data-open-stock-adjust]")) openModal("stockAdjust");
       if (target.matches("[data-open-cash-transaction]")) openModal("cashTransaction");
@@ -2305,11 +2771,55 @@
         });
         renderPage();
       }
+      if (target.dataset.purchasingViewFilter) {
+        purchasingFilters.view = target.dataset.purchasingViewFilter;
+        renderPage();
+      }
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
       if (target.matches("[data-logout]")) await logout();
       if (target.dataset.addProductToOrder) {
         const form = target.closest("form") || els.orderCreateForm || els.modalForm;
         addProductToOrder(form, target.dataset.addProductToOrder);
+      }
+      if (target.dataset.addProductToPurchase) {
+        addProductToPurchase(target.closest("form") || els.purchaseCreateForm, target.dataset.addProductToPurchase);
+      }
+      if (target.matches("[data-remove-purchase-item]")) {
+        const form = target.closest("form") || els.purchaseCreateForm;
+        target.closest("[data-purchase-item-row]").remove();
+        updatePurchaseTotalPreview(form);
+      }
+      if (target.dataset.editSupplier) {
+        const supplier = byId("suppliers", target.dataset.editSupplier);
+        if (supplier) openModal("supplier", { supplier });
+      }
+      if (target.dataset.archiveSupplier && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại nhà cung cấp này?" : "Ẩn nhà cung cấp này khỏi phiếu mua mới?")) {
+        await withLoading("Đang cập nhật nhà cung cấp...", async () => {
+          await apiRequest("/suppliers/archive", { method: "POST", body: JSON.stringify({ id: target.dataset.archiveSupplier, status: target.dataset.nextStatus }) });
+          await loadPurchasingData({ quiet: true });
+        });
+        renderPage();
+        showToast(target.dataset.nextStatus === "active" ? "Đã kích hoạt nhà cung cấp." : "Đã ẩn nhà cung cấp.");
+      }
+      if (target.dataset.receivePurchase && window.confirm("Xác nhận đã nhận đủ hàng và cộng tồn kho?")) {
+        await withLoading("Đang nhận hàng vào kho...", async () => {
+          await apiRequest("/purchase-orders/receive", { method: "POST", body: JSON.stringify({ id: target.dataset.receivePurchase }) });
+          await Promise.all([loadPurchasingData({ quiet: true }), loadProducts({ quiet: true }), loadStockMovements({ quiet: true })]);
+        });
+        renderPage();
+        showToast("Đã nhận hàng, cập nhật tồn kho và công nợ.");
+      }
+      if (target.dataset.payPurchase) {
+        const purchaseOrder = byId("purchaseOrders", target.dataset.payPurchase);
+        if (purchaseOrder) openModal("purchasePayment", { purchaseOrder });
+      }
+      if (target.dataset.cancelPurchase && window.confirm("Hủy phiếu mua này? Phiếu đã nhận sẽ hoàn lại tồn kho nếu hàng chưa được sử dụng.")) {
+        await withLoading("Đang hủy phiếu mua...", async () => {
+          await apiRequest("/purchase-orders/cancel", { method: "POST", body: JSON.stringify({ id: target.dataset.cancelPurchase }) });
+          await Promise.all([loadPurchasingData({ quiet: true }), loadProducts({ quiet: true }), loadStockMovements({ quiet: true })]);
+        });
+        renderPage();
+        showToast("Đã hủy phiếu mua.");
       }
 
       if (target.dataset.editProduct) {
@@ -2438,7 +2948,9 @@
 
     document.addEventListener("input", event => {
       if (event.target.matches("[data-product-picker-search]")) filterProductPicker(event.target);
+      if (event.target.matches("[data-purchase-product-search]")) filterPurchaseProductPicker(event.target);
       if (event.target.matches("[data-order-quantity], [data-order-money]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
+      if (event.target.matches("[data-purchase-quantity], [data-purchase-cost], [data-purchase-money]")) updatePurchaseTotalPreview(event.target.closest("form") || els.purchaseCreateForm);
       if (event.target.matches("[data-reconciliation-actual]")) updateReconciliationPreview(event.target.closest("form") || els.modalForm);
     });
 

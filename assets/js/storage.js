@@ -14,6 +14,9 @@
       accountingCategories: clone(window.ArtFlowPosSeed.accountingCategories || []),
       accountingReconciliations: clone(window.ArtFlowPosSeed.accountingReconciliations || []),
       cashTransactions: clone(window.ArtFlowPosSeed.cashTransactions || []),
+      suppliers: clone(window.ArtFlowPosSeed.suppliers || []),
+      purchaseOrders: clone(window.ArtFlowPosSeed.purchaseOrders || []),
+      supplierPayments: clone(window.ArtFlowPosSeed.supplierPayments || []),
       users: clone(window.ArtFlowPosSeed.users),
       updatedAt: new Date().toISOString()
     };
@@ -31,6 +34,9 @@
       accountingCategories: Array.isArray(state.accountingCategories) ? state.accountingCategories : initial.accountingCategories,
       accountingReconciliations: Array.isArray(state.accountingReconciliations) ? state.accountingReconciliations : initial.accountingReconciliations,
       cashTransactions: Array.isArray(state.cashTransactions) ? state.cashTransactions : initial.cashTransactions,
+      suppliers: Array.isArray(state.suppliers) ? state.suppliers : initial.suppliers,
+      purchaseOrders: Array.isArray(state.purchaseOrders) ? state.purchaseOrders : initial.purchaseOrders,
+      supplierPayments: Array.isArray(state.supplierPayments) ? state.supplierPayments : initial.supplierPayments,
       users: Array.isArray(state.users) ? state.users : initial.users
     };
   }
