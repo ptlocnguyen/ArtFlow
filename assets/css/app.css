@@ -909,10 +909,11 @@ body[data-page="accounting"] .view.active {
 
 .category-chip {
   display: grid;
-  gap: 3px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 14px;
   color: #1e3a8a;
   background: #dbeafe;
+  border: 1px solid #bfdbfe;
   border-radius: 8px;
   font-weight: 800;
 }
@@ -920,6 +921,55 @@ body[data-page="accounting"] .view.active {
 .category-chip.expense {
   color: #93370d;
   background: #fef0c7;
+  border-color: #fde68a;
+}
+
+.category-chip.archived {
+  opacity: 0.72;
+  background: #f8fafc;
+  border-color: var(--border);
+}
+
+.category-chip-main,
+.category-chip-stats,
+.category-chip-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.category-chip-main span {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.category-chip-main strong,
+.category-chip-main small {
+  display: block;
+}
+
+.category-chip-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-top: 8px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.category-chip-stats b {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.category-chip-actions {
+  justify-content: flex-end;
+  padding-top: 2px;
 }
 
 .category-chip small {

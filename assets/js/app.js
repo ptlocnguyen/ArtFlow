@@ -169,7 +169,9 @@
       "/accounting/transactions/create": "createCashTransaction",
       "/accounting/transactions/archive": "archiveCashTransaction",
       "/accounting/accounts/create": "createAccountingAccount",
-      "/accounting/categories/create": "createAccountingCategory"
+      "/accounting/categories/create": "createAccountingCategory",
+      "/accounting/categories/update": "updateAccountingCategory",
+      "/accounting/categories/archive": "archiveAccountingCategory"
     }[path] || "";
   }
 
@@ -1104,9 +1106,37 @@
 
     if (els.accountingCategories) {
       const categories = state.accountingCategories || [];
-      els.accountingCategories.innerHTML = categories.length ? categories.map(category => `
-        <span class="category-chip ${category.type}">${category.name}<small>${accountingTypeLabel(category.type)}</small></span>
-      `).join("") : `<div class="empty">Chưa có danh mục thu/chi.</div>`;
+      els.accountingCategories.innerHTML = categories.length ? categories.map(category => {
+        const relatedTransactions = (state.cashTransactions || []).filter(transaction => transaction.categoryId === category.id && transaction.status !== "deleted");
+        const totalAmount = relatedTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+        const lastUsed = relatedTransactions
+          .map(transaction => transaction.transactionDate || transaction.createdAt)
+          .filter(Boolean)
+          .sort()
+          .pop();
+        const isArchived = category.status === "archived";
+        return `
+          <article class="category-chip ${category.type} ${isArchived ? "archived" : ""}">
+            <div class="category-chip-main">
+              <div>
+                <strong>${category.name}</strong>
+                <small>${accountingTypeLabel(category.type)} · ${isArchived ? "Đang ẩn" : "Đang dùng"}</small>
+              </div>
+              <span>${relatedTransactions.length} GD</span>
+            </div>
+            <div class="category-chip-stats">
+              <span><small>Tổng phát sinh</small><b>${money.format(totalAmount)}</b></span>
+              <span><small>Lần gần nhất</small><b>${lastUsed ? formatDate(lastUsed) : "Chưa dùng"}</b></span>
+            </div>
+            ${canManageAccounting() ? `
+              <div class="category-chip-actions">
+                <button class="link-button" type="button" data-edit-accounting-category="${category.id}">Sửa</button>
+                <button class="link-button ${isArchived ? "" : "danger-link"}" type="button" data-archive-accounting-category="${category.id}" data-next-status="${isArchived ? "active" : "archived"}">${isArchived ? "Kích hoạt" : "Ẩn"}</button>
+              </div>
+            ` : ""}
+          </article>
+        `;
+      }).join("") : `<div class="empty">Chưa có danh mục thu/chi.</div>`;
     }
 
     if (els.accountingTransactionsTable) {
@@ -1383,10 +1413,10 @@
     `;
   }
 
-  function renderAccountingCategoryForm() {
+  function renderAccountingCategoryForm(category) {
     return `
-      <div class="field"><label for="name">Tên danh mục</label><input id="name" name="name" type="text" placeholder="Phí sàn, văn phòng phẩm, thu hoàn COD..." required /></div>
-      <div class="field"><label for="type">Loại</label><select id="type" name="type" required><option value="expense">Chi</option><option value="income">Thu</option></select></div>
+      <div class="field"><label for="name">Tên danh mục</label><input id="name" name="name" type="text" placeholder="Phí sàn, văn phòng phẩm, thu hoàn COD..." value="${category ? category.name : ""}" required /></div>
+      <div class="field"><label for="type">Loại</label><select id="type" name="type" required><option value="expense" ${category && category.type === "expense" ? "selected" : ""}>Chi</option><option value="income" ${category && category.type === "income" ? "selected" : ""}>Thu</option></select></div>
     `;
   }
 
@@ -1629,6 +1659,7 @@
     const editingProduct = options.product || null;
     const editingCustomer = options.customer || null;
     const editingOrder = options.order || null;
+    const editingAccountingCategory = options.category || null;
     const definitions = {
       product: {
         eyebrow: "Danh mục",
@@ -1864,22 +1895,29 @@
       },
       accountingCategory: {
         eyebrow: "Danh mục kế toán",
-        title: "Thêm danh mục",
-        body: renderAccountingCategoryForm(),
+        title: editingAccountingCategory ? "Sửa danh mục" : "Thêm danh mục",
+        body: renderAccountingCategoryForm(editingAccountingCategory),
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
-          if (!String(data.name || "").trim()) throw new Error("Tên danh mục chưa hợp lệ.");
-          const dataFromApi = await apiRequest("/accounting/categories/create", {
+          const name = String(data.name || "").trim();
+          if (!name) throw new Error("Tên danh mục chưa hợp lệ.");
+          const dataFromApi = await apiRequest(editingAccountingCategory ? "/accounting/categories/update" : "/accounting/categories/create", {
             method: "POST",
             body: JSON.stringify({
-              name: data.name,
+              id: editingAccountingCategory ? editingAccountingCategory.id : undefined,
+              name,
               type: data.type
             })
           });
-          state.accountingCategories.unshift(normalizeAccountingCategory(dataFromApi.category));
+          const savedCategory = normalizeAccountingCategory(dataFromApi.category);
+          if (editingAccountingCategory) {
+            state.accountingCategories = state.accountingCategories.map(category => category.id === savedCategory.id ? savedCategory : category);
+          } else {
+            state.accountingCategories.unshift(savedCategory);
+          }
           await loadAccountingData({ quiet: true });
           renderPage();
-          showToast("Đã thêm danh mục kế toán.");
+          showToast(editingAccountingCategory ? "Đã cập nhật danh mục kế toán." : "Đã thêm danh mục kế toán.");
         }
       },
       user: {
@@ -2100,6 +2138,10 @@
       if (target.matches("[data-open-cash-transaction]")) openModal("cashTransaction");
       if (target.matches("[data-open-accounting-account]")) openModal("accountingAccount");
       if (target.matches("[data-open-accounting-category]")) openModal("accountingCategory");
+      if (target.dataset.editAccountingCategory) {
+        const category = byId("accountingCategories", target.dataset.editAccountingCategory);
+        if (category) openModal("accountingCategory", { category });
+      }
       if (target.dataset.accountingViewFilter) {
         accountingFilters.view = target.dataset.accountingViewFilter;
         renderPage();
@@ -2170,6 +2212,22 @@
         });
         renderPage();
         showToast("Đã xóa giao dịch thu/chi.");
+      }
+      if (target.dataset.archiveAccountingCategory && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại danh mục này?" : "Ẩn danh mục này khỏi form ghi thu/chi mới?")) {
+        await withLoading("Đang cập nhật danh mục...", async () => {
+          const dataFromApi = await apiRequest("/accounting/categories/archive", {
+            method: "POST",
+            body: JSON.stringify({
+              id: target.dataset.archiveAccountingCategory,
+              status: target.dataset.nextStatus
+            })
+          });
+          const savedCategory = normalizeAccountingCategory(dataFromApi.category);
+          state.accountingCategories = state.accountingCategories.map(category => category.id === savedCategory.id ? savedCategory : category);
+          await loadAccountingData({ quiet: true });
+        });
+        renderPage();
+        showToast(target.dataset.nextStatus === "active" ? "Đã kích hoạt lại danh mục." : "Đã ẩn danh mục khỏi form mới.");
       }
       if (target.dataset.recordOrderPayment) {
         const order = byId("orders", target.dataset.recordOrderPayment);
