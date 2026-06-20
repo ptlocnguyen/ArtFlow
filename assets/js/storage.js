@@ -17,6 +17,7 @@
       suppliers: clone(window.ArtFlowPosSeed.suppliers || []),
       purchaseOrders: clone(window.ArtFlowPosSeed.purchaseOrders || []),
       supplierPayments: clone(window.ArtFlowPosSeed.supplierPayments || []),
+      purchaseReturns: clone(window.ArtFlowPosSeed.purchaseReturns || []),
       users: clone(window.ArtFlowPosSeed.users),
       updatedAt: new Date().toISOString()
     };
@@ -37,6 +38,7 @@
       suppliers: Array.isArray(state.suppliers) ? state.suppliers : initial.suppliers,
       purchaseOrders: Array.isArray(state.purchaseOrders) ? state.purchaseOrders : initial.purchaseOrders,
       supplierPayments: Array.isArray(state.supplierPayments) ? state.supplierPayments : initial.supplierPayments,
+      purchaseReturns: Array.isArray(state.purchaseReturns) ? state.purchaseReturns : initial.purchaseReturns,
       users: Array.isArray(state.users) ? state.users : initial.users
     };
   }

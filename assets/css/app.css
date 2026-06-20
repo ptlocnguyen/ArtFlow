@@ -1329,6 +1329,43 @@ body[data-page="purchasing"] .view.active {
   border-radius: 8px;
 }
 
+.purchase-return-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(42vh, 360px);
+  overflow: auto;
+}
+
+.purchase-return-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.purchase-return-row strong,
+.purchase-return-row small {
+  display: block;
+}
+
+.purchase-return-row small {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.return-preview {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
 .order-code-cell,
 .customer-channel-cell,
 .fulfillment-cell {
@@ -2340,6 +2377,10 @@ body[data-page="purchasing"] .view.active {
 
   .purchase-item-row {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .purchase-return-row {
+    grid-template-columns: 1fr;
   }
 
   .purchase-item-row .cart-product-summary {
