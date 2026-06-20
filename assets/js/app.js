@@ -941,49 +941,65 @@
   }
 
   function escapeAttribute(value) {
-    return String(value || "").replace(/"/g, "&quot;");
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
-  function productSearchLabel(product) {
-    return `${product.sku} · ${product.name} · ${product.category} · ${money.format(product.salePrice)} · ${product.stock} còn`;
+  function productSearchText(product) {
+    return `${product.sku} ${product.name} ${product.category}`.toLowerCase();
   }
 
-  function findProductFromSearch(value) {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (!normalized) return null;
-    return state.products.find(product => product.status === "active" && (
-      product.id.toLowerCase() === normalized ||
-      product.sku.toLowerCase() === normalized ||
-      productSearchLabel(product).toLowerCase() === normalized
-    )) || null;
-  }
-
-  function syncOrderProductSearch(input) {
-    const row = input && input.closest("[data-order-item-row]");
-    if (!row) return null;
-    const hidden = row.querySelector("[data-order-product]");
-    const product = findProductFromSearch(input.value);
-    hidden.value = product ? product.id : "";
-    row.dataset.productValid = product ? "true" : "false";
-    return product;
-  }
-
-  function renderOrderItemRow() {
-    const rowId = `products-${Date.now()}-${Math.round(Math.random() * 100000)}`;
-    const activeProducts = state.products.filter(product => product.status === "active");
-    const firstProduct = activeProducts[0] || null;
-    const productOptions = activeProducts
-      .map(product => `<option value="${escapeAttribute(productSearchLabel(product))}"></option>`)
-      .join("");
-    const initialLabel = firstProduct ? productSearchLabel(firstProduct) : "";
+  function renderProductPicker() {
+    const products = state.products
+      .filter(product => product.status === "active")
+      .sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0) || a.name.localeCompare(b.name));
 
     return `
-      <div class="order-item-row" data-order-item-row data-product-valid="${firstProduct ? "true" : "false"}">
-        <div class="field order-product-field">
-          <label>Sản phẩm</label>
-          <input type="search" list="${rowId}" value="${escapeAttribute(initialLabel)}" placeholder="Tìm SKU, tên sản phẩm..." autocomplete="off" data-order-product-search required />
-          <input type="hidden" name="productId" value="${firstProduct ? firstProduct.id : ""}" data-order-product required />
-          <datalist id="${rowId}">${productOptions}</datalist>
+      <div class="product-picker">
+        <div class="product-picker-toolbar">
+          <label class="search-box product-picker-search">
+            <span>⌕</span>
+            <input type="search" placeholder="Tìm SKU, tên, danh mục..." data-product-picker-search />
+          </label>
+          <span class="pill" data-product-picker-count>${products.length} sản phẩm</span>
+        </div>
+        <div class="product-picker-list" data-product-picker-list>
+          ${products.map(renderProductPickerCard).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderProductPickerCard(product) {
+    const stockClass = product.stock <= 0 ? "draft" : (product.stock <= product.lowStock ? "low" : "active");
+    const disabled = product.stock <= 0 ? "disabled" : "";
+    return `
+      <button class="product-card" type="button" data-add-product-to-order="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" ${disabled}>
+        <span>
+          <strong>${product.name}</strong>
+          <small>${product.sku} · ${product.category}</small>
+        </span>
+        <span>
+          <strong>${money.format(product.salePrice)}</strong>
+          <small class="badge ${stockClass}">${product.stock} còn</small>
+        </span>
+      </button>
+    `;
+  }
+
+  function renderOrderItemRow(productId) {
+    const product = byId("products", productId) || state.products.find(item => item.status === "active");
+    if (!product) return "";
+
+    return `
+      <div class="order-item-row" data-order-item-row>
+        <div class="cart-product-summary">
+          <strong>${product.name}</strong>
+          <small>${product.sku} · ${money.format(product.salePrice)} · tồn ${product.stock}</small>
+          <input type="hidden" name="productId" value="${product.id}" data-order-product required />
         </div>
         <div class="field compact-field">
           <label>Số lượng</label>
@@ -992,6 +1008,35 @@
         <button class="icon-button" type="button" data-remove-order-item aria-label="Xóa dòng">×</button>
       </div>
     `;
+  }
+
+  function filterProductPicker(input) {
+    const panel = input && input.closest(".product-picker");
+    if (!panel) return;
+    const term = String(input.value || "").trim().toLowerCase();
+    let visible = 0;
+    panel.querySelectorAll("[data-add-product-to-order]").forEach(card => {
+      const matched = !term || card.dataset.productSearch.indexOf(term) !== -1;
+      card.hidden = !matched;
+      if (matched) visible += 1;
+    });
+    const count = panel.querySelector("[data-product-picker-count]");
+    if (count) count.textContent = `${visible} sản phẩm`;
+  }
+
+  function addProductToOrder(form, productId) {
+    const product = byId("products", productId);
+    const list = form && form.querySelector("[data-order-items]");
+    if (!product || !list) return;
+
+    const existing = [...list.querySelectorAll("[data-order-item-row]")].find(row => row.querySelector("[data-order-product]").value === product.id);
+    if (existing) {
+      const quantity = existing.querySelector("[data-order-quantity]");
+      quantity.value = Number(quantity.value || 0) + 1;
+    } else {
+      list.insertAdjacentHTML("beforeend", renderOrderItemRow(product.id));
+    }
+    updateOrderTotalPreview(form);
   }
 
   function renderInventoryProductOptions() {
@@ -1058,7 +1103,8 @@
   function updateOrderTotalPreview(form) {
     if (!form) return;
     const output = form.querySelector("[data-order-total]");
-    const subtotal = [...form.querySelectorAll("[data-order-item-row]")].reduce((sum, row) => {
+    const rows = [...form.querySelectorAll("[data-order-item-row]")];
+    const subtotal = rows.reduce((sum, row) => {
       const product = byId("products", row.querySelector("[data-order-product]").value);
       const quantity = Number(row.querySelector("[data-order-quantity]").value || 0);
       return sum + (product ? product.salePrice * quantity : 0);
@@ -1075,6 +1121,10 @@
     if (discountOutput) discountOutput.textContent = money.format(discount);
     if (shippingOutput) shippingOutput.textContent = money.format(shippingFee);
     if (totalOutput) totalOutput.textContent = money.format(total);
+    const emptyCart = form.querySelector("[data-order-empty-cart]");
+    const cartCount = form.querySelector("[data-order-cart-count]");
+    if (emptyCart) emptyCart.hidden = rows.length > 0;
+    if (cartCount) cartCount.textContent = `${rows.length} dòng`;
   }
 
   async function submitOrderForm(form) {
@@ -1140,8 +1190,18 @@
           </section>
 
           <section class="panel order-compose-section">
-            <div class="panel-header split"><div><h2>Sản phẩm trong đơn</h2><p>Thêm nhiều dòng, kiểm tra tồn và tổng tiền ngay khi nhập.</p></div><button class="button ghost" type="button" data-add-order-item>Thêm dòng</button></div>
-            <div class="order-items order-items-large" data-order-items>${renderOrderItemRow()}</div>
+            <div class="panel-header"><div><h2>Sản phẩm trong đơn</h2><p>Tìm nhanh SKU, tên hoặc danh mục; bấm sản phẩm để thêm vào giỏ.</p></div></div>
+            <div class="order-builder-layout">
+              ${renderProductPicker()}
+              <div class="order-cart-panel">
+                <div class="order-cart-heading">
+                  <strong>Giỏ hàng</strong>
+                  <span data-order-cart-count>0 dòng</span>
+                </div>
+                <div class="order-empty-cart" data-order-empty-cart>Chọn sản phẩm từ danh sách để bắt đầu tạo đơn.</div>
+                <div class="order-items order-items-large" data-order-items></div>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -1552,6 +1612,10 @@
       if (target.matches("[data-open-stock-adjust]")) openModal("stockAdjust");
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
       if (target.matches("[data-logout]")) await logout();
+      if (target.dataset.addProductToOrder) {
+        const form = target.closest("form") || els.orderCreateForm || els.modalForm;
+        addProductToOrder(form, target.dataset.addProductToOrder);
+      }
 
       if (target.dataset.editProduct) {
         const product = byId("products", target.dataset.editProduct);
@@ -1631,18 +1695,11 @@
     });
 
     document.addEventListener("input", event => {
-      if (event.target.matches("[data-order-product-search]")) {
-        syncOrderProductSearch(event.target);
-        updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
-      }
+      if (event.target.matches("[data-product-picker-search]")) filterProductPicker(event.target);
       if (event.target.matches("[data-order-quantity], [data-order-money]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
     });
 
     document.addEventListener("change", async event => {
-      if (event.target.matches("[data-order-product-search]")) {
-        syncOrderProductSearch(event.target);
-        updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
-      }
       if (event.target.matches("[data-order-product]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-order-inline]")) {
         const field = event.target.dataset.orderInline;
