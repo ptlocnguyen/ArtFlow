@@ -1094,6 +1094,17 @@
     `).join("");
   }
 
+  function enhanceResponsiveTables() {
+    document.querySelectorAll(".table-wrap table").forEach(table => {
+      const headers = [...table.querySelectorAll("thead th")].map(th => th.textContent.trim());
+      table.querySelectorAll("tbody tr").forEach(row => {
+        [...row.children].forEach((cell, index) => {
+          if (headers[index]) cell.dataset.label = headers[index];
+        });
+      });
+    });
+  }
+
   function renderPage() {
     const sortedOrders = [...state.orders].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     const orderMatches = order => {
@@ -1135,6 +1146,7 @@
     renderAccounting();
     renderReports();
     renderOrderCreatePage();
+    enhanceResponsiveTables();
   }
 
   function closeModal() {
