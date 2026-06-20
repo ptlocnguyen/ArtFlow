@@ -99,6 +99,8 @@
     purchasingKpis: qs("[data-purchasing-kpis]"),
     purchaseOrdersTable: qs("[data-purchase-orders-table]"),
     suppliersList: qs("[data-suppliers-list]"),
+    purchaseAgingSummary: qs("[data-purchase-aging-summary]"),
+    purchaseAgingTable: qs("[data-purchase-aging-table]"),
     purchaseStatusFilter: qs("[data-purchase-status-filter]"),
     purchasePaymentFilter: qs("[data-purchase-payment-filter]"),
     reportCards: qs("[data-report-cards]"),
@@ -197,7 +199,8 @@
       "/purchase-orders/receive": "receivePurchaseOrder",
       "/purchase-orders/pay": "payPurchaseOrder",
       "/purchase-orders/cancel": "cancelPurchaseOrder",
-      "/purchase-orders/return": "returnPurchaseOrder"
+      "/purchase-orders/return": "returnPurchaseOrder",
+      "/purchase-orders/apply-credit": "applySupplierCredit"
     }[path] || "";
   }
 
@@ -291,6 +294,13 @@
   function formatDate(value) {
     if (!value) return "Chưa có";
     return dateFormat.format(new Date(`${String(value).slice(0, 10)}T00:00:00`));
+  }
+
+  function localDateValue(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
 
   function isAdmin() {
@@ -425,6 +435,22 @@
 
   function canReturnPurchaseOrder(order) {
     return canManagePurchasing() && order.status === "received" && (order.items || []).some(item => item.quantity > returnedPurchaseItemQuantity(item.id));
+  }
+
+  function purchaseDueDays(order, today = new Date()) {
+    if (!order.dueDate) return null;
+    const due = new Date(`${order.dueDate}T00:00:00`);
+    const current = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    if (!isFinite(due.getTime())) return null;
+    return Math.floor((current.getTime() - due.getTime()) / (24 * 60 * 60 * 1000));
+  }
+
+  function purchaseAgingBucket(order) {
+    const days = purchaseDueDays(order);
+    if (days === null || days <= 0) return { key: "current", label: "Chưa đến hạn", tone: "active", days };
+    if (days <= 30) return { key: "1-30", label: "Quá hạn 1–30 ngày", tone: "pending", days };
+    if (days <= 60) return { key: "31-60", label: "Quá hạn 31–60 ngày", tone: "pending", days };
+    return { key: "60+", label: "Quá hạn trên 60 ngày", tone: "cancelled", days };
   }
 
   function isPaid(order) {
@@ -723,9 +749,11 @@
       shippingFee: Number(order.shippingFee || 0),
       total: Number(order.total || 0),
       paidAmount: Number(order.paidAmount || 0),
+      creditAppliedAmount: Number(order.creditAppliedAmount || 0),
+      settledAmount: Number(order.settledAmount === undefined ? Number(order.paidAmount || 0) + Number(order.creditAppliedAmount || 0) : order.settledAmount),
       returnedAmount: Number(order.returnedAmount || 0),
       netTotal: Number(order.netTotal === undefined ? Math.max(0, Number(order.total || 0) - Number(order.returnedAmount || 0)) : order.netTotal),
-      outstanding: Number(order.outstanding === undefined ? Math.max(0, Number(order.total || 0) - Number(order.returnedAmount || 0) - Number(order.paidAmount || 0)) : order.outstanding),
+      outstanding: Number(order.outstanding === undefined ? Math.max(0, Number(order.total || 0) - Number(order.returnedAmount || 0) - Number(order.paidAmount || 0) - Number(order.creditAppliedAmount || 0)) : order.outstanding),
       creditAmount: Number(order.creditAmount || 0),
       dueDate: order.dueDate || "",
       invoiceNumber: order.invoiceNumber || "",
@@ -787,6 +815,18 @@
     };
   }
 
+  function normalizeSupplierCreditApplication(application) {
+    return {
+      id: application.id,
+      supplierId: application.supplierId || "",
+      purchaseOrderId: application.purchaseOrderId || "",
+      amount: Number(application.amount || 0),
+      note: application.note || "",
+      createdBy: application.createdBy || "",
+      createdAt: application.createdAt || ""
+    };
+  }
+
   async function loadPurchasingData(options = {}) {
     try {
       const data = await apiRequest("/purchasing");
@@ -794,6 +834,7 @@
       state.purchaseOrders = (data.purchaseOrders || []).map(normalizePurchaseOrder);
       state.supplierPayments = (data.supplierPayments || []).map(normalizeSupplierPayment);
       state.purchaseReturns = (data.purchaseReturns || []).map(normalizePurchaseReturn);
+      state.supplierCreditApplications = (data.supplierCreditApplications || []).map(normalizeSupplierCreditApplication);
       window.ArtFlowPosStore.save(state);
       return true;
     } catch (error) {
@@ -801,6 +842,7 @@
       state.purchaseOrders = state.purchaseOrders || [];
       state.supplierPayments = state.supplierPayments || [];
       state.purchaseReturns = state.purchaseReturns || [];
+      state.supplierCreditApplications = state.supplierCreditApplications || [];
       if (!options.quiet) showToast(error.message, "error");
       return false;
     }
@@ -841,6 +883,7 @@
       state.purchaseOrders = (data.purchaseOrders || []).map(normalizePurchaseOrder);
       state.supplierPayments = (data.supplierPayments || []).map(normalizeSupplierPayment);
       state.purchaseReturns = (data.purchaseReturns || []).map(normalizePurchaseReturn);
+      state.supplierCreditApplications = (data.supplierCreditApplications || []).map(normalizeSupplierCreditApplication);
     }
     window.ArtFlowPosStore.save(state);
   }
@@ -1491,10 +1534,10 @@
   }
 
   function renderPurchasing() {
-    if (!els.purchasingKpis && !els.purchaseOrdersTable && !els.suppliersList) return;
+    if (!els.purchasingKpis && !els.purchaseOrdersTable && !els.suppliersList && !els.purchaseAgingTable) return;
     syncPurchasingView();
     const term = searchTerm.trim().toLowerCase();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateValue();
     const monthPrefix = today.slice(0, 7);
     const activeOrders = (state.purchaseOrders || []).filter(order => order.status !== "cancelled");
     const payableOrders = activeOrders.filter(order => order.status === "received");
@@ -1531,14 +1574,15 @@
         if (canManagePurchasing() && order.status === "draft") actions.push(`<a class="link-button" href="./purchase-create.html?edit=${order.id}">Sửa</a><button class="link-button" type="button" data-receive-purchase="${order.id}">Nhận hàng</button>`);
         if (canReturnPurchaseOrder(order)) actions.push(`<button class="link-button" type="button" data-return-purchase="${order.id}">Trả hàng</button>`);
         if (canPayPurchases() && order.status === "received" && order.outstanding > 0) actions.push(`<button class="link-button" type="button" data-pay-purchase="${order.id}">Thanh toán</button>`);
-        if (canManagePurchasing() && ["draft", "received"].includes(order.status) && order.paidAmount <= 0 && order.returnedAmount <= 0) actions.push(`<button class="link-button danger-link" type="button" data-cancel-purchase="${order.id}">Hủy</button>`);
+        if (canPayPurchases() && order.status === "received" && order.outstanding > 0 && supplier.creditBalance > 0) actions.push(`<button class="link-button" type="button" data-apply-supplier-credit="${order.id}">Bù trừ</button>`);
+        if (canManagePurchasing() && ["draft", "received"].includes(order.status) && order.paidAmount <= 0 && order.creditAppliedAmount <= 0 && order.returnedAmount <= 0) actions.push(`<button class="link-button danger-link" type="button" data-cancel-purchase="${order.id}">Hủy</button>`);
         return `
           <tr class="${isOverdue ? "overdue-row" : ""}">
             <td><strong>${order.code}</strong><br><small>${order.invoiceNumber || "Chưa có số hóa đơn"}</small></td>
             <td><strong>${supplier.name}</strong><br><small>${supplier.code}</small></td>
             <td>${purchaseItemSummary(order)}${order.returnedAmount > 0 ? `<br><small>Đã trả ${money.format(order.returnedAmount)}</small>` : ""}</td>
             <td><span class="badge ${order.status === "received" ? "active" : order.status === "cancelled" ? "cancelled" : "pending"}">${statusLabel(order.status)}</span><br><small>${statusLabel(order.paymentStatus)}</small></td>
-            <td><strong>${money.format(order.status === "draft" ? order.total : order.outstanding)}</strong><br><small>${order.status === "draft" ? "Dự kiến, chưa ghi công nợ" : order.creditAmount > 0 ? `Dư có ${money.format(order.creditAmount)}` : `Đã trả ${money.format(order.paidAmount)}`}</small></td>
+            <td><strong>${money.format(order.status === "draft" ? order.total : order.outstanding)}</strong><br><small>${order.status === "draft" ? "Dự kiến, chưa ghi công nợ" : order.creditAmount > 0 ? `Dư có ${money.format(order.creditAmount)}` : `Tiền ${money.format(order.paidAmount)} · Bù ${money.format(order.creditAppliedAmount)}`}</small></td>
             <td><span class="${isOverdue ? "danger-text" : ""}">${order.dueDate ? formatDate(order.dueDate) : "Chưa đặt hạn"}</span></td>
             <td><div class="row-actions">${actions.join("") || "—"}</div></td>
           </tr>
@@ -1560,10 +1604,39 @@
             <div class="supplier-card-head"><div><strong>${supplier.name}</strong><small>${supplier.code} · ${supplier.phone}</small></div><span class="badge ${supplier.outstanding > 0 ? "pending" : "active"}">${supplier.outstanding > 0 ? "Còn nợ" : supplier.creditBalance > 0 ? "Dư có" : "Đã cân"}</span></div>
             <div class="supplier-card-stats"><span><small>Đã mua</small><b>${money.format(supplier.totalPurchased)}</b></span><span><small>Phải trả</small><b>${money.format(supplier.outstanding)}</b></span><span><small>Tỷ trọng</small><b>${share}%</b></span></div>
             <div class="category-share-bar"><span style="width:${Math.min(100, share)}%"></span></div>
-            <div class="supplier-card-foot"><small>${supplier.taxCode ? `MST ${supplier.taxCode}` : "Chưa có mã số thuế"} · ${supplier.creditBalance > 0 ? `Dư có ${money.format(supplier.creditBalance)}` : supplier.lastPurchaseAt ? `Mua gần nhất ${formatDate(supplier.lastPurchaseAt)}` : "Chưa phát sinh mua"}</small><div class="row-actions">${canManagePurchasing() ? `<button class="link-button" type="button" data-edit-supplier="${supplier.id}">Sửa</button><button class="link-button ${isArchived ? "" : "danger-link"}" type="button" data-archive-supplier="${supplier.id}" data-next-status="${isArchived ? "active" : "archived"}" ${!isArchived && supplier.outstanding > 0 ? 'disabled title="Cần thanh toán hết công nợ trước khi ẩn"' : ""}>${isArchived ? "Kích hoạt" : "Ẩn"}</button>` : ""}</div></div>
+            <div class="supplier-card-foot"><small>${supplier.taxCode ? `MST ${supplier.taxCode}` : "Chưa có mã số thuế"} · ${supplier.creditBalance > 0 ? `Dư có ${money.format(supplier.creditBalance)}` : supplier.lastPurchaseAt ? `Mua gần nhất ${formatDate(supplier.lastPurchaseAt)}` : "Chưa phát sinh mua"}</small><div class="row-actions"><button class="link-button" type="button" data-supplier-statement="${supplier.id}">Lịch sử</button>${canManagePurchasing() ? `<button class="link-button" type="button" data-edit-supplier="${supplier.id}">Sửa</button><button class="link-button ${isArchived ? "" : "danger-link"}" type="button" data-archive-supplier="${supplier.id}" data-next-status="${isArchived ? "active" : "archived"}" ${!isArchived && (supplier.outstanding > 0 || supplier.creditBalance > 0) ? 'disabled title="Cần tất toán công nợ và dư có trước khi ẩn"' : ""}>${isArchived ? "Kích hoạt" : "Ẩn"}</button>` : ""}</div></div>
           </article>
         `;
       }).join("") : `<div class="empty">Chưa có nhà cung cấp phù hợp.</div>`;
+    }
+
+    const agingOrders = payableOrders
+      .filter(order => order.outstanding > 0)
+      .sort((a, b) => {
+        const aDays = purchaseDueDays(a);
+        const bDays = purchaseDueDays(b);
+        return (bDays === null ? -Infinity : bDays) - (aDays === null ? -Infinity : aDays);
+      });
+    if (els.purchaseAgingSummary) {
+      const buckets = [
+        ["current", "Chưa đến hạn"],
+        ["1-30", "Quá hạn 1–30"],
+        ["31-60", "Quá hạn 31–60"],
+        ["60+", "Quá hạn trên 60"]
+      ];
+      els.purchaseAgingSummary.innerHTML = buckets.map(([key, label]) => {
+        const bucketOrders = agingOrders.filter(order => purchaseAgingBucket(order).key === key);
+        const amount = bucketOrders.reduce((sum, order) => sum + order.outstanding, 0);
+        return `<article><small>${label}</small><strong>${money.format(amount)}</strong><span>${bucketOrders.length} phiếu</span></article>`;
+      }).join("");
+    }
+    if (els.purchaseAgingTable) {
+      els.purchaseAgingTable.innerHTML = agingOrders.length ? agingOrders.map(order => {
+        const supplier = getSupplier(order);
+        const bucket = purchaseAgingBucket(order);
+        const dueText = bucket.days === null ? "Chưa đặt hạn" : bucket.days > 0 ? `${bucket.days} ngày quá hạn` : bucket.days === 0 ? "Đến hạn hôm nay" : `Còn ${Math.abs(bucket.days)} ngày`;
+        return `<tr class="${bucket.days > 0 ? "overdue-row" : ""}"><td><span class="badge ${bucket.tone}">${bucket.label}</span></td><td><strong>${order.code}</strong></td><td>${supplier.name}</td><td>${order.dueDate ? formatDate(order.dueDate) : "—"}</td><td class="${bucket.days > 0 ? "danger-text" : ""}">${dueText}</td><td><strong>${money.format(order.outstanding)}</strong></td><td><div class="row-actions">${canPayPurchases() ? `<button class="link-button" type="button" data-pay-purchase="${order.id}">Thanh toán</button>${supplier.creditBalance > 0 ? `<button class="link-button" type="button" data-apply-supplier-credit="${order.id}">Bù trừ</button>` : ""}` : "—"}</div></td></tr>`;
+      }).join("") : `<tr><td colspan="7" class="empty">Không có công nợ phải trả.</td></tr>`;
     }
   }
 
@@ -2233,6 +2306,39 @@
     `;
   }
 
+  function renderSupplierCreditForm(order) {
+    const supplier = getSupplier(order);
+    const maximum = Math.min(order.outstanding, supplier.creditBalance);
+    return `
+      <div class="modal-summary full"><strong>${order.code} · ${supplier.name}</strong><span>Còn phải trả ${money.format(order.outstanding)} · Dư có khả dụng ${money.format(supplier.creditBalance)}</span></div>
+      <div class="field"><label for="amount">Số tiền bù trừ</label><input id="amount" name="amount" type="number" min="1" max="${Math.max(1, maximum)}" step="1" value="${maximum}" required /></div>
+      <div class="field full"><label for="note">Nội dung</label><input id="note" name="note" value="Bù trừ dư có cho ${order.code}" required /></div>
+    `;
+  }
+
+  function renderSupplierStatement(supplier) {
+    const entries = [];
+    (state.purchaseOrders || []).filter(order => order.supplierId === supplier.id && order.status === "received").forEach(order => {
+      entries.push({ date: order.receivedAt || order.createdAt, label: `Nhận hàng ${order.code}`, kind: "Tăng công nợ", amount: order.total });
+    });
+    (state.supplierPayments || []).filter(payment => payment.supplierId === supplier.id).forEach(payment => {
+      const order = byId("purchaseOrders", payment.purchaseOrderId);
+      entries.push({ date: payment.paymentDate || payment.createdAt, label: `Thanh toán ${order ? order.code : "phiếu mua"}`, kind: "Chi tiền", amount: -payment.amount });
+    });
+    (state.purchaseReturns || []).filter(item => item.supplierId === supplier.id).forEach(item => {
+      entries.push({ date: item.createdAt, label: `Trả hàng ${item.code}`, kind: "Giảm công nợ", amount: -item.amount });
+    });
+    (state.supplierCreditApplications || []).filter(item => item.supplierId === supplier.id).forEach(item => {
+      const order = byId("purchaseOrders", item.purchaseOrderId);
+      entries.push({ date: item.createdAt, label: `Bù trừ ${order ? order.code : "phiếu mua"}`, kind: "Dùng dư có", amount: -item.amount });
+    });
+    entries.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    return `
+      <div class="supplier-statement-summary full"><span><small>Tổng đã mua</small><strong>${money.format(supplier.totalPurchased)}</strong></span><span><small>Còn phải trả</small><strong>${money.format(supplier.outstanding)}</strong></span><span><small>Dư có</small><strong>${money.format(supplier.creditBalance)}</strong></span></div>
+      <div class="statement-list full">${entries.length ? entries.map(entry => `<article><div><strong>${entry.label}</strong><small>${entry.kind} · ${formatDate(entry.date)}</small></div><b class="${entry.amount < 0 ? "positive-text" : ""}">${entry.amount > 0 ? "+" : "−"}${money.format(Math.abs(entry.amount))}</b></article>`).join("") : `<div class="empty">Chưa có giao dịch với nhà cung cấp này.</div>`}</div>
+    `;
+  }
+
   function renderPurchaseReturnForm(order) {
     const supplier = getSupplier(order);
     const rows = (order.items || []).map(item => {
@@ -2306,9 +2412,21 @@
       showToast("Chỉ admin có quyền thanh toán công nợ nhà cung cấp.", "error");
       return;
     }
+    if (type === "supplierCredit" && !canPayPurchases()) {
+      showToast("Chỉ admin có quyền bù trừ dư có nhà cung cấp.", "error");
+      return;
+    }
     if (type === "purchasePayment" && (!options.purchaseOrder || options.purchaseOrder.outstanding <= 0)) {
       showToast("Phiếu mua này không còn công nợ phải trả.", "error");
       return;
+    }
+    if (type === "supplierCredit") {
+      const creditOrder = options.purchaseOrder;
+      const creditSupplier = creditOrder ? getSupplier(creditOrder) : null;
+      if (!creditOrder || creditOrder.outstanding <= 0 || !creditSupplier || creditSupplier.creditBalance <= 0) {
+        showToast("Phiếu mua hoặc dư có nhà cung cấp không còn đủ điều kiện bù trừ.", "error");
+        return;
+      }
     }
     if (type === "purchasePayment" && (!state.accountingAccounts.some(account => account.status === "active") || !state.accountingCategories.some(category => category.status === "active" && category.type === "expense"))) {
       showToast("Cần có tài khoản tiền và danh mục chi trước khi thanh toán nhà cung cấp.", "error");
@@ -2664,6 +2782,34 @@
           showToast(saved.outstanding <= 0 ? "Đã thanh toán đủ công nợ phiếu mua." : "Đã ghi nhận thanh toán một phần.");
         }
       },
+      supplierCredit: {
+        eyebrow: "Dư có nhà cung cấp",
+        title: editingPurchaseOrder ? `Bù trừ ${editingPurchaseOrder.code}` : "Bù trừ công nợ",
+        body: editingPurchaseOrder ? renderSupplierCreditForm(editingPurchaseOrder) : "",
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const response = await apiRequest("/purchase-orders/apply-credit", {
+            method: "POST",
+            body: JSON.stringify({ id: editingPurchaseOrder.id, amount: Number(data.amount), note: data.note || "" })
+          });
+          const savedOrder = normalizePurchaseOrder(response.purchaseOrder);
+          state.purchaseOrders = state.purchaseOrders.map(item => item.id === savedOrder.id ? savedOrder : item);
+          if (response.supplier) {
+            const savedSupplier = normalizeSupplier(response.supplier);
+            state.suppliers = state.suppliers.map(item => item.id === savedSupplier.id ? savedSupplier : item);
+          }
+          if (response.creditApplication) state.supplierCreditApplications.unshift(normalizeSupplierCreditApplication(response.creditApplication));
+          await loadPurchasingData({ quiet: true });
+          renderPage();
+          showToast(savedOrder.outstanding <= 0 ? "Đã bù trừ đủ công nợ phiếu mua." : "Đã bù trừ một phần công nợ.");
+        }
+      },
+      supplierStatement: {
+        eyebrow: "Sổ công nợ nhà cung cấp",
+        title: editingSupplier ? editingSupplier.name : "Lịch sử giao dịch",
+        body: editingSupplier ? renderSupplierStatement(editingSupplier) : "",
+        readOnly: true
+      },
       purchaseReturn: {
         eyebrow: "Trả hàng nhà cung cấp",
         title: editingPurchaseOrder ? `Trả hàng ${editingPurchaseOrder.code}` : "Trả hàng mua",
@@ -2710,13 +2856,12 @@
     els.modalEyebrow.textContent = definition.eyebrow;
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
-    els.modalForm.insertAdjacentHTML("beforeend", `
-      <div class="form-actions">
-        <button class="button ghost" type="button" data-close-modal>Hủy</button>
-        <button class="button primary" type="submit">Lưu</button>
-      </div>
+    els.modalForm.insertAdjacentHTML("beforeend", definition.readOnly ? `
+      <div class="form-actions"><button class="button primary" type="button" data-close-modal>Đóng</button></div>
+    ` : `
+      <div class="form-actions"><button class="button ghost" type="button" data-close-modal>Hủy</button><button class="button primary" type="submit">Lưu</button></div>
     `);
-    els.modalForm.onsubmit = async event => {
+    els.modalForm.onsubmit = definition.readOnly ? null : async event => {
       event.preventDefault();
       const button = event.currentTarget.querySelector("button[type='submit']");
       setBusy(button, true, "Đang lưu...");
@@ -2996,6 +3141,10 @@
         const supplier = byId("suppliers", target.dataset.editSupplier);
         if (supplier) openModal("supplier", { supplier });
       }
+      if (target.dataset.supplierStatement) {
+        const supplier = byId("suppliers", target.dataset.supplierStatement);
+        if (supplier) openModal("supplierStatement", { supplier });
+      }
       if (target.dataset.archiveSupplier && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại nhà cung cấp này?" : "Ẩn nhà cung cấp này khỏi phiếu mua mới?")) {
         await withLoading("Đang cập nhật nhà cung cấp...", async () => {
           await apiRequest("/suppliers/archive", { method: "POST", body: JSON.stringify({ id: target.dataset.archiveSupplier, status: target.dataset.nextStatus }) });
@@ -3015,6 +3164,10 @@
       if (target.dataset.payPurchase) {
         const purchaseOrder = byId("purchaseOrders", target.dataset.payPurchase);
         if (purchaseOrder) openModal("purchasePayment", { purchaseOrder });
+      }
+      if (target.dataset.applySupplierCredit) {
+        const purchaseOrder = byId("purchaseOrders", target.dataset.applySupplierCredit);
+        if (purchaseOrder) openModal("supplierCredit", { purchaseOrder });
       }
       if (target.dataset.returnPurchase) {
         const purchaseOrder = byId("purchaseOrders", target.dataset.returnPurchase);

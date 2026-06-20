@@ -22,6 +22,7 @@
         <div class="segmented-control purchasing-view-switch" role="group" aria-label="Chế độ xem mua hàng">
           <button class="active" type="button" data-purchasing-view-filter="orders">Phiếu mua</button>
           <button type="button" data-purchasing-view-filter="suppliers">Nhà cung cấp</button>
+          <button type="button" data-purchasing-view-filter="aging">Tuổi nợ</button>
         </div>
         <section class="panel purchasing-panel" data-purchasing-section="orders">
           <div class="panel-header split"><div><h2>Phiếu mua và công nợ</h2><p>Nhận hàng, theo dõi hạn trả và thanh toán cho nhà cung cấp.</p></div></div>
@@ -34,6 +35,11 @@
         <section class="panel purchasing-panel" data-purchasing-section="suppliers" hidden>
           <div class="panel-header split"><div><h2>Nhà cung cấp</h2><p>Thông tin liên hệ, giá trị mua và công nợ hiện tại.</p></div><button class="button ghost" type="button" data-open-supplier>Thêm nhà cung cấp</button></div>
           <div class="supplier-grid" data-suppliers-list></div>
+        </section>
+        <section class="panel purchasing-panel" data-purchasing-section="aging" hidden>
+          <div class="panel-header split"><div><h2>Tuổi nợ phải trả</h2><p>Ưu tiên khoản quá hạn lâu nhất và các phiếu sắp đến hạn.</p></div></div>
+          <div class="aging-summary" data-purchase-aging-summary></div>
+          <div class="table-wrap"><table class="purchase-table aging-table"><thead><tr><th>Nhóm tuổi nợ</th><th>Phiếu mua</th><th>Nhà cung cấp</th><th>Hạn trả</th><th>Số ngày</th><th>Còn phải trả</th><th>Thao tác</th></tr></thead><tbody data-purchase-aging-table></tbody></table></div>
         </section>
       </section>
     </main>

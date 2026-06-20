@@ -11,5 +11,6 @@ window.ArtFlowPosSeed = {
   purchaseOrders: [],
   supplierPayments: [],
   purchaseReturns: [],
+  supplierCreditApplications: [],
   users: []
 };
