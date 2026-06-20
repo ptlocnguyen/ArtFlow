@@ -1786,7 +1786,7 @@
       orderFulfillment: {
         eyebrow: "Vận chuyển",
         title: editingOrder ? `Cập nhật ${editingOrder.code}` : "Cập nhật vận đơn",
-        body: renderOrderFulfillmentForm(editingOrder),
+        body: editingOrder ? renderOrderFulfillmentForm(editingOrder) : "",
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           await updateOrderFulfillment(editingOrder.id, {
@@ -1828,7 +1828,7 @@
       orderPayment: {
         eyebrow: "Công nợ",
         title: editingOrder ? `Ghi thu ${editingOrder.code}` : "Ghi thu đơn hàng",
-        body: renderOrderPaymentForm(editingOrder),
+        body: editingOrder ? renderOrderPaymentForm(editingOrder) : "",
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           await recordOrderPayment(editingOrder.id, {
