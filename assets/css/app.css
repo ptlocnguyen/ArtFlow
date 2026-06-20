@@ -706,21 +706,26 @@ body[data-page="reports"] .view.active {
 }
 
 body[data-page="accounting"] .view.active {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .accounting-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 0;
 }
 
 .accounting-ledger,
-.accounting-side-panel {
+.accounting-side-panel,
+.accounting-setup-grid {
   display: flex;
   min-height: 0;
   flex-direction: column;
+}
+
+.accounting-view-switch {
+  justify-self: start;
+  margin: 0 0 2px;
 }
 
 .accounting-ledger .table-wrap {
@@ -736,6 +741,25 @@ body[data-page="accounting"] .view.active {
   grid-template-rows: minmax(160px, 0.75fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
   min-height: 0;
+}
+
+.accounting-focus-panel {
+  min-height: 0;
+}
+
+.accounting-focus-panel .accounting-todo-list {
+  flex: 1 1 auto;
+}
+
+.accounting-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.accounting-setup-grid[hidden],
+[data-accounting-section][hidden] {
+  display: none;
 }
 
 .accounting-toolbar {
@@ -1553,6 +1577,10 @@ body[data-page="accounting"] .view.active {
     overflow: auto;
   }
 
+  .accounting-setup-grid {
+    grid-template-columns: 1fr;
+  }
+
   .accounting-toolbar {
     grid-template-columns: 1fr 1fr;
   }
@@ -1797,12 +1825,28 @@ body[data-page="accounting"] .view.active {
     grid-template-columns: 1fr;
   }
 
+  body[data-page="accounting"] .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-page="accounting"] .kpi-card {
+    padding: 12px;
+  }
+
+  body[data-page="accounting"] .kpi-value {
+    font-size: 20px;
+  }
+
+  body[data-page="accounting"] .kpi-note {
+    display: none;
+  }
+
   .category-chip-list {
     grid-template-columns: 1fr;
   }
 
   .debt-summary {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .debt-filter {
@@ -1811,6 +1855,16 @@ body[data-page="accounting"] .view.active {
 
   .accounting-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .accounting-view-switch {
+    display: flex;
+    width: 100%;
+  }
+
+  .accounting-view-switch button {
+    flex: 1;
+    min-width: 0;
   }
 
   .segmented-control button {

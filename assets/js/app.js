@@ -11,7 +11,7 @@
   let staffUsers = [];
   let searchTerm = "";
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
-  const accountingFilters = { type: "all", accountId: "all", range: "30", receivable: "all" };
+  const accountingFilters = { view: "receivables", type: "all", accountId: "all", range: "30", receivable: "all" };
 
   const channels = {
     pos: "POS",
@@ -984,8 +984,18 @@
     }).join("") : `<tr><td colspan="6" class="empty">Chưa có biến động kho.</td></tr>`;
   }
 
+  function syncAccountingView() {
+    document.querySelectorAll("[data-accounting-view-filter]").forEach(button => {
+      button.classList.toggle("active", button.dataset.accountingViewFilter === accountingFilters.view);
+    });
+    document.querySelectorAll("[data-accounting-section]").forEach(section => {
+      section.hidden = section.dataset.accountingSection !== accountingFilters.view;
+    });
+  }
+
   function renderAccounting() {
     if (!els.accountingKpis && !els.accountingTransactionsTable) return;
+    syncAccountingView();
     const term = searchTerm.trim().toLowerCase();
     if (els.accountingAccountFilter) {
       const current = accountingFilters.accountId;
@@ -2090,6 +2100,10 @@
       if (target.matches("[data-open-cash-transaction]")) openModal("cashTransaction");
       if (target.matches("[data-open-accounting-account]")) openModal("accountingAccount");
       if (target.matches("[data-open-accounting-category]")) openModal("accountingCategory");
+      if (target.dataset.accountingViewFilter) {
+        accountingFilters.view = target.dataset.accountingViewFilter;
+        renderPage();
+      }
       if (target.dataset.accountingTypeFilter) {
         accountingFilters.type = target.dataset.accountingTypeFilter;
         document.querySelectorAll("[data-accounting-type-filter]").forEach(button => {

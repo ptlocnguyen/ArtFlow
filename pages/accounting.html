@@ -15,8 +15,23 @@
       <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div><p class="eyebrow">Kế toán</p><h1 data-page-title>Kế toán</h1></div><div class="topbar-actions"><label class="search-box"><span>⌕</span><input data-global-search type="search" placeholder="Tìm nội dung, danh mục, tham chiếu..." /></label><button class="button primary" type="button" data-open-cash-transaction>Ghi thu/chi</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button></div></header>
       <section class="view active accounting-view">
         <div class="kpi-grid" data-accounting-kpis></div>
+        <div class="segmented-control accounting-view-switch" role="group" aria-label="Chế độ xem kế toán">
+          <button class="active" type="button" data-accounting-view-filter="receivables">Công nợ</button>
+          <button type="button" data-accounting-view-filter="ledger">Sổ quỹ</button>
+          <button type="button" data-accounting-view-filter="setup">Thiết lập</button>
+        </div>
         <section class="accounting-layout">
-          <section class="panel accounting-ledger">
+          <section class="panel accounting-side-panel accounting-actions-panel accounting-focus-panel" data-accounting-section="receivables">
+            <div class="panel-header split"><div><h2>Công nợ phải thu</h2><p>Ưu tiên các khoản chưa thu, theo dõi tuổi nợ và ghi thu từng phần.</p></div><button class="button ghost" type="button" data-open-cash-transaction>Ghi thu/chi khác</button></div>
+            <div class="debt-summary" data-accounting-debt-summary></div>
+            <div class="segmented-control debt-filter" role="group" aria-label="Lọc công nợ">
+              <button class="active" type="button" data-accounting-receivable-filter="all">Tất cả</button>
+              <button type="button" data-accounting-receivable-filter="watch">Cần chú ý</button>
+              <button type="button" data-accounting-receivable-filter="overdue">Quá hạn</button>
+            </div>
+            <div class="accounting-todo-list" data-accounting-receivables></div>
+          </section>
+          <section class="panel accounting-ledger" data-accounting-section="ledger" hidden>
             <div class="panel-header split"><div><h2>Sổ quỹ</h2><p>Theo dõi tiền vào/ra theo tài khoản, danh mục và tham chiếu nghiệp vụ.</p></div><button class="button ghost" type="button" data-open-cash-transaction>Thêm giao dịch</button></div>
             <div class="accounting-toolbar">
               <div class="segmented-control" role="group" aria-label="Lọc loại giao dịch">
@@ -29,17 +44,7 @@
             </div>
             <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Loại</th><th>Danh mục/Tài khoản</th><th>Nội dung</th><th>Số tiền</th><th>Thao tác</th></tr></thead><tbody data-accounting-transactions-table></tbody></table></div>
           </section>
-          <aside class="accounting-side">
-            <section class="panel accounting-side-panel accounting-actions-panel">
-              <div class="panel-header"><div><h2>Việc cần xử lý</h2><p>Ưu tiên các khoản chưa thu để đóng dòng tiền.</p></div></div>
-              <div class="debt-summary" data-accounting-debt-summary></div>
-              <div class="segmented-control debt-filter" role="group" aria-label="Lọc công nợ">
-                <button class="active" type="button" data-accounting-receivable-filter="all">Tất cả</button>
-                <button type="button" data-accounting-receivable-filter="watch">Cần chú ý</button>
-                <button type="button" data-accounting-receivable-filter="overdue">Quá hạn</button>
-              </div>
-              <div class="accounting-todo-list" data-accounting-receivables></div>
-            </section>
+          <section class="accounting-setup-grid" data-accounting-section="setup" hidden>
             <section class="panel accounting-side-panel">
               <div class="panel-header split"><div><h2>Tài khoản tiền</h2><p>Số dư tính từ đầu kỳ và giao dịch.</p></div><button class="link-button" type="button" data-open-accounting-account>Thêm</button></div>
               <div class="account-card-list" data-accounting-accounts></div>
@@ -48,7 +53,7 @@
               <div class="panel-header split"><div><h2>Danh mục</h2><p>Nhóm các khoản thu và chi.</p></div><button class="link-button" type="button" data-open-accounting-category>Thêm</button></div>
               <div class="category-chip-list" data-accounting-categories></div>
             </section>
-          </aside>
+          </section>
         </section>
       </section>
     </main>
