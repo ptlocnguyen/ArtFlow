@@ -11,7 +11,7 @@
   let staffUsers = [];
   let searchTerm = "";
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
-  const accountingFilters = { type: "all", accountId: "all", range: "30" };
+  const accountingFilters = { type: "all", accountId: "all", range: "30", receivable: "all" };
 
   const channels = {
     pos: "POS",
@@ -86,6 +86,7 @@
     accountingCategories: qs("[data-accounting-categories]"),
     accountingTransactionsTable: qs("[data-accounting-transactions-table]"),
     accountingReceivables: qs("[data-accounting-receivables]"),
+    accountingDebtSummary: qs("[data-accounting-debt-summary]"),
     accountingAccountFilter: qs("[data-accounting-account-filter]"),
     accountingRangeFilter: qs("[data-accounting-range-filter]"),
     reportCards: qs("[data-report-cards]"),
@@ -359,6 +360,28 @@
 
   function isPaid(order) {
     return order.paymentStatus === "paid" || ["paid", "completed"].includes(order.status);
+  }
+
+  function orderAgeDays(order) {
+    const created = new Date(order.createdAt || Date.now()).getTime();
+    if (!isFinite(created)) return 0;
+    return Math.max(0, Math.floor((Date.now() - created) / (24 * 60 * 60 * 1000)));
+  }
+
+  function collectedForOrder(order) {
+    return (state.cashTransactions || [])
+      .filter(transaction => {
+        return transaction.status !== "archived"
+          && transaction.type === "income"
+          && transaction.referenceType === "order"
+          && [order.id, order.code].includes(transaction.referenceId);
+      })
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+  }
+
+  function outstandingForOrder(order) {
+    if (!order || order.status === "cancelled" || isPaid(order)) return 0;
+    return Math.max(0, Number(order.total || 0) - collectedForOrder(order));
   }
 
   function orderCost(order) {
@@ -998,7 +1021,18 @@
     const income = transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
     const expense = transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
     const totalBalance = (state.accountingAccounts || []).reduce((sum, account) => sum + account.currentBalance, 0);
-    const pendingReceivable = state.orders.filter(order => order.paymentStatus !== "paid" && order.status !== "cancelled").reduce((sum, order) => sum + order.total, 0);
+    const receivableOrders = state.orders
+      .map(order => ({
+        order,
+        customer: getCustomer(order),
+        collected: collectedForOrder(order),
+        outstanding: outstandingForOrder(order),
+        ageDays: orderAgeDays(order)
+      }))
+      .filter(item => item.outstanding > 0);
+    const pendingReceivable = receivableOrders.reduce((sum, item) => sum + item.outstanding, 0);
+    const overdueReceivable = receivableOrders.filter(item => item.ageDays > 7).reduce((sum, item) => sum + item.outstanding, 0);
+    const dueSoonReceivable = receivableOrders.filter(item => item.ageDays > 3 && item.ageDays <= 7).reduce((sum, item) => sum + item.outstanding, 0);
     const netCash = income - expense;
 
     if (els.accountingKpis) {
@@ -1006,7 +1040,7 @@
         ["Số dư quỹ", money.format(totalBalance), "Tổng số dư các tài khoản tiền."],
         ["Tổng thu", money.format(income), "Theo sổ quỹ đang lọc."],
         ["Dòng tiền ròng", money.format(netCash), "Tổng thu trừ tổng chi đang lọc."],
-        ["Công nợ bán hàng", money.format(pendingReceivable), "Đơn chưa thanh toán, chưa hủy."]
+        ["Công nợ bán hàng", money.format(pendingReceivable), "Số còn phải thu sau các phiếu thu."]
       ];
       els.accountingKpis.innerHTML = cards.map(([label, value, note]) => `
         <article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>
@@ -1023,25 +1057,39 @@
     }
 
     if (els.accountingReceivables) {
-      const receivables = state.orders
-        .filter(order => order.paymentStatus !== "paid" && order.status !== "cancelled")
-        .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
-        .slice(0, 5);
-      els.accountingReceivables.innerHTML = receivables.length ? receivables.map(order => {
-        const customer = getCustomer(order);
+      if (els.accountingDebtSummary) {
+        els.accountingDebtSummary.innerHTML = `
+          <article><span>Phải thu</span><strong>${money.format(pendingReceivable)}</strong></article>
+          <article><span>4-7 ngày</span><strong>${money.format(dueSoonReceivable)}</strong></article>
+          <article><span>Quá 7 ngày</span><strong>${money.format(overdueReceivable)}</strong></article>
+        `;
+      }
+      const receivables = receivableOrders
+        .filter(item => {
+          if (accountingFilters.receivable === "overdue") return item.ageDays > 7;
+          if (accountingFilters.receivable === "watch") return item.ageDays > 3;
+          return true;
+        })
+        .sort((a, b) => b.ageDays - a.ageDays || String(a.order.createdAt).localeCompare(String(b.order.createdAt)))
+        .slice(0, 8);
+      els.accountingReceivables.innerHTML = receivables.length ? receivables.map(item => {
+        const order = item.order;
+        const ageLabel = item.ageDays === 0 ? "Hôm nay" : `${item.ageDays} ngày`;
+        const ageClass = item.ageDays > 7 ? "danger" : item.ageDays > 3 ? "warning" : "";
         return `
-          <article class="todo-item">
+          <article class="todo-item ${ageClass}">
             <div>
               <strong>${order.code}</strong>
-              <small>${customer.name} · ${formatDate(order.createdAt)}</small>
+              <small>${item.customer.name} · ${formatDate(order.createdAt)} · ${ageLabel}</small>
+              <small>Đã thu ${money.format(item.collected)}</small>
             </div>
             <div>
-              <b>${money.format(order.total)}</b>
+              <b>${money.format(item.outstanding)}</b>
               ${canManageAccounting() ? `<button class="link-button" type="button" data-record-order-payment="${order.id}">Ghi thu</button>` : ""}
             </div>
           </article>
         `;
-      }).join("") : `<div class="empty">Không còn đơn bán hàng cần thu tiền.</div>`;
+      }).join("") : `<div class="empty">Không còn khoản phải thu phù hợp bộ lọc.</div>`;
     }
 
     if (els.accountingCategories) {
@@ -1295,9 +1343,25 @@
       <div class="field"><label for="transactionDate">Ngày ghi nhận</label><input id="transactionDate" name="transactionDate" type="date" value="${today}" required /></div>
       <div class="field"><label for="accountId">Tài khoản tiền</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions()}</select></div>
       <div class="field"><label for="categoryId">Danh mục</label><select id="categoryId" name="categoryId" required data-cash-category>${renderAccountingCategoryOptions("income")}</select></div>
-      <div class="field"><label for="amount">Số tiền</label><input id="amount" name="amount" type="number" min="1" step="1000" placeholder="500000" required /></div>
+      <div class="field"><label for="amount">Số tiền</label><input id="amount" name="amount" type="number" min="1" step="1" placeholder="500000" required /></div>
       <div class="field"><label for="referenceId">Mã tham chiếu</label><input id="referenceId" name="referenceId" type="text" placeholder="Mã đơn, phiếu chi..." /></div>
       <div class="field full"><label for="description">Nội dung</label><input id="description" name="description" type="text" placeholder="Thu tiền đơn hàng, chi nhập vật tư..." required /></div>
+    `;
+  }
+
+  function renderOrderPaymentForm(order) {
+    const today = new Date().toISOString().slice(0, 10);
+    const outstanding = outstandingForOrder(order);
+    return `
+      <div class="modal-summary full">
+        <strong>${order.code}</strong>
+        <span>Còn phải thu ${money.format(outstanding)} · Đã thu ${money.format(collectedForOrder(order))}</span>
+      </div>
+      <div class="field"><label for="transactionDate">Ngày thu</label><input id="transactionDate" name="transactionDate" type="date" value="${today}" required /></div>
+      <div class="field"><label for="accountId">Tài khoản nhận tiền</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions()}</select></div>
+      <div class="field"><label for="categoryId">Danh mục thu</label><select id="categoryId" name="categoryId" required>${renderAccountingCategoryOptions("income")}</select></div>
+      <div class="field"><label for="amount">Số tiền thu</label><input id="amount" name="amount" type="number" min="1" max="${Math.max(1, outstanding)}" step="1" value="${Math.max(0, outstanding)}" required /></div>
+      <div class="field full"><label for="description">Nội dung</label><input id="description" name="description" type="text" value="Thu tiền đơn ${order.code}" required /></div>
     `;
   }
 
@@ -1527,7 +1591,7 @@
       showToast("Bạn không có quyền quản lý kho.", "error");
       return;
     }
-    if (["cashTransaction", "accountingAccount", "accountingCategory"].includes(type) && !canManageAccounting()) {
+    if (["cashTransaction", "orderPayment", "accountingAccount", "accountingCategory"].includes(type) && !canManageAccounting()) {
       showToast("Bạn không có quyền quản lý kế toán.", "error");
       return;
     }
@@ -1537,6 +1601,14 @@
     }
     if (type === "cashTransaction" && (!state.accountingAccounts.length || !state.accountingCategories.length)) {
       showToast("Cần có tài khoản tiền và danh mục trước khi ghi thu/chi.", "error");
+      return;
+    }
+    if (type === "orderPayment" && (!state.accountingAccounts.length || !state.accountingCategories.some(category => category.status === "active" && category.type === "income"))) {
+      showToast("Cần có tài khoản tiền và danh mục thu trước khi ghi thu đơn hàng.", "error");
+      return;
+    }
+    if (type === "orderPayment" && (!options.order || outstandingForOrder(options.order) <= 0)) {
+      showToast("Đơn này không còn công nợ phải thu.", "error");
       return;
     }
     if (type === "orderFulfillment" && !options.order) {
@@ -1743,6 +1815,21 @@
           showToast("Đã ghi nhận giao dịch thu/chi.");
         }
       },
+      orderPayment: {
+        eyebrow: "Công nợ",
+        title: editingOrder ? `Ghi thu ${editingOrder.code}` : "Ghi thu đơn hàng",
+        body: renderOrderPaymentForm(editingOrder),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          await recordOrderPayment(editingOrder.id, {
+            accountId: data.accountId,
+            categoryId: data.categoryId,
+            amount: Number(data.amount),
+            transactionDate: data.transactionDate,
+            description: data.description
+          });
+        }
+      },
       accountingAccount: {
         eyebrow: "Tài khoản tiền",
         title: "Thêm tài khoản",
@@ -1894,12 +1981,15 @@
     showToast("Đã hủy đơn và hoàn lại tồn kho.");
   }
 
-  async function recordOrderPayment(orderId) {
+  async function recordOrderPayment(orderId, payment = {}) {
     const order = byId("orders", orderId);
     if (!order) throw new Error("Không tìm thấy đơn cần ghi thu.");
-    const account = (state.accountingAccounts || []).find(item => item.status === "active");
-    const category = (state.accountingCategories || []).find(item => item.status === "active" && item.type === "income");
+    const account = byId("accountingAccounts", payment.accountId) || (state.accountingAccounts || []).find(item => item.status === "active");
+    const category = byId("accountingCategories", payment.categoryId) || (state.accountingCategories || []).find(item => item.status === "active" && item.type === "income");
+    const outstanding = outstandingForOrder(order);
+    const amount = Number(payment.amount || outstanding);
     if (!account || !category) throw new Error("Cần có tài khoản tiền và danh mục thu trước khi ghi thu.");
+    if (!isFinite(amount) || amount <= 0 || amount > outstanding) throw new Error("Số tiền thu chưa hợp lệ.");
 
     await apiRequest("/accounting/transactions/create", {
       method: "POST",
@@ -1907,17 +1997,19 @@
         type: "income",
         accountId: account.id,
         categoryId: category.id,
-        amount: order.total,
-        transactionDate: new Date().toISOString().slice(0, 10),
-        description: "Thu tiền đơn " + order.code,
+        amount,
+        transactionDate: payment.transactionDate || new Date().toISOString().slice(0, 10),
+        description: payment.description || "Thu tiền đơn " + order.code,
         referenceType: "order",
         referenceId: order.code
       })
     });
-    await updateOrderFulfillment(order.id, { paymentStatus: "paid", status: order.status === "pending" ? "paid" : order.status });
+    if (amount >= outstanding) {
+      await updateOrderFulfillment(order.id, { paymentStatus: "paid", status: order.status === "pending" ? "paid" : order.status });
+    }
     await loadAccountingData({ quiet: true });
     renderPage();
-    showToast("Đã ghi thu và cập nhật thanh toán đơn hàng.");
+    showToast(amount >= outstanding ? "Đã ghi thu và cập nhật thanh toán đơn hàng." : "Đã ghi nhận khoản thu một phần.");
   }
 
   function bindEvents() {
@@ -2005,6 +2097,13 @@
         });
         renderPage();
       }
+      if (target.dataset.accountingReceivableFilter) {
+        accountingFilters.receivable = target.dataset.accountingReceivableFilter;
+        document.querySelectorAll("[data-accounting-receivable-filter]").forEach(button => {
+          button.classList.toggle("active", button.dataset.accountingReceivableFilter === accountingFilters.receivable);
+        });
+        renderPage();
+      }
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
       if (target.matches("[data-logout]")) await logout();
       if (target.dataset.addProductToOrder) {
@@ -2059,7 +2158,8 @@
         showToast("Đã xóa giao dịch thu/chi.");
       }
       if (target.dataset.recordOrderPayment) {
-        await withLoading("Đang ghi nhận thu tiền...", () => recordOrderPayment(target.dataset.recordOrderPayment));
+        const order = byId("orders", target.dataset.recordOrderPayment);
+        if (order) openModal("orderPayment", { order });
       }
       if (target.dataset.editOrderFulfillment) {
         const order = byId("orders", target.dataset.editOrderFulfillment);

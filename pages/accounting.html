@@ -32,6 +32,12 @@
           <aside class="accounting-side">
             <section class="panel accounting-side-panel accounting-actions-panel">
               <div class="panel-header"><div><h2>Việc cần xử lý</h2><p>Ưu tiên các khoản chưa thu để đóng dòng tiền.</p></div></div>
+              <div class="debt-summary" data-accounting-debt-summary></div>
+              <div class="segmented-control debt-filter" role="group" aria-label="Lọc công nợ">
+                <button class="active" type="button" data-accounting-receivable-filter="all">Tất cả</button>
+                <button type="button" data-accounting-receivable-filter="watch">Cần chú ý</button>
+                <button type="button" data-accounting-receivable-filter="overdue">Quá hạn</button>
+              </div>
               <div class="accounting-todo-list" data-accounting-receivables></div>
             </section>
             <section class="panel accounting-side-panel">

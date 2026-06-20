@@ -781,6 +781,40 @@ body[data-page="accounting"] .view.active {
   padding: 14px 16px 16px;
 }
 
+.debt-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 16px 10px;
+}
+
+.debt-summary article {
+  min-width: 0;
+  padding: 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.debt-summary span,
+.modal-summary span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.debt-summary strong,
+.modal-summary strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.debt-filter {
+  margin: 0 16px 4px;
+}
+
 .account-card {
   display: flex;
   align-items: center;
@@ -816,6 +850,16 @@ body[data-page="accounting"] .view.active {
   background: #fff7ed;
   border: 1px solid #fed7aa;
   border-radius: 8px;
+}
+
+.todo-item.warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.todo-item.danger {
+  background: #fff1f2;
+  border-color: #fecdd3;
 }
 
 .todo-item strong,
@@ -928,6 +972,13 @@ body[data-page="accounting"] .view.active {
 
 .danger-link {
   color: #912018;
+}
+
+.modal-summary {
+  padding: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
 
 .order-code-cell,
@@ -1748,6 +1799,14 @@ body[data-page="accounting"] .view.active {
 
   .category-chip-list {
     grid-template-columns: 1fr;
+  }
+
+  .debt-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .debt-filter {
+    display: flex;
   }
 
   .accounting-toolbar {
