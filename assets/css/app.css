@@ -839,31 +839,180 @@ body[data-page="accounting"] .view.active {
   margin: 0 16px 4px;
 }
 
-.account-card {
+.panel-header-actions,
+.account-card-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-card {
+  display: grid;
+  gap: 10px;
   padding: 12px;
   background: var(--surface-soft);
   border: 1px solid var(--line);
   border-radius: 8px;
 }
 
-.account-card strong,
-.account-card span {
+.account-card.archived {
+  opacity: 0.7;
+  background: #f8fafc;
+}
+
+.account-card-head,
+.account-card-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-card-head strong,
+.account-card-head span,
+.account-card-meta small,
+.account-card-meta b {
   display: block;
 }
 
-.account-card span {
+.account-card-head span,
+.account-card-meta small {
   margin-top: 3px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
 }
 
-.account-card b {
+.account-card-head > b,
+.account-card-meta b {
   white-space: nowrap;
+}
+
+.account-card-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.account-card-meta b {
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.account-card-meta .has-difference b,
+.reconciliation-item.has-difference b {
+  color: #b42318;
+}
+
+.account-card-meta .is-balanced b,
+.reconciliation-item.is-balanced b {
+  color: #067647;
+}
+
+.account-card-actions {
+  justify-content: flex-end;
+}
+
+.accounting-setup-grid > .accounting-side-panel:first-child .account-card-list {
+  flex: 0 1 auto;
+  max-height: 58%;
+}
+
+.accounting-subsection {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.accounting-subsection-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px 0;
+}
+
+.accounting-subsection-title h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.accounting-subsection-title span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.reconciliation-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 16px 16px;
+}
+
+.reconciliation-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.reconciliation-item strong,
+.reconciliation-item small,
+.reconciliation-item b {
+  display: block;
+}
+
+.reconciliation-item small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.reconciliation-item > div:last-child {
+  text-align: right;
+}
+
+.compact-empty {
+  padding: 16px;
+}
+
+.reconciliation-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+  background: #ecfdf3;
+  border: 1px solid #abefc6;
+  border-radius: 8px;
+}
+
+.reconciliation-preview.has-difference {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.reconciliation-preview small,
+.reconciliation-preview b {
+  display: block;
+}
+
+.reconciliation-preview small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.reconciliation-preview b {
+  margin-top: 4px;
 }
 
 .todo-item {
@@ -1912,6 +2061,28 @@ body[data-page="accounting"] .view.active {
 
   .category-chip-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .account-card-meta,
+  .reconciliation-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .accounting-setup-grid > .accounting-side-panel:first-child .account-card-list {
+    max-height: none;
+  }
+
+  .accounting-subsection-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .reconciliation-item {
+    grid-template-columns: 1fr;
+  }
+
+  .reconciliation-item > div:last-child {
+    text-align: left;
   }
 
   .debt-summary {

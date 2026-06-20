@@ -46,8 +46,12 @@
           </section>
           <section class="accounting-setup-grid" data-accounting-section="setup" hidden>
             <section class="panel accounting-side-panel">
-              <div class="panel-header split"><div><h2>Tài khoản tiền</h2><p>Số dư tính từ đầu kỳ và giao dịch.</p></div><button class="link-button" type="button" data-open-accounting-account>Thêm</button></div>
+              <div class="panel-header split"><div><h2>Tài khoản tiền</h2><p>Số dư tính từ đầu kỳ và giao dịch.</p></div><div class="panel-header-actions"><button class="link-button" type="button" data-open-accounting-reconciliation>Đối soát</button><button class="link-button" type="button" data-open-accounting-account>Thêm</button></div></div>
               <div class="account-card-list" data-accounting-accounts></div>
+              <div class="accounting-subsection">
+                <div class="accounting-subsection-title"><h3>Đối soát gần đây</h3><span>Chênh lệch giữa sổ và số dư thực tế</span></div>
+                <div class="reconciliation-list" data-accounting-reconciliations></div>
+              </div>
             </section>
             <section class="panel accounting-side-panel">
               <div class="panel-header split"><div><h2>Danh mục</h2><p>Nhóm các khoản thu và chi.</p></div><button class="link-button" type="button" data-open-accounting-category>Thêm</button></div>

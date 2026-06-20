@@ -5,6 +5,7 @@ window.ArtFlowPosSeed = {
   stockMovements: [],
   accountingAccounts: [],
   accountingCategories: [],
+  accountingReconciliations: [],
   cashTransactions: [],
   users: []
 };

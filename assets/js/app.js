@@ -83,6 +83,7 @@
     stockMovementsTable: qs("[data-stock-movements-table]"),
     accountingKpis: qs("[data-accounting-kpis]"),
     accountingAccounts: qs("[data-accounting-accounts]"),
+    accountingReconciliations: qs("[data-accounting-reconciliations]"),
     accountingCategories: qs("[data-accounting-categories]"),
     accountingTransactionsTable: qs("[data-accounting-transactions-table]"),
     accountingReceivables: qs("[data-accounting-receivables]"),
@@ -169,6 +170,9 @@
       "/accounting/transactions/create": "createCashTransaction",
       "/accounting/transactions/archive": "archiveCashTransaction",
       "/accounting/accounts/create": "createAccountingAccount",
+      "/accounting/accounts/update": "updateAccountingAccount",
+      "/accounting/accounts/archive": "archiveAccountingAccount",
+      "/accounting/reconciliations/create": "createAccountingReconciliation",
       "/accounting/categories/create": "createAccountingCategory",
       "/accounting/categories/update": "updateAccountingCategory",
       "/accounting/categories/archive": "archiveAccountingCategory"
@@ -567,6 +571,20 @@
     };
   }
 
+  function normalizeAccountingReconciliation(reconciliation) {
+    return {
+      id: reconciliation.id,
+      accountId: reconciliation.accountId || "",
+      systemBalance: Number(reconciliation.systemBalance || 0),
+      actualBalance: Number(reconciliation.actualBalance || 0),
+      difference: Number(reconciliation.difference || 0),
+      note: reconciliation.note || "",
+      reconciledBy: reconciliation.reconciledBy || "",
+      reconciledAt: reconciliation.reconciledAt || "",
+      createdAt: reconciliation.createdAt || ""
+    };
+  }
+
   function normalizeCashTransaction(transaction) {
     return {
       id: transaction.id,
@@ -590,12 +608,14 @@
       const data = await apiRequest("/accounting");
       state.accountingAccounts = (data.accounts || []).map(normalizeAccountingAccount);
       state.accountingCategories = (data.categories || []).map(normalizeAccountingCategory);
+      state.accountingReconciliations = (data.reconciliations || []).map(normalizeAccountingReconciliation);
       state.cashTransactions = (data.transactions || []).map(normalizeCashTransaction);
       window.ArtFlowPosStore.save(state);
       return true;
     } catch (error) {
       state.accountingAccounts = state.accountingAccounts || [];
       state.accountingCategories = state.accountingCategories || [];
+      state.accountingReconciliations = state.accountingReconciliations || [];
       state.cashTransactions = state.cashTransactions || [];
       if (!options.quiet) showToast(error.message, "error");
       return false;
@@ -703,7 +723,7 @@
     document.querySelectorAll("[data-open-stock-receive], [data-open-stock-adjust]").forEach(button => {
       button.hidden = !canManageInventory();
     });
-    document.querySelectorAll("[data-open-cash-transaction], [data-open-accounting-account], [data-open-accounting-category]").forEach(button => {
+    document.querySelectorAll("[data-open-cash-transaction], [data-open-accounting-account], [data-open-accounting-category], [data-open-accounting-reconciliation]").forEach(button => {
       button.hidden = !canManageAccounting();
     });
   }
@@ -1060,12 +1080,49 @@
     }
 
     if (els.accountingAccounts) {
-      els.accountingAccounts.innerHTML = (state.accountingAccounts || []).length ? state.accountingAccounts.map(account => `
-        <article class="account-card">
-          <div><strong>${account.name}</strong><span>${accountTypeLabel(account.type)}</span></div>
-          <b>${money.format(account.currentBalance)}</b>
-        </article>
-      `).join("") : `<div class="empty">Chưa có tài khoản tiền.</div>`;
+      els.accountingAccounts.innerHTML = (state.accountingAccounts || []).length ? state.accountingAccounts.map(account => {
+        const accountTransactions = (state.cashTransactions || []).filter(transaction => transaction.accountId === account.id && transaction.status !== "deleted");
+        const latestReconciliation = (state.accountingReconciliations || [])
+          .filter(item => item.accountId === account.id)
+          .sort((a, b) => String(b.reconciledAt || b.createdAt).localeCompare(String(a.reconciledAt || a.createdAt)))[0];
+        const isArchived = account.status === "archived";
+        const differenceClass = latestReconciliation && latestReconciliation.difference !== 0 ? "has-difference" : "is-balanced";
+        return `
+          <article class="account-card ${isArchived ? "archived" : ""}">
+            <div class="account-card-head">
+              <div><strong>${account.name}</strong><span>${accountTypeLabel(account.type)} · ${isArchived ? "Đang ẩn" : "Đang dùng"}</span></div>
+              <b>${money.format(account.currentBalance)}</b>
+            </div>
+            <div class="account-card-meta">
+              <span><small>Đầu kỳ</small><b>${money.format(account.openingBalance)}</b></span>
+              <span><small>Giao dịch</small><b>${accountTransactions.length}</b></span>
+              <span class="${differenceClass}"><small>Chênh lệch gần nhất</small><b>${latestReconciliation ? money.format(latestReconciliation.difference) : "Chưa đối soát"}</b></span>
+            </div>
+            <div class="account-card-actions">
+              <button class="link-button" type="button" data-edit-accounting-account="${account.id}">Sửa</button>
+              ${isArchived ? "" : `<button class="link-button" type="button" data-reconcile-account="${account.id}">Đối soát</button>`}
+              <button class="link-button ${isArchived ? "" : "danger-link"}" type="button" data-archive-accounting-account="${account.id}" data-next-status="${isArchived ? "active" : "archived"}">${isArchived ? "Kích hoạt" : "Ẩn"}</button>
+            </div>
+          </article>
+        `;
+      }).join("") : `<div class="empty">Chưa có tài khoản tiền.</div>`;
+      els.accountingAccounts.scrollTop = 0;
+    }
+
+    if (els.accountingReconciliations) {
+      const recentReconciliations = [...(state.accountingReconciliations || [])]
+        .sort((a, b) => String(b.reconciledAt || b.createdAt).localeCompare(String(a.reconciledAt || a.createdAt)))
+        .slice(0, 6);
+      els.accountingReconciliations.innerHTML = recentReconciliations.length ? recentReconciliations.map(item => {
+        const account = getAccountingAccount(item.accountId);
+        const differenceClass = item.difference === 0 ? "is-balanced" : "has-difference";
+        return `
+          <article class="reconciliation-item ${differenceClass}">
+            <div><strong>${account.name}</strong><small>${formatDate(item.reconciledAt)} · Sổ ${money.format(item.systemBalance)} · Thực tế ${money.format(item.actualBalance)}</small></div>
+            <div><b>${item.difference > 0 ? "+" : ""}${money.format(item.difference)}</b><small>${item.note || (item.difference === 0 ? "Đã khớp" : "Cần kiểm tra")}</small></div>
+          </article>
+        `;
+      }).join("") : `<div class="empty compact-empty">Chưa có lần đối soát nào.</div>`;
     }
 
     if (els.accountingReceivables) {
@@ -1414,12 +1471,48 @@
     `;
   }
 
-  function renderAccountingAccountForm() {
+  function renderAccountingAccountForm(account) {
     return `
-      <div class="field"><label for="name">Tên tài khoản</label><input id="name" name="name" type="text" placeholder="VCB công ty, tiền mặt cửa hàng..." required /></div>
-      <div class="field"><label for="type">Loại tài khoản</label><select id="type" name="type" required><option value="cash">Tiền mặt</option><option value="bank">Ngân hàng</option><option value="wallet">Ví / COD</option><option value="other">Khác</option></select></div>
-      <div class="field full"><label for="openingBalance">Số dư đầu kỳ</label><input id="openingBalance" name="openingBalance" type="number" step="1000" value="0" required /></div>
+      <div class="field"><label for="name">Tên tài khoản</label><input id="name" name="name" type="text" placeholder="VCB công ty, tiền mặt cửa hàng..." value="${account ? account.name : ""}" required /></div>
+      <div class="field"><label for="type">Loại tài khoản</label><select id="type" name="type" required><option value="cash" ${account && account.type === "cash" ? "selected" : ""}>Tiền mặt</option><option value="bank" ${account && account.type === "bank" ? "selected" : ""}>Ngân hàng</option><option value="wallet" ${account && account.type === "wallet" ? "selected" : ""}>Ví / COD</option><option value="other" ${account && account.type === "other" ? "selected" : ""}>Khác</option></select></div>
+      <div class="field full"><label for="openingBalance">Số dư đầu kỳ</label><input id="openingBalance" name="openingBalance" type="number" step="1000" value="${account ? account.openingBalance : 0}" required /></div>
     `;
+  }
+
+  function renderAccountingReconciliationForm(account) {
+    const activeAccounts = (state.accountingAccounts || []).filter(item => item.status === "active");
+    const selectedAccount = account || activeAccounts[0];
+    const today = new Date().toISOString().slice(0, 10);
+    return `
+      <div class="field full"><label for="accountId">Tài khoản đối soát</label><select id="accountId" name="accountId" required data-reconciliation-account>${activeAccounts.map(item => `<option value="${item.id}" ${selectedAccount && item.id === selectedAccount.id ? "selected" : ""}>${item.name} · ${money.format(item.currentBalance)}</option>`).join("")}</select></div>
+      <div class="field"><label for="reconciledAt">Ngày đối soát</label><input id="reconciledAt" name="reconciledAt" type="date" value="${today}" required /></div>
+      <div class="field"><label for="actualBalance">Số dư thực tế</label><input id="actualBalance" name="actualBalance" type="number" step="1000" value="${selectedAccount ? selectedAccount.currentBalance : 0}" required data-reconciliation-actual /></div>
+      <div class="reconciliation-preview full" data-reconciliation-preview>
+        <span><small>Số dư sổ</small><b data-reconciliation-system>${money.format(selectedAccount ? selectedAccount.currentBalance : 0)}</b></span>
+        <span><small>Số dư thực tế</small><b data-reconciliation-actual-output>${money.format(selectedAccount ? selectedAccount.currentBalance : 0)}</b></span>
+        <span><small>Chênh lệch</small><b data-reconciliation-difference>${money.format(0)}</b></span>
+      </div>
+      <div class="field full"><label for="note">Ghi chú</label><input id="note" name="note" type="text" placeholder="Nguyên nhân chênh lệch, mã sao kê, người kiểm tra..." /></div>
+    `;
+  }
+
+  function updateReconciliationPreview(form) {
+    if (!form) return;
+    const accountSelect = form.querySelector("[data-reconciliation-account]");
+    const actualInput = form.querySelector("[data-reconciliation-actual]");
+    if (!accountSelect || !actualInput) return;
+    const account = byId("accountingAccounts", accountSelect.value);
+    const systemBalance = account ? account.currentBalance : 0;
+    const actualBalance = Number(actualInput.value || 0);
+    const difference = actualBalance - systemBalance;
+    const systemOutput = form.querySelector("[data-reconciliation-system]");
+    const actualOutput = form.querySelector("[data-reconciliation-actual-output]");
+    const differenceOutput = form.querySelector("[data-reconciliation-difference]");
+    const preview = form.querySelector("[data-reconciliation-preview]");
+    if (systemOutput) systemOutput.textContent = money.format(systemBalance);
+    if (actualOutput) actualOutput.textContent = money.format(actualBalance);
+    if (differenceOutput) differenceOutput.textContent = `${difference > 0 ? "+" : ""}${money.format(difference)}`;
+    if (preview) preview.classList.toggle("has-difference", difference !== 0);
   }
 
   function renderAccountingCategoryForm(category) {
@@ -1640,7 +1733,7 @@
       showToast("Bạn không có quyền quản lý kho.", "error");
       return;
     }
-    if (["cashTransaction", "orderPayment", "accountingAccount", "accountingCategory"].includes(type) && !canManageAccounting()) {
+    if (["cashTransaction", "orderPayment", "accountingAccount", "accountingCategory", "accountingReconciliation"].includes(type) && !canManageAccounting()) {
       showToast("Bạn không có quyền quản lý kế toán.", "error");
       return;
     }
@@ -1660,6 +1753,10 @@
       showToast("Đơn này không còn công nợ phải thu.", "error");
       return;
     }
+    if (type === "accountingReconciliation" && !(state.accountingAccounts || []).some(account => account.status === "active")) {
+      showToast("Cần có ít nhất một tài khoản tiền đang hoạt động để đối soát.", "error");
+      return;
+    }
     if (type === "orderFulfillment" && !options.order) {
       showToast("Không tìm thấy đơn hàng cần cập nhật.", "error");
       return;
@@ -1668,6 +1765,7 @@
     const editingProduct = options.product || null;
     const editingCustomer = options.customer || null;
     const editingOrder = options.order || null;
+    const editingAccountingAccount = options.account || null;
     const editingAccountingCategory = options.category || null;
     const definitions = {
       product: {
@@ -1882,24 +1980,53 @@
       },
       accountingAccount: {
         eyebrow: "Tài khoản tiền",
-        title: "Thêm tài khoản",
-        body: renderAccountingAccountForm(),
+        title: editingAccountingAccount ? "Sửa tài khoản" : "Thêm tài khoản",
+        body: renderAccountingAccountForm(editingAccountingAccount),
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           const openingBalance = Number(data.openingBalance || 0);
           if (!String(data.name || "").trim() || !isFinite(openingBalance)) throw new Error("Tài khoản tiền chưa hợp lệ.");
-          const dataFromApi = await apiRequest("/accounting/accounts/create", {
+          const dataFromApi = await apiRequest(editingAccountingAccount ? "/accounting/accounts/update" : "/accounting/accounts/create", {
             method: "POST",
             body: JSON.stringify({
+              id: editingAccountingAccount ? editingAccountingAccount.id : undefined,
               name: data.name,
               type: data.type,
               openingBalance
             })
           });
-          state.accountingAccounts.unshift(normalizeAccountingAccount(dataFromApi.account));
+          const savedAccount = normalizeAccountingAccount(dataFromApi.account);
+          if (editingAccountingAccount) {
+            state.accountingAccounts = state.accountingAccounts.map(account => account.id === savedAccount.id ? savedAccount : account);
+          } else {
+            state.accountingAccounts.unshift(savedAccount);
+          }
           await loadAccountingData({ quiet: true });
           renderPage();
-          showToast("Đã thêm tài khoản tiền.");
+          showToast(editingAccountingAccount ? "Đã cập nhật tài khoản tiền." : "Đã thêm tài khoản tiền.");
+        }
+      },
+      accountingReconciliation: {
+        eyebrow: "Đối soát",
+        title: editingAccountingAccount ? `Đối soát ${editingAccountingAccount.name}` : "Đối soát tài khoản",
+        body: renderAccountingReconciliationForm(editingAccountingAccount),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const actualBalance = Number(data.actualBalance);
+          if (!data.accountId || !isFinite(actualBalance)) throw new Error("Số dư đối soát chưa hợp lệ.");
+          const dataFromApi = await apiRequest("/accounting/reconciliations/create", {
+            method: "POST",
+            body: JSON.stringify({
+              accountId: data.accountId,
+              actualBalance,
+              reconciledAt: data.reconciledAt,
+              note: data.note || ""
+            })
+          });
+          state.accountingReconciliations.unshift(normalizeAccountingReconciliation(dataFromApi.reconciliation));
+          await loadAccountingData({ quiet: true });
+          renderPage();
+          showToast(dataFromApi.reconciliation.difference === 0 ? "Đối soát hoàn tất, số dư đã khớp." : "Đã lưu đối soát và ghi nhận chênh lệch.");
         }
       },
       accountingCategory: {
@@ -2146,7 +2273,16 @@
       if (target.matches("[data-open-stock-adjust]")) openModal("stockAdjust");
       if (target.matches("[data-open-cash-transaction]")) openModal("cashTransaction");
       if (target.matches("[data-open-accounting-account]")) openModal("accountingAccount");
+      if (target.matches("[data-open-accounting-reconciliation]")) openModal("accountingReconciliation");
       if (target.matches("[data-open-accounting-category]")) openModal("accountingCategory");
+      if (target.dataset.editAccountingAccount) {
+        const account = byId("accountingAccounts", target.dataset.editAccountingAccount);
+        if (account) openModal("accountingAccount", { account });
+      }
+      if (target.dataset.reconcileAccount) {
+        const account = byId("accountingAccounts", target.dataset.reconcileAccount);
+        if (account) openModal("accountingReconciliation", { account });
+      }
       if (target.dataset.editAccountingCategory) {
         const category = byId("accountingCategories", target.dataset.editAccountingCategory);
         if (category) openModal("accountingCategory", { category });
@@ -2238,6 +2374,22 @@
         renderPage();
         showToast(target.dataset.nextStatus === "active" ? "Đã kích hoạt lại danh mục." : "Đã ẩn danh mục khỏi form mới.");
       }
+      if (target.dataset.archiveAccountingAccount && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại tài khoản tiền này?" : "Ẩn tài khoản này khỏi các giao dịch mới?")) {
+        await withLoading("Đang cập nhật tài khoản...", async () => {
+          const dataFromApi = await apiRequest("/accounting/accounts/archive", {
+            method: "POST",
+            body: JSON.stringify({
+              id: target.dataset.archiveAccountingAccount,
+              status: target.dataset.nextStatus
+            })
+          });
+          const savedAccount = normalizeAccountingAccount(dataFromApi.account);
+          state.accountingAccounts = state.accountingAccounts.map(account => account.id === savedAccount.id ? savedAccount : account);
+          await loadAccountingData({ quiet: true });
+        });
+        renderPage();
+        showToast(target.dataset.nextStatus === "active" ? "Đã kích hoạt lại tài khoản." : "Đã ẩn tài khoản khỏi giao dịch mới.");
+      }
       if (target.dataset.recordOrderPayment) {
         const order = byId("orders", target.dataset.recordOrderPayment);
         if (order) openModal("orderPayment", { order });
@@ -2287,6 +2439,7 @@
     document.addEventListener("input", event => {
       if (event.target.matches("[data-product-picker-search]")) filterProductPicker(event.target);
       if (event.target.matches("[data-order-quantity], [data-order-money]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
+      if (event.target.matches("[data-reconciliation-actual]")) updateReconciliationPreview(event.target.closest("form") || els.modalForm);
     });
 
     document.addEventListener("change", async event => {
@@ -2294,6 +2447,13 @@
       if (event.target.matches("[data-cash-type]")) {
         const category = (event.target.closest("form") || els.modalForm).querySelector("[data-cash-category]");
         if (category) category.innerHTML = renderAccountingCategoryOptions(event.target.value);
+      }
+      if (event.target.matches("[data-reconciliation-account]")) {
+        const form = event.target.closest("form") || els.modalForm;
+        const account = byId("accountingAccounts", event.target.value);
+        const actualInput = form && form.querySelector("[data-reconciliation-actual]");
+        if (actualInput && account) actualInput.value = account.currentBalance;
+        updateReconciliationPreview(form);
       }
       if (event.target.matches("[data-order-inline]")) {
         const field = event.target.dataset.orderInline;

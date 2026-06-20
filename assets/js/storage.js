@@ -12,6 +12,7 @@
       orders: clone(window.ArtFlowPosSeed.orders),
       accountingAccounts: clone(window.ArtFlowPosSeed.accountingAccounts || []),
       accountingCategories: clone(window.ArtFlowPosSeed.accountingCategories || []),
+      accountingReconciliations: clone(window.ArtFlowPosSeed.accountingReconciliations || []),
       cashTransactions: clone(window.ArtFlowPosSeed.cashTransactions || []),
       users: clone(window.ArtFlowPosSeed.users),
       updatedAt: new Date().toISOString()
@@ -28,6 +29,7 @@
       orders: Array.isArray(state.orders) ? state.orders : initial.orders,
       accountingAccounts: Array.isArray(state.accountingAccounts) ? state.accountingAccounts : initial.accountingAccounts,
       accountingCategories: Array.isArray(state.accountingCategories) ? state.accountingCategories : initial.accountingCategories,
+      accountingReconciliations: Array.isArray(state.accountingReconciliations) ? state.accountingReconciliations : initial.accountingReconciliations,
       cashTransactions: Array.isArray(state.cashTransactions) ? state.cashTransactions : initial.cashTransactions,
       users: Array.isArray(state.users) ? state.users : initial.users
     };
