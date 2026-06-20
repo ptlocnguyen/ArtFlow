@@ -1180,16 +1180,6 @@
       <section class="order-compose-grid">
         <div class="order-compose-main">
           <section class="panel order-compose-section">
-            <div class="panel-header"><div><h2>Khách hàng và kênh bán</h2><p>Chọn nguồn đơn, khách mua và ghi chú xử lý.</p></div></div>
-            <div class="form-grid compact-grid">
-              <div class="field full"><label for="customerId">Khách hàng</label><select id="customerId" name="customerId" required>${customerOptions}</select></div>
-              <div class="field"><label for="channel">Kênh bán</label><select id="channel" name="channel" required>${renderOptions(channels, "pos")}</select></div>
-              <div class="field"><label for="paymentMethod">Phương thức</label><select id="paymentMethod" name="paymentMethod" required><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option><option value="cod">COD</option><option value="ecommerce">Sàn TMĐT</option></select></div>
-              <div class="field full"><label for="note">Ghi chú nội bộ</label><input id="note" name="note" type="text" placeholder="Yêu cầu giao hàng, nguồn inbox, mã đơn sàn..." /></div>
-            </div>
-          </section>
-
-          <section class="panel order-compose-section">
             <div class="panel-header"><div><h2>Sản phẩm trong đơn</h2><p>Tìm nhanh SKU, tên hoặc danh mục; bấm sản phẩm để thêm vào giỏ.</p></div></div>
             <div class="order-builder-layout">
               ${renderProductPicker()}
@@ -1201,6 +1191,16 @@
                 <div class="order-empty-cart" data-order-empty-cart>Chọn sản phẩm từ danh sách để bắt đầu tạo đơn.</div>
                 <div class="order-items order-items-large" data-order-items></div>
               </div>
+            </div>
+          </section>
+
+          <section class="panel order-compose-section order-customer-section">
+            <div class="panel-header"><div><h2>Khách hàng và kênh bán</h2><p>Chọn người mua, nguồn đơn và ghi chú xử lý.</p></div></div>
+            <div class="form-grid compact-grid">
+              <div class="field full"><label for="customerId">Khách hàng</label><select id="customerId" name="customerId" required>${customerOptions}</select></div>
+              <div class="field"><label for="channel">Kênh bán</label><select id="channel" name="channel" required>${renderOptions(channels, "pos")}</select></div>
+              <div class="field"><label for="paymentMethod">Phương thức</label><select id="paymentMethod" name="paymentMethod" required><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option><option value="cod">COD</option><option value="ecommerce">Sàn TMĐT</option></select></div>
+              <div class="field full"><label for="note">Ghi chú nội bộ</label><input id="note" name="note" type="text" placeholder="Yêu cầu giao hàng, nguồn inbox, mã đơn sàn..." /></div>
             </div>
           </section>
         </div>

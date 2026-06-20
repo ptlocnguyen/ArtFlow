@@ -881,7 +881,7 @@ body[data-page="reports"] .view.active {
 
 .order-builder-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 0.95fr) minmax(320px, 1.05fr);
+  grid-template-columns: minmax(360px, 1.15fr) minmax(320px, 0.85fr);
   gap: 14px;
   min-height: 0;
   flex: 1 1 auto;
@@ -937,6 +937,10 @@ body[data-page="reports"] .view.active {
   cursor: pointer;
 }
 
+.product-card[hidden] {
+  display: none;
+}
+
 .product-card:hover {
   border-color: var(--blue);
   background: #eef6ff;
@@ -972,11 +976,28 @@ body[data-page="reports"] .view.active {
 
 .order-empty-cart {
   margin: 10px;
-  padding: 18px;
+  padding: 24px 18px;
   color: var(--muted);
   background: var(--surface-soft);
   border-radius: 8px;
   text-align: center;
+}
+
+.order-customer-section .panel-header {
+  padding-bottom: 0;
+}
+
+.order-customer-section .compact-grid {
+  grid-template-columns: minmax(260px, 1.1fr) minmax(160px, 0.6fr) minmax(180px, 0.75fr);
+  padding-bottom: 14px;
+}
+
+.order-customer-section .field.full:first-child {
+  grid-column: auto;
+}
+
+.order-customer-section .field.full:last-child {
+  grid-column: 1 / -1;
 }
 
 .order-items {
@@ -1035,7 +1056,7 @@ body[data-page="reports"] .view.active {
 
 .order-compose-main {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 14px;
   min-height: 0;
 }
