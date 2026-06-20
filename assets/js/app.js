@@ -52,6 +52,7 @@
     products: { title: "Sản phẩm", href: "./products.html", icon: "◇" },
     customers: { title: "Khách hàng", href: "./customers.html", icon: "○" },
     inventory: { title: "Kho hàng", href: "./inventory.html", icon: "▤" },
+    accounting: { title: "Kế toán", href: "./accounting.html", icon: "≋" },
     reports: { title: "Báo cáo", href: "./reports.html", icon: "↗" },
     users: { title: "Nhân viên", href: "./users.html", icon: "◎", adminOnly: true }
   };
@@ -79,6 +80,10 @@
     usersTable: qs("[data-users-table]"),
     inventoryCards: qs("[data-inventory-cards]"),
     stockMovementsTable: qs("[data-stock-movements-table]"),
+    accountingKpis: qs("[data-accounting-kpis]"),
+    accountingAccounts: qs("[data-accounting-accounts]"),
+    accountingCategories: qs("[data-accounting-categories]"),
+    accountingTransactionsTable: qs("[data-accounting-transactions-table]"),
     reportCards: qs("[data-report-cards]"),
     toast: qs("[data-toast]"),
     loadingOverlay: qs("[data-loading-overlay]"),
@@ -154,7 +159,12 @@
       "/orders/cancel": "cancelOrder",
       "/stock-movements": "listStockMovements",
       "/stock/receive": "receiveStock",
-      "/stock/adjust": "adjustStock"
+      "/stock/adjust": "adjustStock",
+      "/accounting": "getAccountingData",
+      "/accounting/transactions/create": "createCashTransaction",
+      "/accounting/transactions/archive": "archiveCashTransaction",
+      "/accounting/accounts/create": "createAccountingAccount",
+      "/accounting/categories/create": "createAccountingCategory"
     }[path] || "";
   }
 
@@ -266,6 +276,10 @@
     return currentUser && ["admin", "sales"].includes(currentUser.role);
   }
 
+  function canManageAccounting() {
+    return currentUser && currentUser.role === "admin";
+  }
+
   function roleLabel(role) {
     return { admin: "Admin", sales: "Bán hàng", inventory: "Kho", viewer: "Chỉ xem" }[role] || role;
   }
@@ -312,6 +326,27 @@
 
   function carrierLabel(carrier) {
     return carriers[carrier] || carrier || "Chưa chọn";
+  }
+
+  function accountingTypeLabel(type) {
+    return type === "income" ? "Thu" : "Chi";
+  }
+
+  function accountTypeLabel(type) {
+    return {
+      cash: "Tiền mặt",
+      bank: "Ngân hàng",
+      wallet: "Ví / COD",
+      other: "Khác"
+    }[type] || type || "Khác";
+  }
+
+  function getAccountingAccount(id) {
+    return byId("accountingAccounts", id) || { name: "Chưa chọn" };
+  }
+
+  function getAccountingCategory(id) {
+    return byId("accountingCategories", id) || { name: "Chưa phân loại" };
   }
 
   function getCustomer(order) {
@@ -479,6 +514,65 @@
     }
   }
 
+  function normalizeAccountingAccount(account) {
+    return {
+      id: account.id,
+      name: account.name || "",
+      type: account.type || "cash",
+      openingBalance: Number(account.openingBalance || 0),
+      currentBalance: Number(account.currentBalance || 0),
+      status: account.status || "active",
+      createdAt: account.createdAt || "",
+      updatedAt: account.updatedAt || ""
+    };
+  }
+
+  function normalizeAccountingCategory(category) {
+    return {
+      id: category.id,
+      name: category.name || "",
+      type: category.type || "expense",
+      status: category.status || "active",
+      createdAt: category.createdAt || "",
+      updatedAt: category.updatedAt || ""
+    };
+  }
+
+  function normalizeCashTransaction(transaction) {
+    return {
+      id: transaction.id,
+      type: transaction.type || "expense",
+      accountId: transaction.accountId || "",
+      categoryId: transaction.categoryId || "",
+      amount: Number(transaction.amount || 0),
+      transactionDate: transaction.transactionDate || "",
+      description: transaction.description || "",
+      referenceType: transaction.referenceType || "",
+      referenceId: transaction.referenceId || "",
+      createdBy: transaction.createdBy || "",
+      status: transaction.status || "active",
+      createdAt: transaction.createdAt || "",
+      updatedAt: transaction.updatedAt || ""
+    };
+  }
+
+  async function loadAccountingData(options = {}) {
+    try {
+      const data = await apiRequest("/accounting");
+      state.accountingAccounts = (data.accounts || []).map(normalizeAccountingAccount);
+      state.accountingCategories = (data.categories || []).map(normalizeAccountingCategory);
+      state.cashTransactions = (data.transactions || []).map(normalizeCashTransaction);
+      window.ArtFlowPosStore.save(state);
+      return true;
+    } catch (error) {
+      state.accountingAccounts = state.accountingAccounts || [];
+      state.accountingCategories = state.accountingCategories || [];
+      state.cashTransactions = state.cashTransactions || [];
+      if (!options.quiet) showToast(error.message, "error");
+      return false;
+    }
+  }
+
   function filtered(items, fields) {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return items;
@@ -580,6 +674,9 @@
     document.querySelectorAll("[data-open-stock-receive], [data-open-stock-adjust]").forEach(button => {
       button.hidden = !canManageInventory();
     });
+    document.querySelectorAll("[data-open-cash-transaction], [data-open-accounting-account], [data-open-accounting-category]").forEach(button => {
+      button.hidden = !canManageAccounting();
+    });
   }
 
   async function loadStaffUsers() {
@@ -606,7 +703,8 @@
       loadProducts({ quiet: true }),
       loadCustomers({ quiet: true }),
       loadOrders({ quiet: true }),
-      loadStockMovements({ quiet: true })
+      loadStockMovements({ quiet: true }),
+      loadAccountingData({ quiet: true })
     ]));
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
     renderPage();
@@ -859,6 +957,77 @@
     }).join("") : `<tr><td colspan="6" class="empty">Chưa có biến động kho.</td></tr>`;
   }
 
+  function renderAccounting() {
+    if (!els.accountingKpis && !els.accountingTransactionsTable) return;
+    const term = searchTerm.trim().toLowerCase();
+    const transactions = [...(state.cashTransactions || [])]
+      .filter(transaction => {
+        if (!term) return true;
+        const account = getAccountingAccount(transaction.accountId);
+        const category = getAccountingCategory(transaction.categoryId);
+        return [
+          transaction.type,
+          accountingTypeLabel(transaction.type),
+          transaction.description,
+          transaction.referenceType,
+          transaction.referenceId,
+          account.name,
+          category.name
+        ].join(" ").toLowerCase().includes(term);
+      })
+      .sort((a, b) => String(b.transactionDate || b.createdAt).localeCompare(String(a.transactionDate || a.createdAt)));
+    const income = transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
+    const expense = transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
+    const totalBalance = (state.accountingAccounts || []).reduce((sum, account) => sum + account.currentBalance, 0);
+    const pendingReceivable = state.orders.filter(order => order.paymentStatus !== "paid" && order.status !== "cancelled").reduce((sum, order) => sum + order.total, 0);
+
+    if (els.accountingKpis) {
+      const cards = [
+        ["Số dư quỹ", money.format(totalBalance), "Tổng số dư các tài khoản tiền."],
+        ["Tổng thu", money.format(income), "Theo sổ thu/chi đang lọc."],
+        ["Tổng chi", money.format(expense), "Theo sổ thu/chi đang lọc."],
+        ["Công nợ bán hàng", money.format(pendingReceivable), "Đơn chưa thanh toán, chưa hủy."]
+      ];
+      els.accountingKpis.innerHTML = cards.map(([label, value, note]) => `
+        <article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>
+      `).join("");
+    }
+
+    if (els.accountingAccounts) {
+      els.accountingAccounts.innerHTML = (state.accountingAccounts || []).length ? state.accountingAccounts.map(account => `
+        <article class="account-card">
+          <div><strong>${account.name}</strong><span>${accountTypeLabel(account.type)}</span></div>
+          <b>${money.format(account.currentBalance)}</b>
+        </article>
+      `).join("") : `<div class="empty">Chưa có tài khoản tiền.</div>`;
+    }
+
+    if (els.accountingCategories) {
+      const categories = state.accountingCategories || [];
+      els.accountingCategories.innerHTML = categories.length ? categories.map(category => `
+        <span class="category-chip ${category.type}">${category.name}<small>${accountingTypeLabel(category.type)}</small></span>
+      `).join("") : `<div class="empty">Chưa có danh mục thu/chi.</div>`;
+    }
+
+    if (els.accountingTransactionsTable) {
+      els.accountingTransactionsTable.innerHTML = transactions.length ? transactions.map(transaction => {
+        const category = getAccountingCategory(transaction.categoryId);
+        const account = getAccountingAccount(transaction.accountId);
+        const signedAmount = transaction.type === "income" ? transaction.amount : -transaction.amount;
+        return `
+          <tr>
+            <td><strong>${formatDate(transaction.transactionDate)}</strong><br><small>${transaction.referenceType || "manual"}</small></td>
+            <td><span class="badge ${transaction.type === "income" ? "active" : "pending"}">${accountingTypeLabel(transaction.type)}</span></td>
+            <td><strong>${category.name}</strong><br><small>${account.name}</small></td>
+            <td>${transaction.description}</td>
+            <td class="money-cell ${transaction.type === "income" ? "positive-money" : "negative-money"}"><strong>${money.format(signedAmount)}</strong></td>
+            <td><div class="row-actions">${canManageAccounting() ? `<button class="link-button danger-link" data-archive-cash-transaction="${transaction.id}">Xóa</button>` : ""}</div></td>
+          </tr>
+        `;
+      }).join("") : `<tr><td colspan="6" class="empty">Chưa có giao dịch thu/chi.</td></tr>`;
+    }
+  }
+
   function renderReports() {
     if (!els.reportCards) return;
     const paidOrders = state.orders.filter(isPaid);
@@ -921,6 +1090,7 @@
     renderUsers();
     renderInventory();
     renderStockMovements();
+    renderAccounting();
     renderReports();
     renderOrderCreatePage();
   }
@@ -1048,6 +1218,48 @@
 
   function renderOptions(options, selected = "") {
     return Object.entries(options).map(([value, label]) => `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`).join("");
+  }
+
+  function renderAccountingAccountOptions() {
+    return (state.accountingAccounts || [])
+      .filter(account => account.status === "active")
+      .map(account => `<option value="${account.id}">${account.name} · ${money.format(account.currentBalance)}</option>`)
+      .join("");
+  }
+
+  function renderAccountingCategoryOptions(type) {
+    return (state.accountingCategories || [])
+      .filter(category => category.status === "active" && category.type === type)
+      .map(category => `<option value="${category.id}">${category.name}</option>`)
+      .join("");
+  }
+
+  function renderCashTransactionForm() {
+    const today = new Date().toISOString().slice(0, 10);
+    return `
+      <div class="field"><label for="type">Loại giao dịch</label><select id="type" name="type" required data-cash-type><option value="income">Thu tiền</option><option value="expense">Chi tiền</option></select></div>
+      <div class="field"><label for="transactionDate">Ngày ghi nhận</label><input id="transactionDate" name="transactionDate" type="date" value="${today}" required /></div>
+      <div class="field"><label for="accountId">Tài khoản tiền</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions()}</select></div>
+      <div class="field"><label for="categoryId">Danh mục</label><select id="categoryId" name="categoryId" required data-cash-category>${renderAccountingCategoryOptions("income")}</select></div>
+      <div class="field"><label for="amount">Số tiền</label><input id="amount" name="amount" type="number" min="1" step="1000" placeholder="500000" required /></div>
+      <div class="field"><label for="referenceId">Mã tham chiếu</label><input id="referenceId" name="referenceId" type="text" placeholder="Mã đơn, phiếu chi..." /></div>
+      <div class="field full"><label for="description">Nội dung</label><input id="description" name="description" type="text" placeholder="Thu tiền đơn hàng, chi nhập vật tư..." required /></div>
+    `;
+  }
+
+  function renderAccountingAccountForm() {
+    return `
+      <div class="field"><label for="name">Tên tài khoản</label><input id="name" name="name" type="text" placeholder="VCB công ty, tiền mặt cửa hàng..." required /></div>
+      <div class="field"><label for="type">Loại tài khoản</label><select id="type" name="type" required><option value="cash">Tiền mặt</option><option value="bank">Ngân hàng</option><option value="wallet">Ví / COD</option><option value="other">Khác</option></select></div>
+      <div class="field full"><label for="openingBalance">Số dư đầu kỳ</label><input id="openingBalance" name="openingBalance" type="number" step="1000" value="0" required /></div>
+    `;
+  }
+
+  function renderAccountingCategoryForm() {
+    return `
+      <div class="field"><label for="name">Tên danh mục</label><input id="name" name="name" type="text" placeholder="Phí sàn, văn phòng phẩm, thu hoàn COD..." required /></div>
+      <div class="field"><label for="type">Loại</label><select id="type" name="type" required><option value="expense">Chi</option><option value="income">Thu</option></select></div>
+    `;
   }
 
   function renderStockReceiveForm() {
@@ -1261,8 +1473,16 @@
       showToast("Bạn không có quyền quản lý kho.", "error");
       return;
     }
+    if (["cashTransaction", "accountingAccount", "accountingCategory"].includes(type) && !canManageAccounting()) {
+      showToast("Bạn không có quyền quản lý kế toán.", "error");
+      return;
+    }
     if ((type === "stockReceive" || type === "stockAdjust") && !state.products.some(product => product.status === "active")) {
       showToast("Cần có ít nhất một sản phẩm đang hoạt động để thao tác kho.", "error");
+      return;
+    }
+    if (type === "cashTransaction" && (!state.accountingAccounts.length || !state.accountingCategories.length)) {
+      showToast("Cần có tài khoản tiền và danh mục trước khi ghi thu/chi.", "error");
       return;
     }
     if (type === "orderFulfillment" && !options.order) {
@@ -1440,6 +1660,77 @@
           });
         }
       },
+      cashTransaction: {
+        eyebrow: "Kế toán",
+        title: "Ghi thu / chi",
+        body: renderCashTransactionForm(),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const amount = Number(data.amount);
+          if (!data.accountId || !data.categoryId || amount <= 0 || !String(data.description || "").trim()) {
+            throw new Error("Vui lòng nhập đủ tài khoản, danh mục, số tiền và nội dung.");
+          }
+          const dataFromApi = await apiRequest("/accounting/transactions/create", {
+            method: "POST",
+            body: JSON.stringify({
+              type: data.type,
+              accountId: data.accountId,
+              categoryId: data.categoryId,
+              amount,
+              transactionDate: data.transactionDate,
+              description: data.description,
+              referenceType: "manual",
+              referenceId: data.referenceId || ""
+            })
+          });
+          state.cashTransactions.unshift(normalizeCashTransaction(dataFromApi.transaction));
+          await loadAccountingData({ quiet: true });
+          renderPage();
+          showToast("Đã ghi nhận giao dịch thu/chi.");
+        }
+      },
+      accountingAccount: {
+        eyebrow: "Tài khoản tiền",
+        title: "Thêm tài khoản",
+        body: renderAccountingAccountForm(),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const openingBalance = Number(data.openingBalance || 0);
+          if (!String(data.name || "").trim() || !isFinite(openingBalance)) throw new Error("Tài khoản tiền chưa hợp lệ.");
+          const dataFromApi = await apiRequest("/accounting/accounts/create", {
+            method: "POST",
+            body: JSON.stringify({
+              name: data.name,
+              type: data.type,
+              openingBalance
+            })
+          });
+          state.accountingAccounts.unshift(normalizeAccountingAccount(dataFromApi.account));
+          await loadAccountingData({ quiet: true });
+          renderPage();
+          showToast("Đã thêm tài khoản tiền.");
+        }
+      },
+      accountingCategory: {
+        eyebrow: "Danh mục kế toán",
+        title: "Thêm danh mục",
+        body: renderAccountingCategoryForm(),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          if (!String(data.name || "").trim()) throw new Error("Tên danh mục chưa hợp lệ.");
+          const dataFromApi = await apiRequest("/accounting/categories/create", {
+            method: "POST",
+            body: JSON.stringify({
+              name: data.name,
+              type: data.type
+            })
+          });
+          state.accountingCategories.unshift(normalizeAccountingCategory(dataFromApi.category));
+          await loadAccountingData({ quiet: true });
+          renderPage();
+          showToast("Đã thêm danh mục kế toán.");
+        }
+      },
       user: {
         eyebrow: "Phân quyền",
         title: "Thêm nhân viên",
@@ -1610,6 +1901,9 @@
       }
       if (target.matches("[data-open-stock-receive]")) openModal("stockReceive");
       if (target.matches("[data-open-stock-adjust]")) openModal("stockAdjust");
+      if (target.matches("[data-open-cash-transaction]")) openModal("cashTransaction");
+      if (target.matches("[data-open-accounting-account]")) openModal("accountingAccount");
+      if (target.matches("[data-open-accounting-category]")) openModal("accountingCategory");
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
       if (target.matches("[data-logout]")) await logout();
       if (target.dataset.addProductToOrder) {
@@ -1651,6 +1945,17 @@
       }
       if (target.dataset.cancelOrder && window.confirm("Hủy đơn hàng này và hoàn lại tồn kho?")) {
         await withLoading("Đang hủy đơn hàng...", () => cancelOrder(target.dataset.cancelOrder));
+      }
+      if (target.dataset.archiveCashTransaction && window.confirm("Xóa giao dịch thu/chi này khỏi sổ?")) {
+        await withLoading("Đang xóa giao dịch...", async () => {
+          await apiRequest("/accounting/transactions/archive", {
+            method: "POST",
+            body: JSON.stringify({ id: target.dataset.archiveCashTransaction })
+          });
+          await loadAccountingData({ quiet: true });
+        });
+        renderPage();
+        showToast("Đã xóa giao dịch thu/chi.");
       }
       if (target.dataset.editOrderFulfillment) {
         const order = byId("orders", target.dataset.editOrderFulfillment);
@@ -1701,6 +2006,10 @@
 
     document.addEventListener("change", async event => {
       if (event.target.matches("[data-order-product]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
+      if (event.target.matches("[data-cash-type]")) {
+        const category = (event.target.closest("form") || els.modalForm).querySelector("[data-cash-category]");
+        if (category) category.innerHTML = renderAccountingCategoryOptions(event.target.value);
+      }
       if (event.target.matches("[data-order-inline]")) {
         const field = event.target.dataset.orderInline;
         const orderId = event.target.dataset.orderId;

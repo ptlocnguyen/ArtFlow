@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kế toán | ArtFlow POS</title>
+  <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+</head>
+<body data-page="accounting" data-root="..">
+  <div class="app-shell" data-app-shell hidden>
+    <aside class="sidebar"><a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a><nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav><div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div></aside>
+    <main class="workspace">
+      <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div><p class="eyebrow">Kế toán</p><h1 data-page-title>Kế toán</h1></div><div class="topbar-actions"><label class="search-box"><span>⌕</span><input data-global-search type="search" placeholder="Tìm nội dung, danh mục, tham chiếu..." /></label><button class="button primary" type="button" data-open-cash-transaction>Ghi thu/chi</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button></div></header>
+      <section class="view active accounting-view">
+        <div class="kpi-grid" data-accounting-kpis></div>
+        <section class="accounting-layout">
+          <section class="panel accounting-ledger">
+            <div class="panel-header split"><div><h2>Sổ thu/chi</h2><p>Theo dõi dòng tiền thực tế theo tài khoản và danh mục.</p></div><button class="button ghost" type="button" data-open-cash-transaction>Thêm giao dịch</button></div>
+            <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Loại</th><th>Danh mục/Tài khoản</th><th>Nội dung</th><th>Số tiền</th><th>Thao tác</th></tr></thead><tbody data-accounting-transactions-table></tbody></table></div>
+          </section>
+          <aside class="accounting-side">
+            <section class="panel accounting-side-panel">
+              <div class="panel-header split"><div><h2>Tài khoản tiền</h2><p>Số dư tính từ đầu kỳ và giao dịch.</p></div><button class="link-button" type="button" data-open-accounting-account>Thêm</button></div>
+              <div class="account-card-list" data-accounting-accounts></div>
+            </section>
+            <section class="panel accounting-side-panel">
+              <div class="panel-header split"><div><h2>Danh mục</h2><p>Nhóm các khoản thu và chi.</p></div><button class="link-button" type="button" data-open-accounting-category>Thêm</button></div>
+              <div class="category-chip-list" data-accounting-categories></div>
+            </section>
+          </aside>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div data-shared-ui></div>
+  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/app.js"></script>
+</body>
+</html>

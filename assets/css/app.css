@@ -681,6 +681,109 @@ body[data-page="reports"] .view.active {
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+body[data-page="accounting"] .view.active {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.accounting-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 14px;
+  min-height: 0;
+}
+
+.accounting-ledger,
+.accounting-side-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.accounting-ledger .table-wrap {
+  flex: 1 1 auto;
+}
+
+.accounting-ledger table {
+  min-width: 920px;
+}
+
+.accounting-side {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.account-card-list,
+.category-chip-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px 16px;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.account-card strong,
+.account-card span {
+  display: block;
+}
+
+.account-card span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.account-card b {
+  white-space: nowrap;
+}
+
+.category-chip-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.category-chip {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  color: #1e3a8a;
+  background: #dbeafe;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.category-chip.expense {
+  color: #93370d;
+  background: #fef0c7;
+}
+
+.category-chip small {
+  color: inherit;
+  font-size: 11px;
+  opacity: 0.76;
+}
+
+.positive-money strong {
+  color: #05603a;
+}
+
+.negative-money strong {
+  color: #912018;
+}
+
 .filter-bar {
   display: grid;
   grid-template-columns: repeat(4, minmax(150px, 1fr));
@@ -1260,6 +1363,18 @@ body[data-page="reports"] .view.active {
 }
 
 @media (max-width: 1100px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .topbar > div:first-of-type {
+    flex: 0 0 auto;
+  }
+
+  .topbar-actions {
+    flex: 1 1 520px;
+  }
+
   .kpi-grid,
   .inventory-grid,
   .report-grid {
@@ -1294,8 +1409,18 @@ body[data-page="reports"] .view.active {
   }
 
   body[data-page="orderCreate"] .order-builder-layout,
-  body[data-page="orderCreate"] .order-customer-section .compact-grid {
+  body[data-page="orderCreate"] .order-customer-section .compact-grid,
+  .accounting-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .accounting-layout {
+    overflow: auto;
+  }
+
+  .accounting-side {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(260px, auto);
   }
 
   body[data-page="orderCreate"] .order-customer-section .field.full:first-child,
@@ -1390,6 +1515,10 @@ body[data-page="reports"] .view.active {
   .sticky-summary {
     position: static;
   }
+
+  .accounting-side {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1424,6 +1553,10 @@ body[data-page="reports"] .view.active {
   .kpi-grid,
   .inventory-grid,
   .report-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .category-chip-list {
     grid-template-columns: 1fr;
   }
 

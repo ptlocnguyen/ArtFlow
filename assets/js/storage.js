@@ -10,6 +10,9 @@
       products: clone(window.ArtFlowPosSeed.products),
       customers: clone(window.ArtFlowPosSeed.customers),
       orders: clone(window.ArtFlowPosSeed.orders),
+      accountingAccounts: clone(window.ArtFlowPosSeed.accountingAccounts || []),
+      accountingCategories: clone(window.ArtFlowPosSeed.accountingCategories || []),
+      cashTransactions: clone(window.ArtFlowPosSeed.cashTransactions || []),
       users: clone(window.ArtFlowPosSeed.users),
       updatedAt: new Date().toISOString()
     };
@@ -23,6 +26,9 @@
       products: Array.isArray(state.products) ? state.products : initial.products,
       customers: Array.isArray(state.customers) ? state.customers : initial.customers,
       orders: Array.isArray(state.orders) ? state.orders : initial.orders,
+      accountingAccounts: Array.isArray(state.accountingAccounts) ? state.accountingAccounts : initial.accountingAccounts,
+      accountingCategories: Array.isArray(state.accountingCategories) ? state.accountingCategories : initial.accountingCategories,
+      cashTransactions: Array.isArray(state.cashTransactions) ? state.cashTransactions : initial.cashTransactions,
       users: Array.isArray(state.users) ? state.users : initial.users
     };
   }
