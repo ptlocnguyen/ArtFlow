@@ -176,6 +176,8 @@
       "/orders/status": "updateOrderStatus",
       "/orders/fulfillment": "updateOrderFulfillment",
       "/orders/cancel": "cancelOrder",
+      "/orders/return": "returnOrder",
+      "/orders/refund": "refundOrder",
       "/stock-movements": "listStockMovements",
       "/stock/receive": "receiveStock",
       "/stock/adjust": "adjustStock",
@@ -466,7 +468,7 @@
   function collectedForOrder(order) {
     return (state.cashTransactions || [])
       .filter(transaction => {
-        return transaction.status !== "archived"
+        return transaction.status !== "deleted"
           && transaction.type === "income"
           && transaction.referenceType === "order"
           && [order.id, order.code].includes(transaction.referenceId);
@@ -474,13 +476,34 @@
       .reduce((sum, transaction) => sum + transaction.amount, 0);
   }
 
+  function returnedOrderItemQuantity(itemId) {
+    return (state.salesReturns || []).reduce((sum, salesReturn) => {
+      return sum + (salesReturn.items || [])
+        .filter(item => item.orderItemId === itemId)
+        .reduce((itemSum, item) => itemSum + item.quantity, 0);
+    }, 0);
+  }
+
+  function canReturnOrder(order) {
+    if (!canManageOrders() || !order || order.status === "cancelled") return false;
+    const fulfilled = ["paid", "completed"].includes(order.status) || order.shippingStatus === "delivered" || order.paymentStatus === "paid";
+    return fulfilled && (order.items || []).some(item => item.quantity > returnedOrderItemQuantity(item.id));
+  }
+
+  function refundableForOrder(order) {
+    if (!order) return 0;
+    const returnedNotRefunded = Math.max(0, Number(order.returnedAmount || 0) - Number(order.refundedAmount || 0));
+    const collectedNotRefunded = Math.max(0, collectedForOrder(order) - Number(order.refundedAmount || 0));
+    return Math.min(returnedNotRefunded, collectedNotRefunded);
+  }
+
   function outstandingForOrder(order) {
     if (!order || order.status === "cancelled" || isPaid(order)) return 0;
-    return Math.max(0, Number(order.total || 0) - collectedForOrder(order));
+    return Math.max(0, Number(order.netTotal === undefined ? order.total : order.netTotal) - Math.max(0, collectedForOrder(order) - Number(order.refundedAmount || 0)));
   }
 
   function orderCost(order) {
-    return (order.items || []).reduce((sum, item) => sum + (item.costPrice * item.quantity), 0);
+    return (order.items || []).reduce((sum, item) => sum + (item.costPrice * Math.max(0, item.quantity - returnedOrderItemQuantity(item.id))), 0);
   }
 
   function orderItemSummary(order) {
@@ -585,6 +608,9 @@
       discount: Number(order.discount || 0),
       shippingFee: Number(order.shippingFee || 0),
       total: Number(order.total || 0),
+      returnedAmount: Number(order.returnedAmount || 0),
+      refundedAmount: Number(order.refundedAmount || 0),
+      netTotal: Number(order.netTotal === undefined ? Math.max(0, Number(order.total || 0) - Number(order.returnedAmount || 0)) : order.netTotal),
       note: order.note || "",
       createdBy: order.createdBy || "",
       createdAt: order.createdAt || "",
@@ -599,10 +625,54 @@
     };
   }
 
+  function normalizeSalesReturn(salesReturn) {
+    return {
+      id: salesReturn.id,
+      code: salesReturn.code || "",
+      orderId: salesReturn.orderId || "",
+      customerId: salesReturn.customerId || "",
+      amount: Number(salesReturn.amount || 0),
+      note: salesReturn.note || "",
+      createdBy: salesReturn.createdBy || "",
+      createdAt: salesReturn.createdAt || "",
+      items: (salesReturn.items || []).map(item => ({
+        id: item.id,
+        returnId: item.returnId || salesReturn.id,
+        orderItemId: item.orderItemId || "",
+        productId: item.productId || "",
+        sku: item.sku || "",
+        name: item.name || "",
+        quantity: Number(item.quantity || 0),
+        unitPrice: Number(item.unitPrice || 0),
+        costPrice: Number(item.costPrice || 0),
+        lineTotal: Number(item.lineTotal || 0),
+        createdAt: item.createdAt || ""
+      }))
+    };
+  }
+
+  function normalizeOrderRefund(refund) {
+    return {
+      id: refund.id,
+      orderId: refund.orderId || "",
+      salesReturnId: refund.salesReturnId || "",
+      cashTransactionId: refund.cashTransactionId || "",
+      accountId: refund.accountId || "",
+      categoryId: refund.categoryId || "",
+      amount: Number(refund.amount || 0),
+      refundDate: refund.refundDate || "",
+      note: refund.note || "",
+      createdBy: refund.createdBy || "",
+      createdAt: refund.createdAt || ""
+    };
+  }
+
   async function loadOrders(options = {}) {
     try {
       const data = await apiRequest("/orders");
       state.orders = (data.orders || []).map(normalizeOrder);
+      state.salesReturns = (data.salesReturns || []).map(normalizeSalesReturn);
+      state.orderRefunds = (data.orderRefunds || []).map(normalizeOrderRefund);
       window.ArtFlowPosStore.save(state);
       return true;
     } catch (error) {
@@ -870,7 +940,11 @@
   function applyPageData(data, scopes) {
     if (scopes.includes("products")) state.products = (data.products || []).map(normalizeProduct);
     if (scopes.includes("customers")) state.customers = (data.customers || []).map(normalizeCustomer);
-    if (scopes.includes("orders")) state.orders = (data.orders || []).map(normalizeOrder);
+    if (scopes.includes("orders")) {
+      state.orders = (data.orders || []).map(normalizeOrder);
+      state.salesReturns = (data.salesReturns || []).map(normalizeSalesReturn);
+      state.orderRefunds = (data.orderRefunds || []).map(normalizeOrderRefund);
+    }
     if (scopes.includes("stockMovements")) state.stockMovements = (data.movements || []).map(normalizeStockMovement);
     if (scopes.includes("accounting")) {
       state.accountingAccounts = (data.accounts || []).map(normalizeAccountingAccount);
@@ -1109,7 +1183,7 @@
   function renderKpis() {
     if (!els.kpis) return;
     const paidOrders = state.orders.filter(isPaid);
-    const revenue = paidOrders.reduce((sum, order) => sum + order.total, 0);
+    const revenue = paidOrders.reduce((sum, order) => sum + order.netTotal, 0);
     const cost = paidOrders.reduce((sum, order) => sum + orderCost(order), 0);
     const lowStockCount = state.products.filter(product => product.status === "active" && product.stock <= product.lowStock).length;
     const pendingOrders = state.orders.filter(order => order.status === "pending").length;
@@ -1131,7 +1205,7 @@
       date.setDate(date.getDate() - (6 - index));
       return date.toISOString().slice(0, 10);
     });
-    const values = days.map(day => state.orders.filter(order => String(order.createdAt).slice(0, 10) === day && isPaid(order)).reduce((sum, order) => sum + order.total, 0));
+    const values = days.map(day => state.orders.filter(order => String(order.createdAt).slice(0, 10) === day && isPaid(order)).reduce((sum, order) => sum + order.netTotal, 0));
     const max = Math.max(...values, 1);
     els.revenueChart.innerHTML = days.map((day, index) => {
       const height = Math.max(18, Math.round((values[index] / max) * 140));
@@ -1161,13 +1235,13 @@
             <td>${customer.name}</td>
             <td>${orderItemSummary(order)}</td>
             <td><span class="badge ${order.status}">${statusLabel(order.status)}</span></td>
-            <td><strong>${money.format(order.total)}</strong></td>
+            <td><strong>${money.format(order.netTotal)}</strong>${order.returnedAmount > 0 ? `<br><small>Đã trả ${money.format(order.returnedAmount)}</small>` : ""}</td>
             <td>${formatDate(order.createdAt)}</td>
           </tr>
         `;
       }
 
-      const actions = `<div class="row-actions compact-actions">${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button" data-edit-order-fulfillment="${order.id}">Cập nhật</button>` : ""}${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button" data-complete-order="${order.id}">Hoàn tất</button>` : ""}${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button danger-link" data-cancel-order="${order.id}">Hủy</button>` : ""}</div>`;
+      const actions = `<div class="row-actions compact-actions">${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button" data-edit-order-fulfillment="${order.id}">Cập nhật</button>` : ""}${canReturnOrder(order) ? `<button class="link-button" data-return-order="${order.id}">Trả hàng</button>` : ""}${isAdmin() && refundableForOrder(order) > 0 ? `<button class="link-button" data-refund-order="${order.id}">Hoàn tiền</button>` : ""}${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button" data-complete-order="${order.id}">Hoàn tất</button>` : ""}${canManageOrders() && order.status !== "cancelled" && order.returnedAmount <= 0 && order.refundedAmount <= 0 && collectedForOrder(order) <= 0 ? `<button class="link-button danger-link" data-cancel-order="${order.id}">Hủy</button>` : ""}</div>`;
       const shippingMeta = `${carrierLabel(order.carrier)}${order.trackingCode ? ` · ${order.trackingCode}` : ""}`;
       return `
         <tr>
@@ -1180,7 +1254,7 @@
             <span class="badge ${order.shippingStatus}">${shippingLabel(order.shippingStatus)}</span>
             <small>${shippingMeta}</small>
           </div></td>
-          <td class="money-cell"><strong>${money.format(order.total)}</strong></td>
+          <td class="money-cell"><strong>${money.format(order.netTotal)}</strong>${order.returnedAmount > 0 ? `<small>Gốc ${money.format(order.total)} · Trả ${money.format(order.returnedAmount)}${order.refundedAmount > 0 ? ` · Hoàn ${money.format(order.refundedAmount)}` : ""}</small>` : ""}</td>
           <td>${actions}</td>
         </tr>
       `;
@@ -1517,7 +1591,7 @@
             <td><strong>${category.name}</strong><br><small>${account.name}</small></td>
             <td>${transaction.description}</td>
             <td class="money-cell ${transaction.type === "income" ? "positive-money" : "negative-money"}"><strong>${money.format(signedAmount)}</strong></td>
-            <td><div class="row-actions">${canManageAccounting() ? `<button class="link-button danger-link" data-archive-cash-transaction="${transaction.id}">Xóa</button>` : ""}</div></td>
+            <td><div class="row-actions">${canManageAccounting() && (!transaction.referenceType || transaction.referenceType === "manual") ? `<button class="link-button danger-link" data-archive-cash-transaction="${transaction.id}">Xóa</button>` : `<small>Giao dịch liên kết</small>`}</div></td>
           </tr>
         `;
       }).join("") : `<tr><td colspan="6" class="empty">Chưa có giao dịch thu/chi.</td></tr>`;
@@ -1643,10 +1717,10 @@
   function renderReports() {
     if (!els.reportCards) return;
     const paidOrders = state.orders.filter(isPaid);
-    const averageOrder = paidOrders.length ? paidOrders.reduce((sum, order) => sum + order.total, 0) / paidOrders.length : 0;
+    const averageOrder = paidOrders.length ? paidOrders.reduce((sum, order) => sum + order.netTotal, 0) / paidOrders.length : 0;
     const soldByProduct = paidOrders.reduce((map, order) => {
       (order.items || []).forEach(item => {
-        map[item.productId] = (map[item.productId] || 0) + item.quantity;
+        map[item.productId] = (map[item.productId] || 0) + Math.max(0, item.quantity - returnedOrderItemQuantity(item.id));
       });
       return map;
     }, {});
@@ -1886,6 +1960,66 @@
       <div class="field"><label for="categoryId">Danh mục thu</label><select id="categoryId" name="categoryId" required>${renderAccountingCategoryOptions("income")}</select></div>
       <div class="field"><label for="amount">Số tiền thu</label><input id="amount" name="amount" type="number" min="1" max="${Math.max(1, outstanding)}" step="1" value="${Math.max(0, outstanding)}" required /></div>
       <div class="field full"><label for="description">Nội dung</label><input id="description" name="description" type="text" value="Thu tiền đơn ${order.code}" required /></div>
+    `;
+  }
+
+  function renderOrderReturnForm(order) {
+    const rows = (order.items || []).map(item => {
+      const returned = returnedOrderItemQuantity(item.id);
+      const available = Math.max(0, item.quantity - returned);
+      if (!available) return "";
+      return `
+        <div class="purchase-return-row">
+          <div><strong>${item.name}</strong><small>${item.sku} · Có thể trả ${available}/${item.quantity} · ${money.format(item.unitPrice)}</small></div>
+          <div class="field compact-field"><label>Số lượng trả</label><input type="number" min="0" max="${available}" step="1" value="0" data-order-return-quantity data-order-item-id="${item.id}" data-unit-price="${item.unitPrice}" /></div>
+        </div>
+      `;
+    }).join("");
+    const refundFields = isAdmin() ? `
+      <div class="return-refund-fields full">
+        <div class="field"><label for="refundAmount">Hoàn tiền ngay</label><input id="refundAmount" name="refundAmount" type="number" min="0" step="1" value="0" data-order-return-refund /></div>
+        <div class="field"><label for="refundDate">Ngày hoàn</label><input id="refundDate" name="refundDate" type="date" value="${localDateValue()}" /></div>
+        <div class="field"><label for="accountId">Tài khoản hoàn</label><select id="accountId" name="accountId">${renderAccountingAccountOptions()}</select></div>
+        <div class="field"><label for="categoryId">Danh mục chi</label><select id="categoryId" name="categoryId">${renderAccountingCategoryOptions("expense")}</select></div>
+      </div>
+    ` : "";
+    return `
+      <input type="hidden" name="orderId" value="${order.id}" />
+      <div class="modal-summary full"><strong>${order.code} · ${getCustomer(order).name}</strong><span>Giá trị còn lại ${money.format(order.netTotal)} · Đã hoàn ${money.format(order.refundedAmount)}</span></div>
+      <div class="purchase-return-list full">${rows}</div>
+      <div class="modal-summary full"><span>Giá trị hàng đang chọn</span><strong data-order-return-preview>${money.format(0)}</strong></div>
+      ${refundFields}
+      <div class="field full"><label for="note">Lý do trả hàng</label><input id="note" name="note" type="text" placeholder="Hàng lỗi, khách đổi ý, giao sai..." required /></div>
+    `;
+  }
+
+  function updateOrderReturnPreview(form) {
+    if (!form) return;
+    const order = byId("orders", new FormData(form).get("orderId"));
+    const returnAmount = [...form.querySelectorAll("[data-order-return-quantity]")].reduce((sum, input) => {
+      return sum + Number(input.value || 0) * Number(input.dataset.unitPrice || 0);
+    }, 0);
+    const output = form.querySelector("[data-order-return-preview]");
+    if (output) output.textContent = money.format(returnAmount);
+    const refundInput = form.querySelector("[data-order-return-refund]");
+    if (refundInput && order) {
+      const unrefundedReturns = Math.max(0, order.returnedAmount - order.refundedAmount);
+      const cashAvailable = Math.max(0, collectedForOrder(order) - order.refundedAmount);
+      const maximum = Math.max(0, Math.min(unrefundedReturns + returnAmount, cashAvailable));
+      refundInput.max = String(maximum);
+      if (Number(refundInput.value || 0) > maximum) refundInput.value = maximum;
+    }
+  }
+
+  function renderOrderRefundForm(order) {
+    const maximum = refundableForOrder(order);
+    return `
+      <div class="modal-summary full"><strong>${order.code} · ${getCustomer(order).name}</strong><span>Chờ hoàn ${money.format(maximum)} · Đã hoàn ${money.format(order.refundedAmount)}</span></div>
+      <div class="field"><label for="refundDate">Ngày hoàn</label><input id="refundDate" name="refundDate" type="date" value="${localDateValue()}" required /></div>
+      <div class="field"><label for="amount">Số tiền hoàn</label><input id="amount" name="amount" type="number" min="1" max="${Math.max(1, maximum)}" step="1" value="${maximum}" required /></div>
+      <div class="field"><label for="accountId">Tài khoản hoàn</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions()}</select></div>
+      <div class="field"><label for="categoryId">Danh mục chi</label><select id="categoryId" name="categoryId" required>${renderAccountingCategoryOptions("expense")}</select></div>
+      <div class="field full"><label for="note">Nội dung</label><input id="note" name="note" value="Hoàn tiền đơn ${order.code}" required /></div>
     `;
   }
 
@@ -2396,7 +2530,7 @@
       showToast("Bạn không có quyền quản lý kho.", "error");
       return;
     }
-    if (["cashTransaction", "orderPayment", "accountingAccount", "accountingCategory", "accountingReconciliation"].includes(type) && !canManageAccounting()) {
+    if (["cashTransaction", "orderPayment", "orderRefund", "accountingAccount", "accountingCategory", "accountingReconciliation"].includes(type) && !canManageAccounting()) {
       showToast("Bạn không có quyền quản lý kế toán.", "error");
       return;
     }
@@ -2446,6 +2580,18 @@
     }
     if (type === "orderPayment" && (!options.order || outstandingForOrder(options.order) <= 0)) {
       showToast("Đơn này không còn công nợ phải thu.", "error");
+      return;
+    }
+    if (type === "orderReturn" && (!options.order || !canReturnOrder(options.order))) {
+      showToast("Đơn này không còn sản phẩm đủ điều kiện trả.", "error");
+      return;
+    }
+    if (type === "orderRefund" && (!options.order || refundableForOrder(options.order) <= 0)) {
+      showToast("Đơn này không còn khoản tiền chờ hoàn.", "error");
+      return;
+    }
+    if (type === "orderRefund" && (!(state.accountingAccounts || []).some(account => account.status === "active") || !(state.accountingCategories || []).some(category => category.status === "active" && category.type === "expense"))) {
+      showToast("Cần có tài khoản tiền và danh mục chi trước khi hoàn tiền.", "error");
       return;
     }
     if (type === "accountingReconciliation" && !(state.accountingAccounts || []).some(account => account.status === "active")) {
@@ -2675,6 +2821,62 @@
           });
         }
       },
+      orderReturn: {
+        eyebrow: "Đổi trả bán hàng",
+        title: editingOrder ? `Trả hàng ${editingOrder.code}` : "Trả hàng khách mua",
+        body: editingOrder ? renderOrderReturnForm(editingOrder) : "",
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const items = [...form.querySelectorAll("[data-order-return-quantity]")]
+            .map(input => ({ orderItemId: input.dataset.orderItemId, quantity: Number(input.value || 0) }))
+            .filter(item => item.quantity > 0);
+          if (!items.length) throw new Error("Cần nhập số lượng cho ít nhất một sản phẩm trả lại.");
+          const response = await apiRequest("/orders/return", {
+            method: "POST",
+            body: JSON.stringify({
+              id: editingOrder.id,
+              items,
+              note: String(data.note || "").trim(),
+              refundAmount: Number(data.refundAmount || 0),
+              refundDate: data.refundDate || "",
+              accountId: data.accountId || "",
+              categoryId: data.categoryId || "",
+              refundNote: data.note ? `Hoàn tiền: ${data.note}` : ""
+            })
+          });
+          const savedOrder = normalizeOrder(response.order);
+          state.orders = state.orders.map(item => item.id === savedOrder.id ? savedOrder : item);
+          if (response.salesReturn) state.salesReturns.unshift(normalizeSalesReturn(response.salesReturn));
+          if (response.refund) state.orderRefunds.unshift(normalizeOrderRefund(response.refund));
+          if (response.transaction) state.cashTransactions.unshift(normalizeCashTransaction(response.transaction));
+          if (response.customer) {
+            const savedCustomer = normalizeCustomer(response.customer);
+            state.customers = state.customers.map(item => item.id === savedCustomer.id ? savedCustomer : item);
+          }
+          await Promise.all([loadOrders({ quiet: true }), loadAccountingData({ quiet: true }), loadCustomers({ quiet: true }), loadProducts({ quiet: true }), loadStockMovements({ quiet: true })]);
+          renderPage();
+          showToast(response.refund ? "Đã nhận hàng trả, hoàn kho và hoàn tiền." : "Đã nhận hàng trả và hoàn lại tồn kho.");
+        }
+      },
+      orderRefund: {
+        eyebrow: "Hoàn tiền khách hàng",
+        title: editingOrder ? `Hoàn tiền ${editingOrder.code}` : "Hoàn tiền đơn hàng",
+        body: editingOrder ? renderOrderRefundForm(editingOrder) : "",
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const response = await apiRequest("/orders/refund", {
+            method: "POST",
+            body: JSON.stringify({ id: editingOrder.id, amount: Number(data.amount), refundDate: data.refundDate, accountId: data.accountId, categoryId: data.categoryId, note: data.note || "" })
+          });
+          const savedOrder = normalizeOrder(response.order);
+          state.orders = state.orders.map(item => item.id === savedOrder.id ? savedOrder : item);
+          if (response.refund) state.orderRefunds.unshift(normalizeOrderRefund(response.refund));
+          if (response.transaction) state.cashTransactions.unshift(normalizeCashTransaction(response.transaction));
+          await Promise.all([loadOrders({ quiet: true }), loadAccountingData({ quiet: true })]);
+          renderPage();
+          showToast(refundableForOrder(savedOrder) > 0 ? "Đã hoàn một phần tiền cho khách." : "Đã hoàn đủ số tiền cần trả khách.");
+        }
+      },
       accountingAccount: {
         eyebrow: "Tài khoản tiền",
         title: editingAccountingAccount ? "Sửa tài khoản" : "Thêm tài khoản",
@@ -2876,6 +3078,7 @@
     };
     els.modalBackdrop.hidden = false;
     if (type === "order") updateOrderTotalPreview(els.modalForm);
+    if (type === "orderReturn") updateOrderReturnPreview(els.modalForm);
     const firstInput = els.modalForm.querySelector("input, select");
     if (firstInput) firstInput.focus();
   }
@@ -3264,6 +3467,14 @@
         const order = byId("orders", target.dataset.recordOrderPayment);
         if (order) openModal("orderPayment", { order });
       }
+      if (target.dataset.returnOrder) {
+        const order = byId("orders", target.dataset.returnOrder);
+        if (order) openModal("orderReturn", { order });
+      }
+      if (target.dataset.refundOrder) {
+        const order = byId("orders", target.dataset.refundOrder);
+        if (order) openModal("orderRefund", { order });
+      }
       if (target.dataset.editOrderFulfillment) {
         const order = byId("orders", target.dataset.editOrderFulfillment);
         if (order) openModal("orderFulfillment", { order });
@@ -3312,6 +3523,7 @@
       if (event.target.matches("[data-order-quantity], [data-order-money]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-purchase-quantity], [data-purchase-cost], [data-purchase-money]")) updatePurchaseTotalPreview(event.target.closest("form") || els.purchaseCreateForm);
       if (event.target.matches("[data-return-quantity]")) updatePurchaseReturnPreview(event.target.closest("form") || els.modalForm);
+      if (event.target.matches("[data-order-return-quantity]")) updateOrderReturnPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-reconciliation-actual]")) updateReconciliationPreview(event.target.closest("form") || els.modalForm);
     });
 
