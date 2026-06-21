@@ -86,6 +86,7 @@
     productsTable: qs("[data-products-table]"),
     productCsvFile: qs("[data-product-csv-file]"),
     customersTable: qs("[data-customers-table]"),
+    customerCsvFile: qs("[data-customer-csv-file]"),
     usersTable: qs("[data-users-table]"),
     inventoryCards: qs("[data-inventory-cards]"),
     stockMovementsTable: qs("[data-stock-movements-table]"),
@@ -182,6 +183,7 @@
       "/customers/create": "createCustomer",
       "/customers/update": "updateCustomer",
       "/customers/archive": "archiveCustomer",
+      "/customers/import": "importCustomers",
       "/orders": "listOrders",
       "/orders/create": "createOrder",
       "/orders/status": "updateOrderStatus",
@@ -1100,6 +1102,9 @@
     document.querySelectorAll("[data-open-customer]").forEach(button => {
       button.hidden = !canManageCustomers();
     });
+    document.querySelectorAll("[data-import-customers]").forEach(button => {
+      button.hidden = !canManageCustomers();
+    });
     document.querySelectorAll("[data-open-order]").forEach(button => {
       button.hidden = !canManageOrders();
     });
@@ -1378,6 +1383,65 @@
     await loadProducts({ quiet: true });
     renderPage();
     showToast(`Đã tạo ${result.created || 0}, cập nhật ${result.updated || 0} sản phẩm.`);
+  }
+
+  function exportCustomersCsv() {
+    const customers = filtered(state.customers.filter(customer => customer.status !== "deleted"), ["name", "phone", "email", "group"])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const rows = [["name", "phone", "email", "group", "status", "note", "total_spent", "last_order_at"]];
+    customers.forEach(customer => rows.push([
+      customer.name,
+      customer.phone,
+      customer.email,
+      customer.group,
+      customer.status,
+      customer.note,
+      customer.totalSpent,
+      customer.lastOrderAt
+    ]));
+    downloadCsv(`artflow-khach-hang-${reportDayKey(new Date())}.csv`, rows);
+    showToast(`Đã xuất ${customers.length} khách hàng.`);
+  }
+
+  function customerRowsFromCsv(text) {
+    const rows = parseCsv(text);
+    if (rows.length < 2) throw new Error("File CSV chưa có dữ liệu khách hàng.");
+    const aliases = {
+      name: "name", phone: "phone", email: "email", group: "group",
+      customer_group: "group", status: "status", note: "note"
+    };
+    const headers = rows[0].map(header => aliases[String(header || "").replace(/^\uFEFF/, "").trim().toLowerCase()] || "");
+    const missing = ["name", "phone"].filter(field => !headers.includes(field));
+    if (missing.length) throw new Error(`Thiếu cột bắt buộc: ${missing.join(", ")}.`);
+    if (rows.length - 1 > 500) throw new Error("Mỗi lần chỉ nhập tối đa 500 khách hàng.");
+
+    return rows.slice(1).map((cells, rowIndex) => {
+      const customer = {};
+      headers.forEach((header, index) => { if (header) customer[header] = String(cells[index] || "").trim(); });
+      customer.phone = String(customer.phone || "").replace(/\s+/g, "");
+      customer.email = String(customer.email || "").toLowerCase();
+      customer.group = customer.group || "Bán lẻ";
+      customer.note = customer.note || "";
+      customer.status = customer.status === "archived" ? "archived" : "active";
+      if (!customer.name || !customer.phone) throw new Error(`Dòng ${rowIndex + 2} thiếu tên hoặc số điện thoại.`);
+      if (customer.email && !customer.email.includes("@")) throw new Error(`Dòng ${rowIndex + 2} có email không hợp lệ.`);
+      return customer;
+    });
+  }
+
+  async function importCustomersCsv(file) {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) throw new Error("File CSV không được vượt quá 2 MB.");
+    const customers = customerRowsFromCsv(await file.text());
+    if (!window.confirm(`Nhập ${customers.length} khách hàng? Số điện thoại đã tồn tại sẽ được cập nhật.`)) return;
+    const result = await apiRequest("/customers/import", {
+      method: "POST",
+      body: JSON.stringify({ customers })
+    });
+    await loadCustomers({ quiet: true });
+    renderPage();
+    showToast(`Đã tạo ${result.created || 0}, cập nhật ${result.updated || 0} khách hàng.`);
   }
 
   function exportProfitReport() {
@@ -3579,6 +3643,8 @@
       if (target.matches("[data-export-profit-report]")) exportProfitReport();
       if (target.matches("[data-export-products]")) exportProductsCsv();
       if (target.matches("[data-import-products]")) els.productCsvFile?.click();
+      if (target.matches("[data-export-customers]")) exportCustomersCsv();
+      if (target.matches("[data-import-customers]")) els.customerCsvFile?.click();
       if (target.matches("[data-open-product]")) openModal("product");
       if (target.matches("[data-open-customer]")) openModal("customer");
       if (target.matches("[data-open-order]")) {
@@ -3836,6 +3902,17 @@
         const file = event.target.files && event.target.files[0];
         try {
           await withLoading("Đang nhập danh mục sản phẩm...", () => importProductsCsv(file));
+        } catch (error) {
+          showToast(error.message, "error");
+        } finally {
+          event.target.value = "";
+        }
+        return;
+      }
+      if (event.target.matches("[data-customer-csv-file]")) {
+        const file = event.target.files && event.target.files[0];
+        try {
+          await withLoading("Đang nhập danh sách khách hàng...", () => importCustomersCsv(file));
         } catch (error) {
           showToast(error.message, "error");
         } finally {
