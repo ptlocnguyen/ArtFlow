@@ -84,6 +84,7 @@
     orderPaymentFilter: qs("[data-order-payment-filter]"),
     orderShippingFilter: qs("[data-order-shipping-filter]"),
     productsTable: qs("[data-products-table]"),
+    productCsvFile: qs("[data-product-csv-file]"),
     customersTable: qs("[data-customers-table]"),
     usersTable: qs("[data-users-table]"),
     inventoryCards: qs("[data-inventory-cards]"),
@@ -176,6 +177,7 @@
       "/products/create": "createProduct",
       "/products/update": "updateProduct",
       "/products/archive": "archiveProduct",
+      "/products/import": "importProducts",
       "/customers": "listCustomers",
       "/customers/create": "createCustomer",
       "/customers/update": "updateCustomer",
@@ -1092,6 +1094,9 @@
     document.querySelectorAll("[data-open-product]").forEach(button => {
       button.hidden = !canManageProducts();
     });
+    document.querySelectorAll("[data-import-products]").forEach(button => {
+      button.hidden = !canManageProducts();
+    });
     document.querySelectorAll("[data-open-customer]").forEach(button => {
       button.hidden = !canManageCustomers();
     });
@@ -1265,6 +1270,116 @@
     return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
+  function downloadCsv(filename, rows) {
+    const csv = `\uFEFF${rows.map(row => row.map(csvCell).join(",")).join("\r\n")}`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportProductsCsv() {
+    const products = filtered(state.products.filter(product => product.status !== "deleted"), ["sku", "name", "category"])
+      .slice()
+      .sort((a, b) => a.sku.localeCompare(b.sku));
+    const rows = [["sku", "name", "category", "cost_price", "sale_price", "stock", "low_stock", "status"]];
+    products.forEach(product => rows.push([
+      product.sku,
+      product.name,
+      product.category,
+      product.costPrice,
+      product.salePrice,
+      product.stock,
+      product.lowStock,
+      product.status
+    ]));
+    downloadCsv(`artflow-san-pham-${reportDayKey(new Date())}.csv`, rows);
+    showToast(`Đã xuất ${products.length} sản phẩm.`);
+  }
+
+  function parseCsv(text) {
+    const rows = [];
+    let row = [];
+    let value = "";
+    let quoted = false;
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index];
+      if (quoted) {
+        if (char === '"' && text[index + 1] === '"') {
+          value += '"';
+          index += 1;
+        } else if (char === '"') {
+          quoted = false;
+        } else {
+          value += char;
+        }
+      } else if (char === '"') {
+        quoted = true;
+      } else if (char === ",") {
+        row.push(value);
+        value = "";
+      } else if (char === "\n") {
+        row.push(value.replace(/\r$/, ""));
+        if (row.some(cell => cell !== "")) rows.push(row);
+        row = [];
+        value = "";
+      } else {
+        value += char;
+      }
+    }
+    if (quoted) throw new Error("File CSV có ô chưa đóng dấu ngoặc kép.");
+    row.push(value.replace(/\r$/, ""));
+    if (row.some(cell => cell !== "")) rows.push(row);
+    return rows;
+  }
+
+  function productRowsFromCsv(text) {
+    const rows = parseCsv(text);
+    if (rows.length < 2) throw new Error("File CSV chưa có dữ liệu sản phẩm.");
+    const aliases = {
+      sku: "sku", name: "name", category: "category",
+      cost_price: "costPrice", costprice: "costPrice",
+      sale_price: "salePrice", saleprice: "salePrice",
+      stock: "stock", low_stock: "lowStock", lowstock: "lowStock", status: "status"
+    };
+    const headers = rows[0].map(header => aliases[String(header || "").replace(/^\uFEFF/, "").trim().toLowerCase()] || "");
+    const required = ["sku", "name", "category", "costPrice", "salePrice", "stock", "lowStock"];
+    const missing = required.filter(field => !headers.includes(field));
+    if (missing.length) throw new Error(`Thiếu cột bắt buộc: ${missing.join(", ")}.`);
+    if (rows.length - 1 > 500) throw new Error("Mỗi lần chỉ nhập tối đa 500 sản phẩm.");
+
+    return rows.slice(1).map((cells, rowIndex) => {
+      const product = {};
+      headers.forEach((header, index) => { if (header) product[header] = String(cells[index] || "").trim(); });
+      ["costPrice", "salePrice", "stock", "lowStock"].forEach(field => { product[field] = Number(product[field]); });
+      product.status = product.status === "archived" ? "archived" : "active";
+      if (!product.sku || !product.name || !product.category || [product.costPrice, product.salePrice, product.stock, product.lowStock].some(value => !Number.isFinite(value) || value < 0)) {
+        throw new Error(`Dòng ${rowIndex + 2} có dữ liệu không hợp lệ.`);
+      }
+      if (product.salePrice < product.costPrice) throw new Error(`Dòng ${rowIndex + 2}: giá bán thấp hơn giá vốn.`);
+      return product;
+    });
+  }
+
+  async function importProductsCsv(file) {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) throw new Error("File CSV không được vượt quá 2 MB.");
+    const products = productRowsFromCsv(await file.text());
+    if (!window.confirm(`Nhập ${products.length} sản phẩm? SKU đã tồn tại sẽ được cập nhật.`)) return;
+    const result = await apiRequest("/products/import", {
+      method: "POST",
+      body: JSON.stringify({ products })
+    });
+    await loadProducts({ quiet: true });
+    renderPage();
+    showToast(`Đã tạo ${result.created || 0}, cập nhật ${result.updated || 0} sản phẩm.`);
+  }
+
   function exportProfitReport() {
     const snapshot = profitSnapshot(reportFilters.range, reportFilters.channel);
     const rows = [
@@ -1297,17 +1412,8 @@
         ]);
       });
 
-    const csv = `\uFEFF${rows.map(row => row.map(csvCell).join(",")).join("\r\n")}`;
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
     const date = reportDayKey(new Date());
-    anchor.href = url;
-    anchor.download = `artflow-loi-nhuan-${reportFilters.range}-${reportFilters.channel}-${date}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    downloadCsv(`artflow-loi-nhuan-${reportFilters.range}-${reportFilters.channel}-${date}.csv`, rows);
     showToast(`Đã xuất ${snapshot.orders.length} đơn trong báo cáo.`);
   }
 
@@ -3471,6 +3577,8 @@
       if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
       if (target.matches("[data-close-modal]")) closeModal();
       if (target.matches("[data-export-profit-report]")) exportProfitReport();
+      if (target.matches("[data-export-products]")) exportProductsCsv();
+      if (target.matches("[data-import-products]")) els.productCsvFile?.click();
       if (target.matches("[data-open-product]")) openModal("product");
       if (target.matches("[data-open-customer]")) openModal("customer");
       if (target.matches("[data-open-order]")) {
@@ -3724,6 +3832,17 @@
     });
 
     document.addEventListener("change", async event => {
+      if (event.target.matches("[data-product-csv-file]")) {
+        const file = event.target.files && event.target.files[0];
+        try {
+          await withLoading("Đang nhập danh mục sản phẩm...", () => importProductsCsv(file));
+        } catch (error) {
+          showToast(error.message, "error");
+        } finally {
+          event.target.value = "";
+        }
+        return;
+      }
       if (event.target.matches("[data-report-range]")) {
         reportFilters.range = event.target.value;
         renderPage();
