@@ -702,7 +702,9 @@ body[data-page="inventory"] .view.active {
 }
 
 body[data-page="reports"] .view.active {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: none;
+  display: block;
+  overflow: auto;
 }
 
 body[data-page="accounting"] .view.active {
@@ -1544,6 +1546,235 @@ body[data-page="purchasing"] .view.active {
 .inventory-card p,
 .report-card p {
   margin-top: 8px;
+}
+
+.profit-report-view {
+  padding-bottom: 18px;
+}
+
+.report-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(150px, 210px));
+  gap: 12px;
+  align-items: end;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.report-toolbar > div,
+.report-toolbar label {
+  display: grid;
+  gap: 5px;
+}
+
+.report-toolbar strong {
+  font-size: 17px;
+}
+
+.report-toolbar small,
+.report-toolbar span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.report-toolbar select {
+  min-height: 40px;
+}
+
+.profit-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.profit-kpi-grid .report-card {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.profit-kpi-grid .report-card strong {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+}
+
+.profit-kpi-grid .report-card p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.profit-insight-grid,
+.profit-table-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.75fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.profit-table-grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+}
+
+.profit-insight-grid > .panel {
+  min-height: 300px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.chart-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.chart-legend .revenue,
+.profit-bars .revenue {
+  background: #1677ff;
+}
+
+.chart-legend .profit,
+.profit-bars .profit {
+  background: #16a36a;
+}
+
+.profit-chart {
+  display: flex;
+  min-height: 230px;
+  gap: 8px;
+  align-items: stretch;
+  overflow-x: auto;
+  padding: 16px 18px 12px;
+}
+
+.profit-chart-day {
+  display: grid;
+  flex: 1 0 38px;
+  grid-template-rows: minmax(160px, 1fr) auto;
+  gap: 8px;
+  min-width: 38px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.profit-bars {
+  display: flex;
+  gap: 3px;
+  align-items: end;
+  justify-content: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.profit-bars i {
+  width: min(13px, 40%);
+  height: var(--value);
+  min-height: 3px;
+  border-radius: 3px 3px 0 0;
+}
+
+.expense-breakdown {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 16px 18px 20px;
+}
+
+.expense-row {
+  display: grid;
+  gap: 7px;
+}
+
+.expense-row > div {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.expense-row > div span {
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.expense-row > i {
+  display: block;
+  width: var(--expense-width);
+  height: 7px;
+  background: #e05252;
+  border-radius: 3px;
+}
+
+.profit-table-grid .table-wrap {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.profit-table-grid td small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.margin-value {
+  color: #087a4c;
+  font-weight: 900;
+}
+
+.margin-value.negative {
+  color: #b42318;
+}
+
+@media (max-width: 1280px) {
+  .profit-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .profit-insight-grid,
+  .profit-table-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .report-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .profit-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profit-kpi-grid .report-card {
+    padding: 12px;
+  }
+
+  .profit-kpi-grid .report-card strong {
+    font-size: 17px;
+  }
+
+  .profit-insight-grid > .panel {
+    min-height: 0;
+  }
 }
 
 .modal-backdrop {

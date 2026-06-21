@@ -15,6 +15,7 @@
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
   const accountingFilters = { view: "receivables", type: "all", accountId: "all", range: "30", receivable: "all" };
   const purchasingFilters = { view: "orders", status: "all", paymentStatus: "all" };
+  const reportFilters = { range: "30", channel: "all" };
 
   const channels = {
     pos: "POS",
@@ -104,6 +105,13 @@
     purchaseStatusFilter: qs("[data-purchase-status-filter]"),
     purchasePaymentFilter: qs("[data-purchase-payment-filter]"),
     reportCards: qs("[data-report-cards]"),
+    reportRange: qs("[data-report-range]"),
+    reportChannel: qs("[data-report-channel]"),
+    reportComparison: qs("[data-report-comparison]"),
+    profitChart: qs("[data-profit-chart]"),
+    expenseBreakdown: qs("[data-expense-breakdown]"),
+    productProfitTable: qs("[data-product-profit-table]"),
+    channelProfitTable: qs("[data-channel-profit-table]"),
     toast: qs("[data-toast]"),
     loadingOverlay: qs("[data-loading-overlay]"),
     loadingText: qs("[data-loading-text]"),
@@ -920,7 +928,7 @@
 
   function dataScopesForPage() {
     const scopesByPage = {
-      dashboard: ["products", "customers", "orders"],
+      dashboard: ["products", "customers", "orders", "accounting"],
       orders: ["customers", "orders", "accounting"],
       orderCreate: ["products", "customers"],
       products: ["products"],
@@ -929,7 +937,7 @@
       accounting: ["customers", "orders", "accounting"],
       purchasing: ["purchasing"],
       purchaseCreate: ["products", "purchasing"],
-      reports: ["products", "customers", "orders"],
+      reports: ["products", "customers", "orders", "accounting"],
       users: []
     };
     const scopes = [...(scopesByPage[page] || [])];
@@ -1180,18 +1188,85 @@
     redirectToLogin();
   }
 
+  function reportDayKey(value) {
+    const raw = String(value || "");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+  }
+
+  function reportPeriod(range, previous = false) {
+    if (range === "all") return null;
+    const days = Number(range || 30);
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+    if (previous) end.setDate(end.getDate() - days);
+    const start = new Date(end);
+    start.setDate(start.getDate() - days + 1);
+    const finish = new Date(end);
+    finish.setDate(finish.getDate() + 1);
+    return { start: reportDayKey(start), end: reportDayKey(finish), days: days };
+  }
+
+  function inReportPeriod(value, period) {
+    if (!period) return true;
+    const day = reportDayKey(value);
+    return day >= period.start && day < period.end;
+  }
+
+  function operatingTransactions(period) {
+    return state.cashTransactions.filter(transaction => {
+      return transaction.status !== "deleted" &&
+        transaction.type === "expense" &&
+        transaction.referenceType !== "purchase_order" &&
+        transaction.referenceType !== "order_refund" &&
+        inReportPeriod(transaction.transactionDate || transaction.createdAt, period);
+    });
+  }
+
+  function profitSnapshot(range = "all", channel = "all", previous = false) {
+    const period = reportPeriod(range, previous);
+    const allOrders = state.orders.filter(order => order.status !== "cancelled" && isPaid(order) && inReportPeriod(order.createdAt, period));
+    const orders = allOrders.filter(order => channel === "all" || order.channel === channel);
+    const revenue = orders.reduce((sum, order) => sum + order.netTotal, 0);
+    const cost = orders.reduce((sum, order) => sum + orderCost(order), 0);
+    const grossProfit = revenue - cost;
+    const transactions = operatingTransactions(period);
+    const totalExpenses = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+    const allRevenue = allOrders.reduce((sum, order) => sum + order.netTotal, 0);
+    const expenseRatio = channel === "all" ? 1 : (allRevenue > 0 ? revenue / allRevenue : 0);
+    const operatingExpenses = totalExpenses * expenseRatio;
+    return {
+      period,
+      orders,
+      revenue,
+      cost,
+      grossProfit,
+      grossMargin: revenue > 0 ? grossProfit / revenue : 0,
+      operatingExpenses,
+      netProfit: grossProfit - operatingExpenses,
+      transactions,
+      expenseRatio
+    };
+  }
+
+  function comparisonText(current, previous, metric, label) {
+    const value = current[metric];
+    const oldValue = previous[metric];
+    if (!oldValue) return `${label}: chưa có dữ liệu kỳ trước`;
+    const change = ((value - oldValue) / Math.abs(oldValue)) * 100;
+    return `${label}: ${change >= 0 ? "+" : ""}${change.toFixed(1)}% so với kỳ trước`;
+  }
+
   function renderKpis() {
     if (!els.kpis) return;
-    const paidOrders = state.orders.filter(isPaid);
-    const revenue = paidOrders.reduce((sum, order) => sum + order.netTotal, 0);
-    const cost = paidOrders.reduce((sum, order) => sum + orderCost(order), 0);
-    const lowStockCount = state.products.filter(product => product.status === "active" && product.stock <= product.lowStock).length;
-    const pendingOrders = state.orders.filter(order => order.status === "pending").length;
+    const snapshot = profitSnapshot();
     const cards = [
-      ["Doanh thu", money.format(revenue), "Từ đơn đã thanh toán"],
-      ["Lợi nhuận ước tính", money.format(revenue - cost), "Dựa trên giá vốn"],
-      ["Đơn cần xử lý", pendingOrders.toString(), "Đang chờ xác nhận"],
-      ["Cảnh báo kho", lowStockCount.toString(), "Sản phẩm sắp hết"]
+      ["Doanh thu thuần", money.format(snapshot.revenue), "Đã trừ hàng khách trả"],
+      ["Lãi gộp", money.format(snapshot.grossProfit), "Doanh thu trừ giá vốn thực"],
+      ["Lãi ròng", money.format(snapshot.netProfit), "Sau chi phí vận hành"],
+      ["Biên lãi gộp", `${(snapshot.grossMargin * 100).toFixed(1)}%`, "Tỷ lệ lãi trên doanh thu thuần"]
     ];
     els.kpis.innerHTML = cards.map(([label, value, note]) => `
       <article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>
@@ -1716,26 +1791,94 @@
 
   function renderReports() {
     if (!els.reportCards) return;
-    const paidOrders = state.orders.filter(isPaid);
-    const averageOrder = paidOrders.length ? paidOrders.reduce((sum, order) => sum + order.netTotal, 0) / paidOrders.length : 0;
-    const soldByProduct = paidOrders.reduce((map, order) => {
-      (order.items || []).forEach(item => {
-        map[item.productId] = (map[item.productId] || 0) + Math.max(0, item.quantity - returnedOrderItemQuantity(item.id));
-      });
-      return map;
-    }, {});
-    const bestProduct = [...state.products].filter(product => product.status === "active").sort((a, b) => {
-      return (soldByProduct[b.id] || 0) - (soldByProduct[a.id] || 0);
-    })[0];
-    const vipCustomer = [...state.customers].sort((a, b) => b.totalSpent - a.totalSpent)[0];
+    const snapshot = profitSnapshot(reportFilters.range, reportFilters.channel);
+    const previous = profitSnapshot(reportFilters.range, reportFilters.channel, true);
     const cards = [
-      ["Giá trị đơn TB", money.format(averageOrder), "Chỉ tính đơn đã thanh toán."],
-      ["Sản phẩm nổi bật", bestProduct ? bestProduct.name : "Chưa có", "Dựa trên số lượng đã bán."],
-      ["Khách hàng giá trị cao", vipCustomer ? vipCustomer.name : "Chưa có", vipCustomer ? money.format(vipCustomer.totalSpent) : "Chưa có giao dịch."]
+      ["Doanh thu thuần", money.format(snapshot.revenue), reportFilters.range === "all" ? "Toàn bộ dữ liệu" : comparisonText(snapshot, previous, "revenue", "Doanh thu")],
+      ["Giá vốn thực", money.format(snapshot.cost), "Đã trừ giá vốn hàng trả"],
+      ["Lãi gộp", money.format(snapshot.grossProfit), reportFilters.range === "all" ? "Doanh thu trừ giá vốn" : comparisonText(snapshot, previous, "grossProfit", "Lãi gộp")],
+      ["Biên lãi gộp", `${(snapshot.grossMargin * 100).toFixed(1)}%`, "Lãi gộp / doanh thu thuần"],
+      ["Chi phí vận hành", money.format(snapshot.operatingExpenses), reportFilters.channel === "all" ? "Không gồm nhập hàng và hoàn tiền" : "Phân bổ theo tỷ trọng doanh thu kênh"],
+      ["Lãi ròng", money.format(snapshot.netProfit), reportFilters.range === "all" ? "Sau chi phí vận hành" : comparisonText(snapshot, previous, "netProfit", "Lãi ròng")]
     ];
     els.reportCards.innerHTML = cards.map(([title, value, note]) => `
       <article class="report-card"><h3>${title}</h3><strong>${value}</strong><p>${note}</p></article>
     `).join("");
+
+    if (els.reportComparison) {
+      els.reportComparison.textContent = reportFilters.range === "all"
+        ? `${snapshot.orders.length} đơn đã ghi nhận`
+        : comparisonText(snapshot, previous, "netProfit", "Lãi ròng");
+    }
+
+    const productRows = {};
+    snapshot.orders.forEach(order => {
+      const remainingItems = (order.items || []).map(item => ({
+        item,
+        quantity: Math.max(0, item.quantity - returnedOrderItemQuantity(item.id))
+      })).filter(entry => entry.quantity > 0);
+      const lineRevenue = remainingItems.reduce((sum, entry) => sum + entry.quantity * entry.item.unitPrice, 0);
+      remainingItems.forEach(entry => {
+        const row = productRows[entry.item.productId] || { name: entry.item.name, sku: entry.item.sku, quantity: 0, revenue: 0, cost: 0 };
+        const rawRevenue = entry.quantity * entry.item.unitPrice;
+        row.quantity += entry.quantity;
+        row.revenue += lineRevenue > 0 ? rawRevenue * order.netTotal / lineRevenue : 0;
+        row.cost += entry.quantity * entry.item.costPrice;
+        productRows[entry.item.productId] = row;
+      });
+    });
+    const products = Object.values(productRows).sort((a, b) => (b.revenue - b.cost) - (a.revenue - a.cost));
+    if (els.productProfitTable) {
+      els.productProfitTable.innerHTML = products.length ? products.map(row => {
+        const profit = row.revenue - row.cost;
+        const margin = row.revenue > 0 ? profit / row.revenue : 0;
+        return `<tr><td><strong>${row.name}</strong><small>${row.sku}</small></td><td>${row.quantity}</td><td>${money.format(row.revenue)}</td><td>${money.format(row.cost)}</td><td><strong>${money.format(profit)}</strong></td><td><span class="margin-value ${margin < 0 ? "negative" : ""}">${(margin * 100).toFixed(1)}%</span></td></tr>`;
+      }).join("") : `<tr><td colspan="6" class="empty">Chưa có dữ liệu sản phẩm trong kỳ.</td></tr>`;
+    }
+
+    const channelRows = Object.keys(channels).map(channel => {
+      const orders = snapshot.orders.filter(order => order.channel === channel);
+      const revenue = orders.reduce((sum, order) => sum + order.netTotal, 0);
+      const cost = orders.reduce((sum, order) => sum + orderCost(order), 0);
+      return { channel, orders: orders.length, revenue, profit: revenue - cost };
+    }).filter(row => row.orders > 0).sort((a, b) => b.profit - a.profit);
+    if (els.channelProfitTable) {
+      els.channelProfitTable.innerHTML = channelRows.length ? channelRows.map(row => {
+        const margin = row.revenue > 0 ? row.profit / row.revenue : 0;
+        return `<tr><td><span class="badge">${channelLabel(row.channel)}</span></td><td>${row.orders}</td><td>${money.format(row.revenue)}</td><td><strong>${money.format(row.profit)}</strong></td><td><span class="margin-value ${margin < 0 ? "negative" : ""}">${(margin * 100).toFixed(1)}%</span></td></tr>`;
+      }).join("") : `<tr><td colspan="5" class="empty">Chưa có dữ liệu kênh trong kỳ.</td></tr>`;
+    }
+
+    if (els.expenseBreakdown) {
+      const byCategory = snapshot.transactions.reduce((map, transaction) => {
+        const category = byId("accountingCategories", transaction.categoryId);
+        const label = category ? category.name : "Chưa phân loại";
+        map[label] = (map[label] || 0) + transaction.amount * snapshot.expenseRatio;
+        return map;
+      }, {});
+      const expenses = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+      const maxExpense = Math.max(...expenses.map(entry => entry[1]), 1);
+      els.expenseBreakdown.innerHTML = expenses.length ? expenses.map(([label, amount]) => `
+        <div class="expense-row"><div><strong>${label}</strong><span>${money.format(amount)}</span></div><i style="--expense-width:${Math.round(amount / maxExpense * 100)}%"></i></div>
+      `).join("") : `<div class="empty">Chưa phát sinh chi phí vận hành trong kỳ.</div>`;
+    }
+
+    if (els.profitChart) {
+      const dayMap = {};
+      snapshot.orders.forEach(order => {
+        const day = reportDayKey(order.createdAt);
+        const row = dayMap[day] || { revenue: 0, profit: 0 };
+        row.revenue += order.netTotal;
+        row.profit += order.netTotal - orderCost(order);
+        dayMap[day] = row;
+      });
+      const days = Object.keys(dayMap).sort();
+      const maxValue = Math.max(...days.map(day => Math.max(dayMap[day].revenue, dayMap[day].profit)), 1);
+      els.profitChart.innerHTML = days.length ? days.map(day => {
+        const row = dayMap[day];
+        return `<div class="profit-chart-day"><div class="profit-bars"><i class="revenue" style="--value:${Math.max(3, Math.round(row.revenue / maxValue * 100))}%" title="Doanh thu ${money.format(row.revenue)}"></i><i class="profit" style="--value:${Math.max(3, Math.round(Math.max(0, row.profit) / maxValue * 100))}%" title="Lãi gộp ${money.format(row.profit)}"></i></div><span>${day.slice(5).replace("-", "/")}</span></div>`;
+      }).join("") : `<div class="empty">Chưa có doanh thu trong kỳ.</div>`;
+    }
   }
 
   function enhanceResponsiveTables() {
@@ -3528,6 +3671,16 @@
     });
 
     document.addEventListener("change", async event => {
+      if (event.target.matches("[data-report-range]")) {
+        reportFilters.range = event.target.value;
+        renderPage();
+        return;
+      }
+      if (event.target.matches("[data-report-channel]")) {
+        reportFilters.channel = event.target.value;
+        renderPage();
+        return;
+      }
       if (event.target.matches("[data-order-product]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-cash-type]")) {
         const category = (event.target.closest("form") || els.modalForm).querySelector("[data-cash-category]");

@@ -13,7 +13,28 @@
     <aside class="sidebar"><a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a><nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav><div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div></aside>
     <main class="workspace">
       <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div><p class="eyebrow">Hiệu quả bán hàng</p><h1 data-page-title>Báo cáo</h1></div><div class="topbar-actions"><a class="button primary" href="./order-create.html" data-open-order>Tạo đơn</a><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button></div></header>
-      <section class="view active"><div class="report-grid" data-report-cards></div><section class="panel"><div class="panel-header"><div><h2>Doanh thu 7 ngày</h2><p>Biểu đồ nhanh để xem nhịp bán gần đây.</p></div></div><div class="chart" data-revenue-chart></div></section></section>
+      <section class="view active profit-report-view">
+        <section class="report-toolbar" aria-label="Bộ lọc báo cáo">
+          <div><strong>Hiệu quả kinh doanh</strong><small data-report-comparison>So với kỳ trước</small></div>
+          <label><span>Thời gian</span><select data-report-range><option value="7">7 ngày</option><option value="30" selected>30 ngày</option><option value="90">90 ngày</option><option value="all">Toàn bộ</option></select></label>
+          <label><span>Kênh bán</span><select data-report-channel><option value="all">Tất cả kênh</option><option value="pos">POS</option><option value="website">Website</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok Shop</option><option value="facebook">Facebook</option></select></label>
+        </section>
+        <div class="profit-kpi-grid" data-report-cards></div>
+        <div class="profit-insight-grid">
+          <section class="panel">
+            <div class="panel-header"><div><h2>Doanh thu và lãi gộp</h2><p>Diễn biến theo ngày trong kỳ đã chọn.</p></div><div class="chart-legend"><span><i class="revenue"></i>Doanh thu</span><span><i class="profit"></i>Lãi gộp</span></div></div>
+            <div class="profit-chart" data-profit-chart></div>
+          </section>
+          <section class="panel">
+            <div class="panel-header"><div><h2>Chi phí vận hành</h2><p>Không gồm nhập hàng và hoàn tiền khách.</p></div></div>
+            <div class="expense-breakdown" data-expense-breakdown></div>
+          </section>
+        </div>
+        <div class="profit-table-grid">
+          <section class="panel"><div class="panel-header"><div><h2>Lợi nhuận theo sản phẩm</h2><p>Doanh thu được phân bổ sau giảm giá và trả hàng.</p></div></div><div class="table-wrap"><table><thead><tr><th>Sản phẩm</th><th>Đã bán</th><th>Doanh thu</th><th>Giá vốn</th><th>Lãi gộp</th><th>Biên lãi</th></tr></thead><tbody data-product-profit-table></tbody></table></div></section>
+          <section class="panel"><div class="panel-header"><div><h2>Hiệu quả theo kênh</h2><p>So sánh doanh thu và khả năng sinh lời.</p></div></div><div class="table-wrap"><table><thead><tr><th>Kênh</th><th>Đơn</th><th>Doanh thu</th><th>Lãi gộp</th><th>Biên lãi</th></tr></thead><tbody data-channel-profit-table></tbody></table></div></section>
+        </div>
+      </section>
     </main>
   </div>
   <div data-shared-ui></div>
