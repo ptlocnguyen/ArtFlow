@@ -1569,6 +1569,23 @@ body[data-page="purchasing"] .view.active {
   gap: 5px;
 }
 
+.report-toolbar > div {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.report-toolbar > div strong,
+.report-toolbar > div small {
+  grid-column: 1;
+}
+
+.report-export-button {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  min-height: 40px;
+  align-self: center;
+}
+
 .report-toolbar strong {
   font-size: 17px;
 }
@@ -1758,6 +1775,10 @@ body[data-page="purchasing"] .view.active {
 @media (max-width: 640px) {
   .report-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .report-toolbar > div {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .profit-kpi-grid {

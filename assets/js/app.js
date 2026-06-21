@@ -112,6 +112,7 @@
     expenseBreakdown: qs("[data-expense-breakdown]"),
     productProfitTable: qs("[data-product-profit-table]"),
     channelProfitTable: qs("[data-channel-profit-table]"),
+    exportProfitReport: qs("[data-export-profit-report]"),
     toast: qs("[data-toast]"),
     loadingOverlay: qs("[data-loading-overlay]"),
     loadingText: qs("[data-loading-text]"),
@@ -1257,6 +1258,57 @@
     if (!oldValue) return `${label}: chưa có dữ liệu kỳ trước`;
     const change = ((value - oldValue) / Math.abs(oldValue)) * 100;
     return `${label}: ${change >= 0 ? "+" : ""}${change.toFixed(1)}% so với kỳ trước`;
+  }
+
+  function csvCell(value) {
+    const text = String(value === undefined || value === null ? "" : value);
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function exportProfitReport() {
+    const snapshot = profitSnapshot(reportFilters.range, reportFilters.channel);
+    const rows = [
+      ["BÁO CÁO LỢI NHUẬN ARTFLOW POS"],
+      ["Thời gian", reportFilters.range === "all" ? "Toàn bộ" : `${reportFilters.range} ngày`],
+      ["Kênh", reportFilters.channel === "all" ? "Tất cả kênh" : channelLabel(reportFilters.channel)],
+      ["Doanh thu thuần", snapshot.revenue],
+      ["Giá vốn thực", snapshot.cost],
+      ["Lãi gộp", snapshot.grossProfit],
+      ["Biên lãi gộp", `${(snapshot.grossMargin * 100).toFixed(2)}%`],
+      ["Chi phí vận hành", Math.round(snapshot.operatingExpenses)],
+      ["Lãi ròng", Math.round(snapshot.netProfit)],
+      [],
+      ["Mã đơn", "Ngày", "Kênh", "Doanh thu thuần", "Giá vốn", "Lãi gộp", "Biên lãi"]
+    ];
+    snapshot.orders
+      .slice()
+      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+      .forEach(order => {
+        const cost = orderCost(order);
+        const profit = order.netTotal - cost;
+        rows.push([
+          order.code,
+          reportDayKey(order.createdAt),
+          channelLabel(order.channel),
+          order.netTotal,
+          cost,
+          profit,
+          `${(order.netTotal > 0 ? profit / order.netTotal * 100 : 0).toFixed(2)}%`
+        ]);
+      });
+
+    const csv = `\uFEFF${rows.map(row => row.map(csvCell).join(",")).join("\r\n")}`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const date = reportDayKey(new Date());
+    anchor.href = url;
+    anchor.download = `artflow-loi-nhuan-${reportFilters.range}-${reportFilters.channel}-${date}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    showToast(`Đã xuất ${snapshot.orders.length} đơn trong báo cáo.`);
   }
 
   function renderKpis() {
@@ -3418,6 +3470,7 @@
       if (target.matches("[data-menu-close]")) document.body.classList.remove("menu-open");
       if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
       if (target.matches("[data-close-modal]")) closeModal();
+      if (target.matches("[data-export-profit-report]")) exportProfitReport();
       if (target.matches("[data-open-product]")) openModal("product");
       if (target.matches("[data-open-customer]")) openModal("customer");
       if (target.matches("[data-open-order]")) {
