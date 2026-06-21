@@ -1812,6 +1812,69 @@ body[data-page="purchasing"] .view.active {
   display: none;
 }
 
+.spreadsheet-guide {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 16px;
+}
+
+.spreadsheet-guide-callout {
+  padding: 14px 16px;
+  background: #eef6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.spreadsheet-guide-callout p,
+.spreadsheet-guide-note {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.spreadsheet-guide ol {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 22px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.spreadsheet-column-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.spreadsheet-column-list > div {
+  display: grid;
+  grid-template-columns: minmax(105px, auto) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.spreadsheet-column-list code {
+  color: #0759c7;
+  font-weight: 800;
+}
+
+.spreadsheet-column-list span {
+  color: var(--muted);
+}
+
+.spreadsheet-guide-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .modal {
   width: min(720px, 100%);
   max-height: min(820px, calc(100vh - 36px));
@@ -2685,6 +2748,14 @@ body[data-page="purchasing"] .view.active {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .spreadsheet-column-list {
+    grid-template-columns: 1fr;
+  }
+
+  .spreadsheet-guide-actions {
+    display: grid;
   }
 
   .filter-bar {

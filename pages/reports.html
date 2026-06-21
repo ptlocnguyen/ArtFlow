@@ -15,7 +15,7 @@
       <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div><p class="eyebrow">Hiệu quả bán hàng</p><h1 data-page-title>Báo cáo</h1></div><div class="topbar-actions"><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button></div></header>
       <section class="view active profit-report-view">
         <section class="report-toolbar" aria-label="Bộ lọc báo cáo">
-          <div><strong>Hiệu quả kinh doanh</strong><small data-report-comparison>So với kỳ trước</small><button class="button report-export-button" type="button" data-export-profit-report title="Xuất dữ liệu đang lọc ra CSV"><span aria-hidden="true">⇩</span> Xuất CSV</button></div>
+          <div><strong>Hiệu quả kinh doanh</strong><small data-report-comparison>So với kỳ trước</small><button class="button report-export-button" type="button" data-export-profit-report title="Xuất báo cáo đang lọc ra Excel"><span aria-hidden="true">⇩</span> Xuất Excel</button></div>
           <label><span>Thời gian</span><select data-report-range><option value="7">7 ngày</option><option value="30" selected>30 ngày</option><option value="90">90 ngày</option><option value="all">Toàn bộ</option></select></label>
           <label><span>Kênh bán</span><select data-report-channel><option value="all">Tất cả kênh</option><option value="pos">POS</option><option value="website">Website</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok Shop</option><option value="facebook">Facebook</option></select></label>
         </section>
@@ -38,6 +38,6 @@
     </main>
   </div>
   <div data-shared-ui></div>
-  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/app.js"></script>
+  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/vendor/xlsx.bundle.js"></script><script src="../assets/js/app.js"></script>
 </body>
 </html>

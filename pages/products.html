@@ -15,13 +15,13 @@
       <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div><p class="eyebrow">Danh mục</p><h1 data-page-title>Sản phẩm</h1></div><div class="topbar-actions"><label class="search-box"><span>⌕</span><input data-global-search type="search" placeholder="Tìm SKU, tên, danh mục..." /></label><button class="button primary" type="button" data-open-product>Thêm sản phẩm</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button></div></header>
       <section class="view active">
         <section class="panel">
-          <div class="panel-header split"><div><h2>Danh mục sản phẩm</h2><p>Quản lý SKU, giá vốn, giá bán và ngưỡng cảnh báo kho.</p></div><div class="row-actions"><button class="button ghost" type="button" data-export-products title="Xuất danh mục hiện tại ra CSV"><span aria-hidden="true">⇩</span> Xuất CSV</button><button class="button ghost" type="button" data-import-products title="Nhập mới hoặc cập nhật sản phẩm theo SKU"><span aria-hidden="true">⇧</span> Nhập CSV</button><input type="file" accept=".csv,text/csv" data-product-csv-file hidden /></div></div>
+          <div class="panel-header split"><div><h2>Danh mục sản phẩm</h2><p>Quản lý SKU, giá vốn, giá bán và ngưỡng cảnh báo kho.</p></div><div class="row-actions"><button class="button ghost" type="button" data-export-products title="Xuất danh mục hiện tại ra Excel"><span aria-hidden="true">⇩</span> Xuất Excel</button><button class="button ghost" type="button" data-import-products title="Xem hướng dẫn và nhập sản phẩm"><span aria-hidden="true">⇧</span> Nhập Excel</button><input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" data-product-csv-file hidden /></div></div>
           <div class="table-wrap"><table><thead><tr><th>SKU</th><th>Tên</th><th>Danh mục</th><th>Giá bán</th><th>Tồn</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody data-products-table></tbody></table></div>
         </section>
       </section>
     </main>
   </div>
   <div data-shared-ui></div>
-  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/app.js"></script>
+  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/vendor/xlsx.bundle.js"></script><script src="../assets/js/app.js"></script>
 </body>
 </html>

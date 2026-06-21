@@ -1275,25 +1275,124 @@
     return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
-  function downloadCsv(filename, rows) {
-    const csv = `\uFEFF${rows.map(row => row.map(csvCell).join(",")).join("\r\n")}`;
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+  function requireXlsx() {
+    if (!window.XLSX) throw new Error("Không thể tải bộ xử lý Excel. Hãy tải lại trang và thử lại.");
+    return window.XLSX;
+  }
+
+  function createExcelSheet(title, subtitle, headers, rows, options = {}) {
+    const XLSX = requireXlsx();
+    const values = [[title], [subtitle], [], headers, ...rows];
+    const sheet = XLSX.utils.aoa_to_sheet(values);
+    const lastColumn = Math.max(0, headers.length - 1);
+    sheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: lastColumn } }];
+    sheet["!autofilter"] = { ref: `A4:${XLSX.utils.encode_col(lastColumn)}${Math.max(4, rows.length + 4)}` };
+    sheet["!cols"] = (options.widths || headers.map(() => 18)).map(width => ({ wch: width }));
+    sheet["!rows"] = [{ hpt: 28 }, { hpt: 20 }, { hpt: 8 }, { hpt: 24 }];
+
+    const border = { top: { style: "thin", color: { rgb: "D8E1EC" } }, bottom: { style: "thin", color: { rgb: "D8E1EC" } }, left: { style: "thin", color: { rgb: "D8E1EC" } }, right: { style: "thin", color: { rgb: "D8E1EC" } } };
+    const titleCell = sheet.A1;
+    titleCell.s = { fill: { fgColor: { rgb: "102033" } }, font: { color: { rgb: "FFFFFF" }, bold: true, sz: 16 }, alignment: { vertical: "center" } };
+    sheet.A2.s = { font: { color: { rgb: "5B6B7F" }, italic: true, sz: 10 } };
+    headers.forEach((header, column) => {
+      const cell = sheet[XLSX.utils.encode_cell({ r: 3, c: column })];
+      cell.s = { fill: { fgColor: { rgb: "1677FF" } }, font: { color: { rgb: "FFFFFF" }, bold: true }, alignment: { vertical: "center", wrapText: true }, border };
+    });
+    rows.forEach((row, rowIndex) => {
+      row.forEach((value, column) => {
+        const cell = sheet[XLSX.utils.encode_cell({ r: rowIndex + 4, c: column })];
+        if (!cell) return;
+        cell.s = {
+          fill: { fgColor: { rgb: rowIndex % 2 ? "F5F8FC" : "FFFFFF" } },
+          font: { color: { rgb: "102033" } },
+          alignment: { vertical: "center", wrapText: column === (options.wrapColumn ?? -1) },
+          border
+        };
+        if ((options.moneyColumns || []).includes(column)) cell.z = '#,##0 "₫"';
+        if ((options.numberColumns || []).includes(column)) cell.z = "#,##0";
+        if ((options.percentColumns || []).includes(column)) cell.z = "0.00%";
+        if ((options.textColumns || []).includes(column)) cell.z = "@";
+      });
+    });
+    return sheet;
+  }
+
+  function createInstructionSheet(title, lines) {
+    const XLSX = requireXlsx();
+    const rows = [[title, ""], ["Quy tắc", "Chi tiết"], ...lines];
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    sheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
+    sheet["!cols"] = [{ wch: 24 }, { wch: 82 }];
+    sheet["!rows"] = [{ hpt: 30 }, { hpt: 24 }];
+    sheet.A1.s = { fill: { fgColor: { rgb: "102033" } }, font: { color: { rgb: "FFFFFF" }, bold: true, sz: 16 } };
+    [sheet.A2, sheet.B2].forEach(cell => { cell.s = { fill: { fgColor: { rgb: "16A36A" } }, font: { color: { rgb: "FFFFFF" }, bold: true }, alignment: { wrapText: true } }; });
+    for (let row = 2; row < rows.length; row += 1) {
+      for (let column = 0; column < 2; column += 1) {
+        const cell = sheet[XLSX.utils.encode_cell({ r: row, c: column })];
+        cell.s = { fill: { fgColor: { rgb: row % 2 ? "F5F8FC" : "FFFFFF" } }, alignment: { vertical: "top", wrapText: true }, font: { color: { rgb: "102033" } } };
+      }
+      sheet["!rows"][row] = { hpt: 34 };
+    }
+    return sheet;
+  }
+
+  function saveExcelWorkbook(workbook, filename) {
+    requireXlsx().writeFile(workbook, filename, { compression: true });
+  }
+
+  function downloadProductTemplate() {
+    const XLSX = requireXlsx();
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, createInstructionSheet("HƯỚNG DẪN NHẬP SẢN PHẨM", [
+      ["Cách dùng", "Điền dữ liệu tại sheet Sản phẩm, giữ nguyên tên cột ở dòng 4, sau đó bấm Nhập Excel trong ArtFlow."],
+      ["SKU", "Bắt buộc, duy nhất. SKU đã tồn tại sẽ được cập nhật; SKU mới sẽ tạo sản phẩm mới."],
+      ["Giá", "cost_price và sale_price là số không âm; sale_price không được thấp hơn cost_price."],
+      ["Tồn kho", "stock và low_stock là số không âm. Thay đổi stock khi nhập sẽ được ghi lịch sử kho."],
+      ["Trạng thái", "Chỉ dùng active hoặc archived. Để trống sẽ mặc định active."],
+      ["Giới hạn", "Tối đa 500 dòng và 5 MB mỗi lần nhập. Không xóa sheet hoặc đổi tên cột." ]
+    ]), "Hướng dẫn");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("MẪU NHẬP SẢN PHẨM", "Xóa dòng ví dụ trước khi nhập dữ liệu thật.", ["sku", "name", "category", "cost_price", "sale_price", "stock", "low_stock", "status"], [
+      ["AF-001", "Sổ vẽ A5", "Sổ & giấy", 45000, 79000, 20, 5, "active"],
+      ["AF-002", "Bộ màu 12 cây", "Màu vẽ", 80000, 135000, 10, 3, "active"]
+    ], { widths: [16, 30, 22, 16, 16, 12, 14, 14], moneyColumns: [3, 4], numberColumns: [5, 6], textColumns: [0] }), "Sản phẩm");
+    saveExcelWorkbook(workbook, "artflow-mau-nhap-san-pham.xlsx");
+  }
+
+  function downloadCustomerTemplate() {
+    const XLSX = requireXlsx();
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, createInstructionSheet("HƯỚNG DẪN NHẬP KHÁCH HÀNG", [
+      ["Cách dùng", "Điền dữ liệu tại sheet Khách hàng, giữ nguyên tên cột ở dòng 4, sau đó bấm Nhập Excel trong ArtFlow."],
+      ["Số điện thoại", "Bắt buộc, duy nhất và nên nhập dạng văn bản để giữ số 0 đầu. Số đã tồn tại sẽ được cập nhật."],
+      ["Email", "Không bắt buộc nhưng nếu có phải chứa @ và không được trùng khách khác."],
+      ["Nhóm", "Không bắt buộc; để trống sẽ dùng Bán lẻ."],
+      ["Trạng thái", "Chỉ dùng active hoặc archived. Để trống sẽ mặc định active."],
+      ["Dữ liệu lịch sử", "Doanh số và lần mua cuối không nhập từ file; hệ thống luôn giữ dữ liệu giao dịch hiện có."],
+      ["Giới hạn", "Tối đa 500 dòng và 5 MB mỗi lần nhập. Không xóa sheet hoặc đổi tên cột."]
+    ]), "Hướng dẫn");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("MẪU NHẬP KHÁCH HÀNG", "Xóa dòng ví dụ trước khi nhập dữ liệu thật.", ["name", "phone", "email", "group", "status", "note"], [
+      ["Nguyễn An", "0901234567", "an@example.com", "VIP", "active", "Ưu tiên liên hệ buổi sáng"],
+      ["Trần Bình", "0912345678", "", "Bán lẻ", "active", ""]
+    ], { widths: [28, 18, 28, 18, 14, 42], textColumns: [1], wrapColumn: 5 }), "Khách hàng");
+    saveExcelWorkbook(workbook, "artflow-mau-nhap-khach-hang.xlsx");
+  }
+
+  async function spreadsheetFileToCsv(file, preferredSheetName) {
+    if (/\.csv$/i.test(file.name)) return file.text();
+    const XLSX = requireXlsx();
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+    const preferred = workbook.SheetNames.find(name => name.toLowerCase() === preferredSheetName.toLowerCase());
+    const sheetName = preferred || workbook.SheetNames.find(name => name.toLowerCase() !== "hướng dẫn" && name.toLowerCase() !== "huong dan");
+    if (!sheetName) throw new Error(`Không tìm thấy sheet ${preferredSheetName} trong file Excel.`);
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: true, defval: "", blankrows: false });
+    return rows.map(row => row.map(csvCell).join(",")).join("\r\n");
   }
 
   function exportProductsCsv() {
     const products = filtered(state.products.filter(product => product.status !== "deleted"), ["sku", "name", "category"])
       .slice()
       .sort((a, b) => a.sku.localeCompare(b.sku));
-    const rows = [["sku", "name", "category", "cost_price", "sale_price", "stock", "low_stock", "status"]];
-    products.forEach(product => rows.push([
+    const rows = products.map(product => [
       product.sku,
       product.name,
       product.category,
@@ -1301,9 +1400,12 @@
       product.salePrice,
       product.stock,
       product.lowStock,
-      product.status
-    ]));
-    downloadCsv(`artflow-san-pham-${reportDayKey(new Date())}.csv`, rows);
+      product.status === "archived" ? "Ngừng bán" : "Đang bán"
+    ]);
+    const XLSX = requireXlsx();
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("DANH MỤC SẢN PHẨM", `Xuất lúc ${new Date().toLocaleString("vi-VN")} · ${products.length} sản phẩm`, ["SKU", "Tên sản phẩm", "Danh mục", "Giá vốn", "Giá bán", "Tồn kho", "Ngưỡng thấp", "Trạng thái"], rows, { widths: [16, 32, 22, 18, 18, 14, 16, 16], moneyColumns: [3, 4], numberColumns: [5, 6], textColumns: [0] }), "Sản phẩm");
+    saveExcelWorkbook(workbook, `artflow-san-pham-${reportDayKey(new Date())}.xlsx`);
     showToast(`Đã xuất ${products.length} sản phẩm.`);
   }
 
@@ -1345,36 +1447,39 @@
 
   function productRowsFromCsv(text) {
     const rows = parseCsv(text);
-    if (rows.length < 2) throw new Error("File CSV chưa có dữ liệu sản phẩm.");
+    if (rows.length < 2) throw new Error("File chưa có dữ liệu sản phẩm.");
     const aliases = {
       sku: "sku", name: "name", category: "category",
       cost_price: "costPrice", costprice: "costPrice",
       sale_price: "salePrice", saleprice: "salePrice",
       stock: "stock", low_stock: "lowStock", lowstock: "lowStock", status: "status"
     };
-    const headers = rows[0].map(header => aliases[String(header || "").replace(/^\uFEFF/, "").trim().toLowerCase()] || "");
+    const headerIndex = rows.findIndex(row => row.some(cell => String(cell || "").replace(/^\uFEFF/, "").trim().toLowerCase() === "sku"));
+    if (headerIndex === -1) throw new Error("Không tìm thấy dòng tiêu đề có cột sku.");
+    const headers = rows[headerIndex].map(header => aliases[String(header || "").replace(/^\uFEFF/, "").trim().toLowerCase()] || "");
     const required = ["sku", "name", "category", "costPrice", "salePrice", "stock", "lowStock"];
     const missing = required.filter(field => !headers.includes(field));
     if (missing.length) throw new Error(`Thiếu cột bắt buộc: ${missing.join(", ")}.`);
-    if (rows.length - 1 > 500) throw new Error("Mỗi lần chỉ nhập tối đa 500 sản phẩm.");
+    const dataRows = rows.slice(headerIndex + 1).filter(row => row.some(cell => String(cell || "").trim() !== ""));
+    if (dataRows.length > 500) throw new Error("Mỗi lần chỉ nhập tối đa 500 sản phẩm.");
 
-    return rows.slice(1).map((cells, rowIndex) => {
+    return dataRows.map((cells, rowIndex) => {
       const product = {};
       headers.forEach((header, index) => { if (header) product[header] = String(cells[index] || "").trim(); });
       ["costPrice", "salePrice", "stock", "lowStock"].forEach(field => { product[field] = Number(product[field]); });
       product.status = product.status === "archived" ? "archived" : "active";
       if (!product.sku || !product.name || !product.category || [product.costPrice, product.salePrice, product.stock, product.lowStock].some(value => !Number.isFinite(value) || value < 0)) {
-        throw new Error(`Dòng ${rowIndex + 2} có dữ liệu không hợp lệ.`);
+        throw new Error(`Dòng ${headerIndex + rowIndex + 2} có dữ liệu không hợp lệ.`);
       }
-      if (product.salePrice < product.costPrice) throw new Error(`Dòng ${rowIndex + 2}: giá bán thấp hơn giá vốn.`);
+      if (product.salePrice < product.costPrice) throw new Error(`Dòng ${headerIndex + rowIndex + 2}: giá bán thấp hơn giá vốn.`);
       return product;
     });
   }
 
   async function importProductsCsv(file) {
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) throw new Error("File CSV không được vượt quá 2 MB.");
-    const products = productRowsFromCsv(await file.text());
+    if (file.size > 5 * 1024 * 1024) throw new Error("File nhập không được vượt quá 5 MB.");
+    const products = productRowsFromCsv(await spreadsheetFileToCsv(file, "Sản phẩm"));
     if (!window.confirm(`Nhập ${products.length} sản phẩm? SKU đã tồn tại sẽ được cập nhật.`)) return;
     const result = await apiRequest("/products/import", {
       method: "POST",
@@ -1382,6 +1487,7 @@
     });
     await loadProducts({ quiet: true });
     renderPage();
+    closeModal();
     showToast(`Đã tạo ${result.created || 0}, cập nhật ${result.updated || 0} sản phẩm.`);
   }
 
@@ -1389,34 +1495,39 @@
     const customers = filtered(state.customers.filter(customer => customer.status !== "deleted"), ["name", "phone", "email", "group"])
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name));
-    const rows = [["name", "phone", "email", "group", "status", "note", "total_spent", "last_order_at"]];
-    customers.forEach(customer => rows.push([
+    const rows = customers.map(customer => [
       customer.name,
       customer.phone,
       customer.email,
       customer.group,
-      customer.status,
+      customer.status === "archived" ? "Ngừng theo dõi" : "Đang theo dõi",
       customer.note,
       customer.totalSpent,
-      customer.lastOrderAt
-    ]));
-    downloadCsv(`artflow-khach-hang-${reportDayKey(new Date())}.csv`, rows);
+      customer.lastOrderAt ? formatDate(customer.lastOrderAt) : ""
+    ]);
+    const XLSX = requireXlsx();
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("DANH SÁCH KHÁCH HÀNG", `Xuất lúc ${new Date().toLocaleString("vi-VN")} · ${customers.length} khách hàng`, ["Khách hàng", "Điện thoại", "Email", "Nhóm", "Trạng thái", "Ghi chú", "Đã mua", "Lần cuối"], rows, { widths: [28, 18, 28, 18, 18, 38, 18, 16], moneyColumns: [6], textColumns: [1], wrapColumn: 5 }), "Khách hàng");
+    saveExcelWorkbook(workbook, `artflow-khach-hang-${reportDayKey(new Date())}.xlsx`);
     showToast(`Đã xuất ${customers.length} khách hàng.`);
   }
 
   function customerRowsFromCsv(text) {
     const rows = parseCsv(text);
-    if (rows.length < 2) throw new Error("File CSV chưa có dữ liệu khách hàng.");
+    if (rows.length < 2) throw new Error("File chưa có dữ liệu khách hàng.");
     const aliases = {
       name: "name", phone: "phone", email: "email", group: "group",
       customer_group: "group", status: "status", note: "note"
     };
-    const headers = rows[0].map(header => aliases[String(header || "").replace(/^\uFEFF/, "").trim().toLowerCase()] || "");
+    const headerIndex = rows.findIndex(row => row.some(cell => String(cell || "").replace(/^\uFEFF/, "").trim().toLowerCase() === "phone"));
+    if (headerIndex === -1) throw new Error("Không tìm thấy dòng tiêu đề có cột phone.");
+    const headers = rows[headerIndex].map(header => aliases[String(header || "").replace(/^\uFEFF/, "").trim().toLowerCase()] || "");
     const missing = ["name", "phone"].filter(field => !headers.includes(field));
     if (missing.length) throw new Error(`Thiếu cột bắt buộc: ${missing.join(", ")}.`);
-    if (rows.length - 1 > 500) throw new Error("Mỗi lần chỉ nhập tối đa 500 khách hàng.");
+    const dataRows = rows.slice(headerIndex + 1).filter(row => row.some(cell => String(cell || "").trim() !== ""));
+    if (dataRows.length > 500) throw new Error("Mỗi lần chỉ nhập tối đa 500 khách hàng.");
 
-    return rows.slice(1).map((cells, rowIndex) => {
+    return dataRows.map((cells, rowIndex) => {
       const customer = {};
       headers.forEach((header, index) => { if (header) customer[header] = String(cells[index] || "").trim(); });
       customer.phone = String(customer.phone || "").replace(/\s+/g, "");
@@ -1424,16 +1535,16 @@
       customer.group = customer.group || "Bán lẻ";
       customer.note = customer.note || "";
       customer.status = customer.status === "archived" ? "archived" : "active";
-      if (!customer.name || !customer.phone) throw new Error(`Dòng ${rowIndex + 2} thiếu tên hoặc số điện thoại.`);
-      if (customer.email && !customer.email.includes("@")) throw new Error(`Dòng ${rowIndex + 2} có email không hợp lệ.`);
+      if (!customer.name || !customer.phone) throw new Error(`Dòng ${headerIndex + rowIndex + 2} thiếu tên hoặc số điện thoại.`);
+      if (customer.email && !customer.email.includes("@")) throw new Error(`Dòng ${headerIndex + rowIndex + 2} có email không hợp lệ.`);
       return customer;
     });
   }
 
   async function importCustomersCsv(file) {
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) throw new Error("File CSV không được vượt quá 2 MB.");
-    const customers = customerRowsFromCsv(await file.text());
+    if (file.size > 5 * 1024 * 1024) throw new Error("File nhập không được vượt quá 5 MB.");
+    const customers = customerRowsFromCsv(await spreadsheetFileToCsv(file, "Khách hàng"));
     if (!window.confirm(`Nhập ${customers.length} khách hàng? Số điện thoại đã tồn tại sẽ được cập nhật.`)) return;
     const result = await apiRequest("/customers/import", {
       method: "POST",
@@ -1441,43 +1552,73 @@
     });
     await loadCustomers({ quiet: true });
     renderPage();
+    closeModal();
     showToast(`Đã tạo ${result.created || 0}, cập nhật ${result.updated || 0} khách hàng.`);
   }
 
   function exportProfitReport() {
     const snapshot = profitSnapshot(reportFilters.range, reportFilters.channel);
-    const rows = [
-      ["BÁO CÁO LỢI NHUẬN ARTFLOW POS"],
-      ["Thời gian", reportFilters.range === "all" ? "Toàn bộ" : `${reportFilters.range} ngày`],
-      ["Kênh", reportFilters.channel === "all" ? "Tất cả kênh" : channelLabel(reportFilters.channel)],
-      ["Doanh thu thuần", snapshot.revenue],
-      ["Giá vốn thực", snapshot.cost],
-      ["Lãi gộp", snapshot.grossProfit],
-      ["Biên lãi gộp", `${(snapshot.grossMargin * 100).toFixed(2)}%`],
-      ["Chi phí vận hành", Math.round(snapshot.operatingExpenses)],
-      ["Lãi ròng", Math.round(snapshot.netProfit)],
-      [],
-      ["Mã đơn", "Ngày", "Kênh", "Doanh thu thuần", "Giá vốn", "Lãi gộp", "Biên lãi"]
+    const XLSX = requireXlsx();
+    const workbook = XLSX.utils.book_new();
+    const filterText = `${reportFilters.range === "all" ? "Toàn bộ thời gian" : `${reportFilters.range} ngày`} · ${reportFilters.channel === "all" ? "Tất cả kênh" : channelLabel(reportFilters.channel)}`;
+    const summaryRows = [
+      ["Bộ lọc", filterText, ""],
+      ["Doanh thu thuần", snapshot.revenue, "Đã trừ hàng khách trả"],
+      ["Giá vốn thực", snapshot.cost, "Đã trừ giá vốn hàng trả"],
+      ["Lãi gộp", snapshot.grossProfit, "Doanh thu thuần - Giá vốn"],
+      ["Biên lãi gộp", snapshot.grossMargin, "Lãi gộp / Doanh thu thuần"],
+      ["Chi phí vận hành", Math.round(snapshot.operatingExpenses), "Không gồm nhập hàng và hoàn tiền"],
+      ["Lãi ròng", Math.round(snapshot.netProfit), "Lãi gộp - Chi phí vận hành"]
     ];
-    snapshot.orders
+    const summarySheet = createExcelSheet("BÁO CÁO LỢI NHUẬN", `ArtFlow POS · Xuất lúc ${new Date().toLocaleString("vi-VN")}`, ["Chỉ tiêu", "Giá trị", "Ghi chú"], summaryRows, { widths: [24, 24, 48], wrapColumn: 2 });
+    [1, 2, 3, 5, 6].forEach(rowIndex => { const cell = summarySheet[XLSX.utils.encode_cell({ r: rowIndex + 4, c: 1 })]; if (cell) cell.z = '#,##0 "₫"'; });
+    const marginCell = summarySheet[XLSX.utils.encode_cell({ r: 8, c: 1 })];
+    if (marginCell) marginCell.z = "0.00%";
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Tổng quan");
+
+    const orderRows = snapshot.orders
       .slice()
       .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
-      .forEach(order => {
+      .map(order => {
         const cost = orderCost(order);
         const profit = order.netTotal - cost;
-        rows.push([
+        return [
           order.code,
           reportDayKey(order.createdAt),
           channelLabel(order.channel),
           order.netTotal,
           cost,
           profit,
-          `${(order.netTotal > 0 ? profit / order.netTotal * 100 : 0).toFixed(2)}%`
-        ]);
+          order.netTotal > 0 ? profit / order.netTotal : 0
+        ];
       });
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("CHI TIẾT LỢI NHUẬN THEO ĐƠN", filterText, ["Mã đơn", "Ngày", "Kênh", "Doanh thu thuần", "Giá vốn", "Lãi gộp", "Biên lãi"], orderRows, { widths: [20, 14, 18, 20, 18, 18, 14], moneyColumns: [3, 4, 5], percentColumns: [6] }), "Theo đơn");
+
+    const productMap = {};
+    snapshot.orders.forEach(order => {
+      const remaining = (order.items || []).map(item => ({ item, quantity: Math.max(0, item.quantity - returnedOrderItemQuantity(item.id)) })).filter(entry => entry.quantity > 0);
+      const lineRevenue = remaining.reduce((sum, entry) => sum + entry.quantity * entry.item.unitPrice, 0);
+      remaining.forEach(entry => {
+        const row = productMap[entry.item.productId] || { sku: entry.item.sku, name: entry.item.name, quantity: 0, revenue: 0, cost: 0 };
+        row.quantity += entry.quantity;
+        row.revenue += lineRevenue > 0 ? entry.quantity * entry.item.unitPrice * order.netTotal / lineRevenue : 0;
+        row.cost += entry.quantity * entry.item.costPrice;
+        productMap[entry.item.productId] = row;
+      });
+    });
+    const productRows = Object.values(productMap).sort((a, b) => (b.revenue - b.cost) - (a.revenue - a.cost)).map(row => [row.sku, row.name, row.quantity, Math.round(row.revenue), row.cost, Math.round(row.revenue - row.cost), row.revenue > 0 ? (row.revenue - row.cost) / row.revenue : 0]);
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("LỢI NHUẬN THEO SẢN PHẨM", filterText, ["SKU", "Sản phẩm", "Đã bán", "Doanh thu", "Giá vốn", "Lãi gộp", "Biên lãi"], productRows, { widths: [16, 32, 14, 18, 18, 18, 14], numberColumns: [2], moneyColumns: [3, 4, 5], percentColumns: [6], textColumns: [0] }), "Theo sản phẩm");
+
+    const channelRows = Object.keys(channels).map(channel => {
+      const orders = snapshot.orders.filter(order => order.channel === channel);
+      const revenue = orders.reduce((sum, order) => sum + order.netTotal, 0);
+      const cost = orders.reduce((sum, order) => sum + orderCost(order), 0);
+      return [channelLabel(channel), orders.length, revenue, cost, revenue - cost, revenue > 0 ? (revenue - cost) / revenue : 0];
+    }).filter(row => row[1] > 0).sort((a, b) => b[4] - a[4]);
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("HIỆU QUẢ THEO KÊNH", filterText, ["Kênh", "Số đơn", "Doanh thu", "Giá vốn", "Lãi gộp", "Biên lãi"], channelRows, { widths: [20, 14, 20, 18, 18, 14], numberColumns: [1], moneyColumns: [2, 3, 4], percentColumns: [5] }), "Theo kênh");
 
     const date = reportDayKey(new Date());
-    downloadCsv(`artflow-loi-nhuan-${reportFilters.range}-${reportFilters.channel}-${date}.csv`, rows);
+    saveExcelWorkbook(workbook, `artflow-loi-nhuan-${reportFilters.range}-${reportFilters.channel}-${date}.xlsx`);
     showToast(`Đã xuất ${snapshot.orders.length} đơn trong báo cáo.`);
   }
 
@@ -2877,6 +3018,28 @@
     `;
   }
 
+  function renderSpreadsheetImportGuide(kind) {
+    const product = kind === "product";
+    const columns = product
+      ? [["sku", "Bắt buộc, duy nhất"], ["name", "Bắt buộc"], ["category", "Bắt buộc"], ["cost_price", "Số không âm"], ["sale_price", "Không thấp hơn giá vốn"], ["stock", "Số không âm"], ["low_stock", "Số không âm"], ["status", "active / archived"]]
+      : [["name", "Bắt buộc"], ["phone", "Bắt buộc, duy nhất"], ["email", "Không bắt buộc, không trùng"], ["group", "Mặc định Bán lẻ"], ["status", "active / archived"], ["note", "Không bắt buộc"]];
+    return `
+      <div class="spreadsheet-guide">
+        <div class="spreadsheet-guide-callout"><strong>Khuyên dùng file mẫu Excel</strong><p>File mẫu có sẵn sheet hướng dẫn, tên cột chuẩn, định dạng số điện thoại và hai dòng ví dụ.</p></div>
+        <ol>
+          <li>Tải file mẫu và mở bằng Excel hoặc Google Sheets.</li>
+          <li>Điền dữ liệu tại sheet <strong>${product ? "Sản phẩm" : "Khách hàng"}</strong>, giữ nguyên dòng tiêu đề.</li>
+          <li>Xóa các dòng ví dụ, lưu thành <strong>.xlsx</strong> rồi chọn file để nhập.</li>
+        </ol>
+        <div class="spreadsheet-column-list">${columns.map(([name, rule]) => `<div><code>${name}</code><span>${rule}</span></div>`).join("")}</div>
+        <p class="spreadsheet-guide-note">Tối đa 500 dòng / 5 MB. Hệ thống kiểm tra toàn bộ file trước khi ghi. ${product ? "SKU cũ sẽ được cập nhật; thay đổi tồn kho được ghi lịch sử." : "Số điện thoại cũ sẽ được cập nhật; doanh số và lịch sử mua không bị ghi đè."}</p>
+        <div class="spreadsheet-guide-actions">
+          <button class="button ghost" type="button" data-download-${product ? "product" : "customer"}-template>⇩ Tải file mẫu</button>
+          <button class="button primary" type="button" data-choose-${product ? "product" : "customer"}-file>Chọn file Excel</button>
+        </div>
+      </div>`;
+  }
+
   function openModal(type, options = {}) {
     if (!els.modalBackdrop || !els.modalForm) return;
     if (type === "product" && !canManageProducts()) {
@@ -2889,6 +3052,14 @@
     }
     if (type === "order" && !canCreateOrder()) {
       showToast(canManageOrders() ? "Cần có ít nhất một sản phẩm và một khách hàng trước khi tạo đơn." : "Bạn không có quyền tạo đơn hàng.", "error");
+      return;
+    }
+    if (type === "productImport" && !canManageProducts()) {
+      showToast("Bạn không có quyền nhập sản phẩm.", "error");
+      return;
+    }
+    if (type === "customerImport" && !canManageCustomers()) {
+      showToast("Bạn không có quyền nhập khách hàng.", "error");
       return;
     }
     if ((type === "stockReceive" || type === "stockAdjust") && !canManageInventory()) {
@@ -2976,6 +3147,18 @@
     const editingSupplier = options.supplier || null;
     const editingPurchaseOrder = options.purchaseOrder || null;
     const definitions = {
+      productImport: {
+        eyebrow: "Nhập dữ liệu Excel",
+        title: "Nhập danh mục sản phẩm",
+        body: renderSpreadsheetImportGuide("product"),
+        readOnly: true
+      },
+      customerImport: {
+        eyebrow: "Nhập dữ liệu Excel",
+        title: "Nhập danh sách khách hàng",
+        body: renderSpreadsheetImportGuide("customer"),
+        readOnly: true
+      },
       product: {
         eyebrow: "Danh mục",
         title: editingProduct ? "Sửa sản phẩm" : "Thêm sản phẩm",
@@ -3642,9 +3825,13 @@
       if (target.matches("[data-close-modal]")) closeModal();
       if (target.matches("[data-export-profit-report]")) exportProfitReport();
       if (target.matches("[data-export-products]")) exportProductsCsv();
-      if (target.matches("[data-import-products]")) els.productCsvFile?.click();
+      if (target.matches("[data-import-products]")) openModal("productImport");
       if (target.matches("[data-export-customers]")) exportCustomersCsv();
-      if (target.matches("[data-import-customers]")) els.customerCsvFile?.click();
+      if (target.matches("[data-import-customers]")) openModal("customerImport");
+      if (target.matches("[data-download-product-template]")) downloadProductTemplate();
+      if (target.matches("[data-download-customer-template]")) downloadCustomerTemplate();
+      if (target.matches("[data-choose-product-file]")) els.productCsvFile?.click();
+      if (target.matches("[data-choose-customer-file]")) els.customerCsvFile?.click();
       if (target.matches("[data-open-product]")) openModal("product");
       if (target.matches("[data-open-customer]")) openModal("customer");
       if (target.matches("[data-open-order]")) {
