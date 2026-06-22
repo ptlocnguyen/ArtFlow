@@ -189,6 +189,7 @@
       "/products/archive": "archiveProduct",
       "/products/import": "importProducts",
       "/products/provision-content": "provisionProductContent",
+      "/products/test-content-setup": "testProductContentConfiguration",
       "/customers": "listCustomers",
       "/customers/create": "createCustomer",
       "/customers/update": "updateCustomer",
@@ -1145,6 +1146,9 @@
 
   function applyPermissions() {
     document.querySelectorAll("[data-open-product]").forEach(button => {
+      button.hidden = !canManageProducts();
+    });
+    document.querySelectorAll("[data-test-product-content]").forEach(button => {
       button.hidden = !canManageProducts();
     });
     document.querySelectorAll("[data-import-products]").forEach(button => {
@@ -4195,18 +4199,30 @@
         if (product) openModal("productDetail", { product });
       }
       if (target.dataset.provisionProduct) {
-        await withLoading("Đang tạo Google Docs và folder content...", async () => {
-          const response = await apiRequest("/products/provision-content", {
-            method: "POST",
-            body: JSON.stringify({ id: target.dataset.provisionProduct })
+        try {
+          await withLoading("Đang tạo Google Docs và folder content...", async () => {
+            const response = await apiRequest("/products/provision-content", {
+              method: "POST",
+              body: JSON.stringify({ id: target.dataset.provisionProduct })
+            });
+            const saved = normalizeProduct(response.product);
+            state.products = state.products.map(item => item.id === saved.id ? saved : item);
+            window.ArtFlowPosStore.save(state);
+            renderPage();
+            openModal("productDetail", { product: saved });
           });
-          const saved = normalizeProduct(response.product);
-          state.products = state.products.map(item => item.id === saved.id ? saved : item);
-          window.ArtFlowPosStore.save(state);
-          renderPage();
-          openModal("productDetail", { product: saved });
-        });
-        showToast("Đã tạo Google Docs và các folder content cho sản phẩm.");
+          showToast("Đã tạo Google Docs và các folder content cho sản phẩm.");
+        } catch (error) {
+          showToast(`Không thể tạo tài nguyên: ${error.message}`, "error");
+        }
+      }
+      if (target.matches("[data-test-product-content]")) {
+        try {
+          const result = await withLoading("Đang kiểm tra quyền Google Drive và Docs...", () => apiRequest("/products/test-content-setup", { method: "POST", body: "{}" }));
+          showToast(`Kết nối thành công: Docs → ${result.docsParentName}, Media → ${result.mediaParentName}.`);
+        } catch (error) {
+          showToast(`Kiểm tra Drive thất bại: ${error.message}`, "error");
+        }
       }
       if (target.dataset.archiveProduct && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại sản phẩm này?" : "Ngừng bán sản phẩm này?")) {
         await withLoading("Đang cập nhật sản phẩm...", () => archiveProduct(target.dataset.archiveProduct, target.dataset.nextStatus));

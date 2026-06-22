@@ -45,12 +45,14 @@ Lần đầu tạo sản phẩm sau deploy có thể yêu cầu cấp quyền. T
 
 ## 4. Kiểm tra
 
-1. Tạo một sản phẩm thử trên trang Sản phẩm.
-2. Mở **Chi tiết** của sản phẩm.
-3. Kiểm tra bốn link: Google Docs, folder sản phẩm, folder hình ảnh và folder video.
-4. Nếu sản phẩm được tạo trước khi cấu hình, bấm **Tạo tài nguyên content** trong màn hình chi tiết.
+1. Trên trang Sản phẩm, bấm **Kiểm tra Drive**. Hệ thống tạo một Docs/folder tạm, xác minh quyền rồi tự chuyển chúng vào thùng rác.
+2. Khi kết nối thành công, tạo một sản phẩm thử.
+3. Mở **Chi tiết** của sản phẩm.
+4. Kiểm tra bốn link: Google Docs, folder sản phẩm, folder hình ảnh và folder video.
+5. Nếu sản phẩm được tạo trước khi cấu hình, bấm **Tạo tài nguyên content** trong màn hình chi tiết.
+
+Bạn cũng có thể chọn hàm `testProductContentConfiguration` trong Apps Script Editor và bấm **Run**. Cách này đặc biệt hữu ích ở lần đầu vì Google sẽ hiện hộp thoại cấp quyền Drive và Docs.
 
 ## Ảnh đại diện
 
 Trường **Link ảnh đại diện** nhận URL ảnh trực tiếp mà người dùng của website có quyền truy cập. Với ảnh trong Google Drive, hãy bảo đảm quyền chia sẻ phù hợp. Folder media vẫn là nơi lưu toàn bộ ảnh/video gốc; ảnh đại diện chỉ dùng để hiển thị nhanh trong danh sách và hồ sơ.
-
