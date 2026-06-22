@@ -19,6 +19,7 @@
   const purchasingFilters = { view: "orders", status: "all", paymentStatus: "all" };
   const reportFilters = { range: "30", channel: "all" };
   const auditFilters = { entityType: "all", range: "30" };
+  const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name" };
 
   const channels = {
     pos: "POS",
@@ -89,6 +90,13 @@
     orderShippingFilter: qs("[data-order-shipping-filter]"),
     productsTable: qs("[data-products-table]"),
     productCsvFile: qs("[data-product-csv-file]"),
+    productCategoryFilter: qs("[data-product-category-filter]"),
+    productStatusFilter: qs("[data-product-status-filter]"),
+    productStockFilter: qs("[data-product-stock-filter]"),
+    productMarginFilter: qs("[data-product-margin-filter]"),
+    productContentFilter: qs("[data-product-content-filter]"),
+    productAssetsFilter: qs("[data-product-assets-filter]"),
+    productSort: qs("[data-product-sort]"),
     customersTable: qs("[data-customers-table]"),
     customerCsvFile: qs("[data-customer-csv-file]"),
     usersTable: qs("[data-users-table]"),
@@ -1822,30 +1830,100 @@
     return `<select class="inline-select" data-order-inline="${field}" data-order-id="${orderId}" aria-label="Cập nhật ${field}">${options}</select>`;
   }
 
+  function productGrossProfit(product) {
+    return Number(product.salePrice || 0) - Number(product.costPrice || 0);
+  }
+
+  function productMarginRate(product) {
+    return Number(product.salePrice || 0) > 0 ? productGrossProfit(product) / Number(product.salePrice) * 100 : 0;
+  }
+
+  function productAssetsComplete(product) {
+    return Boolean(product.contentDocUrl && product.mediaFolderUrl && product.imageFolderUrl && product.videoFolderUrl);
+  }
+
+  function productMarginTone(product) {
+    const margin = productMarginRate(product);
+    if (productGrossProfit(product) <= 0) return "loss";
+    if (margin < 20) return "low";
+    if (margin < 40) return "good";
+    return "high";
+  }
+
   function renderProducts() {
     if (!els.productsTable) return;
-    const missingAssets = state.products.filter(product => product.status !== "deleted" && (!product.contentDocUrl || !product.mediaFolderUrl || !product.imageFolderUrl || !product.videoFolderUrl));
+    const products = state.products.filter(product => product.status !== "deleted");
+    const missingAssets = products.filter(product => !productAssetsComplete(product));
     document.querySelectorAll("[data-provision-missing-products]").forEach(button => {
       button.disabled = !missingAssets.length;
       button.textContent = missingAssets.length ? `Tạo tài nguyên hàng loạt (${missingAssets.length})` : "Tài nguyên đã đầy đủ";
     });
-    const rows = filtered(state.products, ["sku", "name", "category", "brand", "barcode", "contentOwner", "seoKeywords", "websiteProductUrl", "shopeeProductUrl", "tiktokProductUrl", "facebookProductUrl", "contentPostLinks"]);
+    if (els.productCategoryFilter) {
+      const categories = [...new Set(products.map(product => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "vi"));
+      els.productCategoryFilter.innerHTML = `<option value="all">Tất cả danh mục</option>${categories.map(category => `<option value="${escapeAttribute(category)}">${escapeHtml(category)}</option>`).join("")}`;
+      els.productCategoryFilter.value = categories.includes(productFilters.category) ? productFilters.category : "all";
+      productFilters.category = els.productCategoryFilter.value;
+    }
+
+    const inventoryValue = products.reduce((sum, product) => sum + Number(product.stock || 0) * Number(product.costPrice || 0), 0);
+    const retailValue = products.reduce((sum, product) => sum + Number(product.stock || 0) * Number(product.salePrice || 0), 0);
+    const potentialProfit = products.reduce((sum, product) => sum + Number(product.stock || 0) * productGrossProfit(product), 0);
+    const attentionProducts = products.filter(product => product.stock <= product.lowStock || productGrossProfit(product) <= 0 || !productAssetsComplete(product));
+    const kpiValues = {
+      "[data-product-kpi-total]": products.length,
+      "[data-product-kpi-value]": money.format(inventoryValue),
+      "[data-product-kpi-margin]": `${retailValue > 0 ? (potentialProfit / retailValue * 100).toFixed(1) : "0.0"}%`,
+      "[data-product-kpi-attention]": attentionProducts.length
+    };
+    Object.entries(kpiValues).forEach(([selector, value]) => {
+      const target = qs(selector);
+      if (target) target.textContent = value;
+    });
+
+    const termFiltered = filtered(products, ["sku", "name", "category", "brand", "barcode", "contentOwner", "seoKeywords", "websiteProductUrl", "shopeeProductUrl", "tiktokProductUrl", "facebookProductUrl", "contentPostLinks"]);
+    const rows = termFiltered.filter(product => {
+      const margin = productMarginRate(product);
+      const grossProfit = productGrossProfit(product);
+      const stockMatch = productFilters.stock === "all" ||
+        (productFilters.stock === "out" && product.stock <= 0) ||
+        (productFilters.stock === "low" && product.stock > 0 && product.stock <= product.lowStock) ||
+        (productFilters.stock === "healthy" && product.stock > product.lowStock);
+      const marginMatch = productFilters.margin === "all" ||
+        (productFilters.margin === "loss" && grossProfit <= 0) ||
+        (productFilters.margin === "low" && grossProfit > 0 && margin < 20) ||
+        (productFilters.margin === "good" && margin >= 20 && margin < 40) ||
+        (productFilters.margin === "high" && margin >= 40);
+      const assetsComplete = productAssetsComplete(product);
+      return (productFilters.category === "all" || product.category === productFilters.category) &&
+        (productFilters.status === "all" || product.status === productFilters.status) && stockMatch && marginMatch &&
+        (productFilters.content === "all" || product.contentStatus === productFilters.content) &&
+        (productFilters.assets === "all" || (productFilters.assets === "complete" ? assetsComplete : !assetsComplete));
+    }).sort((a, b) => {
+      if (productFilters.sort === "margin_desc") return productMarginRate(b) - productMarginRate(a);
+      if (productFilters.sort === "stock_asc") return a.stock - b.stock || a.name.localeCompare(b.name, "vi");
+      if (productFilters.sort === "price_desc") return b.salePrice - a.salePrice;
+      if (productFilters.sort === "updated_desc") return String(b.updatedAt).localeCompare(String(a.updatedAt));
+      return a.name.localeCompare(b.name, "vi");
+    });
+    const resultCount = qs("[data-product-result-count]");
+    if (resultCount) resultCount.textContent = rows.length;
     els.productsTable.innerHTML = rows.length ? rows.map(product => `
       <tr>
         <td>${product.imageUrl ? `<img class="product-table-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="" loading="lazy" />` : `<span class="product-table-image placeholder">◇</span>`}</td>
         <td><strong>${product.sku}</strong></td>
         <td><strong>${escapeHtml(product.name)}</strong><br><small>${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small></td>
-        <td>${money.format(product.salePrice)}</td>
-        <td><span class="badge ${product.stock <= product.lowStock ? "low" : "active"}">${product.stock}</span></td>
+        <td><strong>${money.format(product.salePrice)}</strong><br><small>Vốn ${money.format(product.costPrice)}</small></td>
+        <td><div class="product-margin-cell"><strong class="margin-${productMarginTone(product)}">${money.format(productGrossProfit(product))}</strong><span class="badge margin-${productMarginTone(product)}">${productMarginRate(product).toFixed(1)}%</span></div></td>
+        <td><span class="badge ${product.stock <= 0 ? "margin-loss" : product.stock <= product.lowStock ? "low" : "active"}">${product.stock}</span></td>
         <td><span class="badge content-${product.contentStatus}">${productContentStatuses[product.contentStatus]}</span></td>
         <td>
           <div class="row-actions">
-            <button class="link-button" data-view-product="${product.id}">Chi tiết</button>
-            ${canManageProducts() ? `<button class="link-button" data-edit-product="${product.id}">Sửa</button><button class="link-button" data-archive-product="${product.id}" data-next-status="${product.status === "active" ? "archived" : "active"}">${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}</button>` : ""}
+            <button class="link-button action-view" data-view-product="${product.id}">Chi tiết</button>
+            ${canManageProducts() ? `<button class="link-button action-edit" data-edit-product="${product.id}">Sửa</button><button class="link-button ${product.status === "active" ? "action-archive" : "action-activate"}" data-archive-product="${product.id}" data-next-status="${product.status === "active" ? "archived" : "active"}">${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}</button>` : ""}
           </div>
         </td>
       </tr>
-    `).join("") : `<tr><td colspan="7" class="empty">Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên.</td></tr>`;
+    `).join("") : `<tr><td colspan="8" class="empty">${products.length ? "Không có sản phẩm phù hợp bộ lọc." : "Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên."}</td></tr>`;
   }
 
   function renderCustomers() {
@@ -2566,10 +2644,14 @@
       : `<div class="product-detail-image placeholder">Không có ảnh</div>`;
     const info = (label, value) => `<div><span>${label}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
     const postLinks = parseProductContentLinks(product.contentPostLinks);
+    const grossProfit = productGrossProfit(product);
+    const margin = productMarginRate(product);
+    const markup = Number(product.costPrice || 0) > 0 ? grossProfit / Number(product.costPrice) * 100 : 0;
     return `
       <div class="product-detail-hero full">${image}<div><span class="badge ${product.status}">${statusLabel(product.status)}</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</p><b>${money.format(product.salePrice)}</b></div></div>
       <section class="product-detail-section full"><h3>Thông tin sản phẩm</h3><div class="product-detail-grid">
-        ${info("Barcode", product.barcode)}${info("Đơn vị", product.unit)}${info("Giá vốn", money.format(product.costPrice))}${info("Tồn kho", `${product.stock} / cảnh báo ${product.lowStock}`)}
+        ${info("Barcode", product.barcode)}${info("Đơn vị", product.unit)}${info("Giá vốn", money.format(product.costPrice))}${info("Giá bán", money.format(product.salePrice))}
+        ${info("Lãi gộp / sản phẩm", money.format(grossProfit))}${info("Biên lãi", `${margin.toFixed(1)}%`)}${info("Tỷ lệ cộng trên vốn", `${markup.toFixed(1)}%`)}${info("Tồn kho", `${product.stock} / cảnh báo ${product.lowStock}`)}
         ${info("Khối lượng", product.weightGrams ? `${product.weightGrams} g` : "")}${info("Kích thước", product.dimensions)}${info("Xuất xứ", product.origin)}${info("Chất liệu", product.material)}
         ${info("Tạo lúc", formatDateTime(product.createdAt))}${info("Cập nhật lúc", formatDateTime(product.updatedAt))}
       </div></section>
@@ -4028,6 +4110,22 @@
       });
     });
 
+    [
+      [els.productCategoryFilter, "category"],
+      [els.productStatusFilter, "status"],
+      [els.productStockFilter, "stock"],
+      [els.productMarginFilter, "margin"],
+      [els.productContentFilter, "content"],
+      [els.productAssetsFilter, "assets"],
+      [els.productSort, "sort"]
+    ].forEach(([select, key]) => {
+      if (!select) return;
+      select.addEventListener("change", event => {
+        productFilters[key] = event.target.value;
+        renderPage();
+      });
+    });
+
     if (els.accountingAccountFilter) {
       els.accountingAccountFilter.addEventListener("change", event => {
         accountingFilters.accountId = event.target.value;
@@ -4107,6 +4205,16 @@
       if (target.matches("[data-menu-close]")) document.body.classList.remove("menu-open");
       if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
       if (target.matches("[data-close-modal]")) closeModal();
+      if (target.matches("[data-reset-product-filters]")) {
+        Object.assign(productFilters, { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name" });
+        searchTerm = "";
+        const productSearch = qs("[data-global-search]");
+        if (productSearch) productSearch.value = "";
+        Object.entries({ productStatusFilter: "status", productStockFilter: "stock", productMarginFilter: "margin", productContentFilter: "content", productAssetsFilter: "assets", productSort: "sort" }).forEach(([elementKey, filterKey]) => {
+          if (els[elementKey]) els[elementKey].value = productFilters[filterKey];
+        });
+        renderPage();
+      }
       if (target.matches("[data-refresh-audit]")) {
         await withLoading("Đang tải lại lịch sử...", loadAuditLogs);
         renderPage();
