@@ -32,6 +32,14 @@
             <label class="product-sort-field"><span>Sắp xếp</span><select data-product-sort><option value="name">Tên A-Z</option><option value="margin_desc">Biên lãi cao</option><option value="stock_asc">Tồn kho thấp</option><option value="price_desc">Giá bán cao</option><option value="updated_desc">Mới cập nhật</option></select></label>
             <button class="button ghost product-filter-reset" type="button" data-reset-product-filters>Đặt lại</button>
           </div>
+          <div class="product-quick-filters" aria-label="Lọc nhanh sản phẩm">
+            <span>Lọc nhanh</span>
+            <button type="button" data-product-preset="all">Tất cả</button>
+            <button type="button" data-product-preset="attention">Cần xử lý</button>
+            <button type="button" data-product-preset="out">Hết hàng</button>
+            <button type="button" data-product-preset="missing">Thiếu tài nguyên</button>
+            <button type="button" data-product-preset="low_margin">Lãi thấp / âm</button>
+          </div>
           <div class="table-wrap"><table class="products-table"><thead><tr><th>Ảnh</th><th>SKU</th><th>Sản phẩm</th><th>Giá bán</th><th>Lãi / SP</th><th>Tồn</th><th>Content</th><th>Thao tác</th></tr></thead><tbody data-products-table></tbody></table></div>
         </section>
       </section>

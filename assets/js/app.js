@@ -19,7 +19,7 @@
   const purchasingFilters = { view: "orders", status: "all", paymentStatus: "all" };
   const reportFilters = { range: "30", channel: "all" };
   const auditFilters = { entityType: "all", range: "30" };
-  const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name" };
+  const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" };
 
   const channels = {
     pos: "POS",
@@ -196,6 +196,7 @@
       "/products/update": "updateProduct",
       "/products/archive": "archiveProduct",
       "/products/options/create": "createProductOption",
+      "/products/options/update": "updateProductOption",
       "/products/options/toggle": "toggleProductOption",
       "/products/import": "importProducts",
       "/products/provision-content": "provisionProductContent",
@@ -1886,11 +1887,21 @@
       els.productCategoryFilter.value = categories.includes(productFilters.category) ? productFilters.category : "all";
       productFilters.category = els.productCategoryFilter.value;
     }
+    [
+      [els.productStatusFilter, "status"],
+      [els.productStockFilter, "stock"],
+      [els.productMarginFilter, "margin"],
+      [els.productContentFilter, "content"],
+      [els.productAssetsFilter, "assets"],
+      [els.productSort, "sort"]
+    ].forEach(([select, key]) => {
+      if (select) select.value = productFilters[key];
+    });
 
     const inventoryValue = products.reduce((sum, product) => sum + Number(product.stock || 0) * Number(product.costPrice || 0), 0);
     const retailValue = products.reduce((sum, product) => sum + Number(product.stock || 0) * Number(product.salePrice || 0), 0);
     const potentialProfit = products.reduce((sum, product) => sum + Number(product.stock || 0) * productGrossProfit(product), 0);
-    const attentionProducts = products.filter(product => product.stock <= product.lowStock || productGrossProfit(product) <= 0 || !productAssetsComplete(product));
+    const attentionProducts = products.filter(product => product.status === "active" && (product.stock <= product.lowStock || productGrossProfit(product) <= 0 || !productAssetsComplete(product)));
     const kpiValues = {
       "[data-product-kpi-total]": products.length,
       "[data-product-kpi-value]": money.format(inventoryValue),
@@ -1916,7 +1927,13 @@
         (productFilters.margin === "good" && margin >= 20 && margin < 40) ||
         (productFilters.margin === "high" && margin >= 40);
       const assetsComplete = productAssetsComplete(product);
-      return (productFilters.category === "all" || product.category === productFilters.category) &&
+      const activeForPreset = product.status === "active";
+      const presetMatch = productFilters.preset === "all" ||
+        (productFilters.preset === "attention" && activeForPreset && (product.stock <= product.lowStock || grossProfit <= 0 || !assetsComplete)) ||
+        (productFilters.preset === "out" && activeForPreset && product.stock <= 0) ||
+        (productFilters.preset === "missing" && activeForPreset && !assetsComplete) ||
+        (productFilters.preset === "low_margin" && activeForPreset && (grossProfit <= 0 || margin < 20));
+      return presetMatch && (productFilters.category === "all" || product.category === productFilters.category) &&
         (productFilters.status === "all" || product.status === productFilters.status) && stockMatch && marginMatch &&
         (productFilters.content === "all" || product.contentStatus === productFilters.content) &&
         (productFilters.assets === "all" || (productFilters.assets === "complete" ? assetsComplete : !assetsComplete));
@@ -1929,15 +1946,18 @@
     });
     const resultCount = qs("[data-product-result-count]");
     if (resultCount) resultCount.textContent = rows.length;
+    document.querySelectorAll("[data-product-preset]").forEach(button => {
+      button.classList.toggle("active", button.dataset.productPreset === productFilters.preset);
+    });
     els.productsTable.innerHTML = rows.length ? rows.map(product => `
-      <tr>
+      <tr class="${product.status === "archived" ? "product-row-archived" : ""}">
         <td>${product.imageUrl ? `<img class="product-table-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="" loading="lazy" />` : `<span class="product-table-image placeholder">◇</span>`}</td>
-        <td><strong>${product.sku}</strong></td>
+        <td><strong>${product.sku}</strong><br><span class="product-sale-status ${product.status}">${statusLabel(product.status)}</span></td>
         <td><strong>${escapeHtml(product.name)}</strong><br><small>${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small></td>
         <td><strong>${money.format(product.salePrice)}</strong><br><small>Vốn ${money.format(product.costPrice)}</small></td>
         <td><div class="product-margin-cell"><strong class="margin-${productMarginTone(product)}">${money.format(productGrossProfit(product))}</strong><span class="badge margin-${productMarginTone(product)}">${productMarginRate(product).toFixed(1)}%</span></div></td>
         <td><span class="badge ${product.stock <= 0 ? "margin-loss" : product.stock <= product.lowStock ? "low" : "active"}">${product.stock}</span></td>
-        <td><span class="badge content-${product.contentStatus}">${productContentStatuses[product.contentStatus]}</span></td>
+        <td><div class="product-content-cell"><span class="badge content-${product.contentStatus}">${productContentStatuses[product.contentStatus]}</span><small class="${productAssetsComplete(product) ? "assets-complete" : "assets-missing"}">${productAssetsComplete(product) ? "Đủ tài nguyên" : "Thiếu tài nguyên"}</small></div></td>
         <td>
           <div class="row-actions">
             <button class="link-button action-view" data-view-product="${product.id}">Chi tiết</button>
@@ -2626,7 +2646,13 @@
     return `<option value="">Chưa phân công</option>${owners.map(owner => `<option value="${escapeAttribute(owner.name)}" ${owner.name === current ? "selected" : ""}>${escapeHtml(owner.name)}${owner.email ? ` · ${escapeHtml(owner.email)}` : ""}</option>`).join("")}`;
   }
 
-  function renderProductOptionManager(activeType) {
+  function productOptionUsageCount(option) {
+    const fieldByType = { category: "category", brand: "brand", unit: "unit" };
+    const field = fieldByType[option.type];
+    return field ? state.products.filter(product => product.status !== "deleted" && product[field] === option.name).length : 0;
+  }
+
+  function renderProductOptionManager(activeType, editOptionId) {
     const type = productOptionLabels[activeType] ? activeType : "category";
     const options = (state.productOptions || [])
       .filter(option => option.type === type)
@@ -2640,10 +2666,21 @@
         </div>
         <div class="product-option-list">${options.length ? options.map(option => `
           <div class="product-option-item ${option.status !== "active" ? "archived" : ""}">
-            <div><strong>${escapeHtml(option.name)}</strong><small>${option.status === "active" ? "Đang sử dụng" : "Đã ngừng dùng"}</small></div>
-            <button class="link-button ${option.status === "active" ? "action-archive" : "action-activate"}" type="button" data-toggle-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" data-next-status="${option.status === "active" ? "archived" : "active"}">${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}</button>
+            ${editOptionId === option.id ? `<div class="product-option-edit"><input type="text" maxlength="100" value="${escapeAttribute(option.name)}" data-product-option-edit-name="${escapeAttribute(option.id)}" /><div class="row-actions"><button class="link-button action-edit" type="button" data-save-product-option="${escapeAttribute(option.id)}" data-option-type="${type}">Lưu</button><button class="link-button" type="button" data-cancel-product-option-edit data-option-type="${type}">Hủy</button></div></div>` : `<div><strong>${escapeHtml(option.name)}</strong><small>${option.status === "active" ? "Đang sử dụng" : "Đã ngừng dùng"} · ${productOptionUsageCount(option)} sản phẩm</small></div><div class="row-actions"><button class="link-button action-edit" type="button" data-edit-product-option="${escapeAttribute(option.id)}" data-option-type="${type}">Đổi tên</button><button class="link-button ${option.status === "active" ? "action-archive" : "action-activate"}" type="button" data-toggle-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" data-option-usage="${productOptionUsageCount(option)}" data-next-status="${option.status === "active" ? "archived" : "active"}">${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}</button></div>`}
           </div>`).join("") : `<div class="empty">Chưa có ${productOptionLabels[type].toLowerCase()}.</div>`}</div>
       </div>`;
+  }
+
+  function updateProductPricingPreview(form) {
+    const preview = form && form.querySelector("[data-product-pricing-preview]");
+    if (!preview) return;
+    const costPrice = Math.max(0, Number(form.elements.costPrice && form.elements.costPrice.value || 0));
+    const salePrice = Math.max(0, Number(form.elements.salePrice && form.elements.salePrice.value || 0));
+    const grossProfit = salePrice - costPrice;
+    const margin = salePrice > 0 ? grossProfit / salePrice * 100 : 0;
+    const markup = costPrice > 0 ? grossProfit / costPrice * 100 : 0;
+    preview.classList.toggle("has-warning", grossProfit <= 0 && salePrice > 0);
+    preview.innerHTML = `<div><span>Lãi gộp / SP</span><strong>${money.format(grossProfit)}</strong></div><div><span>Biên lãi</span><strong>${margin.toFixed(1)}%</strong></div><div><span>Cộng trên vốn</span><strong>${markup.toFixed(1)}%</strong></div>`;
   }
 
   function renderProductForm(product) {
@@ -2658,6 +2695,7 @@
       <div class="field"><label for="unit">Đơn vị tính</label><select id="unit" name="unit" required>${renderManagedProductSelect("unit", product ? product.unit : "cái")}</select></div>
       <div class="field"><label for="costPrice">Giá vốn</label><input id="costPrice" name="costPrice" type="number" min="0" step="1000" value="${value("costPrice")}" required /></div>
       <div class="field"><label for="salePrice">Giá bán</label><input id="salePrice" name="salePrice" type="number" min="0" step="1000" value="${value("salePrice")}" required /></div>
+      <div class="product-pricing-preview full" data-product-pricing-preview></div>
       <div class="field"><label for="stock">Tồn kho</label><input id="stock" name="stock" type="number" min="0" step="1" value="${value("stock")}" required /></div>
       <div class="field"><label for="lowStock">Ngưỡng cảnh báo</label><input id="lowStock" name="lowStock" type="number" min="0" step="1" value="${value("lowStock")}" required /></div>
       <div class="product-form-section full"><h3>Thông số sản phẩm</h3><p>Hữu ích khi viết mô tả và đăng lên sàn.</p></div>
@@ -2715,7 +2753,7 @@
     const margin = productMarginRate(product);
     const markup = Number(product.costPrice || 0) > 0 ? grossProfit / Number(product.costPrice) * 100 : 0;
     return `
-      <div class="product-detail-hero full">${image}<div><span class="badge ${product.status}">${statusLabel(product.status)}</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</p><b>${money.format(product.salePrice)}</b></div></div>
+      <div class="product-detail-hero full">${image}<div><span class="badge ${product.status}">${statusLabel(product.status)}</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</p><b>${money.format(product.salePrice)}</b>${canManageProducts() ? `<div class="product-detail-actions"><button class="button info" type="button" data-edit-product-from-detail="${escapeAttribute(product.id)}">Sửa sản phẩm</button></div>` : ""}</div></div>
       <section class="product-detail-section full"><h3>Thông tin sản phẩm</h3><div class="product-detail-grid">
         ${info("Barcode", product.barcode)}${info("Đơn vị", product.unit)}${info("Giá vốn", money.format(product.costPrice))}${info("Giá bán", money.format(product.salePrice))}
         ${info("Lãi gộp / sản phẩm", money.format(grossProfit))}${info("Biên lãi", `${margin.toFixed(1)}%`)}${info("Tỷ lệ cộng trên vốn", `${markup.toFixed(1)}%`)}${info("Tồn kho", `${product.stock} / cảnh báo ${product.lowStock}`)}
@@ -3567,7 +3605,7 @@
       productOptions: {
         eyebrow: "Thiết lập sản phẩm",
         title: "Quản lý thuộc tính",
-        body: renderProductOptionManager(options.optionType || "category"),
+        body: renderProductOptionManager(options.optionType || "category", options.editOptionId || ""),
         readOnly: true
       },
       productDetail: {
@@ -4058,6 +4096,7 @@
     els.modalBackdrop.hidden = false;
     if (type === "order") updateOrderTotalPreview(els.modalForm);
     if (type === "orderReturn") updateOrderReturnPreview(els.modalForm);
+    if (type === "product") updateProductPricingPreview(els.modalForm);
     const firstInput = els.modalForm.querySelector("input, select");
     if (firstInput) firstInput.focus();
   }
@@ -4199,6 +4238,7 @@
       if (!select) return;
       select.addEventListener("change", event => {
         productFilters[key] = event.target.value;
+        productFilters.preset = "all";
         renderPage();
       });
     });
@@ -4283,13 +4323,17 @@
       if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
       if (target.matches("[data-close-modal]")) closeModal();
       if (target.matches("[data-reset-product-filters]")) {
-        Object.assign(productFilters, { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name" });
+        Object.assign(productFilters, { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" });
         searchTerm = "";
         const productSearch = qs("[data-global-search]");
         if (productSearch) productSearch.value = "";
         Object.entries({ productStatusFilter: "status", productStockFilter: "stock", productMarginFilter: "margin", productContentFilter: "content", productAssetsFilter: "assets", productSort: "sort" }).forEach(([elementKey, filterKey]) => {
           if (els[elementKey]) els[elementKey].value = productFilters[filterKey];
         });
+        renderPage();
+      }
+      if (target.dataset.productPreset) {
+        Object.assign(productFilters, { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", preset: target.dataset.productPreset });
         renderPage();
       }
       if (target.matches("[data-refresh-audit]")) {
@@ -4313,6 +4357,24 @@
       if (target.matches("[data-open-product]")) openModal("product");
       if (target.matches("[data-open-product-options]")) openModal("productOptions", { optionType: "category" });
       if (target.dataset.productOptionType) openModal("productOptions", { optionType: target.dataset.productOptionType });
+      if (target.dataset.editProductOption) openModal("productOptions", { optionType: target.dataset.optionType, editOptionId: target.dataset.editProductOption });
+      if (target.matches("[data-cancel-product-option-edit]")) openModal("productOptions", { optionType: target.dataset.optionType });
+      if (target.dataset.saveProductOption) {
+        const id = target.dataset.saveProductOption;
+        const type = target.dataset.optionType;
+        const input = els.modalForm && els.modalForm.querySelector(`[data-product-option-edit-name="${id}"]`);
+        const name = String(input ? input.value : "").trim();
+        if (!name) showToast("Tên thuộc tính không được để trống.", "error");
+        else {
+          try {
+            const response = await withLoading("Đang đổi tên thuộc tính...", () => apiRequest("/products/options/update", { method: "POST", body: JSON.stringify({ id, name }) }));
+            await loadProducts({ quiet: true });
+            renderPage();
+            openModal("productOptions", { optionType: type });
+            showToast(`Đã đổi tên và cập nhật ${Number(response.updatedProducts || 0)} sản phẩm.`);
+          } catch (error) { showToast(error.message, "error"); }
+        }
+      }
       if (target.dataset.createProductOption) {
         const type = target.dataset.createProductOption;
         const input = els.modalForm && els.modalForm.querySelector(`[data-product-option-name][data-option-type="${type}"]`);
@@ -4337,6 +4399,8 @@
       if (target.dataset.toggleProductOption) {
         const type = target.dataset.optionType;
         const nextStatus = target.dataset.nextStatus;
+        const usage = Number(target.dataset.optionUsage || 0);
+        if (nextStatus === "archived" && usage > 0 && !window.confirm(`Thuộc tính này đang dùng cho ${usage} sản phẩm. Ngừng dùng sẽ chỉ ẩn khỏi form sản phẩm mới, tiếp tục?`)) return;
         try {
           const response = await withLoading("Đang cập nhật thuộc tính...", () => apiRequest("/products/options/toggle", { method: "POST", body: JSON.stringify({ id: target.dataset.toggleProductOption, status: nextStatus }) }));
           const saved = normalizeProductOption(response.option);
@@ -4459,6 +4523,10 @@
 
       if (target.dataset.editProduct) {
         const product = byId("products", target.dataset.editProduct);
+        if (product) openModal("product", { product });
+      }
+      if (target.dataset.editProductFromDetail) {
+        const product = byId("products", target.dataset.editProductFromDetail);
         if (product) openModal("product", { product });
       }
       if (target.dataset.viewProduct) {
@@ -4656,6 +4724,7 @@
     });
 
     document.addEventListener("input", event => {
+      if (event.target.matches("#costPrice, #salePrice")) updateProductPricingPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-product-picker-search]")) filterProductPicker(event.target);
       if (event.target.matches("[data-purchase-product-search]")) filterPurchaseProductPicker(event.target);
       if (event.target.matches("[data-order-quantity], [data-order-money]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
