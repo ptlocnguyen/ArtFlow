@@ -188,6 +188,7 @@
       "/products/update": "updateProduct",
       "/products/archive": "archiveProduct",
       "/products/import": "importProducts",
+      "/products/provision-content": "provisionProductContent",
       "/customers": "listCustomers",
       "/customers/create": "createCustomer",
       "/customers/update": "updateCustomer",
@@ -573,10 +574,29 @@
       sku: product.sku || "",
       name: product.name || "",
       category: product.category || "",
+      brand: product.brand || "",
+      barcode: product.barcode || "",
+      unit: product.unit || "cái",
+      weightGrams: Number(product.weightGrams || 0),
+      dimensions: product.dimensions || "",
+      origin: product.origin || "",
+      material: product.material || "",
       costPrice: Number(product.costPrice || 0),
       salePrice: Number(product.salePrice || 0),
       stock: Number(product.stock || 0),
       lowStock: Number(product.lowStock || 0),
+      imageUrl: product.imageUrl || "",
+      shortDescription: product.shortDescription || "",
+      keyFeatures: product.keyFeatures || "",
+      targetAudience: product.targetAudience || "",
+      seoKeywords: product.seoKeywords || "",
+      contentStatus: product.contentStatus || "not_started",
+      contentOwner: product.contentOwner || "",
+      contentNote: product.contentNote || "",
+      contentDocUrl: product.contentDocUrl || "",
+      mediaFolderUrl: product.mediaFolderUrl || "",
+      imageFolderUrl: product.imageFolderUrl || "",
+      videoFolderUrl: product.videoFolderUrl || "",
       status: product.status || "active",
       createdAt: product.createdAt || "",
       updatedAt: product.updatedAt || ""
@@ -1399,10 +1419,10 @@
       ["Trạng thái", "Chỉ dùng active hoặc archived. Để trống sẽ mặc định active."],
       ["Giới hạn", "Tối đa 500 dòng và 5 MB mỗi lần nhập. Không xóa sheet hoặc đổi tên cột." ]
     ]), "Hướng dẫn");
-    XLSX.utils.book_append_sheet(workbook, createExcelSheet("MẪU NHẬP SẢN PHẨM", "Xóa dòng ví dụ trước khi nhập dữ liệu thật.", ["sku", "name", "category", "cost_price", "sale_price", "stock", "low_stock", "status"], [
-      ["AF-001", "Sổ vẽ A5", "Sổ & giấy", 45000, 79000, 20, 5, "active"],
-      ["AF-002", "Bộ màu 12 cây", "Màu vẽ", 80000, 135000, 10, 3, "active"]
-    ], { widths: [16, 30, 22, 16, 16, 12, 14, 14], moneyColumns: [3, 4], numberColumns: [5, 6], textColumns: [0] }), "Sản phẩm");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("MẪU NHẬP SẢN PHẨM", "Xóa dòng ví dụ trước khi nhập dữ liệu thật. Các cột content có thể để trống.", ["sku", "name", "category", "brand", "barcode", "unit", "weight_grams", "dimensions", "origin", "material", "cost_price", "sale_price", "stock", "low_stock", "image_url", "short_description", "key_features", "target_audience", "seo_keywords", "content_status", "content_owner", "content_note", "status"], [
+      ["AF-001", "Sổ vẽ A5", "Sổ & giấy", "ArtFlow", "893000000001", "quyển", 350, "21 x 15 x 2 cm", "Việt Nam", "Giấy mỹ thuật", 45000, 79000, 20, 5, "https://example.com/af-001.jpg", "Sổ vẽ giấy dày cho màu chì và marker.", "Giấy dày 180gsm\nGáy mở phẳng", "Người học vẽ và sinh viên", "sổ vẽ a5, sketchbook", "drafting", "content@artflow.vn", "Cần chụp thêm ảnh cận giấy", "active"],
+      ["AF-002", "Bộ màu 12 cây", "Màu vẽ", "ArtFlow", "", "bộ", 220, "18 x 9 x 2 cm", "", "", 80000, 135000, 10, 3, "", "", "", "", "", "not_started", "", "", "active"]
+    ], { widths: [16, 30, 20, 18, 18, 12, 14, 18, 16, 20, 16, 16, 12, 14, 34, 38, 38, 28, 30, 18, 24, 36, 14], moneyColumns: [10, 11], numberColumns: [6, 12, 13], textColumns: [0, 4], wrapColumn: 15 }), "Sản phẩm");
     saveExcelWorkbook(workbook, "artflow-mau-nhap-san-pham.xlsx");
   }
 
@@ -1444,15 +1464,26 @@
       product.sku,
       product.name,
       product.category,
+      product.brand,
+      product.barcode,
+      product.unit,
       product.costPrice,
       product.salePrice,
       product.stock,
       product.lowStock,
+      productContentStatuses[product.contentStatus],
+      product.contentOwner,
+      product.shortDescription,
+      product.seoKeywords,
+      product.contentDocUrl,
+      product.mediaFolderUrl,
+      formatDateTime(product.createdAt),
+      formatDateTime(product.updatedAt),
       product.status === "archived" ? "Ngừng bán" : "Đang bán"
     ]);
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, createExcelSheet("DANH MỤC SẢN PHẨM", `Xuất lúc ${new Date().toLocaleString("vi-VN")} · ${products.length} sản phẩm`, ["SKU", "Tên sản phẩm", "Danh mục", "Giá vốn", "Giá bán", "Tồn kho", "Ngưỡng thấp", "Trạng thái"], rows, { widths: [16, 32, 22, 18, 18, 14, 16, 16], moneyColumns: [3, 4], numberColumns: [5, 6], textColumns: [0] }), "Sản phẩm");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("DANH MỤC SẢN PHẨM", `Xuất lúc ${formatDateTime(new Date().toISOString())} · ${products.length} sản phẩm`, ["SKU", "Tên sản phẩm", "Danh mục", "Thương hiệu", "Barcode", "Đơn vị", "Giá vốn", "Giá bán", "Tồn kho", "Ngưỡng thấp", "Trạng thái content", "Người phụ trách", "Mô tả ngắn", "Từ khóa", "Google Docs", "Folder media", "Ngày tạo", "Cập nhật lần cuối", "Trạng thái bán"], rows, { widths: [16, 32, 22, 18, 18, 12, 18, 18, 14, 16, 20, 24, 40, 32, 38, 38, 22, 22, 16], moneyColumns: [6, 7], numberColumns: [8, 9], textColumns: [0, 4], wrapColumn: 12 }), "Sản phẩm");
     saveExcelWorkbook(workbook, `artflow-san-pham-${reportDayKey(new Date())}.xlsx`);
     showToast(`Đã xuất ${products.length} sản phẩm.`);
   }
@@ -1498,9 +1529,15 @@
     if (rows.length < 2) throw new Error("File chưa có dữ liệu sản phẩm.");
     const aliases = {
       sku: "sku", name: "name", category: "category",
+      brand: "brand", barcode: "barcode", unit: "unit",
+      weight_grams: "weightGrams", weightgrams: "weightGrams", dimensions: "dimensions", origin: "origin", material: "material",
       cost_price: "costPrice", costprice: "costPrice",
       sale_price: "salePrice", saleprice: "salePrice",
-      stock: "stock", low_stock: "lowStock", lowstock: "lowStock", status: "status"
+      stock: "stock", low_stock: "lowStock", lowstock: "lowStock",
+      image_url: "imageUrl", imageurl: "imageUrl", short_description: "shortDescription", shortdescription: "shortDescription",
+      key_features: "keyFeatures", keyfeatures: "keyFeatures", target_audience: "targetAudience", targetaudience: "targetAudience",
+      seo_keywords: "seoKeywords", seokeywords: "seoKeywords", content_status: "contentStatus", contentstatus: "contentStatus",
+      content_owner: "contentOwner", contentowner: "contentOwner", content_note: "contentNote", contentnote: "contentNote", status: "status"
     };
     const headerIndex = rows.findIndex(row => row.some(cell => String(cell || "").replace(/^\uFEFF/, "").trim().toLowerCase() === "sku"));
     if (headerIndex === -1) throw new Error("Không tìm thấy dòng tiêu đề có cột sku.");
@@ -1514,7 +1551,8 @@
     return dataRows.map((cells, rowIndex) => {
       const product = {};
       headers.forEach((header, index) => { if (header) product[header] = String(cells[index] || "").trim(); });
-      ["costPrice", "salePrice", "stock", "lowStock"].forEach(field => { product[field] = Number(product[field]); });
+      ["costPrice", "salePrice", "stock", "lowStock", "weightGrams"].forEach(field => { product[field] = Number(product[field] || 0); });
+      product.contentStatus = productContentStatuses[product.contentStatus] ? product.contentStatus : "not_started";
       product.status = product.status === "archived" ? "archived" : "active";
       if (!product.sku || !product.name || !product.category || [product.costPrice, product.salePrice, product.stock, product.lowStock].some(value => !Number.isFinite(value) || value < 0)) {
         throw new Error(`Dòng ${headerIndex + rowIndex + 2} có dữ liệu không hợp lệ.`);
@@ -1763,17 +1801,18 @@
 
   function renderProducts() {
     if (!els.productsTable) return;
-    const rows = filtered(state.products, ["sku", "name", "category"]);
+    const rows = filtered(state.products, ["sku", "name", "category", "brand", "barcode", "contentOwner", "seoKeywords"]);
     els.productsTable.innerHTML = rows.length ? rows.map(product => `
       <tr>
+        <td>${product.imageUrl ? `<img class="product-table-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="" loading="lazy" />` : `<span class="product-table-image placeholder">◇</span>`}</td>
         <td><strong>${product.sku}</strong></td>
-        <td>${product.name}</td>
-        <td>${product.category}</td>
+        <td><strong>${escapeHtml(product.name)}</strong><br><small>${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small></td>
         <td>${money.format(product.salePrice)}</td>
         <td><span class="badge ${product.stock <= product.lowStock ? "low" : "active"}">${product.stock}</span></td>
-        <td><span class="badge ${product.status}">${statusLabel(product.status)}</span></td>
+        <td><span class="badge content-${product.contentStatus}">${productContentStatuses[product.contentStatus]}</span></td>
         <td>
           <div class="row-actions">
+            <button class="link-button" data-view-product="${product.id}">Chi tiết</button>
             ${canManageProducts() ? `<button class="link-button" data-edit-product="${product.id}">Sửa</button><button class="link-button" data-archive-product="${product.id}" data-next-status="${product.status === "active" ? "archived" : "active"}">${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}</button>` : ""}
           </div>
         </td>
@@ -2424,6 +2463,79 @@
       .replace(/"/g, "&quot;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
+  }
+
+  const productContentStatuses = {
+    not_started: "Chưa bắt đầu",
+    drafting: "Đang soạn",
+    review: "Chờ duyệt",
+    ready: "Sẵn sàng",
+    published: "Đã đăng"
+  };
+
+  function renderProductForm(product) {
+    const value = field => escapeAttribute(product ? product[field] : "");
+    return `
+      <div class="product-form-section full"><h3>Thông tin bán hàng</h3><p>Các trường dùng cho danh mục, kho và đơn hàng.</p></div>
+      <div class="field"><label for="sku">SKU</label><input id="sku" name="sku" value="${value("sku")}" placeholder="AF-NEW-001" required /></div>
+      <div class="field"><label for="name">Tên sản phẩm</label><input id="name" name="name" value="${value("name")}" placeholder="Bộ cọ vẽ chi tiết" required /></div>
+      <div class="field"><label for="category">Danh mục</label><input id="category" name="category" value="${value("category")}" placeholder="Dụng cụ vẽ" required /></div>
+      <div class="field"><label for="brand">Thương hiệu</label><input id="brand" name="brand" value="${value("brand")}" placeholder="ArtFlow" /></div>
+      <div class="field"><label for="barcode">Barcode / Mã vạch</label><input id="barcode" name="barcode" value="${value("barcode")}" placeholder="893..." /></div>
+      <div class="field"><label for="unit">Đơn vị tính</label><input id="unit" name="unit" value="${value("unit") || "cái"}" placeholder="cái, hộp, bộ..." /></div>
+      <div class="field"><label for="costPrice">Giá vốn</label><input id="costPrice" name="costPrice" type="number" min="0" step="1000" value="${value("costPrice")}" required /></div>
+      <div class="field"><label for="salePrice">Giá bán</label><input id="salePrice" name="salePrice" type="number" min="0" step="1000" value="${value("salePrice")}" required /></div>
+      <div class="field"><label for="stock">Tồn kho</label><input id="stock" name="stock" type="number" min="0" step="1" value="${value("stock")}" required /></div>
+      <div class="field"><label for="lowStock">Ngưỡng cảnh báo</label><input id="lowStock" name="lowStock" type="number" min="0" step="1" value="${value("lowStock")}" required /></div>
+      <div class="product-form-section full"><h3>Thông số sản phẩm</h3><p>Hữu ích khi viết mô tả và đăng lên sàn.</p></div>
+      <div class="field"><label for="weightGrams">Khối lượng (gram)</label><input id="weightGrams" name="weightGrams" type="number" min="0" step="1" value="${value("weightGrams") || 0}" /></div>
+      <div class="field"><label for="dimensions">Kích thước</label><input id="dimensions" name="dimensions" value="${value("dimensions")}" placeholder="20 x 10 x 5 cm" /></div>
+      <div class="field"><label for="origin">Xuất xứ</label><input id="origin" name="origin" value="${value("origin")}" placeholder="Việt Nam" /></div>
+      <div class="field"><label for="material">Chất liệu</label><input id="material" name="material" value="${value("material")}" placeholder="Gỗ, cotton, nhựa ABS..." /></div>
+      <div class="field full"><label for="imageUrl">Link ảnh đại diện</label><input id="imageUrl" name="imageUrl" type="url" value="${value("imageUrl")}" placeholder="https://... (ảnh được chia sẻ để người xem có quyền truy cập)" /></div>
+      <div class="product-form-section full"><h3>Quản lý content</h3><p>Brief nhanh để team content tìm, viết và theo dõi tiến độ.</p></div>
+      <div class="field full"><label for="shortDescription">Mô tả ngắn</label><textarea id="shortDescription" name="shortDescription" rows="3" placeholder="Sản phẩm là gì và giải quyết nhu cầu nào?">${escapeHtml(product ? product.shortDescription : "")}</textarea></div>
+      <div class="field full"><label for="keyFeatures">Điểm nổi bật / USP</label><textarea id="keyFeatures" name="keyFeatures" rows="4" placeholder="Mỗi điểm nổi bật một dòng">${escapeHtml(product ? product.keyFeatures : "")}</textarea></div>
+      <div class="field"><label for="targetAudience">Đối tượng khách hàng</label><input id="targetAudience" name="targetAudience" value="${value("targetAudience")}" placeholder="Người mới học vẽ, sinh viên..." /></div>
+      <div class="field"><label for="seoKeywords">Từ khóa tìm kiếm</label><input id="seoKeywords" name="seoKeywords" value="${value("seoKeywords")}" placeholder="cọ vẽ, cọ chi tiết, dụng cụ mỹ thuật" /></div>
+      <div class="field"><label for="contentOwner">Người phụ trách content</label><input id="contentOwner" name="contentOwner" value="${value("contentOwner")}" placeholder="Tên hoặc email" /></div>
+      <div class="field"><label for="contentStatus">Trạng thái content</label><select id="contentStatus" name="contentStatus">${Object.entries(productContentStatuses).map(([key, label]) => `<option value="${key}" ${(product ? product.contentStatus : "not_started") === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field full"><label for="contentNote">Ghi chú content</label><textarea id="contentNote" name="contentNote" rows="3" placeholder="Yêu cầu hình ảnh, video, deadline, kênh ưu tiên...">${escapeHtml(product ? product.contentNote : "")}</textarea></div>
+      ${product ? `<div class="product-resource-note full">Link Google Docs và Drive được hệ thống quản lý riêng. Dùng nút <strong>Tạo tài nguyên</strong> trong màn hình chi tiết nếu sản phẩm chưa có link.</div>` : `<div class="product-resource-note full">Sau khi lưu, hệ thống sẽ tự tạo Google Docs và các folder ảnh/video nếu Script Properties đã được cấu hình.</div>`}
+    `;
+  }
+
+  function productResourceLink(url, label) {
+    return url ? `<a class="resource-link" href="${escapeAttribute(url)}" target="_blank" rel="noopener">${label} ↗</a>` : `<span class="resource-missing">Chưa tạo</span>`;
+  }
+
+  function productImageUrl(url) {
+    const value = String(url || "").trim();
+    const driveMatch = value.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([-\w]+)/i);
+    return driveMatch ? `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w600` : value;
+  }
+
+  function renderProductDetail(product) {
+    const image = product.imageUrl
+      ? `<img class="product-detail-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="${escapeAttribute(product.name)}" />`
+      : `<div class="product-detail-image placeholder">Không có ảnh</div>`;
+    const info = (label, value) => `<div><span>${label}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
+    return `
+      <div class="product-detail-hero full">${image}<div><span class="badge ${product.status}">${statusLabel(product.status)}</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</p><b>${money.format(product.salePrice)}</b></div></div>
+      <section class="product-detail-section full"><h3>Thông tin sản phẩm</h3><div class="product-detail-grid">
+        ${info("Barcode", product.barcode)}${info("Đơn vị", product.unit)}${info("Giá vốn", money.format(product.costPrice))}${info("Tồn kho", `${product.stock} / cảnh báo ${product.lowStock}`)}
+        ${info("Khối lượng", product.weightGrams ? `${product.weightGrams} g` : "")}${info("Kích thước", product.dimensions)}${info("Xuất xứ", product.origin)}${info("Chất liệu", product.material)}
+        ${info("Tạo lúc", formatDateTime(product.createdAt))}${info("Cập nhật lúc", formatDateTime(product.updatedAt))}
+      </div></section>
+      <section class="product-detail-section full"><h3>Content</h3><div class="product-detail-grid">${info("Trạng thái", productContentStatuses[product.contentStatus])}${info("Phụ trách", product.contentOwner)}${info("Đối tượng", product.targetAudience)}${info("Từ khóa", product.seoKeywords)}</div>
+        <div class="product-copy-block"><span>Mô tả ngắn</span><p>${escapeHtml(product.shortDescription || "Chưa có mô tả.")}</p></div>
+        <div class="product-copy-block"><span>Điểm nổi bật / USP</span><p>${escapeHtml(product.keyFeatures || "Chưa có nội dung.").replace(/\n/g, "<br>")}</p></div>
+        <div class="product-copy-block"><span>Ghi chú</span><p>${escapeHtml(product.contentNote || "Chưa có ghi chú.").replace(/\n/g, "<br>")}</p></div>
+      </section>
+      <section class="product-detail-section full"><h3>Tài nguyên Google</h3><div class="product-resource-grid">
+        ${productResourceLink(product.contentDocUrl, "Google Docs mô tả")}${productResourceLink(product.mediaFolderUrl, "Folder sản phẩm")}${productResourceLink(product.imageFolderUrl, "Folder hình ảnh")}${productResourceLink(product.videoFolderUrl, "Folder video")}
+      </div>${canManageProducts() && (!product.contentDocUrl || !product.mediaFolderUrl) ? `<button class="button ghost" type="button" data-provision-product="${product.id}">Tạo tài nguyên content</button>` : ""}</section>
+    `;
   }
 
   function productSearchText(product) {
@@ -3123,7 +3235,7 @@
   function renderSpreadsheetImportGuide(kind) {
     const product = kind === "product";
     const columns = product
-      ? [["sku", "Bắt buộc, duy nhất"], ["name", "Bắt buộc"], ["category", "Bắt buộc"], ["cost_price", "Số không âm"], ["sale_price", "Không thấp hơn giá vốn"], ["stock", "Số không âm"], ["low_stock", "Số không âm"], ["status", "active / archived"]]
+      ? [["sku / name / category", "Bắt buộc"], ["cost_price / sale_price", "Số không âm, giá bán không thấp hơn giá vốn"], ["stock / low_stock", "Số không âm"], ["brand / barcode / unit", "Thông tin nhận diện, không bắt buộc"], ["weight_grams / dimensions / origin / material", "Thông số sản phẩm"], ["image_url", "Link ảnh người dùng có quyền xem"], ["short_description / key_features", "Nội dung brief"], ["target_audience / seo_keywords", "Thông tin marketing"], ["content_status", "not_started / drafting / review / ready / published"], ["content_owner / content_note", "Người phụ trách và ghi chú"], ["status", "active / archived"]]
       : [["name", "Bắt buộc"], ["phone", "Bắt buộc, duy nhất"], ["email", "Không bắt buộc, không trùng"], ["group", "Mặc định Bán lẻ"], ["status", "active / archived"], ["note", "Không bắt buộc"]];
     return `
       <div class="spreadsheet-guide">
@@ -3250,6 +3362,12 @@
     const editingPurchaseOrder = options.purchaseOrder || null;
     const viewingAuditLog = options.auditLog || null;
     const definitions = {
+      productDetail: {
+        eyebrow: "Hồ sơ sản phẩm",
+        title: editingProduct ? editingProduct.name : "Chi tiết sản phẩm",
+        body: editingProduct ? renderProductDetail(editingProduct) : "",
+        readOnly: true
+      },
       auditDetail: {
         eyebrow: "Nhật ký hệ thống",
         title: viewingAuditLog ? viewingAuditLog.description : "Chi tiết hoạt động",
@@ -3271,15 +3389,7 @@
       product: {
         eyebrow: "Danh mục",
         title: editingProduct ? "Sửa sản phẩm" : "Thêm sản phẩm",
-        body: renderTextFields([
-          ["sku", "SKU", "text", "AF-NEW-001", "", editingProduct ? editingProduct.sku : ""],
-          ["name", "Tên sản phẩm", "text", "Bộ cọ vẽ chi tiết", "", editingProduct ? editingProduct.name : ""],
-          ["category", "Danh mục", "text", "Dụng cụ vẽ", "", editingProduct ? editingProduct.category : ""],
-          ["costPrice", "Giá vốn", "number", "65000", "min=\"0\" step=\"1000\"", editingProduct ? editingProduct.costPrice : ""],
-          ["salePrice", "Giá bán", "number", "119000", "min=\"0\" step=\"1000\"", editingProduct ? editingProduct.salePrice : ""],
-          ["stock", "Tồn kho", "number", "12", "min=\"0\" step=\"1\"", editingProduct ? editingProduct.stock : ""],
-          ["lowStock", "Ngưỡng cảnh báo", "number", "5", "min=\"0\" step=\"1\"", editingProduct ? editingProduct.lowStock : ""]
-        ]),
+        body: renderProductForm(editingProduct),
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           const costPrice = Number(data.costPrice);
@@ -3294,6 +3404,7 @@
           if (salePrice < costPrice) throw new Error("Giá bán nên lớn hơn hoặc bằng giá vốn.");
           if (stock < 0 || lowStock < 0) throw new Error("Tồn kho và ngưỡng cảnh báo không được âm.");
           const payload = {
+            ...data,
             id: editingProduct ? editingProduct.id : undefined,
             sku,
             name,
@@ -3316,7 +3427,10 @@
           }
           window.ArtFlowPosStore.save(state);
           renderPage();
-          showToast(editingProduct ? "Đã cập nhật sản phẩm." : "Đã thêm sản phẩm mới.");
+          showToast(dataFromApi.contentSetupWarning
+            ? `Đã thêm sản phẩm. Chưa tạo được tài nguyên content: ${dataFromApi.contentSetupWarning}`
+            : (editingProduct ? "Đã cập nhật sản phẩm." : "Đã thêm sản phẩm và tạo tài nguyên content."),
+          dataFromApi.contentSetupWarning ? "error" : "success");
         }
       },
       customer: {
@@ -4075,6 +4189,24 @@
       if (target.dataset.editProduct) {
         const product = byId("products", target.dataset.editProduct);
         if (product) openModal("product", { product });
+      }
+      if (target.dataset.viewProduct) {
+        const product = byId("products", target.dataset.viewProduct);
+        if (product) openModal("productDetail", { product });
+      }
+      if (target.dataset.provisionProduct) {
+        await withLoading("Đang tạo Google Docs và folder content...", async () => {
+          const response = await apiRequest("/products/provision-content", {
+            method: "POST",
+            body: JSON.stringify({ id: target.dataset.provisionProduct })
+          });
+          const saved = normalizeProduct(response.product);
+          state.products = state.products.map(item => item.id === saved.id ? saved : item);
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          openModal("productDetail", { product: saved });
+        });
+        showToast("Đã tạo Google Docs và các folder content cho sản phẩm.");
       }
       if (target.dataset.archiveProduct && window.confirm(target.dataset.nextStatus === "active" ? "Kích hoạt lại sản phẩm này?" : "Ngừng bán sản phẩm này?")) {
         await withLoading("Đang cập nhật sản phẩm...", () => archiveProduct(target.dataset.archiveProduct, target.dataset.nextStatus));
