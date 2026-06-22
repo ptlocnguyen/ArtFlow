@@ -2051,6 +2051,57 @@ body[data-page="products"] .view.active {
 .product-filter-bar select { min-width: 0; min-height: 38px; padding: 0 9px; font-size: 12px; }
 .product-filter-reset { min-height: 38px; }
 
+.product-option-manager {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 14px;
+  width: min(720px, 100%);
+  justify-self: center;
+}
+
+.product-option-tabs {
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.product-option-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.product-option-create .field { margin: 0; }
+
+.product-option-list {
+  display: grid;
+  max-height: min(430px, 52vh);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.product-option-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.product-option-item:last-child { border-bottom: 0; }
+.product-option-item strong, .product-option-item small { display: block; }
+.product-option-item small { margin-top: 3px; color: #067647; font-size: 11px; }
+.product-option-item.archived { background: #f8fafc; }
+.product-option-item.archived strong { color: var(--muted); }
+.product-option-item.archived small { color: #b54708; }
+
 .products-table { min-width: 1160px; }
 .product-margin-cell { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .margin-loss { color: #b42318 !important; background: #fee4e2 !important; }
@@ -2943,6 +2994,8 @@ body[data-page="products"] .view.active {
   .product-kpi-grid strong { font-size: 16px; }
   .product-filter-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; }
   .product-filter-reset { width: 100%; }
+  .product-option-create { grid-template-columns: 1fr; }
+  .product-option-create .button { width: 100%; }
   .product-detail-hero {
     grid-template-columns: 92px minmax(0, 1fr);
     gap: 12px;

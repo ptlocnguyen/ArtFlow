@@ -8,6 +8,8 @@
   function createInitialState() {
     return {
       products: clone(window.ArtFlowPosSeed.products),
+      productOptions: clone(window.ArtFlowPosSeed.productOptions || []),
+      contentOwners: clone(window.ArtFlowPosSeed.contentOwners || []),
       customers: clone(window.ArtFlowPosSeed.customers),
       orders: clone(window.ArtFlowPosSeed.orders),
       salesReturns: clone(window.ArtFlowPosSeed.salesReturns || []),
@@ -32,6 +34,8 @@
       ...initial,
       ...state,
       products: Array.isArray(state.products) ? state.products : initial.products,
+      productOptions: Array.isArray(state.productOptions) ? state.productOptions : initial.productOptions,
+      contentOwners: Array.isArray(state.contentOwners) ? state.contentOwners : initial.contentOwners,
       customers: Array.isArray(state.customers) ? state.customers : initial.customers,
       orders: Array.isArray(state.orders) ? state.orders : initial.orders,
       salesReturns: Array.isArray(state.salesReturns) ? state.salesReturns : initial.salesReturns,

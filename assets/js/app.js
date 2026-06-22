@@ -195,6 +195,8 @@
       "/products/create": "createProduct",
       "/products/update": "updateProduct",
       "/products/archive": "archiveProduct",
+      "/products/options/create": "createProductOption",
+      "/products/options/toggle": "toggleProductOption",
       "/products/import": "importProducts",
       "/products/provision-content": "provisionProductContent",
       "/products/provision-missing-content": "provisionMissingProductContent",
@@ -618,10 +620,23 @@
     };
   }
 
+  function normalizeProductOption(option) {
+    return {
+      id: option.id,
+      type: option.type || "category",
+      name: option.name || "",
+      status: option.status || "active",
+      createdAt: option.createdAt || "",
+      updatedAt: option.updatedAt || ""
+    };
+  }
+
   async function loadProducts(options = {}) {
     try {
       const data = await apiRequest("/products");
       state.products = (data.products || []).map(normalizeProduct);
+      state.productOptions = (data.productOptions || []).map(normalizeProductOption);
+      state.contentOwners = data.contentOwners || [];
       window.ArtFlowPosStore.save(state);
       return true;
     } catch (error) {
@@ -1017,7 +1032,11 @@
   }
 
   function applyPageData(data, scopes) {
-    if (scopes.includes("products")) state.products = (data.products || []).map(normalizeProduct);
+    if (scopes.includes("products")) {
+      state.products = (data.products || []).map(normalizeProduct);
+      state.productOptions = (data.productOptions || []).map(normalizeProductOption);
+      state.contentOwners = data.contentOwners || [];
+    }
     if (scopes.includes("customers")) state.customers = (data.customers || []).map(normalizeCustomer);
     if (scopes.includes("orders")) {
       state.orders = (data.orders || []).map(normalizeOrder);
@@ -1169,6 +1188,9 @@
       button.hidden = !canManageProducts();
     });
     document.querySelectorAll("[data-import-products]").forEach(button => {
+      button.hidden = !canManageProducts();
+    });
+    document.querySelectorAll("[data-open-product-options]").forEach(button => {
       button.hidden = !canManageProducts();
     });
     document.querySelectorAll("[data-open-customer]").forEach(button => {
@@ -2579,16 +2601,61 @@
     published: "Đã đăng"
   };
 
+  const productOptionLabels = {
+    category: "Danh mục",
+    brand: "Thương hiệu",
+    unit: "Đơn vị tính"
+  };
+
+  function renderManagedProductSelect(type, currentValue, options = {}) {
+    const current = String(currentValue || "");
+    const values = (state.productOptions || [])
+      .filter(option => option.type === type && option.status === "active")
+      .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+    if (current && !values.some(option => option.name === current)) {
+      values.unshift({ id: "legacy", name: current, status: "archived" });
+    }
+    const placeholder = options.placeholder || `Chọn ${productOptionLabels[type].toLowerCase()}`;
+    return `<option value="" ${current ? "" : "selected"}>${placeholder}</option>${values.map(option => `<option value="${escapeAttribute(option.name)}" ${option.name === current ? "selected" : ""}>${escapeHtml(option.name)}${option.status !== "active" ? " (đã ngừng dùng)" : ""}</option>`).join("")}`;
+  }
+
+  function renderContentOwnerSelect(currentValue) {
+    const current = String(currentValue || "");
+    const owners = [...(state.contentOwners || [])].sort((a, b) => String(a.name).localeCompare(String(b.name), "vi"));
+    if (current && !owners.some(owner => owner.name === current)) owners.unshift({ id: "legacy", name: current, email: "" });
+    return `<option value="">Chưa phân công</option>${owners.map(owner => `<option value="${escapeAttribute(owner.name)}" ${owner.name === current ? "selected" : ""}>${escapeHtml(owner.name)}${owner.email ? ` · ${escapeHtml(owner.email)}` : ""}</option>`).join("")}`;
+  }
+
+  function renderProductOptionManager(activeType) {
+    const type = productOptionLabels[activeType] ? activeType : "category";
+    const options = (state.productOptions || [])
+      .filter(option => option.type === type)
+      .sort((a, b) => Number(b.status === "active") - Number(a.status === "active") || a.name.localeCompare(b.name, "vi"));
+    return `
+      <div class="product-option-manager full">
+        <div class="segmented-control product-option-tabs">${Object.entries(productOptionLabels).map(([key, label]) => `<button class="${key === type ? "active" : ""}" type="button" data-product-option-type="${key}">${label}</button>`).join("")}</div>
+        <div class="product-option-create">
+          <label class="field"><span>Thêm ${productOptionLabels[type].toLowerCase()}</span><input type="text" maxlength="100" placeholder="Nhập tên mới" data-product-option-name data-option-type="${type}" /></label>
+          <button class="button primary" type="button" data-create-product-option="${type}">Thêm</button>
+        </div>
+        <div class="product-option-list">${options.length ? options.map(option => `
+          <div class="product-option-item ${option.status !== "active" ? "archived" : ""}">
+            <div><strong>${escapeHtml(option.name)}</strong><small>${option.status === "active" ? "Đang sử dụng" : "Đã ngừng dùng"}</small></div>
+            <button class="link-button ${option.status === "active" ? "action-archive" : "action-activate"}" type="button" data-toggle-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" data-next-status="${option.status === "active" ? "archived" : "active"}">${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}</button>
+          </div>`).join("") : `<div class="empty">Chưa có ${productOptionLabels[type].toLowerCase()}.</div>`}</div>
+      </div>`;
+  }
+
   function renderProductForm(product) {
     const value = field => escapeAttribute(product ? product[field] : "");
     return `
       <div class="product-form-section full"><h3>Thông tin bán hàng</h3><p>Các trường dùng cho danh mục, kho và đơn hàng.</p></div>
       <div class="field"><label for="sku">SKU</label><input id="sku" name="sku" value="${value("sku")}" placeholder="AF-NEW-001" required /></div>
       <div class="field"><label for="name">Tên sản phẩm</label><input id="name" name="name" value="${value("name")}" placeholder="Bộ cọ vẽ chi tiết" required /></div>
-      <div class="field"><label for="category">Danh mục</label><input id="category" name="category" value="${value("category")}" placeholder="Dụng cụ vẽ" required /></div>
-      <div class="field"><label for="brand">Thương hiệu</label><input id="brand" name="brand" value="${value("brand")}" placeholder="ArtFlow" /></div>
+      <div class="field"><label for="category">Danh mục</label><select id="category" name="category" required>${renderManagedProductSelect("category", product ? product.category : "")}</select></div>
+      <div class="field"><label for="brand">Thương hiệu</label><select id="brand" name="brand">${renderManagedProductSelect("brand", product ? product.brand : "", { placeholder: "Không có thương hiệu" })}</select></div>
       <div class="field"><label for="barcode">Barcode / Mã vạch</label><input id="barcode" name="barcode" value="${value("barcode")}" placeholder="893..." /></div>
-      <div class="field"><label for="unit">Đơn vị tính</label><input id="unit" name="unit" value="${value("unit") || "cái"}" placeholder="cái, hộp, bộ..." /></div>
+      <div class="field"><label for="unit">Đơn vị tính</label><select id="unit" name="unit" required>${renderManagedProductSelect("unit", product ? product.unit : "cái")}</select></div>
       <div class="field"><label for="costPrice">Giá vốn</label><input id="costPrice" name="costPrice" type="number" min="0" step="1000" value="${value("costPrice")}" required /></div>
       <div class="field"><label for="salePrice">Giá bán</label><input id="salePrice" name="salePrice" type="number" min="0" step="1000" value="${value("salePrice")}" required /></div>
       <div class="field"><label for="stock">Tồn kho</label><input id="stock" name="stock" type="number" min="0" step="1" value="${value("stock")}" required /></div>
@@ -2604,7 +2671,7 @@
       <div class="field full"><label for="keyFeatures">Điểm nổi bật / USP</label><textarea id="keyFeatures" name="keyFeatures" rows="4" placeholder="Mỗi điểm nổi bật một dòng">${escapeHtml(product ? product.keyFeatures : "")}</textarea></div>
       <div class="field"><label for="targetAudience">Đối tượng khách hàng</label><input id="targetAudience" name="targetAudience" value="${value("targetAudience")}" placeholder="Người mới học vẽ, sinh viên..." /></div>
       <div class="field"><label for="seoKeywords">Từ khóa tìm kiếm</label><input id="seoKeywords" name="seoKeywords" value="${value("seoKeywords")}" placeholder="cọ vẽ, cọ chi tiết, dụng cụ mỹ thuật" /></div>
-      <div class="field"><label for="contentOwner">Người phụ trách content</label><input id="contentOwner" name="contentOwner" value="${value("contentOwner")}" placeholder="Tên hoặc email" /></div>
+      <div class="field"><label for="contentOwner">Người phụ trách content</label><select id="contentOwner" name="contentOwner">${renderContentOwnerSelect(product ? product.contentOwner : "")}</select></div>
       <div class="field"><label for="contentStatus">Trạng thái content</label><select id="contentStatus" name="contentStatus">${Object.entries(productContentStatuses).map(([key, label]) => `<option value="${key}" ${(product ? product.contentStatus : "not_started") === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
       <div class="field full"><label for="contentNote">Ghi chú content</label><textarea id="contentNote" name="contentNote" rows="3" placeholder="Yêu cầu hình ảnh, video, deadline, kênh ưu tiên...">${escapeHtml(product ? product.contentNote : "")}</textarea></div>
       <div class="product-form-section full"><h3>Link bán hàng và bài content</h3><p>Tập hợp nơi sản phẩm đang được bán hoặc đã xuất hiện để team tra cứu nhanh.</p></div>
@@ -3391,6 +3458,10 @@
       showToast("Bạn không có quyền quản lý sản phẩm.", "error");
       return;
     }
+    if (type === "productOptions" && !canManageProducts()) {
+      showToast("Bạn không có quyền quản lý thuộc tính sản phẩm.", "error");
+      return;
+    }
     if (type === "customer" && !canManageCustomers()) {
       showToast("Bạn không có quyền quản lý khách hàng.", "error");
       return;
@@ -3493,6 +3564,12 @@
     const editingPurchaseOrder = options.purchaseOrder || null;
     const viewingAuditLog = options.auditLog || null;
     const definitions = {
+      productOptions: {
+        eyebrow: "Thiết lập sản phẩm",
+        title: "Quản lý thuộc tính",
+        body: renderProductOptionManager(options.optionType || "category"),
+        readOnly: true
+      },
       productDetail: {
         eyebrow: "Hồ sơ sản phẩm",
         title: editingProduct ? editingProduct.name : "Chi tiết sản phẩm",
@@ -4234,6 +4311,43 @@
       if (target.matches("[data-choose-product-file]")) els.productCsvFile?.click();
       if (target.matches("[data-choose-customer-file]")) els.customerCsvFile?.click();
       if (target.matches("[data-open-product]")) openModal("product");
+      if (target.matches("[data-open-product-options]")) openModal("productOptions", { optionType: "category" });
+      if (target.dataset.productOptionType) openModal("productOptions", { optionType: target.dataset.productOptionType });
+      if (target.dataset.createProductOption) {
+        const type = target.dataset.createProductOption;
+        const input = els.modalForm && els.modalForm.querySelector(`[data-product-option-name][data-option-type="${type}"]`);
+        const name = String(input ? input.value : "").trim();
+        if (!name) {
+          showToast("Hãy nhập tên thuộc tính.", "error");
+        } else {
+          try {
+            const response = await withLoading("Đang thêm thuộc tính...", () => apiRequest("/products/options/create", { method: "POST", body: JSON.stringify({ type, name }) }));
+            const saved = normalizeProductOption(response.option);
+            const existingIndex = (state.productOptions || []).findIndex(option => option.id === saved.id);
+            if (existingIndex >= 0) state.productOptions[existingIndex] = saved;
+            else state.productOptions.push(saved);
+            window.ArtFlowPosStore.save(state);
+            openModal("productOptions", { optionType: type });
+            showToast(`Đã thêm ${productOptionLabels[type].toLowerCase()}.`);
+          } catch (error) {
+            showToast(error.message, "error");
+          }
+        }
+      }
+      if (target.dataset.toggleProductOption) {
+        const type = target.dataset.optionType;
+        const nextStatus = target.dataset.nextStatus;
+        try {
+          const response = await withLoading("Đang cập nhật thuộc tính...", () => apiRequest("/products/options/toggle", { method: "POST", body: JSON.stringify({ id: target.dataset.toggleProductOption, status: nextStatus }) }));
+          const saved = normalizeProductOption(response.option);
+          state.productOptions = (state.productOptions || []).map(option => option.id === saved.id ? saved : option);
+          window.ArtFlowPosStore.save(state);
+          openModal("productOptions", { optionType: type });
+          showToast(nextStatus === "active" ? "Đã đưa thuộc tính vào sử dụng." : "Đã ngừng dùng thuộc tính.");
+        } catch (error) {
+          showToast(error.message, "error");
+        }
+      }
       if (target.matches("[data-open-customer]")) openModal("customer");
       if (target.matches("[data-open-order]")) {
         event.preventDefault();

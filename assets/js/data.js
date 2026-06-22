@@ -1,5 +1,7 @@
 window.ArtFlowPosSeed = {
   products: [],
+  productOptions: [],
+  contentOwners: [],
   customers: [],
   orders: [],
   salesReturns: [],
