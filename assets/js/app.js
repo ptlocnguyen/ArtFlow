@@ -4,18 +4,21 @@
   const root = document.body.dataset.root || ".";
   const money = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
   const dateFormat = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const dateTimeFormat = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" });
   const tokenKey = `${config.storageKey}.authToken`;
   const purchaseEditId = new URLSearchParams(window.location.search).get("edit") || "";
 
   let state = window.ArtFlowPosStore.load();
   let currentUser = null;
   let staffUsers = [];
+  let auditLogs = [];
   let searchTerm = "";
   let pageDataReady = false;
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
   const accountingFilters = { view: "receivables", type: "all", accountId: "all", range: "30", receivable: "all" };
   const purchasingFilters = { view: "orders", status: "all", paymentStatus: "all" };
   const reportFilters = { range: "30", channel: "all" };
+  const auditFilters = { entityType: "all", range: "30" };
 
   const channels = {
     pos: "POS",
@@ -61,7 +64,8 @@
     inventory: { title: "Kho hàng", href: "./inventory.html", icon: "▤" },
     accounting: { title: "Kế toán", href: "./accounting.html", icon: "≋" },
     reports: { title: "Báo cáo", href: "./reports.html", icon: "↗" },
-    users: { title: "Nhân viên", href: "./users.html", icon: "◎", adminOnly: true }
+    users: { title: "Nhân viên", href: "./users.html", icon: "◎", adminOnly: true },
+    activity: { title: "Lịch sử hoạt động", href: "./activity.html", icon: "◷", adminOnly: true }
   };
 
   const qs = selector => document.querySelector(selector);
@@ -88,6 +92,10 @@
     customersTable: qs("[data-customers-table]"),
     customerCsvFile: qs("[data-customer-csv-file]"),
     usersTable: qs("[data-users-table]"),
+    auditKpis: qs("[data-audit-kpis]"),
+    auditTable: qs("[data-audit-table]"),
+    auditEntityFilter: qs("[data-audit-entity-filter]"),
+    auditRangeFilter: qs("[data-audit-range-filter]"),
     inventoryCards: qs("[data-inventory-cards]"),
     stockMovementsTable: qs("[data-stock-movements-table]"),
     accountingKpis: qs("[data-accounting-kpis]"),
@@ -174,6 +182,7 @@
       "/users/create": "createUser",
       "/users/toggle": "toggleUser",
       "/users/delete": "deleteUser",
+      "/audit-logs": "listAuditLogs",
       "/products": "listProducts",
       "/products/create": "createProduct",
       "/products/update": "updateProduct",
@@ -311,11 +320,32 @@
     return dateFormat.format(new Date(`${String(value).slice(0, 10)}T00:00:00`));
   }
 
+  function formatDateTime(value) {
+    if (!value) return "Chưa có";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : dateTimeFormat.format(date);
+  }
+
+  function escapeHtml(value) {
+    return String(value === undefined || value === null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function localDateValue(date = new Date()) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Ho_Chi_Minh" })
+      .formatToParts(date)
+      .reduce((result, part) => { result[part.type] = part.value; return result; }, {});
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+
+  function shiftDateValue(dateValue, days) {
+    const date = new Date(`${dateValue}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
   }
 
   function isAdmin() {
@@ -943,7 +973,8 @@
       purchasing: ["purchasing"],
       purchaseCreate: ["products", "purchasing"],
       reports: ["products", "customers", "orders", "accounting"],
-      users: []
+      users: [],
+      activity: []
     };
     const scopes = [...(scopesByPage[page] || [])];
     if (page === "purchasing" && canPayPurchases()) scopes.push("accounting");
@@ -1128,9 +1159,31 @@
     staffUsers = data.users || [];
   }
 
+  function normalizeAuditLog(log) {
+    return {
+      id: log.id,
+      action: log.action || "",
+      description: log.description || log.action || "Hoạt động hệ thống",
+      entityType: log.entityType || "",
+      entityId: log.entityId || "",
+      actorId: log.actorId || "",
+      actorName: log.actorName || "System",
+      actorEmail: log.actorEmail || "",
+      detail: log.detail && typeof log.detail === "object" ? log.detail : {},
+      createdAt: log.createdAt || "",
+      timezone: log.timezone || "Asia/Ho_Chi_Minh"
+    };
+  }
+
+  async function loadAuditLogs() {
+    if (!isAdmin()) return;
+    const data = await apiRequest("/audit-logs", { method: "POST", body: JSON.stringify({ limit: 1000 }) });
+    auditLogs = (data.logs || []).map(normalizeAuditLog);
+  }
+
   async function showApp(user) {
     currentUser = user;
-    if (page === "users" && !isAdmin()) {
+    if (["users", "activity"].includes(page) && !isAdmin()) {
       window.location.href = "./dashboard.html";
       return;
     }
@@ -1149,6 +1202,7 @@
 
     await loadPageData(dataScopesForPage());
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
+    if (page === "activity") await withLoading("Đang tải lịch sử hoạt động...", loadAuditLogs);
     renderPage();
   }
 
@@ -1204,20 +1258,14 @@
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) return "";
-    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+    return localDateValue(date);
   }
 
   function reportPeriod(range, previous = false) {
     if (range === "all") return null;
     const days = Number(range || 30);
-    const end = new Date();
-    end.setHours(0, 0, 0, 0);
-    if (previous) end.setDate(end.getDate() - days);
-    const start = new Date(end);
-    start.setDate(start.getDate() - days + 1);
-    const finish = new Date(end);
-    finish.setDate(finish.getDate() + 1);
-    return { start: reportDayKey(start), end: reportDayKey(finish), days: days };
+    const end = shiftDateValue(localDateValue(), previous ? -days : 0);
+    return { start: shiftDateValue(end, -days + 1), end: shiftDateValue(end, 1), days: days };
   }
 
   function inReportPeriod(value, period) {
@@ -1638,12 +1686,8 @@
 
   function renderChart() {
     if (!els.revenueChart) return;
-    const days = Array.from({ length: 7 }, (_, index) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (6 - index));
-      return date.toISOString().slice(0, 10);
-    });
-    const values = days.map(day => state.orders.filter(order => String(order.createdAt).slice(0, 10) === day && isPaid(order)).reduce((sum, order) => sum + order.netTotal, 0));
+    const days = Array.from({ length: 7 }, (_, index) => shiftDateValue(localDateValue(), -(6 - index)));
+    const values = days.map(day => state.orders.filter(order => reportDayKey(order.createdAt) === day && isPaid(order)).reduce((sum, order) => sum + order.netTotal, 0));
     const max = Math.max(...values, 1);
     els.revenueChart.innerHTML = days.map((day, index) => {
       const height = Math.max(18, Math.round((values[index] / max) * 140));
@@ -1777,6 +1821,65 @@
     `).join("") : `<tr><td colspan="6" class="empty">Chưa có nhân viên.</td></tr>`;
   }
 
+  function auditEntityLabel(type) {
+    return {
+      user: "Nhân viên", session: "Phiên đăng nhập", product: "Sản phẩm", product_import: "Nhập sản phẩm",
+      customer: "Khách hàng", customer_import: "Nhập khách hàng", order: "Đơn hàng", sales_return: "Khách trả hàng",
+      order_refund: "Hoàn tiền", stock_movement: "Kho hàng", cash_transaction: "Thu chi",
+      accounting_account: "Tài khoản tiền", accounting_category: "Danh mục thu chi", reconciliation: "Đối soát",
+      supplier: "Nhà cung cấp", purchase_order: "Phiếu mua", supplier_payment: "Thanh toán NCC",
+      purchase_return: "Trả hàng NCC", supplier_credit: "Bù trừ NCC"
+    }[type] || type || "Hệ thống";
+  }
+
+  function renderAuditLogs() {
+    if (!els.auditTable) return;
+    const cutoff = auditFilters.range === "all" ? 0 : Date.now() - Number(auditFilters.range || 30) * 24 * 60 * 60 * 1000;
+    const term = searchTerm.trim().toLowerCase();
+    const rows = auditLogs.filter(log => {
+      const matchesEntity = auditFilters.entityType === "all" || log.entityType === auditFilters.entityType;
+      const matchesDate = !cutoff || new Date(log.createdAt).getTime() >= cutoff;
+      const text = [log.description, log.action, log.actorName, log.actorEmail, log.entityType, log.entityId].join(" ").toLowerCase();
+      return matchesEntity && matchesDate && (!term || text.includes(term));
+    });
+
+    if (els.auditKpis) {
+      const today = reportDayKey(new Date());
+      const todayCount = auditLogs.filter(log => reportDayKey(log.createdAt) === today).length;
+      const actors = new Set(auditLogs.map(log => log.actorId || log.actorEmail || log.actorName).filter(Boolean)).size;
+      const changes = auditLogs.filter(log => !["login", "logout"].includes(log.action)).length;
+      els.auditKpis.innerHTML = [
+        ["Hoạt động hôm nay", todayCount, "Theo giờ Việt Nam"],
+        ["Người thực hiện", actors, "Trong dữ liệu đang lưu"],
+        ["Thay đổi dữ liệu", changes, "Không gồm đăng nhập / đăng xuất"],
+        ["Nhật ký đang xem", rows.length, auditFilters.range === "all" ? "Toàn bộ thời gian" : `${auditFilters.range} ngày gần nhất`]
+      ].map(([label, value, note]) => `<article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>`).join("");
+    }
+
+    els.auditTable.innerHTML = rows.length ? rows.map(log => `
+      <tr>
+        <td><strong>${escapeHtml(formatDateTime(log.createdAt))}</strong><small>Giờ Việt Nam</small></td>
+        <td><strong>${escapeHtml(log.description)}</strong><small>${escapeHtml(log.action)}</small></td>
+        <td><span class="badge">${escapeHtml(auditEntityLabel(log.entityType))}</span></td>
+        <td><strong>${escapeHtml(log.actorName)}</strong><small>${escapeHtml(log.actorEmail)}</small></td>
+        <td><code class="audit-reference">${escapeHtml(log.entityId || "—")}</code></td>
+        <td><button class="link-button" type="button" data-view-audit="${escapeAttribute(log.id)}">Xem chi tiết</button></td>
+      </tr>
+    `).join("") : `<tr><td colspan="6" class="empty">Chưa có hoạt động phù hợp bộ lọc.</td></tr>`;
+  }
+
+  function renderAuditDetail(log) {
+    return `
+      <div class="audit-detail">
+        <div class="audit-detail-summary">
+          <div><span>Thời gian</span><strong>${escapeHtml(formatDateTime(log.createdAt))}</strong></div>
+          <div><span>Người thực hiện</span><strong>${escapeHtml(log.actorName)}</strong><small>${escapeHtml(log.actorEmail)}</small></div>
+          <div><span>Đối tượng</span><strong>${escapeHtml(auditEntityLabel(log.entityType))}</strong><small>${escapeHtml(log.entityId || "Không có ID")}</small></div>
+        </div>
+        <div><h3>Dữ liệu ghi nhận</h3><pre>${escapeHtml(JSON.stringify(log.detail || {}, null, 2))}</pre></div>
+      </div>`;
+  }
+
   function renderInventory() {
     if (!els.inventoryCards) return;
     const activeProducts = state.products.filter(product => product.status === "active");
@@ -1839,9 +1942,7 @@
     if (els.accountingRangeFilter) els.accountingRangeFilter.value = accountingFilters.range;
 
     const cutoff = accountingFilters.range === "all" ? null : (() => {
-      const date = new Date();
-      date.setDate(date.getDate() - Number(accountingFilters.range));
-      return date.toISOString().slice(0, 10);
+      return shiftDateValue(localDateValue(), -Number(accountingFilters.range));
     })();
     const transactions = [...(state.cashTransactions || [])]
       .filter(transaction => {
@@ -2291,6 +2392,7 @@
     renderProducts();
     renderCustomers();
     renderUsers();
+    renderAuditLogs();
     renderInventory();
     renderStockMovements();
     renderAccounting();
@@ -2441,7 +2543,7 @@
   }
 
   function renderCashTransactionForm() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateValue();
     return `
       <div class="field"><label for="type">Loại giao dịch</label><select id="type" name="type" required data-cash-type><option value="income">Thu tiền</option><option value="expense">Chi tiền</option></select></div>
       <div class="field"><label for="transactionDate">Ngày ghi nhận</label><input id="transactionDate" name="transactionDate" type="date" value="${today}" required /></div>
@@ -2454,7 +2556,7 @@
   }
 
   function renderOrderPaymentForm(order) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateValue();
     const outstanding = outstandingForOrder(order);
     return `
       <div class="modal-summary full">
@@ -2540,7 +2642,7 @@
   function renderAccountingReconciliationForm(account) {
     const activeAccounts = (state.accountingAccounts || []).filter(item => item.status === "active");
     const selectedAccount = account || activeAccounts[0];
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateValue();
     return `
       <div class="field full"><label for="accountId">Tài khoản đối soát</label><select id="accountId" name="accountId" required data-reconciliation-account>${activeAccounts.map(item => `<option value="${item.id}" ${selectedAccount && item.id === selectedAccount.id ? "selected" : ""}>${item.name} · ${money.format(item.currentBalance)}</option>`).join("")}</select></div>
       <div class="field"><label for="reconciledAt">Ngày đối soát</label><input id="reconciledAt" name="reconciledAt" type="date" value="${today}" required /></div>
@@ -2934,7 +3036,7 @@
   }
 
   function renderPurchasePaymentForm(order) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateValue();
     const supplier = getSupplier(order);
     return `
       <div class="modal-summary full"><strong>${order.code} · ${supplier.name}</strong><span>Còn phải trả ${money.format(order.outstanding)} · Đã trả ${money.format(order.paidAmount)}</span></div>
@@ -3146,7 +3248,14 @@
     const editingAccountingCategory = options.category || null;
     const editingSupplier = options.supplier || null;
     const editingPurchaseOrder = options.purchaseOrder || null;
+    const viewingAuditLog = options.auditLog || null;
     const definitions = {
+      auditDetail: {
+        eyebrow: "Nhật ký hệ thống",
+        title: viewingAuditLog ? viewingAuditLog.description : "Chi tiết hoạt động",
+        body: viewingAuditLog ? renderAuditDetail(viewingAuditLog) : "",
+        readOnly: true
+      },
       productImport: {
         eyebrow: "Nhập dữ liệu Excel",
         title: "Nhập danh mục sản phẩm",
@@ -3713,7 +3822,7 @@
         accountId: account.id,
         categoryId: category.id,
         amount,
-        transactionDate: payment.transactionDate || new Date().toISOString().slice(0, 10),
+        transactionDate: payment.transactionDate || localDateValue(),
         description: payment.description || "Thu tiền đơn " + order.code,
         referenceType: "order",
         referenceId: order.code
@@ -3782,6 +3891,18 @@
         renderPage();
       });
     }
+    if (els.auditEntityFilter) {
+      els.auditEntityFilter.addEventListener("change", event => {
+        auditFilters.entityType = event.target.value;
+        renderPage();
+      });
+    }
+    if (els.auditRangeFilter) {
+      els.auditRangeFilter.addEventListener("change", event => {
+        auditFilters.range = event.target.value;
+        renderPage();
+      });
+    }
 
     if (els.orderCreateForm) {
       els.orderCreateForm.addEventListener("submit", async event => {
@@ -3823,6 +3944,15 @@
       if (target.matches("[data-menu-close]")) document.body.classList.remove("menu-open");
       if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
       if (target.matches("[data-close-modal]")) closeModal();
+      if (target.matches("[data-refresh-audit]")) {
+        await withLoading("Đang tải lại lịch sử...", loadAuditLogs);
+        renderPage();
+        showToast("Đã cập nhật lịch sử hoạt động.");
+      }
+      if (target.dataset.viewAudit) {
+        const auditLog = auditLogs.find(log => log.id === target.dataset.viewAudit);
+        if (auditLog) openModal("auditDetail", { auditLog });
+      }
       if (target.matches("[data-export-profit-report]")) exportProfitReport();
       if (target.matches("[data-export-products]")) exportProductsCsv();
       if (target.matches("[data-import-products]")) openModal("productImport");

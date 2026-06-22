@@ -1875,6 +1875,100 @@ body[data-page="purchasing"] .view.active {
   gap: 10px;
 }
 
+body[data-page="activity"] .view.active {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.audit-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.audit-panel .table-wrap {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.audit-filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(130px, 0.65fr);
+  gap: 10px;
+  min-width: min(420px, 100%);
+}
+
+.audit-filters label {
+  display: grid;
+  gap: 5px;
+}
+
+.audit-filters label span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.audit-panel td small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.audit-reference {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  color: #334155;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-detail {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 18px;
+}
+
+.audit-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.audit-detail-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.audit-detail-summary span,
+.audit-detail-summary small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.audit-detail h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.audit-detail pre {
+  max-height: 390px;
+  margin: 0;
+  overflow: auto;
+  padding: 14px;
+  color: #dbeafe;
+  background: #102033;
+  border-radius: 7px;
+  font: 12px/1.55 Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .modal {
   width: min(720px, 100%);
   max-height: min(820px, calc(100vh - 36px));
@@ -2756,6 +2850,13 @@ body[data-page="purchasing"] .view.active {
 
   .spreadsheet-guide-actions {
     display: grid;
+  }
+
+  .audit-filters,
+  .audit-detail-summary {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    width: 100%;
   }
 
   .filter-bar {

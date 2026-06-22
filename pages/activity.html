@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lịch sử hoạt động | ArtFlow POS</title>
+  <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+</head>
+<body data-page="activity" data-root="..">
+  <div class="app-shell" data-app-shell hidden>
+    <aside class="sidebar"><a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a><nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav><div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div></aside>
+    <main class="workspace">
+      <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div><p class="eyebrow">Kiểm soát hệ thống</p><h1 data-page-title>Lịch sử hoạt động</h1></div><div class="topbar-actions"><label class="search-box"><span>⌕</span><input data-global-search type="search" placeholder="Tìm hành động, người cập nhật, mã bản ghi..." /></label><button class="icon-button" type="button" data-refresh-audit aria-label="Tải lại lịch sử" title="Tải lại">↻</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button></div></header>
+      <section class="view active audit-view">
+        <div class="kpi-grid" data-audit-kpis></div>
+        <section class="panel audit-panel">
+          <div class="panel-header split"><div><h2>Nhật ký thay đổi</h2><p>Thời gian hiển thị theo múi giờ Việt Nam (UTC+7). Chỉ admin được xem.</p></div><div class="audit-filters"><label><span>Nhóm dữ liệu</span><select data-audit-entity-filter><option value="all">Tất cả</option><option value="session">Đăng nhập</option><option value="user">Nhân viên</option><option value="product">Sản phẩm</option><option value="product_import">Nhập sản phẩm</option><option value="customer">Khách hàng</option><option value="customer_import">Nhập khách hàng</option><option value="order">Đơn hàng</option><option value="sales_return">Khách trả hàng</option><option value="order_refund">Hoàn tiền</option><option value="stock_movement">Kho hàng</option><option value="cash_transaction">Thu chi</option><option value="supplier">Nhà cung cấp</option><option value="purchase_order">Phiếu mua</option></select></label><label><span>Thời gian</span><select data-audit-range-filter><option value="7">7 ngày</option><option value="30" selected>30 ngày</option><option value="90">90 ngày</option><option value="all">Toàn bộ</option></select></label></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>Hành động</th><th>Nhóm</th><th>Người thực hiện</th><th>Mã tham chiếu</th><th></th></tr></thead><tbody data-audit-table></tbody></table></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div data-shared-ui></div>
+  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/app.js"></script>
+</body>
+</html>
