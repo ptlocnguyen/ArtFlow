@@ -2169,6 +2169,41 @@ body[data-page="products"] .modal {
   color: var(--muted);
 }
 
+.product-post-links {
+  display: grid;
+  gap: 8px;
+}
+
+.product-post-links a {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-left: 3px solid #1570ef;
+  border-radius: 4px;
+}
+
+.product-post-links span {
+  color: #0759c7;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.product-post-links small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-empty-copy {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .modal-header {
   display: flex;
   align-items: flex-start;
@@ -2197,6 +2232,12 @@ body[data-page="products"] .modal {
   color: #334155;
   font-size: 13px;
   font-weight: 800;
+}
+
+.field > small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .field.full {

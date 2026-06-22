@@ -51,6 +51,17 @@ Lần đầu tạo sản phẩm sau deploy có thể yêu cầu cấp quyền. T
 4. Kiểm tra bốn link: Google Docs, folder sản phẩm, folder hình ảnh và folder video.
 5. Nếu sản phẩm được tạo trước khi cấu hình, bấm **Tạo tài nguyên content** trong màn hình chi tiết.
 
+Để bổ sung cho nhiều sản phẩm cũ, bấm **Tạo tài nguyên hàng loạt** trên trang Sản phẩm. Hệ thống xử lý từng nhóm tối đa 3 sản phẩm, chỉ tạo phần còn thiếu và dừng ngay nếu gặp lỗi quyền hoặc folder ID.
+
+## Link kênh bán và bài content
+
+Hồ sơ sản phẩm hỗ trợ link Website, Shopee, TikTok Shop và Facebook. Trường **Các bài đăng / video liên quan** dùng mỗi dòng một liên kết theo một trong hai dạng:
+
+- `Tên bài | https://...`
+- `https://...`
+
+Cách lưu linh hoạt này dùng được cho TikTok video, Facebook post, YouTube review, landing page, bài PR và các nền tảng phát sinh sau này mà không cần thêm cột mới.
+
 Bạn cũng có thể chọn hàm `testProductContentConfiguration` trong Apps Script Editor và bấm **Run**. Cách này đặc biệt hữu ích ở lần đầu vì Google sẽ hiện hộp thoại cấp quyền Drive và Docs.
 
 ## Ảnh đại diện
