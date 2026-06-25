@@ -7,11 +7,14 @@
   const dateTimeFormat = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" });
   const tokenKey = `${config.storageKey}.authToken`;
   const purchaseEditId = new URLSearchParams(window.location.search).get("edit") || "";
+  const receiptSettingsKey = `${config.storageKey}.receiptSettings`;
+  const loyaltyRules = { earnPerVnd: 10000, pointValue: 1000, maxRedeemRate: 0.2 };
 
   let state = window.ArtFlowPosStore.load();
   let currentUser = null;
   let staffUsers = [];
   let auditLogs = [];
+  let lastCreatedOrder = null;
   let searchTerm = "";
   let pageDataReady = false;
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
@@ -20,6 +23,7 @@
   const reportFilters = { range: "30", channel: "all" };
   const auditFilters = { entityType: "all", range: "30" };
   const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" };
+  const inventoryFilters = { category: "all", stock: "all", sort: "risk" };
 
   const channels = {
     pos: "POS",
@@ -105,6 +109,7 @@
     auditEntityFilter: qs("[data-audit-entity-filter]"),
     auditRangeFilter: qs("[data-audit-range-filter]"),
     inventoryCards: qs("[data-inventory-cards]"),
+    inventoryProductsTable: qs("[data-inventory-products-table]"),
     stockMovementsTable: qs("[data-stock-movements-table]"),
     accountingKpis: qs("[data-accounting-kpis]"),
     accountingAccounts: qs("[data-accounting-accounts]"),
@@ -209,6 +214,7 @@
       "/customers/import": "importCustomers",
       "/orders": "listOrders",
       "/orders/create": "createOrder",
+      "/orders/receipt-pdf": "createOrderReceiptPdf",
       "/orders/status": "updateOrderStatus",
       "/orders/fulfillment": "updateOrderFulfillment",
       "/orders/cancel": "cancelOrder",
@@ -354,6 +360,41 @@
       .formatToParts(date)
       .reduce((result, part) => { result[part.type] = part.value; return result; }, {});
     return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+
+  function clampNumber(value, min, max) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return min;
+    return Math.min(max, Math.max(min, number));
+  }
+
+  function getReceiptSettings() {
+    const defaults = {
+      storeName: "ArtFlow",
+      storeInfo: "Hoa cu va phu kien my thuat",
+      phone: "",
+      address: "",
+      footer: "Cam on quy khach. Hang da mua vui long doi tra theo chinh sach cua cua hang.",
+      paperWidth: "80",
+      showSku: true,
+      showCustomer: true,
+      showPoints: true
+    };
+    try {
+      return { ...defaults, ...(JSON.parse(localStorage.getItem(receiptSettingsKey) || "{}")) };
+    } catch (error) {
+      return defaults;
+    }
+  }
+
+  function saveReceiptSettings(settings) {
+    localStorage.setItem(receiptSettingsKey, JSON.stringify(settings));
+  }
+
+  function loyaltyPointsForCustomer(customer) {
+    if (!customer) return 0;
+    if (customer.loyaltyPoints !== undefined) return Math.max(0, Number(customer.loyaltyPoints || 0));
+    return Math.floor(Number(customer.totalSpent || 0) / loyaltyRules.earnPerVnd);
   }
 
   function shiftDateValue(dateValue, days) {
@@ -655,6 +696,8 @@
       group: customer.group || "Bán lẻ",
       status: customer.status || "active",
       totalSpent: Number(customer.totalSpent || 0),
+      loyaltyPoints: Number(customer.loyaltyPoints || 0),
+      lifetimePoints: Number(customer.lifetimePoints || 0),
       lastOrderAt: customer.lastOrderAt || "",
       note: customer.note || "",
       createdAt: customer.createdAt || "",
@@ -684,6 +727,7 @@
       quantity: Number(item.quantity || 0),
       unitPrice: Number(item.unitPrice || 0),
       costPrice: Number(item.costPrice || 0),
+      discountPercent: Number(item.discountPercent || 0),
       lineTotal: Number(item.lineTotal || 0),
       createdAt: item.createdAt || ""
     };
@@ -700,8 +744,15 @@
       paymentMethod: order.paymentMethod || "cash",
       subtotal: Number(order.subtotal || 0),
       discount: Number(order.discount || 0),
+      discountPercent: Number(order.discountPercent || 0),
+      loyaltyPointsUsed: Number(order.loyaltyPointsUsed || 0),
+      loyaltyDiscount: Number(order.loyaltyDiscount || 0),
+      cashReceived: Number(order.cashReceived || 0),
+      changeAmount: Number(order.changeAmount || 0),
+      roundingAmount: Number(order.roundingAmount || 0),
       shippingFee: Number(order.shippingFee || 0),
       total: Number(order.total || 0),
+      receiptPdfUrl: order.receiptPdfUrl || "",
       returnedAmount: Number(order.returnedAmount || 0),
       refundedAmount: Number(order.refundedAmount || 0),
       netTotal: Number(order.netTotal === undefined ? Math.max(0, Number(order.total || 0) - Number(order.returnedAmount || 0)) : order.netTotal),
@@ -2108,6 +2159,113 @@
     }).join("") : `<tr><td colspan="6" class="empty">Chưa có biến động kho.</td></tr>`;
   }
 
+  function inventoryStockState(product) {
+    const stock = Number(product.stock || 0);
+    const lowStock = Number(product.lowStock || 0);
+    if (stock <= 0) return { key: "out", badge: "cancelled", label: "Hết hàng", priority: 0 };
+    if (stock <= lowStock) return { key: "low", badge: "low", label: "Sắp hết", priority: 1 };
+    if (lowStock > 0 && stock >= lowStock * 4) return { key: "overstock", badge: "pending", label: "Tồn cao", priority: 3 };
+    return { key: "healthy", badge: "active", label: "Ổn định", priority: 2 };
+  }
+
+  function inventoryRestockSuggestion(product) {
+    const stock = Number(product.stock || 0);
+    const lowStock = Number(product.lowStock || 0);
+    if (stock <= 0) return Math.max(1, lowStock * 2);
+    if (stock <= lowStock) return Math.max(1, lowStock * 2 - stock);
+    return 0;
+  }
+
+  function renderInventoryFilters(products) {
+    const categoryFilter = document.querySelector('[data-inventory-filter="category"]');
+    if (!categoryFilter) return;
+    const current = inventoryFilters.category;
+    const categories = Array.from(new Set(products.map(product => product.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, "vi"));
+    categoryFilter.innerHTML = `<option value="all">Tất cả danh mục</option>${categories.map(category => `<option value="${escapeAttribute(category)}">${escapeHtml(category)}</option>`).join("")}`;
+    categoryFilter.value = categories.includes(current) ? current : "all";
+    inventoryFilters.category = categoryFilter.value;
+    document.querySelectorAll("[data-inventory-filter]").forEach(input => {
+      const key = input.dataset.inventoryFilter;
+      if (inventoryFilters[key] !== undefined && input.value !== inventoryFilters[key]) input.value = inventoryFilters[key];
+    });
+  }
+
+  function inventoryFilteredProducts(products) {
+    const term = searchTerm.trim().toLowerCase();
+    const rows = products.filter(product => {
+      const stateInfo = inventoryStockState(product);
+      const categoryMatch = inventoryFilters.category === "all" || product.category === inventoryFilters.category;
+      const stockMatch = inventoryFilters.stock === "all" || stateInfo.key === inventoryFilters.stock;
+      const searchMatch = !term || [product.sku, product.name, product.category, product.brand, product.barcode].some(value => String(value || "").toLowerCase().includes(term));
+      return categoryMatch && stockMatch && searchMatch;
+    });
+    return rows.sort((a, b) => {
+      if (inventoryFilters.sort === "stockAsc") return a.stock - b.stock || a.name.localeCompare(b.name, "vi");
+      if (inventoryFilters.sort === "stockDesc") return b.stock - a.stock || a.name.localeCompare(b.name, "vi");
+      if (inventoryFilters.sort === "valueDesc") return (b.stock * b.costPrice) - (a.stock * a.costPrice) || a.name.localeCompare(b.name, "vi");
+      if (inventoryFilters.sort === "name") return a.name.localeCompare(b.name, "vi");
+      const stateA = inventoryStockState(a);
+      const stateB = inventoryStockState(b);
+      return stateA.priority - stateB.priority || a.stock - b.stock || a.name.localeCompare(b.name, "vi");
+    });
+  }
+
+  function renderInventoryProducts(products) {
+    if (!els.inventoryProductsTable) return;
+    const rows = inventoryFilteredProducts(products);
+    els.inventoryProductsTable.innerHTML = rows.length ? rows.map(product => {
+      const stateInfo = inventoryStockState(product);
+      const suggestion = inventoryRestockSuggestion(product);
+      const value = Number(product.stock || 0) * Number(product.costPrice || 0);
+      return `
+        <tr class="inventory-product-row" data-stock-state="${stateInfo.key}">
+          <td>
+            <div class="inventory-product-cell">
+              ${renderProductThumb(product, "product-thumb inventory-thumb")}
+              <span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)}${product.barcode ? ` · ${escapeHtml(product.barcode)}` : ""}</small></span>
+            </div>
+          </td>
+          <td><strong>${escapeHtml(product.category || "Chưa phân loại")}</strong><small>${escapeHtml(product.brand || "Chưa có hãng")}</small></td>
+          <td><span class="badge ${stateInfo.badge}">${Number(product.stock || 0)} ${escapeHtml(product.unit || "")}</span></td>
+          <td>${Number(product.lowStock || 0)}</td>
+          <td>${money.format(product.costPrice)}</td>
+          <td>${money.format(value)}</td>
+          <td>${suggestion ? `Nhập thêm ${suggestion}` : "Đủ an toàn"}</td>
+          <td>
+            <div class="table-actions">
+              <button class="button small primary" type="button" data-stock-receive-product="${product.id}">Nhập</button>
+              <button class="button small ghost" type="button" data-stock-adjust-product="${product.id}">Kiểm</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("") : `<tr><td colspan="8" class="empty">Không có SKU phù hợp bộ lọc hiện tại.</td></tr>`;
+  }
+
+  function renderInventory() {
+    if (!els.inventoryCards) return;
+    const activeProducts = state.products.filter(product => product.status === "active");
+    renderInventoryFilters(activeProducts);
+    const totalUnits = activeProducts.reduce((sum, product) => sum + product.stock, 0);
+    const inventoryValue = activeProducts.reduce((sum, product) => sum + product.stock * product.costPrice, 0);
+    const lowStockCount = activeProducts.filter(product => product.stock > 0 && product.stock <= product.lowStock).length;
+    const outOfStock = activeProducts.filter(product => product.stock <= 0).length;
+    const suggestedRestock = activeProducts.reduce((sum, product) => sum + inventoryRestockSuggestion(product), 0);
+    const cards = [
+      ["Tổng tồn kho", `${totalUnits} SP`, "Tổng số lượng khả dụng trên toàn bộ SKU."],
+      ["Giá trị tồn", money.format(inventoryValue), "Theo giá vốn hiện tại trong danh mục."],
+      ["Sắp hết", `${lowStockCount} SKU`, "Còn hàng nhưng thấp hơn ngưỡng cảnh báo."],
+      ["Hết hàng", `${outOfStock} SKU`, "Cần ưu tiên xử lý trước khi nhận đơn."],
+      ["Gợi ý nhập", `${suggestedRestock} SP`, "Ước tính để vượt ngưỡng an toàn."]
+    ];
+    els.inventoryCards.innerHTML = cards.map(([title, value, note], index) => `
+      <article class="inventory-card" data-card-tone="${index}"><h3>${title}</h3><strong>${value}</strong><p>${note}</p></article>
+    `).join("");
+    renderInventoryProducts(activeProducts);
+    renderLowStock();
+    renderStockMovements();
+  }
+
   function syncAccountingView() {
     document.querySelectorAll("[data-accounting-view-filter]").forEach(button => {
       button.classList.toggle("active", button.dataset.accountingViewFilter === accountingFilters.view);
@@ -2775,25 +2933,52 @@
   }
 
   function productSearchText(product) {
-    return `${product.sku} ${product.name} ${product.category}`.toLowerCase();
+    return `${product.sku} ${product.name} ${product.category} ${product.brand || ""} ${product.barcode || ""}`.toLowerCase();
+  }
+
+  function productImageDisplayUrl(url) {
+    const value = String(url || "").trim();
+    if (!value) return "";
+    if (/drive\.google\.com|docs\.google\.com/i.test(value)) {
+      const idMatch = value.match(/[-\w]{20,}/);
+      if (idMatch) return `https://drive.google.com/thumbnail?id=${idMatch[0]}&sz=w320`;
+    }
+    return value;
+  }
+
+  function renderProductThumb(product, className = "product-thumb") {
+    const imageUrl = productImageDisplayUrl(product && product.imageUrl);
+    if (imageUrl) {
+      return `<span class="${className} product-thumb-has-image"><img src="${escapeAttribute(imageUrl)}" alt="" loading="lazy" onload="this.closest('.product-thumb, .cart-product-thumb').classList.add('image-loaded');" onerror="this.closest('.product-thumb, .cart-product-thumb').classList.add('image-error'); this.remove();" /><span class="product-thumb-fallback">◇</span></span>`;
+    }
+    return `<span class="${className} product-thumb-empty"><span class="product-thumb-fallback">◇</span></span>`;
   }
 
   function renderProductPicker() {
     const products = state.products
       .filter(product => product.status === "active")
       .sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0) || a.name.localeCompare(b.name));
+    const categories = Array.from(new Set(products.map(product => String(product.category || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    const brands = Array.from(new Set(products.map(product => String(product.brand || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
     return `
       <div class="product-picker">
         <div class="product-picker-toolbar">
           <label class="search-box product-picker-search">
             <span>⌕</span>
-            <input type="search" placeholder="Tìm SKU, tên, danh mục..." data-product-picker-search />
+            <input type="search" placeholder="Tìm SKU, tên, danh mục, hãng, mã vạch..." data-product-picker-search />
           </label>
           <span class="pill" data-product-picker-count>${products.length} sản phẩm</span>
         </div>
+        <div class="product-picker-filters">
+          <select data-product-picker-filter="category"><option value="">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
+          <select data-product-picker-filter="brand"><option value="">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
+          <select data-product-picker-filter="stock"><option value="">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="low">Sắp hết</option><option value="out">Hết hàng</option></select>
+          <select data-product-picker-sort><option value="name">Tên A-Z</option><option value="stock">Tồn kho nhiều</option><option value="priceAsc">Giá thấp</option><option value="priceDesc">Giá cao</option><option value="margin">Biên lãi cao</option></select>
+          <button class="button ghost" type="button" data-reset-product-picker>Làm mới</button>
+        </div>
         <div class="product-picker-list" data-product-picker-list>
-          ${products.map(renderProductPickerCard).join("")}
+          ${products.map(renderProductPickerCardV2).join("")}
         </div>
       </div>
     `;
@@ -2836,18 +3021,102 @@
     `;
   }
 
-  function filterProductPicker(input) {
-    const panel = input && input.closest(".product-picker");
+  function renderProductPickerCardV2(product) {
+    const stockClass = product.stock <= 0 ? "draft" : (product.stock <= product.lowStock ? "low" : "active");
+    const disabled = product.stock <= 0 ? "disabled" : "";
+    const margin = product.salePrice > 0 ? Math.round(((product.salePrice - product.costPrice) / product.salePrice) * 100) : 0;
+    const stockState = product.stock <= 0 ? "out" : (product.stock <= product.lowStock ? "low" : "available");
+    return `
+      <button class="product-card product-card-rich" type="button" data-add-product-to-order="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-category="${escapeAttribute(product.category || "")}" data-brand="${escapeAttribute(product.brand || "")}" data-stock-state="${stockState}" data-name="${escapeAttribute(product.name || "")}" data-price="${Number(product.salePrice || 0)}" data-stock="${Number(product.stock || 0)}" data-margin="${margin}" ${disabled}>
+        ${renderProductThumb(product)}
+        <span class="product-card-main">
+          <strong>${escapeHtml(product.name)}</strong>
+          <small>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small>
+          <span class="product-card-tags"><em>${money.format(product.salePrice)}</em><small>Biên ${margin}%</small></span>
+        </span>
+        <span class="product-card-side">
+          <small class="badge ${stockClass}">${product.stock} còn</small>
+          <small>Vốn ${money.format(product.costPrice)}</small>
+        </span>
+      </button>
+    `;
+  }
+
+  function renderOrderItemRowV2(productId, values = {}) {
+    const product = byId("products", productId) || state.products.find(item => item.status === "active");
+    if (!product) return "";
+    const quantity = Number(values.quantity || 1);
+    const unitPrice = Number(values.unitPrice === undefined ? product.salePrice : values.unitPrice);
+    const discountPercent = clampNumber(values.discountPercent || 0, 0, 100);
+    const lineTotal = Math.max(0, quantity * unitPrice * (1 - discountPercent / 100));
+
+    return `
+      <div class="order-item-row order-sale-item" data-order-item-row>
+        ${renderProductThumb(product, "cart-product-thumb")}
+        <div class="cart-product-summary">
+          <strong>${escapeHtml(product.name)}</strong>
+          <small>${escapeHtml(product.sku)} · Giá gốc ${money.format(product.salePrice)} · tồn ${product.stock}</small>
+          <input type="hidden" name="productId" value="${product.id}" data-order-product required />
+        </div>
+        <div class="field compact-field">
+          <label>Số lượng</label>
+          <input name="quantity" data-order-quantity type="number" min="1" max="${Math.max(1, product.stock)}" value="${quantity}" required />
+        </div>
+        <div class="field compact-field">
+          <label>Giá bán</label>
+          <input name="unitPrice" data-order-price type="number" min="0" step="1000" value="${unitPrice}" required />
+        </div>
+        <div class="field compact-field">
+          <label>Giảm %</label>
+          <input name="lineDiscountPercent" data-order-line-discount type="number" min="0" max="100" step="0.1" value="${discountPercent}" />
+        </div>
+        <div class="order-line-total"><span>Thành tiền</span><strong data-order-line-total>${money.format(lineTotal)}</strong></div>
+        <button class="icon-button" type="button" data-remove-order-item aria-label="Xóa dòng">×</button>
+      </div>
+    `;
+  }
+
+  function filterProductPicker(source) {
+    const panel = source && source.closest(".product-picker");
     if (!panel) return;
-    const term = String(input.value || "").trim().toLowerCase();
+    const term = String(panel.querySelector("[data-product-picker-search]")?.value || "").trim().toLowerCase();
+    const category = String(panel.querySelector('[data-product-picker-filter="category"]')?.value || "");
+    const brand = String(panel.querySelector('[data-product-picker-filter="brand"]')?.value || "");
+    const stock = String(panel.querySelector('[data-product-picker-filter="stock"]')?.value || "");
+    const sort = String(panel.querySelector("[data-product-picker-sort]")?.value || "name");
+    const list = panel.querySelector("[data-product-picker-list]");
+    const cards = [...panel.querySelectorAll("[data-add-product-to-order]")];
+    cards.sort(function (a, b) {
+      if (sort === "stock") return Number(b.dataset.stock || 0) - Number(a.dataset.stock || 0);
+      if (sort === "priceAsc") return Number(a.dataset.price || 0) - Number(b.dataset.price || 0);
+      if (sort === "priceDesc") return Number(b.dataset.price || 0) - Number(a.dataset.price || 0);
+      if (sort === "margin") return Number(b.dataset.margin || 0) - Number(a.dataset.margin || 0);
+      return String(a.dataset.name || "").localeCompare(String(b.dataset.name || ""));
+    });
+    if (list) cards.forEach(card => list.appendChild(card));
     let visible = 0;
-    panel.querySelectorAll("[data-add-product-to-order]").forEach(card => {
-      const matched = !term || card.dataset.productSearch.indexOf(term) !== -1;
+    cards.forEach(card => {
+      const matched = (!term || card.dataset.productSearch.indexOf(term) !== -1) &&
+        (!category || card.dataset.category === category) &&
+        (!brand || card.dataset.brand === brand) &&
+        (!stock || card.dataset.stockState === stock);
       card.hidden = !matched;
       if (matched) visible += 1;
     });
     const count = panel.querySelector("[data-product-picker-count]");
     if (count) count.textContent = `${visible} sản phẩm`;
+  }
+
+  function resetProductPicker(panel) {
+    if (!panel) return;
+    const search = panel.querySelector("[data-product-picker-search]");
+    if (search) search.value = "";
+    panel.querySelectorAll("[data-product-picker-filter]").forEach(control => {
+      control.value = "";
+    });
+    const sort = panel.querySelector("[data-product-picker-sort]");
+    if (sort) sort.value = "name";
+    filterProductPicker(search || panel);
   }
 
   function addProductToOrder(form, productId) {
@@ -2860,15 +3129,22 @@
       const quantity = existing.querySelector("[data-order-quantity]");
       quantity.value = Number(quantity.value || 0) + 1;
     } else {
-      list.insertAdjacentHTML("beforeend", renderOrderItemRow(product.id));
+      list.insertAdjacentHTML("beforeend", renderOrderItemRowV2(product.id));
     }
-    updateOrderTotalPreview(form);
+    updateOrderTotalPreviewV2(form);
   }
 
   function renderInventoryProductOptions() {
     return state.products
       .filter(product => product.status === "active")
       .map(product => `<option value="${product.id}">${product.sku} · ${product.name} (${product.stock} hiện có)</option>`)
+      .join("");
+  }
+
+  function renderInventoryProductOptionsV2(selectedId = "") {
+    return state.products
+      .filter(product => product.status === "active")
+      .map(product => `<option value="${product.id}" ${product.id === selectedId ? "selected" : ""}>${product.sku} · ${product.name} (${product.stock} hiện có)</option>`)
       .join("");
   }
 
@@ -3046,6 +3322,36 @@
     `;
   }
 
+  function renderStockReceiveForm(selectedProductId = "") {
+    const product = byId("products", selectedProductId) || state.products.find(item => item.status === "active");
+    const summary = product ? `
+      <div class="modal-summary full">
+        <strong>${escapeHtml(product.name)}</strong>
+        <span>${escapeHtml(product.sku)} · Tồn hiện tại ${Number(product.stock || 0)} · Ngưỡng ${Number(product.lowStock || 0)}</span>
+      </div>` : "";
+    return `
+      ${summary}
+      <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptionsV2(product ? product.id : selectedProductId)}</select></div>
+      <div class="field"><label for="quantity">Số lượng nhập thêm</label><input id="quantity" name="quantity" type="number" min="1" step="1" value="${product ? Math.max(1, inventoryRestockSuggestion(product)) : 1}" required /></div>
+      <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" value="Nhập kho bổ sung" placeholder="Nhập hàng từ nhà cung cấp" /></div>
+    `;
+  }
+
+  function renderStockAdjustForm(selectedProductId = "") {
+    const product = byId("products", selectedProductId) || state.products.find(item => item.status === "active");
+    const summary = product ? `
+      <div class="modal-summary full">
+        <strong>${escapeHtml(product.name)}</strong>
+        <span>${escapeHtml(product.sku)} · Tồn hệ thống ${Number(product.stock || 0)} · Ngưỡng ${Number(product.lowStock || 0)}</span>
+      </div>` : "";
+    return `
+      ${summary}
+      <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptionsV2(product ? product.id : selectedProductId)}</select></div>
+      <div class="field"><label for="stock">Tồn thực tế sau kiểm</label><input id="stock" name="stock" type="number" min="0" step="1" value="${product ? Number(product.stock || 0) : 0}" required /></div>
+      <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" value="Điều chỉnh kiểm kho" placeholder="Kiểm kho định kỳ, hàng lỗi, thất lạc..." /></div>
+    `;
+  }
+
   function renderOrderFulfillmentForm(order) {
     order = order || {};
     return `
@@ -3107,12 +3413,85 @@
     if (cartCount) cartCount.textContent = `${rows.length} dòng`;
   }
 
+  function updateOrderTotalPreviewV2(form) {
+    if (!form) return { total: 0, items: [] };
+    const rows = [...form.querySelectorAll("[data-order-item-row]")];
+    let subtotal = 0;
+    let lineDiscountTotal = 0;
+    const items = rows.map(row => {
+      const productId = row.querySelector("[data-order-product]")?.value || "";
+      const product = byId("products", productId);
+      const quantity = Math.max(0, Number(row.querySelector("[data-order-quantity]")?.value || 0));
+      const unitPrice = Math.max(0, Number(row.querySelector("[data-order-price]")?.value || (product ? product.salePrice : 0)));
+      const discountPercent = clampNumber(row.querySelector("[data-order-line-discount]")?.value || 0, 0, 100);
+      const gross = quantity * unitPrice;
+      const lineDiscount = Math.round(gross * discountPercent / 100);
+      const lineTotal = Math.max(0, gross - lineDiscount);
+      subtotal += lineTotal;
+      lineDiscountTotal += lineDiscount;
+      const output = row.querySelector("[data-order-line-total]");
+      if (output) output.textContent = money.format(lineTotal);
+      row.dataset.stockWarning = product && quantity > product.stock ? "true" : "false";
+      return { productId, quantity, unitPrice, discountPercent, lineTotal };
+    });
+
+    const discountPercent = clampNumber(form.discountPercent?.value || 0, 0, 100);
+    const percentDiscount = Math.round(subtotal * discountPercent / 100);
+    const discount = Math.max(0, Number(form.discount?.value || 0));
+    const shippingFee = Math.max(0, Number(form.shippingFee?.value || 0));
+    const customer = byId("customers", form.customerId?.value || "");
+    const availablePoints = loyaltyPointsForCustomer(customer);
+    const maxPointDiscount = Math.floor(Math.max(0, subtotal - percentDiscount - discount) * loyaltyRules.maxRedeemRate);
+    const maxRedeemPoints = Math.min(availablePoints, Math.floor(maxPointDiscount / loyaltyRules.pointValue));
+    let loyaltyPointsUsed = Math.floor(Math.max(0, Number(form.loyaltyPointsUsed?.value || 0)));
+    if (loyaltyPointsUsed > maxRedeemPoints) loyaltyPointsUsed = maxRedeemPoints;
+    if (form.loyaltyPointsUsed && String(form.loyaltyPointsUsed.value) !== String(loyaltyPointsUsed)) form.loyaltyPointsUsed.value = String(loyaltyPointsUsed);
+    const loyaltyDiscount = loyaltyPointsUsed * loyaltyRules.pointValue;
+    const beforeRound = Math.max(0, subtotal - percentDiscount - discount - loyaltyDiscount + shippingFee);
+    const roundingStep = Math.max(0, Number(form.roundingStep?.value || 0));
+    const total = roundingStep ? Math.max(0, Math.round(beforeRound / roundingStep) * roundingStep) : beforeRound;
+    const roundingAmount = total - beforeRound;
+    const cashReceived = Math.max(0, Number(form.cashReceived?.value || 0));
+    const changeAmount = Math.max(0, cashReceived - total);
+    const earnedPoints = Math.floor(total / loyaltyRules.earnPerVnd);
+
+    const outputs = {
+      "[data-summary-subtotal]": subtotal,
+      "[data-summary-line-discount]": lineDiscountTotal,
+      "[data-summary-discount]": discount + percentDiscount,
+      "[data-summary-loyalty]": loyaltyDiscount,
+      "[data-summary-shipping]": shippingFee,
+      "[data-summary-rounding]": roundingAmount,
+      "[data-summary-total]": total,
+      "[data-summary-received]": cashReceived,
+      "[data-summary-change]": changeAmount
+    };
+    Object.entries(outputs).forEach(([selector, value]) => {
+      const output = form.querySelector(selector);
+      if (output) output.textContent = money.format(value);
+    });
+    const loyaltyStatus = form.querySelector("[data-loyalty-status]");
+    if (loyaltyStatus) loyaltyStatus.textContent = customer
+      ? `${availablePoints} điểm có sẵn · dùng tối đa ${maxRedeemPoints} điểm · đơn này cộng ${earnedPoints} điểm`
+      : "Chọn khách hàng để xem điểm tích lũy.";
+    const output = form.querySelector("[data-order-total]");
+    if (output) output.textContent = `Tạm tính: ${money.format(subtotal)} · Thanh toán: ${money.format(total)}`;
+    const emptyCart = form.querySelector("[data-order-empty-cart]");
+    const cartCount = form.querySelector("[data-order-cart-count]");
+    if (emptyCart) emptyCart.hidden = rows.length > 0;
+    if (cartCount) cartCount.textContent = `${rows.length} dòng · ${money.format(total)}`;
+    return { subtotal, discountPercent, discount, percentDiscount, shippingFee, loyaltyPointsUsed, loyaltyDiscount, roundingAmount, total, cashReceived, changeAmount, earnedPoints, items };
+  }
+
   async function submitOrderForm(form) {
     const data = Object.fromEntries(new FormData(form));
+    const totals = updateOrderTotalPreviewV2(form);
     const customer = byId("customers", data.customerId);
     const items = [...form.querySelectorAll("[data-order-item-row]")].map(row => ({
       productId: row.querySelector("[data-order-product]").value,
-      quantity: Number(row.querySelector("[data-order-quantity]").value)
+      quantity: Number(row.querySelector("[data-order-quantity]").value),
+      unitPrice: Number(row.querySelector("[data-order-price]")?.value || (byId("products", row.querySelector("[data-order-product]").value)?.salePrice || 0)),
+      discountPercent: Number(row.querySelector("[data-order-line-discount]")?.value || 0)
     }));
     if (!customer || !items.length) throw new Error("Cần chọn khách hàng và ít nhất một sản phẩm.");
     items.forEach(item => {
@@ -3132,17 +3511,102 @@
         carrier: data.carrier === "none" ? "" : data.carrier,
         trackingCode: data.trackingCode || "",
         discount: Number(data.discount || 0),
+        discountPercent: Number(data.discountPercent || 0),
+        loyaltyPointsUsed: totals.loyaltyPointsUsed,
+        loyaltyDiscount: totals.loyaltyDiscount,
+        cashReceived: totals.cashReceived,
+        changeAmount: totals.changeAmount,
+        roundingAmount: totals.roundingAmount,
         shippingFee: Number(data.shippingFee || 0),
         note: data.note || "",
         items
       })
     });
-    state.orders.unshift(normalizeOrder(dataFromApi.order));
+    const savedOrder = normalizeOrder(dataFromApi.order);
+    state.orders.unshift(savedOrder);
+    lastCreatedOrder = savedOrder;
+    if (form.receiptPdf && form.receiptPdf.checked) {
+      try {
+        const pdfResponse = await apiRequest("/orders/receipt-pdf", {
+          method: "POST",
+          body: JSON.stringify({ orderId: savedOrder.id, receiptSettings: getReceiptSettings() })
+        });
+        if (pdfResponse.order) {
+          const pdfOrder = normalizeOrder(pdfResponse.order);
+          lastCreatedOrder = pdfOrder;
+          state.orders = state.orders.map(order => order.id === pdfOrder.id ? pdfOrder : order);
+        }
+      } catch (error) {
+        showToast(`Đã tạo đơn, nhưng chưa lưu được PDF hóa đơn: ${error.message}`, "error");
+      }
+    }
     await Promise.all([loadProducts({ quiet: true }), loadCustomers({ quiet: true })]);
     window.ArtFlowPosStore.save(state);
+    if (form.printAfterSave && form.printAfterSave.checked) printReceipt(lastCreatedOrder || savedOrder);
     renderPage();
     showToast("Đã tạo đơn và trừ tồn kho.");
     return dataFromApi.order;
+  }
+
+  function renderReceiptSettingsForm() {
+    const settings = getReceiptSettings();
+    return `
+      <div class="field"><label for="storeName">Tên cửa hàng</label><input id="storeName" name="storeName" value="${escapeAttribute(settings.storeName)}" required /></div>
+      <div class="field"><label for="paperWidth">Khổ phiếu</label><select id="paperWidth" name="paperWidth"><option value="58" ${settings.paperWidth === "58" ? "selected" : ""}>58mm</option><option value="80" ${settings.paperWidth === "80" ? "selected" : ""}>80mm</option></select></div>
+      <div class="field"><label for="phone">Điện thoại</label><input id="phone" name="phone" value="${escapeAttribute(settings.phone)}" /></div>
+      <div class="field"><label for="storeInfo">Dòng mô tả</label><input id="storeInfo" name="storeInfo" value="${escapeAttribute(settings.storeInfo)}" /></div>
+      <div class="field full"><label for="address">Địa chỉ</label><input id="address" name="address" value="${escapeAttribute(settings.address)}" /></div>
+      <div class="field full"><label for="footer">Lời cuối phiếu</label><input id="footer" name="footer" value="${escapeAttribute(settings.footer)}" /></div>
+      <div class="field checkbox-field full">
+        <label><input type="checkbox" name="showSku" ${settings.showSku ? "checked" : ""} /> Hiện SKU</label>
+        <label><input type="checkbox" name="showCustomer" ${settings.showCustomer ? "checked" : ""} /> Hiện khách hàng</label>
+        <label><input type="checkbox" name="showPoints" ${settings.showPoints ? "checked" : ""} /> Hiện điểm tích lũy</label>
+      </div>
+    `;
+  }
+
+  function receiptHtml(order) {
+    const settings = getReceiptSettings();
+    const customer = getCustomer(order);
+    const rows = (order.items || []).map(item => `
+      <tr><td><b>${escapeHtml(item.name)}</b>${settings.showSku ? `<small>${escapeHtml(item.sku)}</small>` : ""}</td><td>${item.quantity}</td><td>${money.format(item.unitPrice)}</td><td>${money.format(item.lineTotal)}</td></tr>
+    `).join("");
+    return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(order.code)}</title><style>
+      @page { size: ${settings.paperWidth}mm auto; margin: 4mm; }
+      body { width: ${settings.paperWidth}mm; margin: 0; font: 12px/1.35 Arial, sans-serif; color: #111; }
+      h1 { margin: 0; font-size: 18px; text-align: center; } p { margin: 2px 0; } .center { text-align: center; }
+      .line { border-top: 1px dashed #777; margin: 8px 0; } table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 4px 0; vertical-align: top; text-align: right; } th:first-child, td:first-child { text-align: left; }
+      small { display: block; color: #444; } .totals div { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; }
+      .total { font-weight: 700; font-size: 15px; }
+    </style></head><body>
+      <h1>${escapeHtml(settings.storeName)}</h1><p class="center">${escapeHtml(settings.storeInfo)}</p>
+      ${settings.address ? `<p class="center">${escapeHtml(settings.address)}</p>` : ""}${settings.phone ? `<p class="center">ĐT: ${escapeHtml(settings.phone)}</p>` : ""}
+      <div class="line"></div><p><b>Hóa đơn:</b> ${escapeHtml(order.code)}</p><p><b>Ngày:</b> ${escapeHtml(formatDateTime(order.createdAt || new Date().toISOString()))}</p>
+      ${settings.showCustomer ? `<p><b>Khách:</b> ${escapeHtml(customer.name || "Khách lẻ")}</p>` : ""}
+      <div class="line"></div><table><thead><tr><th>Sản phẩm</th><th>SL</th><th>Giá</th><th>Tiền</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="line"></div><div class="totals">
+        <div><span>Tạm tính</span><b>${money.format(order.subtotal)}</b></div>
+        ${(order.discount || order.loyaltyDiscount) ? `<div><span>Giảm</span><b>${money.format(Number(order.discount || 0) + Number(order.loyaltyDiscount || 0))}</b></div>` : ""}
+        ${order.shippingFee ? `<div><span>Phí giao hàng</span><b>${money.format(order.shippingFee)}</b></div>` : ""}
+        ${order.roundingAmount ? `<div><span>Làm tròn</span><b>${money.format(order.roundingAmount)}</b></div>` : ""}
+        <div class="total"><span>Tổng cộng</span><b>${money.format(order.total)}</b></div>
+        ${order.cashReceived ? `<div><span>Tiền nhận</span><b>${money.format(order.cashReceived)}</b></div><div><span>Tiền thối</span><b>${money.format(order.changeAmount)}</b></div>` : ""}
+        ${settings.showPoints ? `<div><span>Điểm dùng/cộng</span><b>${Number(order.loyaltyPointsUsed || 0)} / ${Math.floor(Number(order.total || 0) / loyaltyRules.earnPerVnd)}</b></div>` : ""}
+      </div><div class="line"></div><p class="center">${escapeHtml(settings.footer)}</p><script>window.onload=()=>{setTimeout(()=>window.print(),150)};</script>
+    </body></html>`;
+  }
+
+  function printReceipt(order) {
+    if (!order) return;
+    const win = window.open("", "_blank", "width=420,height=720");
+    if (!win) {
+      showToast("Trình duyệt đã chặn cửa sổ in hóa đơn.", "error");
+      return;
+    }
+    win.document.open();
+    win.document.write(receiptHtml(order));
+    win.document.close();
   }
 
   function renderOrderCreatePage() {
@@ -3160,15 +3624,17 @@
       <section class="order-compose-grid">
         <div class="order-compose-main">
           <section class="panel order-compose-section">
-            <div class="panel-header"><div><h2>Sản phẩm trong đơn</h2><p>Tìm nhanh SKU, tên hoặc danh mục; bấm sản phẩm để thêm vào giỏ.</p></div></div>
+            <div class="panel-header">
+              <div><h2>Giỏ hàng</h2><p>Sản phẩm đã chọn trong hóa đơn hiện tại.</p></div>
+              <button class="button primary" type="button" data-open-product-picker>Thêm sản phẩm</button>
+            </div>
             <div class="order-builder-layout">
-              ${renderProductPicker()}
               <div class="order-cart-panel">
                 <div class="order-cart-heading">
-                  <strong>Giỏ hàng</strong>
+                  <strong>Sản phẩm đã chọn</strong>
                   <span data-order-cart-count>0 dòng</span>
                 </div>
-                <div class="order-empty-cart" data-order-empty-cart>Chọn sản phẩm từ danh sách để bắt đầu tạo đơn.</div>
+                <div class="order-empty-cart" data-order-empty-cart>Bấm “Thêm sản phẩm” để tìm và thêm hàng vào hóa đơn.</div>
                 <div class="order-items order-items-large" data-order-items></div>
               </div>
             </div>
@@ -3177,9 +3643,10 @@
           <section class="panel order-compose-section order-customer-section">
             <div class="panel-header"><div><h2>Khách hàng và kênh bán</h2><p>Chọn người mua, nguồn đơn và ghi chú xử lý.</p></div></div>
             <div class="form-grid compact-grid">
-              <div class="field full"><label for="customerId">Khách hàng</label><select id="customerId" name="customerId" required>${customerOptions}</select></div>
+              <div class="field order-customer-picker"><label for="customerId">Khách hàng</label><div class="inline-control"><select id="customerId" name="customerId" required>${customerOptions}</select><button class="button ghost" type="button" data-open-customer data-order-quick-customer>Thêm nhanh</button></div></div>
               <div class="field"><label for="channel">Kênh bán</label><select id="channel" name="channel" required>${renderOptions(channels, "pos")}</select></div>
               <div class="field"><label for="paymentMethod">Phương thức</label><select id="paymentMethod" name="paymentMethod" required><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option><option value="cod">COD</option><option value="ecommerce">Sàn TMĐT</option></select></div>
+              <small class="loyalty-status-line" data-loyalty-status>Chọn khách hàng để xem điểm tích lũy.</small>
               <div class="field full"><label for="note">Ghi chú nội bộ</label><input id="note" name="note" type="text" placeholder="Yêu cầu giao hàng, nguồn inbox, mã đơn sàn..." /></div>
             </div>
           </section>
@@ -3189,18 +3656,33 @@
           <section class="panel order-compose-section sticky-summary">
             <div class="panel-header"><div><h2>Thanh toán và giao hàng</h2><p>Hoàn tất trạng thái trước khi lưu đơn.</p></div></div>
             <div class="form-grid summary-grid">
-              <div class="field"><label for="status">Trạng thái đơn</label><select id="status" name="status" required><option value="pending">Chờ xử lý</option><option value="confirmed">Đã xác nhận</option><option value="packed">Đã đóng gói</option><option value="shipping">Đang giao</option><option value="completed">Hoàn tất</option></select></div>
-              <div class="field"><label for="paymentStatus">Thanh toán</label><select id="paymentStatus" name="paymentStatus" required>${renderOptions(paymentStatuses, "unpaid")}</select></div>
-              <div class="field"><label for="shippingStatus">Vận chuyển</label><select id="shippingStatus" name="shippingStatus" required>${renderOptions(shippingStatuses, "none")}</select></div>
-              <div class="field"><label for="carrier">Đơn vị giao</label><select id="carrier" name="carrier">${renderOptions(carriers, "none")}</select></div>
-              <div class="field full"><label for="trackingCode">Mã vận đơn</label><input id="trackingCode" name="trackingCode" type="text" placeholder="SPXVN..., GHTK..., GHN..." /></div>
-              <div class="field"><label for="discount">Giảm giá</label><input id="discount" name="discount" type="number" min="0" step="1000" value="0" data-order-money /></div>
+              <div class="field"><label for="status">Trạng thái đơn</label><select id="status" name="status" required><option value="pending">Chờ xử lý</option><option value="confirmed">Đã xác nhận</option><option value="packed">Đã đóng gói</option><option value="shipping">Đang giao</option><option value="completed" selected>Hoàn tất</option></select></div>
+              <div class="field"><label for="paymentStatus">Thanh toán</label><select id="paymentStatus" name="paymentStatus" required>${renderOptions(paymentStatuses, "paid")}</select></div>
+              <div class="field"><label for="discountPercent">Giảm giá %</label><input id="discountPercent" name="discountPercent" type="number" min="0" max="100" step="0.1" value="0" data-order-money /></div>
+              <div class="field"><label for="discount">Giảm tiền</label><input id="discount" name="discount" type="number" min="0" step="1000" value="0" data-order-money /></div>
+              <div class="field"><label for="loyaltyPointsUsed">Dùng điểm</label><input id="loyaltyPointsUsed" name="loyaltyPointsUsed" type="number" min="0" step="1" value="0" data-order-money /></div>
               <div class="field"><label for="shippingFee">Phí giao hàng</label><input id="shippingFee" name="shippingFee" type="number" min="0" step="1000" value="0" data-order-money /></div>
+              <div class="field"><label for="roundingStep">Làm tròn</label><select id="roundingStep" name="roundingStep" data-order-money><option value="0">Không</option><option value="1000" selected>1.000đ</option><option value="5000">5.000đ</option></select></div>
+              <div class="field"><label for="cashReceived">Tiền đã nhận</label><input id="cashReceived" name="cashReceived" type="number" min="0" step="1000" value="0" data-order-money /></div>
+              <details class="order-extra-settings full">
+                <summary>Giao hàng / vận đơn</summary>
+                <div class="form-grid summary-subgrid">
+                  <div class="field"><label for="shippingStatus">Vận chuyển</label><select id="shippingStatus" name="shippingStatus" required>${renderOptions(shippingStatuses, "none")}</select></div>
+                  <div class="field"><label for="carrier">Đơn vị giao</label><select id="carrier" name="carrier">${renderOptions(carriers, "none")}</select></div>
+                  <div class="field full"><label for="trackingCode">Mã vận đơn</label><input id="trackingCode" name="trackingCode" type="text" placeholder="SPXVN..., GHTK..., GHN..." /></div>
+                </div>
+              </details>
+              <div class="field checkbox-field receipt-actions full"><label><input type="checkbox" name="printAfterSave" checked /> In phiếu</label><label><input type="checkbox" name="receiptPdf" /> Lưu PDF</label><button class="link-button" type="button" data-open-receipt-settings>Cài đặt</button></div>
             </div>
             <div class="summary-lines">
               <div><span>Tạm tính</span><strong data-summary-subtotal>${money.format(0)}</strong></div>
+              <div><span>Giảm từng dòng</span><strong data-summary-line-discount>${money.format(0)}</strong></div>
               <div><span>Giảm giá</span><strong data-summary-discount>${money.format(0)}</strong></div>
+              <div><span>Đổi điểm</span><strong data-summary-loyalty>${money.format(0)}</strong></div>
               <div><span>Phí giao hàng</span><strong data-summary-shipping>${money.format(0)}</strong></div>
+              <div><span>Làm tròn</span><strong data-summary-rounding>${money.format(0)}</strong></div>
+              <div><span>Tiền nhận</span><strong data-summary-received>${money.format(0)}</strong></div>
+              <div><span>Tiền thối</span><strong data-summary-change>${money.format(0)}</strong></div>
               <div class="summary-total"><span>Tổng thanh toán</span><strong data-summary-total>${money.format(0)}</strong></div>
             </div>
             <div class="form-actions order-submit-actions">
@@ -3209,9 +3691,18 @@
             </div>
           </section>
         </aside>
+        <div class="order-product-popup" data-order-product-popup hidden>
+          <div class="order-product-popup-panel">
+            <div class="order-product-popup-header">
+              <div><h2>Thêm sản phẩm</h2><p>Tìm SKU, tên, danh mục hoặc thương hiệu rồi bấm sản phẩm để thêm vào giỏ.</p></div>
+              <button class="icon-button" type="button" data-close-product-picker aria-label="Đóng">×</button>
+            </div>
+            ${renderProductPicker()}
+          </div>
+        </div>
       </section>
     `;
-    updateOrderTotalPreview(els.orderCreateForm);
+    updateOrderTotalPreviewV2(els.orderCreateForm);
   }
 
   function renderPurchaseProductPicker() {
@@ -3620,6 +4111,26 @@
         body: viewingAuditLog ? renderAuditDetail(viewingAuditLog) : "",
         readOnly: true
       },
+      receiptSettings: {
+        eyebrow: "POS",
+        title: "Cài đặt phiếu in",
+        body: renderReceiptSettingsForm(),
+        submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          saveReceiptSettings({
+            storeName: String(data.storeName || "ArtFlow").trim(),
+            storeInfo: String(data.storeInfo || "").trim(),
+            phone: String(data.phone || "").trim(),
+            address: String(data.address || "").trim(),
+            footer: String(data.footer || "").trim(),
+            paperWidth: String(data.paperWidth || "80"),
+            showSku: Boolean(data.showSku),
+            showCustomer: Boolean(data.showCustomer),
+            showPoints: Boolean(data.showPoints)
+          });
+          showToast("Đã lưu cài đặt phiếu in.");
+        }
+      },
       productImport: {
         eyebrow: "Nhập dữ liệu Excel",
         title: "Nhập danh mục sản phẩm",
@@ -3719,7 +4230,19 @@
             state.customers.unshift(savedCustomer);
           }
           window.ArtFlowPosStore.save(state);
-          renderPage();
+          if (options.selectForOrder && els.orderCreateForm) {
+            const select = els.orderCreateForm.querySelector("#customerId");
+            if (select) {
+              const label = `${savedCustomer.name} · ${savedCustomer.phone}`;
+              const existingOption = [...select.options].find(option => option.value === savedCustomer.id);
+              if (existingOption) existingOption.textContent = label;
+              else select.insertAdjacentHTML("afterbegin", `<option value="${savedCustomer.id}">${escapeHtml(label)}</option>`);
+              select.value = savedCustomer.id;
+              updateOrderTotalPreviewV2(els.orderCreateForm);
+            }
+          } else {
+            renderPage();
+          }
           showToast(editingCustomer ? "Đã cập nhật khách hàng." : "Đã thêm khách hàng mới.");
         }
       },
@@ -3734,7 +4257,7 @@
       stockReceive: {
         eyebrow: "Kho hàng",
         title: "Nhập kho",
-        body: renderStockReceiveForm(),
+        body: renderStockReceiveForm(options.productId || ""),
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           const product = byId("products", data.productId);
@@ -3759,7 +4282,7 @@
       stockAdjust: {
         eyebrow: "Kiểm kho",
         title: "Điều chỉnh tồn",
-        body: renderStockAdjustForm(),
+        body: renderStockAdjustForm(options.productId || ""),
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           const product = byId("products", data.productId);
@@ -4094,7 +4617,7 @@
       }
     };
     els.modalBackdrop.hidden = false;
-    if (type === "order") updateOrderTotalPreview(els.modalForm);
+    if (type === "order") updateOrderTotalPreviewV2(els.modalForm);
     if (type === "orderReturn") updateOrderReturnPreview(els.modalForm);
     if (type === "product") updateProductPricingPreview(els.modalForm);
     const firstInput = els.modalForm.querySelector("input, select");
@@ -4412,7 +4935,23 @@
           showToast(error.message, "error");
         }
       }
-      if (target.matches("[data-open-customer]")) openModal("customer");
+      if (target.matches("[data-open-customer]")) openModal("customer", { selectForOrder: Boolean(target.dataset.orderQuickCustomer) });
+      if (target.matches("[data-open-receipt-settings]")) openModal("receiptSettings");
+      if (target.matches("[data-open-product-picker]")) {
+        const popup = els.orderCreateForm && els.orderCreateForm.querySelector("[data-order-product-popup]");
+        if (popup) {
+          popup.hidden = false;
+          const search = popup.querySelector("[data-product-picker-search]");
+          if (search) search.focus();
+        }
+      }
+      if (target.matches("[data-close-product-picker]")) {
+        const popup = target.closest("[data-order-product-popup]");
+        if (popup) popup.hidden = true;
+      }
+      if (target.matches("[data-reset-product-picker]")) {
+        resetProductPicker(target.closest(".product-picker"));
+      }
       if (target.matches("[data-open-order]")) {
         event.preventDefault();
         navigateToOrderCreate();
@@ -4424,6 +4963,12 @@
       if (target.matches("[data-open-supplier]")) openModal("supplier");
       if (target.matches("[data-open-stock-receive]")) openModal("stockReceive");
       if (target.matches("[data-open-stock-adjust]")) openModal("stockAdjust");
+      if (target.matches("[data-stock-receive-product]")) openModal("stockReceive", { productId: target.dataset.stockReceiveProduct });
+      if (target.matches("[data-stock-adjust-product]")) openModal("stockAdjust", { productId: target.dataset.stockAdjustProduct });
+      if (target.matches("[data-reset-inventory-filters]")) {
+        Object.assign(inventoryFilters, { category: "all", stock: "all", sort: "risk" });
+        renderInventory();
+      }
       if (target.matches("[data-open-cash-transaction]")) openModal("cashTransaction");
       if (target.matches("[data-open-accounting-account]")) openModal("accountingAccount");
       if (target.matches("[data-open-accounting-reconciliation]")) openModal("accountingReconciliation");
@@ -4609,19 +5154,14 @@
         const form = target.closest("form") || els.modalForm;
         const list = form && form.querySelector("[data-order-items]");
         if (list) {
-          list.insertAdjacentHTML("beforeend", renderOrderItemRow());
-          updateOrderTotalPreview(form);
+          list.insertAdjacentHTML("beforeend", renderOrderItemRowV2());
+          updateOrderTotalPreviewV2(form);
         }
       }
       if (target.matches("[data-remove-order-item]")) {
         const form = target.closest("form") || els.modalForm;
-        const rows = form ? form.querySelectorAll("[data-order-item-row]") : [];
-        if (rows.length <= 1) {
-          showToast("Đơn hàng cần ít nhất một dòng sản phẩm.", "error");
-          return;
-        }
         target.closest("[data-order-item-row]").remove();
-        updateOrderTotalPreview(form);
+        updateOrderTotalPreviewV2(form);
       }
       if (target.dataset.cancelOrder && window.confirm("Hủy đơn hàng này và hoàn lại tồn kho?")) {
         await withLoading("Đang hủy đơn hàng...", () => cancelOrder(target.dataset.cancelOrder));
@@ -4725,9 +5265,9 @@
 
     document.addEventListener("input", event => {
       if (event.target.matches("#costPrice, #salePrice")) updateProductPricingPreview(event.target.closest("form") || els.modalForm);
-      if (event.target.matches("[data-product-picker-search]")) filterProductPicker(event.target);
+      if (event.target.matches("[data-product-picker-search], [data-product-picker-filter], [data-product-picker-sort]")) filterProductPicker(event.target);
       if (event.target.matches("[data-purchase-product-search]")) filterPurchaseProductPicker(event.target);
-      if (event.target.matches("[data-order-quantity], [data-order-money]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
+      if (event.target.matches("[data-order-quantity], [data-order-price], [data-order-line-discount], [data-order-money]")) updateOrderTotalPreviewV2(event.target.closest("form") || els.orderCreateForm || els.modalForm);
       if (event.target.matches("[data-purchase-quantity], [data-purchase-cost], [data-purchase-money]")) updatePurchaseTotalPreview(event.target.closest("form") || els.purchaseCreateForm);
       if (event.target.matches("[data-return-quantity]")) updatePurchaseReturnPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-order-return-quantity]")) updateOrderReturnPreview(event.target.closest("form") || els.modalForm);
@@ -4767,7 +5307,12 @@
         renderPage();
         return;
       }
-      if (event.target.matches("[data-order-product]")) updateOrderTotalPreview(event.target.closest("form") || els.modalForm);
+      if (event.target.matches("[data-product-picker-filter], [data-product-picker-sort]")) filterProductPicker(event.target);
+      if (event.target.matches("[data-inventory-filter]")) {
+        inventoryFilters[event.target.dataset.inventoryFilter] = event.target.value;
+        renderInventory();
+      }
+      if (event.target.matches("[data-order-product], #customerId, #roundingStep, #paymentMethod")) updateOrderTotalPreviewV2(event.target.closest("form") || els.orderCreateForm || els.modalForm);
       if (event.target.matches("[data-cash-type]")) {
         const category = (event.target.closest("form") || els.modalForm).querySelector("[data-cash-category]");
         if (category) category.innerHTML = renderAccountingCategoryOptions(event.target.value);
@@ -4796,6 +5341,7 @@
 
     document.addEventListener("click", event => {
       if (els.modalBackdrop && event.target === els.modalBackdrop) closeModal();
+      if (event.target.matches("[data-order-product-popup]")) event.target.hidden = true;
     });
   }
 

@@ -10,17 +10,58 @@
 </head>
 <body data-page="inventory" data-root="..">
   <div class="app-shell" data-app-shell hidden>
-    <aside class="sidebar"><a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a><nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav><div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div></aside>
+    <aside class="sidebar">
+      <a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a>
+      <nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav>
+      <div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div>
+    </aside>
     <main class="workspace">
-      <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div><p class="eyebrow">Tồn kho</p><h1 data-page-title>Kho hàng</h1></div><div class="topbar-actions"><label class="search-box"><span>⌕</span><input data-global-search type="search" placeholder="Tìm SKU, sản phẩm, lý do biến động..." /></label><button class="button ghost" type="button" data-open-stock-adjust>Điều chỉnh tồn</button><button class="button primary" type="button" data-open-stock-receive>Nhập kho</button><button class="button ghost" type="button" data-open-product>Thêm sản phẩm</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button></div></header>
-      <section class="view active">
+      <header class="topbar">
+        <button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
+        <div><p class="eyebrow">Tồn kho</p><h1 data-page-title>Kho hàng</h1></div>
+        <div class="topbar-actions">
+          <label class="search-box"><span>⌕</span><input data-global-search type="search" placeholder="Tìm SKU, sản phẩm, lý do biến động..." /></label>
+          <button class="button ghost" type="button" data-open-stock-adjust>Điều chỉnh tồn</button>
+          <button class="button primary" type="button" data-open-stock-receive>Nhập kho</button>
+          <button class="button ghost" type="button" data-open-product>Thêm sản phẩm</button>
+          <div class="user-chip" data-current-user></div>
+          <button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button>
+        </div>
+      </header>
+      <section class="view active inventory-workspace">
         <div class="inventory-grid" data-inventory-cards></div>
-        <section class="panel"><div class="panel-header"><div><h2>Cảnh báo tồn kho</h2><p>Các SKU cần ưu tiên nhập thêm.</p></div></div><div class="mini-list" data-low-stock></div></section>
-        <section class="panel"><div class="panel-header"><div><h2>Lịch sử biến động kho</h2><p>Theo dõi nhập kho, bán hàng, hủy đơn và điều chỉnh kiểm kho.</p></div></div><div class="table-wrap"><table><thead><tr><th>Sản phẩm</th><th>Loại</th><th>Thay đổi</th><th>Tồn trước/sau</th><th>Lý do</th><th>Thời gian</th></tr></thead><tbody data-stock-movements-table></tbody></table></div></section>
+        <section class="panel inventory-products-panel">
+          <div class="panel-header inventory-panel-header">
+            <div><h2>Kiểm soát SKU</h2><p>Lọc nhanh tồn kho, xem mức rủi ro và thao tác trực tiếp theo từng sản phẩm.</p></div>
+            <div class="inventory-toolbar">
+              <select data-inventory-filter="category" aria-label="Lọc danh mục"><option value="all">Tất cả danh mục</option></select>
+              <select data-inventory-filter="stock" aria-label="Lọc tồn kho"><option value="all">Tất cả tồn kho</option><option value="out">Hết hàng</option><option value="low">Sắp hết</option><option value="healthy">Đủ hàng</option><option value="overstock">Tồn cao</option></select>
+              <select data-inventory-filter="sort" aria-label="Sắp xếp tồn kho"><option value="risk">Ưu tiên rủi ro</option><option value="stockAsc">Tồn thấp trước</option><option value="stockDesc">Tồn cao trước</option><option value="valueDesc">Giá trị tồn cao</option><option value="name">Tên A-Z</option></select>
+              <button class="button ghost" type="button" data-reset-inventory-filters>Đặt lại</button>
+            </div>
+          </div>
+          <div class="table-wrap inventory-table-wrap">
+            <table class="inventory-table">
+              <thead><tr><th>Sản phẩm</th><th>Phân loại</th><th>Tồn kho</th><th>Ngưỡng</th><th>Giá vốn</th><th>Giá trị</th><th>Gợi ý</th><th>Thao tác</th></tr></thead>
+              <tbody data-inventory-products-table></tbody>
+            </table>
+          </div>
+        </section>
+        <section class="panel inventory-alert-panel">
+          <div class="panel-header"><div><h2>Cảnh báo tồn kho</h2><p>Các SKU cần ưu tiên nhập thêm.</p></div></div>
+          <div class="mini-list" data-low-stock></div>
+        </section>
+        <section class="panel inventory-movements-panel">
+          <div class="panel-header"><div><h2>Lịch sử biến động kho</h2><p>Theo dõi nhập kho, bán hàng, hủy đơn và điều chỉnh kiểm kho.</p></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Sản phẩm</th><th>Loại</th><th>Thay đổi</th><th>Tồn trước/sau</th><th>Lý do</th><th>Thời gian</th></tr></thead><tbody data-stock-movements-table></tbody></table></div>
+        </section>
       </section>
     </main>
   </div>
   <div data-shared-ui></div>
-  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/app.js"></script>
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/storage.js"></script>
+  <script src="../assets/js/app.js"></script>
 </body>
 </html>
