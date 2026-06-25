@@ -1593,7 +1593,7 @@
       ["Giá", "cost_price và sale_price là số không âm; sale_price không được thấp hơn cost_price."],
       ["Tồn kho", "stock và low_stock là số không âm. Thay đổi stock khi nhập sẽ được ghi lịch sử kho."],
       ["Trạng thái", "Chỉ dùng active hoặc archived. Để trống sẽ mặc định active."],
-      ["Giới hạn", "Tối đa 500 dòng và 5 MB mỗi lần nhập. Không xóa sheet hoặc đổi tên cột." ]
+      ["Giới hạn", "Tối đa 500 dòng và 5 MB mỗi lần nhập. Không xóa sheet hoặc đổi tên cột."]
     ]), "Hướng dẫn");
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("MẪU NHẬP SẢN PHẨM", "Xóa dòng ví dụ trước khi nhập dữ liệu thật. Các cột content và link có thể để trống.", ["sku", "name", "category", "brand", "barcode", "unit", "weight_grams", "dimensions", "origin", "material", "cost_price", "sale_price", "stock", "low_stock", "image_url", "short_description", "key_features", "target_audience", "seo_keywords", "content_status", "content_owner", "content_note", "website_product_url", "shopee_product_url", "tiktok_product_url", "facebook_product_url", "content_post_links", "status"], [
       ["AF-001", "Sổ vẽ A5", "Sổ & giấy", "ArtFlow", "893000000001", "quyển", 350, "21 x 15 x 2 cm", "Việt Nam", "Giấy mỹ thuật", 45000, 79000, 20, 5, "https://example.com/af-001.jpg", "Sổ vẽ giấy dày cho màu chì và marker.", "Giấy dày 180gsm\nGáy mở phẳng", "Người học vẽ và sinh viên", "sổ vẽ a5, sketchbook", "drafting", "content@artflow.vn", "Cần chụp thêm ảnh cận giấy", "https://artflow.vn/so-ve-a5", "https://shopee.vn/...", "https://shop.tiktok.com/...", "https://facebook.com/...", "TikTok hướng dẫn | https://tiktok.com/...\nVideo review | https://youtube.com/...", "active"],
@@ -3611,7 +3611,18 @@
   }
 
   async function submitOrderForm(form) {
-    const data = Object.fromEntries(new FormData(form));
+    const shouldPrint = Boolean(
+      form.printAfterSave &&
+      form.printAfterSave.checked
+    );
+
+    const printWindow = shouldPrint
+      ? openReceiptPrintWindow()
+      : null;
+
+    const data = Object.fromEntries(
+      new FormData(form)
+    );
     const totals = updateOrderTotalPreviewV2(form);
     const customer = byId("customers", data.customerId);
     const items = [...form.querySelectorAll("[data-order-item-row]")].map(row => ({
@@ -3667,9 +3678,27 @@
         showToast(`Đã tạo đơn, nhưng chưa lưu được PDF hóa đơn: ${error.message}`, "error");
       }
     }
-    await Promise.all([loadProducts({ quiet: true }), loadCustomers({ quiet: true })]);
+    await Promise.all([
+      loadProducts({ quiet: true }),
+      loadCustomers({ quiet: true })
+    ]);
+
     window.ArtFlowPosStore.save(state);
-    if (form.printAfterSave && form.printAfterSave.checked) printReceipt(lastCreatedOrder || savedOrder);
+
+    if (shouldPrint) {
+      if (printWindow && !printWindow.closed) {
+        printReceipt(
+          lastCreatedOrder || savedOrder,
+          printWindow
+        );
+      } else {
+        showToast(
+          "Đơn đã được tạo nhưng cửa sổ in đã bị đóng hoặc bị chặn.",
+          "error"
+        );
+      }
+    }
+
     renderPage();
     showToast("Đã tạo đơn và trừ tồn kho.");
     return dataFromApi.order;
@@ -3724,16 +3753,116 @@
     </body></html>`;
   }
 
-  function printReceipt(order) {
-    if (!order) return;
-    const win = window.open("", "_blank", "width=420,height=720");
+  function openReceiptPrintWindow() {
+    const win = window.open(
+      "",
+      "_blank",
+      "width=420,height=720"
+    );
+
     if (!win) {
-      showToast("Trình duyệt đã chặn cửa sổ in hóa đơn.", "error");
+      showToast(
+        "Trình duyệt đã chặn cửa sổ in hóa đơn. " +
+        "Hãy cho phép popup cho trang ArtFlow POS.",
+        "error"
+      );
+
+      return null;
+    }
+
+    win.document.open();
+    win.document.write(`
+    <!doctype html>
+    <html lang="vi">
+      <head>
+        <meta charset="utf-8">
+        <title>Đang chuẩn bị hóa đơn</title>
+        <style>
+          body {
+            display: grid;
+            min-height: 100vh;
+            margin: 0;
+            place-items: center;
+            font-family: Arial, sans-serif;
+            color: #334155;
+            background: #f8fafc;
+          }
+
+          .loading {
+            text-align: center;
+          }
+
+          .spinner {
+            width: 28px;
+            height: 28px;
+            margin: 0 auto 14px;
+            border: 3px solid #dbeafe;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+          }
+
+          @keyframes spin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        </style>
+      </head>
+
+      <body>
+        <div class="loading">
+          <div class="spinner"></div>
+          <strong>Đang chuẩn bị hóa đơn...</strong>
+        </div>
+      </body>
+    </html>
+  `);
+
+    win.document.close();
+
+    return win;
+  }
+
+  function printReceipt(order, existingWindow) {
+    if (!order) {
+      if (existingWindow && !existingWindow.closed) {
+        existingWindow.close();
+      }
+
       return;
     }
-    win.document.open();
-    win.document.write(receiptHtml(order));
-    win.document.close();
+
+    const win = existingWindow || window.open(
+      "",
+      "_blank",
+      "width=420,height=720"
+    );
+
+    if (!win) {
+      showToast(
+        "Trình duyệt đã chặn cửa sổ in hóa đơn.",
+        "error"
+      );
+
+      return;
+    }
+
+    try {
+      win.document.open();
+      win.document.write(receiptHtml(order));
+      win.document.close();
+      win.focus();
+    } catch (error) {
+      if (!win.closed) {
+        win.close();
+      }
+
+      showToast(
+        `Không thể mở phiếu in: ${error.message}`,
+        "error"
+      );
+    }
   }
 
   function renderOrderCreatePage() {
@@ -3799,7 +3928,7 @@
                   <div class="field full"><label for="trackingCode">Mã vận đơn</label><input id="trackingCode" name="trackingCode" type="text" placeholder="SPXVN..., GHTK..., GHN..." /></div>
                 </div>
               </details>
-              <div class="field checkbox-field receipt-actions full"><label><input type="checkbox" name="printAfterSave" checked /> In phiếu</label><label><input type="checkbox" name="receiptPdf" /> Lưu PDF</label><button class="link-button icon-only" type="button" data-open-receipt-settings aria-label="Cài đặt phiếu in" title="Cài đặt phiếu in">${icon("settings")}</button></div>
+              <div class="field checkbox-field receipt-actions full"><label><input type="checkbox" name="printAfterSave" checked /> In phiếu</label><label><input type="checkbox" name="receiptPdf" checked /> Lưu PDF</label><button class="link-button icon-only" type="button" data-open-receipt-settings aria-label="Cài đặt phiếu in" title="Cài đặt phiếu in">${icon("settings")}</button></div>
             </div>
             <div class="summary-lines">
               <div><span>Tạm tính</span><strong data-summary-subtotal>${money.format(0)}</strong></div>
@@ -3930,16 +4059,18 @@
     }));
     if (!supplier || !items.length) throw new Error("Cần chọn nhà cung cấp và ít nhất một sản phẩm.");
     if (items.some(item => !item.productId || item.quantity < 1 || item.unitCost < 0)) throw new Error("Dòng hàng nhập chưa hợp lệ.");
-    const response = await apiRequest(editingOrder ? "/purchase-orders/update" : "/purchase-orders/create", { method: "POST", body: JSON.stringify({
-      id: editingOrder ? editingOrder.id : undefined,
-      supplierId: data.supplierId,
-      dueDate: data.dueDate || "",
-      invoiceNumber: data.invoiceNumber || "",
-      discount: Number(data.discount || 0),
-      shippingFee: Number(data.shippingFee || 0),
-      note: data.note || "",
-      items
-    }) });
+    const response = await apiRequest(editingOrder ? "/purchase-orders/update" : "/purchase-orders/create", {
+      method: "POST", body: JSON.stringify({
+        id: editingOrder ? editingOrder.id : undefined,
+        supplierId: data.supplierId,
+        dueDate: data.dueDate || "",
+        invoiceNumber: data.invoiceNumber || "",
+        discount: Number(data.discount || 0),
+        shippingFee: Number(data.shippingFee || 0),
+        note: data.note || "",
+        items
+      })
+    });
     const savedOrder = normalizePurchaseOrder(response.purchaseOrder);
     if (editingOrder) state.purchaseOrders = state.purchaseOrders.map(order => order.id === savedOrder.id ? savedOrder : order);
     else state.purchaseOrders.unshift(savedOrder);
@@ -4314,7 +4445,7 @@
           showToast(dataFromApi.contentSetupWarning
             ? `Đã thêm sản phẩm. Chưa tạo được tài nguyên content: ${dataFromApi.contentSetupWarning}`
             : (editingProduct ? "Đã cập nhật sản phẩm." : "Đã thêm sản phẩm và tạo tài nguyên content."),
-          dataFromApi.contentSetupWarning ? "error" : "success");
+            dataFromApi.contentSetupWarning ? "error" : "success");
         }
       },
       customer: {
