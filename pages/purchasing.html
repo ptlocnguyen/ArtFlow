@@ -16,7 +16,7 @@
       <div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div>
     </aside>
     <main class="workspace">
-      <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div><p class="eyebrow">Kho và công nợ</p><h1 data-page-title>Mua hàng</h1></div><div class="topbar-actions"><label class="search-box"><span>⌕</span><input data-global-search type="search" placeholder="Tìm phiếu mua, hóa đơn, nhà cung cấp..." /></label><a class="button primary" href="./purchase-create.html" data-open-purchase>Tạo phiếu mua</a><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button></div></header>
+      <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div><p class="eyebrow">Kho và công nợ</p><h1 data-page-title>Mua hàng</h1></div><div class="topbar-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm phiếu mua, hóa đơn, nhà cung cấp..." /></label><a class="button primary" href="./purchase-create.html" data-open-purchase><span data-icon="truck"></span> Tạo phiếu mua</a><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
       <section class="view active purchasing-view">
         <div class="kpi-grid" data-purchasing-kpis></div>
         <div class="segmented-control purchasing-view-switch" role="group" aria-label="Chế độ xem mua hàng">
@@ -33,7 +33,7 @@
           <div class="table-wrap"><table class="purchase-table"><thead><tr><th>Mã phiếu</th><th>Nhà cung cấp</th><th>Hàng hóa</th><th>Trạng thái</th><th>Phải trả</th><th>Hạn trả</th><th>Thao tác</th></tr></thead><tbody data-purchase-orders-table></tbody></table></div>
         </section>
         <section class="panel purchasing-panel" data-purchasing-section="suppliers" hidden>
-          <div class="panel-header split"><div><h2>Nhà cung cấp</h2><p>Thông tin liên hệ, giá trị mua và công nợ hiện tại.</p></div><button class="button ghost" type="button" data-open-supplier>Thêm nhà cung cấp</button></div>
+          <div class="panel-header split"><div><h2>Nhà cung cấp</h2><p>Thông tin liên hệ, giá trị mua và công nợ hiện tại.</p></div><button class="button ghost icon-only" type="button" data-open-supplier title="Thêm nhà cung cấp" aria-label="Thêm nhà cung cấp"><span data-icon="userPlus"></span></button></div>
           <div class="supplier-grid" data-suppliers-list></div>
         </section>
         <section class="panel purchasing-panel" data-purchasing-section="aging" hidden>

@@ -12,7 +12,7 @@
   <div class="app-shell" data-app-shell hidden>
     <aside class="sidebar"><a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a><nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav><div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div></aside>
     <main class="workspace">
-      <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div><p class="eyebrow">Kế toán</p><h1 data-page-title>Kế toán</h1></div><div class="topbar-actions"><label class="search-box"><span>⌕</span><input data-global-search type="search" placeholder="Tìm nội dung, danh mục, tham chiếu..." /></label><button class="button primary" type="button" data-open-cash-transaction>Ghi thu/chi</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất">↪</button></div></header>
+      <header class="topbar"><button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div><p class="eyebrow">Kế toán</p><h1 data-page-title>Kế toán</h1></div><div class="topbar-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm nội dung, danh mục, tham chiếu..." /></label><button class="button primary" type="button" data-open-cash-transaction><span data-icon="receipt"></span> Ghi thu/chi</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
       <section class="view active accounting-view">
         <div class="kpi-grid" data-accounting-kpis></div>
         <div class="segmented-control accounting-view-switch" role="group" aria-label="Chế độ xem kế toán">
@@ -22,7 +22,7 @@
         </div>
         <section class="accounting-layout">
           <section class="panel accounting-side-panel accounting-actions-panel accounting-focus-panel" data-accounting-section="receivables">
-            <div class="panel-header split"><div><h2>Công nợ phải thu</h2><p>Ưu tiên các khoản chưa thu, theo dõi tuổi nợ và ghi thu từng phần.</p></div><button class="button ghost" type="button" data-open-cash-transaction>Ghi thu/chi khác</button></div>
+            <div class="panel-header split"><div><h2>Công nợ phải thu</h2><p>Ưu tiên các khoản chưa thu, theo dõi tuổi nợ và ghi thu từng phần.</p></div><button class="button ghost icon-only" type="button" data-open-cash-transaction title="Ghi thu/chi khác" aria-label="Ghi thu/chi khác"><span data-icon="receipt"></span></button></div>
             <div class="debt-summary" data-accounting-debt-summary></div>
             <div class="segmented-control debt-filter" role="group" aria-label="Lọc công nợ">
               <button class="active" type="button" data-accounting-receivable-filter="all">Tất cả</button>
@@ -32,7 +32,7 @@
             <div class="accounting-todo-list" data-accounting-receivables></div>
           </section>
           <section class="panel accounting-ledger" data-accounting-section="ledger" hidden>
-            <div class="panel-header split"><div><h2>Sổ quỹ</h2><p>Theo dõi tiền vào/ra theo tài khoản, danh mục và tham chiếu nghiệp vụ.</p></div><button class="button ghost" type="button" data-open-cash-transaction>Thêm giao dịch</button></div>
+            <div class="panel-header split"><div><h2>Sổ quỹ</h2><p>Theo dõi tiền vào/ra theo tài khoản, danh mục và tham chiếu nghiệp vụ.</p></div><button class="button ghost icon-only" type="button" data-open-cash-transaction title="Thêm giao dịch" aria-label="Thêm giao dịch"><span data-icon="receipt"></span></button></div>
             <div class="accounting-toolbar">
               <div class="segmented-control" role="group" aria-label="Lọc loại giao dịch">
                 <button class="active" type="button" data-accounting-type-filter="all">Tất cả</button>

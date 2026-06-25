@@ -58,19 +58,70 @@
     other: "Khác"
   };
 
+  const iconPaths = {
+    activity: '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
+    archive: '<path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/>',
+    calculator: '<rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01"/>',
+    chart: '<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    clipboard: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8M8 16h5"/>',
+    close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    dashboard: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
+    edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+    external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/>',
+    folderPlus: '<path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 4A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+    history: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>',
+    image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+    list: '<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/>',
+    logOut: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+    menu: '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>',
+    package: '<path d="m7.5 4.3 9 5.2"/><path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    printer: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/>',
+    receipt: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 12h8M8 17h5"/>',
+    refresh: '<path d="M21 12a9 9 0 0 1-15.4 6.4L3 16"/><path d="M3 21v-5h5"/><path d="M3 12A9 9 0 0 1 18.4 5.6L21 8"/><path d="M21 3v5h-5"/>',
+    rotateCcw: '<path d="M3 2v6h6"/><path d="M3 13a9 9 0 1 0 3-6.7L3 8"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    settings: '<path d="M12.2 2h-.4a2 2 0 0 0-2 1.7l-.1.8a2 2 0 0 1-3 1.7l-.7-.4a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.7.4a2 2 0 0 1 0 3.4l-.7.4a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.7-.4a2 2 0 0 1 3 1.7l.1.8a2 2 0 0 0 2 1.7h.4a2 2 0 0 0 2-1.7l.1-.8a2 2 0 0 1 3-1.7l.7.4a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.7-.4a2 2 0 0 1 0-3.4l.7-.4a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.7.4a2 2 0 0 1-3-1.7l-.1-.8a2 2 0 0 0-2-1.7Z"/><circle cx="12" cy="12" r="3"/>',
+    shoppingCart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.1 2.1h2l2.7 12.4a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L21 7H5.1"/>',
+    spreadsheet: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8M10 9v12M14 13v8"/>',
+    test: '<path d="M10 2v7.5L4.2 19a2 2 0 0 0 1.7 3h12.2a2 2 0 0 0 1.7-3L14 9.5V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/>',
+    trash: '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>',
+    truck: '<path d="M10 17h4V5H2v12h3"/><path d="M14 17h1"/><path d="M19 17h3v-6l-3-4h-5"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+    upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>',
+    userPlus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/>',
+    warehouse: '<path d="M22 8.4 12 2 2 8.4"/><path d="M20 10v10H4V10"/><path d="M8 20v-6h8v6"/><path d="M8 14h8"/><path d="M8 17h8"/>'
+  };
+
+  function icon(name, className) {
+    const path = iconPaths[name] || iconPaths.file;
+    const classAttr = className ? ` app-icon ${className}` : "app-icon";
+    return `<svg class="${classAttr}" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  }
+
+  function hydrateIcons(rootNode) {
+    (rootNode || document).querySelectorAll("[data-icon]").forEach(function (node) {
+      node.innerHTML = icon(node.dataset.icon || "file");
+    });
+  }
+
   const pages = {
-    dashboard: { title: "Tổng quan", href: "./dashboard.html", icon: "▦" },
-    orders: { title: "Đơn hàng", href: "./orders.html", icon: "□" },
-    orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "+", hidden: true },
-    products: { title: "Sản phẩm", href: "./products.html", icon: "◇" },
-    customers: { title: "Khách hàng", href: "./customers.html", icon: "○" },
-    purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "⇣" },
-    purchaseCreate: { title: "Tạo phiếu mua", href: "./purchase-create.html", icon: "+", hidden: true },
-    inventory: { title: "Kho hàng", href: "./inventory.html", icon: "▤" },
-    accounting: { title: "Kế toán", href: "./accounting.html", icon: "≋" },
-    reports: { title: "Báo cáo", href: "./reports.html", icon: "↗" },
-    users: { title: "Nhân viên", href: "./users.html", icon: "◎", adminOnly: true },
-    activity: { title: "Lịch sử hoạt động", href: "./activity.html", icon: "◷", adminOnly: true }
+    dashboard: { title: "Tổng quan", href: "./dashboard.html", icon: "dashboard" },
+    orders: { title: "Đơn hàng", href: "./orders.html", icon: "clipboard" },
+    orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "shoppingCart", hidden: true },
+    products: { title: "Sản phẩm", href: "./products.html", icon: "package" },
+    customers: { title: "Khách hàng", href: "./customers.html", icon: "users" },
+    purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "truck" },
+    purchaseCreate: { title: "Tạo phiếu mua", href: "./purchase-create.html", icon: "plus", hidden: true },
+    inventory: { title: "Kho hàng", href: "./inventory.html", icon: "warehouse" },
+    accounting: { title: "Kế toán", href: "./accounting.html", icon: "calculator" },
+    reports: { title: "Báo cáo", href: "./reports.html", icon: "chart" },
+    users: { title: "Nhân viên", href: "./users.html", icon: "userPlus", adminOnly: true },
+    activity: { title: "Lịch sử hoạt động", href: "./activity.html", icon: "history", adminOnly: true }
   };
 
   const qs = selector => document.querySelector(selector);
@@ -152,7 +203,7 @@
               <p class="eyebrow" data-modal-eyebrow></p>
               <h2 id="modal-title" data-modal-title></h2>
             </div>
-            <button class="icon-button" type="button" data-close-modal aria-label="Đóng">×</button>
+            <button class="icon-button" type="button" data-close-modal aria-label="Đóng">${icon("close")}</button>
           </header>
           <form class="form-grid" data-modal-form></form>
         </section>
@@ -295,13 +346,34 @@
   function setBusy(button, busy, label) {
     if (!button) return;
     if (busy) {
-      button.dataset.originalText = button.textContent;
-      button.textContent = label || "Đang xử lý...";
+      button.dataset.originalHtml = button.innerHTML;
+      button.dataset.originalTitle = button.getAttribute("title") || "";
+      button.dataset.originalAriaLabel = button.getAttribute("aria-label") || "";
+      button.setAttribute("aria-busy", "true");
+      if (button.classList.contains("icon-only")) {
+        const busyLabel = label || "?ang x? l?...";
+        button.setAttribute("title", busyLabel);
+        button.setAttribute("aria-label", busyLabel);
+      } else {
+        button.textContent = label || "?ang x? l?...";
+      }
       button.disabled = true;
       return;
     }
     button.disabled = false;
-    if (button.dataset.originalText) button.textContent = button.dataset.originalText;
+    button.removeAttribute("aria-busy");
+    if (button.dataset.originalHtml) button.innerHTML = button.dataset.originalHtml;
+    if (Object.prototype.hasOwnProperty.call(button.dataset, "originalTitle")) {
+      if (button.dataset.originalTitle) button.setAttribute("title", button.dataset.originalTitle);
+      else button.removeAttribute("title");
+    }
+    if (Object.prototype.hasOwnProperty.call(button.dataset, "originalAriaLabel")) {
+      if (button.dataset.originalAriaLabel) button.setAttribute("aria-label", button.dataset.originalAriaLabel);
+      else button.removeAttribute("aria-label");
+    }
+    delete button.dataset.originalHtml;
+    delete button.dataset.originalTitle;
+    delete button.dataset.originalAriaLabel;
   }
 
   function showToast(message, type = "default") {
@@ -344,6 +416,15 @@
     if (!value) return "Chưa có";
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? String(value) : dateTimeFormat.format(date);
+  }
+
+  function compactMoney(value) {
+    const amount = Math.round(Number(value || 0));
+    if (!amount) return "0";
+    if (Math.abs(amount) >= 1000000000) return `${(amount / 1000000000).toFixed(Math.abs(amount) >= 10000000000 ? 1 : 2).replace(/\.0+$/, "")} tỷ`;
+    if (Math.abs(amount) >= 1000000) return `${(amount / 1000000).toFixed(Math.abs(amount) >= 10000000 ? 1 : 2).replace(/\.0+$/, "")} tr`;
+    if (Math.abs(amount) >= 1000) return `${Math.round(amount / 1000)}k`;
+    return String(amount);
   }
 
   function escapeHtml(value) {
@@ -1183,7 +1264,7 @@
         <input type="password" name="password" autocomplete="${setup ? "new-password" : "current-password"}" placeholder="${setup ? "Tạo mật khẩu" : "Nhập mật khẩu"}" minlength="${setup ? "8" : "1"}" required />
       </label>
       <p class="form-error" data-login-error hidden></p>
-      <button class="button primary" type="submit">${setup ? "Tạo tài khoản admin" : "Đăng nhập"}</button>
+      <button class="button primary" type="submit">${icon(setup ? "userPlus" : "check")} ${setup ? "Tạo tài khoản admin" : "Đăng nhập"}</button>
     `;
   }
 
@@ -1222,7 +1303,7 @@
       if (item.adminOnly && !isAdmin()) return "";
       return `
         <a class="nav-link ${key === page ? "active" : ""}" href="${item.href}" data-nav-page="${key}" ${key === page ? "aria-current=\"page\"" : ""}>
-          <span class="nav-icon">${item.icon}</span>
+          <span class="nav-icon">${icon(item.icon)}</span>
           <span>${item.title}</span>
         </a>
       `;
@@ -1840,6 +1921,50 @@
     }).join("");
   }
 
+  function renderKpis() {
+    if (!els.kpis) return;
+    const snapshot = profitSnapshot();
+    const cards = [
+      ["Doanh thu thuần", money.format(snapshot.revenue), "Đã trừ hàng khách trả", "revenue"],
+      ["Lãi gộp", money.format(snapshot.grossProfit), "Doanh thu trừ giá vốn thực", "gross"],
+      ["Lãi ròng", money.format(snapshot.netProfit), "Sau chi phí vận hành", snapshot.netProfit < 0 ? "danger" : "net"],
+      ["Biên lãi gộp", `${(snapshot.grossMargin * 100).toFixed(1)}%`, "Tỷ lệ lãi trên doanh thu thuần", snapshot.grossMargin < 0.2 ? "warning" : "margin"]
+    ];
+    els.kpis.innerHTML = cards.map(([label, value, note, tone]) => `
+      <article class="kpi-card dashboard-kpi-card" data-kpi-tone="${tone}"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>
+    `).join("");
+  }
+
+  function renderChart() {
+    if (!els.revenueChart) return;
+    const days = Array.from({ length: 7 }, (_, index) => shiftDateValue(localDateValue(), -(6 - index)));
+    const values = days.map(day => state.orders.filter(order => reportDayKey(order.createdAt) === day && isPaid(order)).reduce((sum, order) => sum + order.netTotal, 0));
+    const max = Math.max(...values, 1);
+    const total = values.reduce((sum, value) => sum + value, 0);
+    const bestIndex = values.indexOf(max);
+    const bars = days.map((day, index) => {
+      const height = values[index] ? Math.max(10, Math.round((values[index] / max) * 100)) : 2;
+      const label = day.slice(5).replace("-", "/");
+      const value = values[index] ? compactMoney(values[index]) : "0";
+      const active = index === bestIndex && values[index] > 0 ? " peak" : "";
+      return `
+        <div class="chart-day${active}" title="${label}: ${money.format(values[index])}">
+          <strong>${value}</strong>
+          <div class="chart-track"><span class="chart-bar" style="--bar-height: ${height}%"></span></div>
+          <small>${label}</small>
+        </div>`;
+    }).join("");
+    els.revenueChart.innerHTML = `
+      <div class="chart-headline">
+        <span><b>Tổng 7 ngày</b> ${money.format(total)}</span>
+        <span><b>Cao nhất</b> ${values[bestIndex] ? `${days[bestIndex].slice(5).replace("-", "/")} · ${compactMoney(values[bestIndex])}` : "Chưa có"}</span>
+      </div>
+      <div class="chart-plot">
+        <div class="chart-axis"><span>${compactMoney(max)}</span><span>${compactMoney(max / 2)}</span><span>0</span></div>
+        <div class="chart-bars">${bars}</div>
+      </div>`;
+  }
+
   function renderLowStock() {
     if (!els.lowStock) return;
     const products = filtered(state.products.filter(product => product.status === "active" && product.stock <= product.lowStock), ["sku", "name", "category"]).sort((a, b) => a.stock - b.stock);
@@ -1866,7 +1991,7 @@
         `;
       }
 
-      const actions = `<div class="row-actions compact-actions">${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button" data-edit-order-fulfillment="${order.id}">Cập nhật</button>` : ""}${canReturnOrder(order) ? `<button class="link-button" data-return-order="${order.id}">Trả hàng</button>` : ""}${isAdmin() && refundableForOrder(order) > 0 ? `<button class="link-button" data-refund-order="${order.id}">Hoàn tiền</button>` : ""}${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button" data-complete-order="${order.id}">Hoàn tất</button>` : ""}${canManageOrders() && order.status !== "cancelled" && order.returnedAmount <= 0 && order.refundedAmount <= 0 && collectedForOrder(order) <= 0 ? `<button class="link-button danger-link" data-cancel-order="${order.id}">Hủy</button>` : ""}</div>`;
+      const actions = `<div class="row-actions compact-actions">${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button icon-only" data-edit-order-fulfillment="${order.id}" aria-label="Cập nhật" title="Cập nhật">${icon("edit")}</button>` : ""}${canReturnOrder(order) ? `<button class="link-button icon-only" data-return-order="${order.id}" aria-label="Trả hàng" title="Trả hàng">${icon("rotateCcw")}</button>` : ""}${isAdmin() && refundableForOrder(order) > 0 ? `<button class="link-button icon-only" data-refund-order="${order.id}" aria-label="Hoàn tiền" title="Hoàn tiền">${icon("receipt")}</button>` : ""}${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button icon-only" data-complete-order="${order.id}" aria-label="Hoàn tất" title="Hoàn tất">${icon("check")}</button>` : ""}${canManageOrders() && order.status !== "cancelled" && order.returnedAmount <= 0 && order.refundedAmount <= 0 && collectedForOrder(order) <= 0 ? `<button class="link-button danger-link icon-only" data-cancel-order="${order.id}" aria-label="Hủy" title="Hủy">${icon("close")}</button>` : ""}</div>`;
       const shippingMeta = `${carrierLabel(order.carrier)}${order.trackingCode ? ` · ${order.trackingCode}` : ""}`;
       return `
         <tr>
@@ -1930,7 +2055,9 @@
     const missingAssets = products.filter(product => !productAssetsComplete(product));
     document.querySelectorAll("[data-provision-missing-products]").forEach(button => {
       button.disabled = !missingAssets.length;
-      button.textContent = missingAssets.length ? `Tạo tài nguyên hàng loạt (${missingAssets.length})` : "Tài nguyên đã đầy đủ";
+      const label = missingAssets.length ? `T?o t?i nguy?n h?ng lo?t (${missingAssets.length})` : "T?i nguy?n ?? ??y ??";
+      button.setAttribute("title", label);
+      button.setAttribute("aria-label", label);
     });
     if (els.productCategoryFilter) {
       const categories = [...new Set(products.map(product => product.category).filter(Boolean))].sort((a, b) => a.localeCompare(b, "vi"));
@@ -2002,7 +2129,7 @@
     });
     els.productsTable.innerHTML = rows.length ? rows.map(product => `
       <tr class="${product.status === "archived" ? "product-row-archived" : ""}">
-        <td>${product.imageUrl ? `<img class="product-table-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="" loading="lazy" />` : `<span class="product-table-image placeholder">◇</span>`}</td>
+        <td>${product.imageUrl ? `<img class="product-table-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="" loading="lazy" />` : `<span class="product-table-image placeholder">${icon("image")}</span>`}</td>
         <td><strong>${product.sku}</strong><br><span class="product-sale-status ${product.status}">${statusLabel(product.status)}</span></td>
         <td><strong>${escapeHtml(product.name)}</strong><br><small>${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small></td>
         <td><strong>${money.format(product.salePrice)}</strong><br><small>Vốn ${money.format(product.costPrice)}</small></td>
@@ -2011,8 +2138,8 @@
         <td><div class="product-content-cell"><span class="badge content-${product.contentStatus}">${productContentStatuses[product.contentStatus]}</span><small class="${productAssetsComplete(product) ? "assets-complete" : "assets-missing"}">${productAssetsComplete(product) ? "Đủ tài nguyên" : "Thiếu tài nguyên"}</small></div></td>
         <td>
           <div class="row-actions">
-            <button class="link-button action-view" data-view-product="${product.id}">Chi tiết</button>
-            ${canManageProducts() ? `<button class="link-button action-edit" data-edit-product="${product.id}">Sửa</button><button class="link-button ${product.status === "active" ? "action-archive" : "action-activate"}" data-archive-product="${product.id}" data-next-status="${product.status === "active" ? "archived" : "active"}">${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}</button>` : ""}
+            <button class="link-button action-view icon-only" data-view-product="${product.id}" aria-label="Chi tiết" title="Chi tiết">${icon("eye")}</button>
+            ${canManageProducts() ? `<button class="link-button action-edit icon-only" data-edit-product="${product.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button><button class="link-button icon-only ${product.status === "active" ? "action-archive" : "action-activate"}" data-archive-product="${product.id}" data-next-status="${product.status === "active" ? "archived" : "active"}" aria-label="${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}" title="${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}">${icon(product.status === "active" ? "archive" : "check")}</button>` : ""}
           </div>
         </td>
       </tr>
@@ -2032,7 +2159,7 @@
         <td><span class="badge ${customer.status}">${statusLabel(customer.status)}</span></td>
         <td>
           <div class="row-actions">
-            ${canManageCustomers() ? `<button class="link-button" data-edit-customer="${customer.id}">Sửa</button><button class="link-button" data-archive-customer="${customer.id}" data-next-status="${customer.status === "active" ? "archived" : "active"}">${customer.status === "active" ? "Ngừng theo dõi" : "Kích hoạt"}</button>` : ""}
+            ${canManageCustomers() ? `<button class="link-button icon-only" data-edit-customer="${customer.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button><button class="link-button icon-only" data-archive-customer="${customer.id}" data-next-status="${customer.status === "active" ? "archived" : "active"}" aria-label="${customer.status === "active" ? "Ngừng theo dõi" : "Kích hoạt"}" title="${customer.status === "active" ? "Ngừng theo dõi" : "Kích hoạt"}">${icon(customer.status === "active" ? "archive" : "check")}</button>` : ""}
           </div>
         </td>
       </tr>
@@ -2051,8 +2178,8 @@
         <td>${formatDate(user.lastLoginAt)}</td>
         <td>
           <div class="row-actions">
-            <button class="link-button" data-toggle-user="${user.id}" ${user.id === currentUser.id ? "disabled" : ""}>${user.status === "active" ? "Khóa" : "Mở"}</button>
-            <button class="link-button" data-delete-user="${user.id}" ${user.id === currentUser.id ? "disabled" : ""}>Xóa</button>
+            <button class="link-button icon-only" data-toggle-user="${user.id}" ${user.id === currentUser.id ? "disabled" : ""} aria-label="${user.status === "active" ? "Khóa" : "Mở"}" title="${user.status === "active" ? "Khóa" : "Mở"}">${icon(user.status === "active" ? "archive" : "check")}</button>
+            <button class="link-button icon-only" data-delete-user="${user.id}" ${user.id === currentUser.id ? "disabled" : ""} aria-label="Xóa" title="Xóa">${icon("trash")}</button>
           </div>
         </td>
       </tr>
@@ -2101,7 +2228,7 @@
         <td><span class="badge">${escapeHtml(auditEntityLabel(log.entityType))}</span></td>
         <td><strong>${escapeHtml(log.actorName)}</strong><small>${escapeHtml(log.actorEmail)}</small></td>
         <td><code class="audit-reference">${escapeHtml(log.entityId || "—")}</code></td>
-        <td><button class="link-button" type="button" data-view-audit="${escapeAttribute(log.id)}">Xem chi tiết</button></td>
+        <td><button class="link-button icon-only" type="button" data-view-audit="${escapeAttribute(log.id)}" aria-label="Xem chi tiết" title="Xem chi tiết">${icon("eye")}</button></td>
       </tr>
     `).join("") : `<tr><td colspan="6" class="empty">Chưa có hoạt động phù hợp bộ lọc.</td></tr>`;
   }
@@ -2233,8 +2360,8 @@
           <td>${suggestion ? `Nhập thêm ${suggestion}` : "Đủ an toàn"}</td>
           <td>
             <div class="table-actions">
-              <button class="button small primary" type="button" data-stock-receive-product="${product.id}">Nhập</button>
-              <button class="button small ghost" type="button" data-stock-adjust-product="${product.id}">Kiểm</button>
+              <button class="button small primary icon-only" type="button" data-stock-receive-product="${product.id}" aria-label="Nhập kho" title="Nhập kho">${icon("download")}</button>
+              <button class="button small ghost icon-only" type="button" data-stock-adjust-product="${product.id}" aria-label="Kiểm kho" title="Kiểm kho">${icon("edit")}</button>
             </div>
           </td>
         </tr>
@@ -2357,9 +2484,9 @@
               <span class="${differenceClass}"><small>Chênh lệch gần nhất</small><b>${latestReconciliation ? money.format(latestReconciliation.difference) : "Chưa đối soát"}</b></span>
             </div>
             <div class="account-card-actions">
-              <button class="link-button" type="button" data-edit-accounting-account="${account.id}">Sửa</button>
-              ${isArchived ? "" : `<button class="link-button" type="button" data-reconcile-account="${account.id}">Đối soát</button>`}
-              <button class="link-button ${isArchived ? "" : "danger-link"}" type="button" data-archive-accounting-account="${account.id}" data-next-status="${isArchived ? "active" : "archived"}">${isArchived ? "Kích hoạt" : "Ẩn"}</button>
+              <button class="link-button icon-only" type="button" data-edit-accounting-account="${account.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button>
+              ${isArchived ? "" : `<button class="link-button icon-only" type="button" data-reconcile-account="${account.id}" aria-label="Đối soát" title="Đối soát">${icon("calculator")}</button>`}
+              <button class="link-button icon-only ${isArchived ? "" : "danger-link"}" type="button" data-archive-accounting-account="${account.id}" data-next-status="${isArchived ? "active" : "archived"}" aria-label="${isArchived ? "Kích hoạt" : "Ẩn"}" title="${isArchived ? "Kích hoạt" : "Ẩn"}">${icon(isArchived ? "check" : "archive")}</button>
             </div>
           </article>
         `;
@@ -2412,7 +2539,7 @@
             </div>
             <div>
               <b>${money.format(item.outstanding)}</b>
-              ${canManageAccounting() ? `<button class="link-button" type="button" data-record-order-payment="${order.id}">Ghi thu</button>` : ""}
+              ${canManageAccounting() ? `<button class="link-button icon-only" type="button" data-record-order-payment="${order.id}" aria-label="Ghi thu" title="Ghi thu">${icon("receipt")}</button>` : ""}
             </div>
           </article>
         `;
@@ -2454,8 +2581,8 @@
             <div class="category-share-bar" aria-label="Tỷ trọng ${share}%"><span style="width: ${Math.min(100, share)}%"></span></div>
             ${canManageAccounting() ? `
               <div class="category-chip-actions">
-                <button class="link-button" type="button" data-edit-accounting-category="${category.id}">Sửa</button>
-                <button class="link-button ${isArchived ? "" : "danger-link"}" type="button" data-archive-accounting-category="${category.id}" data-next-status="${isArchived ? "active" : "archived"}">${isArchived ? "Kích hoạt" : "Ẩn"}</button>
+                <button class="link-button icon-only" type="button" data-edit-accounting-category="${category.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button>
+                <button class="link-button icon-only ${isArchived ? "" : "danger-link"}" type="button" data-archive-accounting-category="${category.id}" data-next-status="${isArchived ? "active" : "archived"}" aria-label="${isArchived ? "Kích hoạt" : "Ẩn"}" title="${isArchived ? "Kích hoạt" : "Ẩn"}">${icon(isArchived ? "check" : "archive")}</button>
               </div>
             ` : ""}
           </article>
@@ -2475,7 +2602,7 @@
             <td><strong>${category.name}</strong><br><small>${account.name}</small></td>
             <td>${transaction.description}</td>
             <td class="money-cell ${transaction.type === "income" ? "positive-money" : "negative-money"}"><strong>${money.format(signedAmount)}</strong></td>
-            <td><div class="row-actions">${canManageAccounting() && (!transaction.referenceType || transaction.referenceType === "manual") ? `<button class="link-button danger-link" data-archive-cash-transaction="${transaction.id}">Xóa</button>` : `<small>Giao dịch liên kết</small>`}</div></td>
+            <td><div class="row-actions">${canManageAccounting() && (!transaction.referenceType || transaction.referenceType === "manual") ? `<button class="link-button danger-link icon-only" data-archive-cash-transaction="${transaction.id}" aria-label="Xóa" title="Xóa">${icon("trash")}</button>` : `<small>Giao dịch liên kết</small>`}</div></td>
           </tr>
         `;
       }).join("") : `<tr><td colspan="6" class="empty">Chưa có giao dịch thu/chi.</td></tr>`;
@@ -2529,11 +2656,11 @@
         const supplier = getSupplier(order);
         const isOverdue = order.outstanding > 0 && order.dueDate && order.dueDate < today;
         const actions = [];
-        if (canManagePurchasing() && order.status === "draft") actions.push(`<a class="link-button" href="./purchase-create.html?edit=${order.id}">Sửa</a><button class="link-button" type="button" data-receive-purchase="${order.id}">Nhận hàng</button>`);
-        if (canReturnPurchaseOrder(order)) actions.push(`<button class="link-button" type="button" data-return-purchase="${order.id}">Trả hàng</button>`);
-        if (canPayPurchases() && order.status === "received" && order.outstanding > 0) actions.push(`<button class="link-button" type="button" data-pay-purchase="${order.id}">Thanh toán</button>`);
-        if (canPayPurchases() && order.status === "received" && order.outstanding > 0 && supplier.creditBalance > 0) actions.push(`<button class="link-button" type="button" data-apply-supplier-credit="${order.id}">Bù trừ</button>`);
-        if (canManagePurchasing() && ["draft", "received"].includes(order.status) && order.paidAmount <= 0 && order.creditAppliedAmount <= 0 && order.returnedAmount <= 0) actions.push(`<button class="link-button danger-link" type="button" data-cancel-purchase="${order.id}">Hủy</button>`);
+        if (canManagePurchasing() && order.status === "draft") actions.push(`<a class="link-button icon-only" href="./purchase-create.html?edit=${order.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</a><button class="link-button icon-only" type="button" data-receive-purchase="${order.id}" aria-label="Nhận hàng" title="Nhận hàng">${icon("download")}</button>`);
+        if (canReturnPurchaseOrder(order)) actions.push(`<button class="link-button icon-only" type="button" data-return-purchase="${order.id}" aria-label="Trả hàng" title="Trả hàng">${icon("rotateCcw")}</button>`);
+        if (canPayPurchases() && order.status === "received" && order.outstanding > 0) actions.push(`<button class="link-button icon-only" type="button" data-pay-purchase="${order.id}" aria-label="Thanh toán" title="Thanh toán">${icon("receipt")}</button>`);
+        if (canPayPurchases() && order.status === "received" && order.outstanding > 0 && supplier.creditBalance > 0) actions.push(`<button class="link-button icon-only" type="button" data-apply-supplier-credit="${order.id}" aria-label="Bù trừ" title="Bù trừ">${icon("calculator")}</button>`);
+        if (canManagePurchasing() && ["draft", "received"].includes(order.status) && order.paidAmount <= 0 && order.creditAppliedAmount <= 0 && order.returnedAmount <= 0) actions.push(`<button class="link-button danger-link icon-only" type="button" data-cancel-purchase="${order.id}" aria-label="Hủy" title="Hủy">${icon("close")}</button>`);
         return `
           <tr class="${isOverdue ? "overdue-row" : ""}">
             <td><strong>${order.code}</strong><br><small>${order.invoiceNumber || "Chưa có số hóa đơn"}</small></td>
@@ -2562,7 +2689,7 @@
             <div class="supplier-card-head"><div><strong>${supplier.name}</strong><small>${supplier.code} · ${supplier.phone}</small></div><span class="badge ${supplier.outstanding > 0 ? "pending" : "active"}">${supplier.outstanding > 0 ? "Còn nợ" : supplier.creditBalance > 0 ? "Dư có" : "Đã cân"}</span></div>
             <div class="supplier-card-stats"><span><small>Đã mua</small><b>${money.format(supplier.totalPurchased)}</b></span><span><small>Phải trả</small><b>${money.format(supplier.outstanding)}</b></span><span><small>Tỷ trọng</small><b>${share}%</b></span></div>
             <div class="category-share-bar"><span style="width:${Math.min(100, share)}%"></span></div>
-            <div class="supplier-card-foot"><small>${supplier.taxCode ? `MST ${supplier.taxCode}` : "Chưa có mã số thuế"} · ${supplier.creditBalance > 0 ? `Dư có ${money.format(supplier.creditBalance)}` : supplier.lastPurchaseAt ? `Mua gần nhất ${formatDate(supplier.lastPurchaseAt)}` : "Chưa phát sinh mua"}</small><div class="row-actions"><button class="link-button" type="button" data-supplier-statement="${supplier.id}">Lịch sử</button>${canManagePurchasing() ? `<button class="link-button" type="button" data-edit-supplier="${supplier.id}">Sửa</button><button class="link-button ${isArchived ? "" : "danger-link"}" type="button" data-archive-supplier="${supplier.id}" data-next-status="${isArchived ? "active" : "archived"}" ${!isArchived && (supplier.outstanding > 0 || supplier.creditBalance > 0) ? 'disabled title="Cần tất toán công nợ và dư có trước khi ẩn"' : ""}>${isArchived ? "Kích hoạt" : "Ẩn"}</button>` : ""}</div></div>
+            <div class="supplier-card-foot"><small>${supplier.taxCode ? `MST ${supplier.taxCode}` : "Chưa có mã số thuế"} · ${supplier.creditBalance > 0 ? `Dư có ${money.format(supplier.creditBalance)}` : supplier.lastPurchaseAt ? `Mua gần nhất ${formatDate(supplier.lastPurchaseAt)}` : "Chưa phát sinh mua"}</small><div class="row-actions"><button class="link-button icon-only" type="button" data-supplier-statement="${supplier.id}" aria-label="Lịch sử" title="Lịch sử">${icon("history")}</button>${canManagePurchasing() ? `<button class="link-button icon-only" type="button" data-edit-supplier="${supplier.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button><button class="link-button icon-only ${isArchived ? "" : "danger-link"}" type="button" data-archive-supplier="${supplier.id}" data-next-status="${isArchived ? "active" : "archived"}" ${!isArchived && (supplier.outstanding > 0 || supplier.creditBalance > 0) ? 'disabled title="Cần tất toán công nợ và dư có trước khi ẩn"' : `aria-label="${isArchived ? "Kích hoạt" : "Ẩn"}" title="${isArchived ? "Kích hoạt" : "Ẩn"}"`}>${icon(isArchived ? "check" : "archive")}</button>` : ""}</div></div>
           </article>
         `;
       }).join("") : `<div class="empty">Chưa có nhà cung cấp phù hợp.</div>`;
@@ -2593,7 +2720,7 @@
         const supplier = getSupplier(order);
         const bucket = purchaseAgingBucket(order);
         const dueText = bucket.days === null ? "Chưa đặt hạn" : bucket.days > 0 ? `${bucket.days} ngày quá hạn` : bucket.days === 0 ? "Đến hạn hôm nay" : `Còn ${Math.abs(bucket.days)} ngày`;
-        return `<tr class="${bucket.days > 0 ? "overdue-row" : ""}"><td><span class="badge ${bucket.tone}">${bucket.label}</span></td><td><strong>${order.code}</strong></td><td>${supplier.name}</td><td>${order.dueDate ? formatDate(order.dueDate) : "—"}</td><td class="${bucket.days > 0 ? "danger-text" : ""}">${dueText}</td><td><strong>${money.format(order.outstanding)}</strong></td><td><div class="row-actions">${canPayPurchases() ? `<button class="link-button" type="button" data-pay-purchase="${order.id}">Thanh toán</button>${supplier.creditBalance > 0 ? `<button class="link-button" type="button" data-apply-supplier-credit="${order.id}">Bù trừ</button>` : ""}` : "—"}</div></td></tr>`;
+        return `<tr class="${bucket.days > 0 ? "overdue-row" : ""}"><td><span class="badge ${bucket.tone}">${bucket.label}</span></td><td><strong>${order.code}</strong></td><td>${supplier.name}</td><td>${order.dueDate ? formatDate(order.dueDate) : "—"}</td><td class="${bucket.days > 0 ? "danger-text" : ""}">${dueText}</td><td><strong>${money.format(order.outstanding)}</strong></td><td><div class="row-actions">${canPayPurchases() ? `<button class="link-button icon-only" type="button" data-pay-purchase="${order.id}" aria-label="Thanh toán" title="Thanh toán">${icon("receipt")}</button>${supplier.creditBalance > 0 ? `<button class="link-button icon-only" type="button" data-apply-supplier-credit="${order.id}" aria-label="Bù trừ" title="Bù trừ">${icon("calculator")}</button>` : ""}` : "—"}</div></td></tr>`;
       }).join("") : `<tr><td colspan="7" class="empty">Không có công nợ phải trả.</td></tr>`;
     }
   }
@@ -2820,11 +2947,11 @@
         <div class="segmented-control product-option-tabs">${Object.entries(productOptionLabels).map(([key, label]) => `<button class="${key === type ? "active" : ""}" type="button" data-product-option-type="${key}">${label}</button>`).join("")}</div>
         <div class="product-option-create">
           <label class="field"><span>Thêm ${productOptionLabels[type].toLowerCase()}</span><input type="text" maxlength="100" placeholder="Nhập tên mới" data-product-option-name data-option-type="${type}" /></label>
-          <button class="button primary" type="button" data-create-product-option="${type}">Thêm</button>
+          <button class="button primary" type="button" data-create-product-option="${type}">${icon("plus")} Thêm</button>
         </div>
         <div class="product-option-list">${options.length ? options.map(option => `
           <div class="product-option-item ${option.status !== "active" ? "archived" : ""}">
-            ${editOptionId === option.id ? `<div class="product-option-edit"><input type="text" maxlength="100" value="${escapeAttribute(option.name)}" data-product-option-edit-name="${escapeAttribute(option.id)}" /><div class="row-actions"><button class="link-button action-edit" type="button" data-save-product-option="${escapeAttribute(option.id)}" data-option-type="${type}">Lưu</button><button class="link-button" type="button" data-cancel-product-option-edit data-option-type="${type}">Hủy</button></div></div>` : `<div><strong>${escapeHtml(option.name)}</strong><small>${option.status === "active" ? "Đang sử dụng" : "Đã ngừng dùng"} · ${productOptionUsageCount(option)} sản phẩm</small></div><div class="row-actions"><button class="link-button action-edit" type="button" data-edit-product-option="${escapeAttribute(option.id)}" data-option-type="${type}">Đổi tên</button><button class="link-button ${option.status === "active" ? "action-archive" : "action-activate"}" type="button" data-toggle-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" data-option-usage="${productOptionUsageCount(option)}" data-next-status="${option.status === "active" ? "archived" : "active"}">${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}</button></div>`}
+            ${editOptionId === option.id ? `<div class="product-option-edit"><input type="text" maxlength="100" value="${escapeAttribute(option.name)}" data-product-option-edit-name="${escapeAttribute(option.id)}" /><div class="row-actions"><button class="link-button action-edit icon-only" type="button" data-save-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" aria-label="Lưu" title="Lưu">${icon("check")}</button><button class="link-button icon-only" type="button" data-cancel-product-option-edit data-option-type="${type}" aria-label="Hủy" title="Hủy">${icon("close")}</button></div></div>` : `<div><strong>${escapeHtml(option.name)}</strong><small>${option.status === "active" ? "Đang sử dụng" : "Đã ngừng dùng"} · ${productOptionUsageCount(option)} sản phẩm</small></div><div class="row-actions"><button class="link-button action-edit icon-only" type="button" data-edit-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" aria-label="Đổi tên" title="Đổi tên">${icon("edit")}</button><button class="link-button icon-only ${option.status === "active" ? "action-archive" : "action-activate"}" type="button" data-toggle-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" data-option-usage="${productOptionUsageCount(option)}" data-next-status="${option.status === "active" ? "archived" : "active"}" aria-label="${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}" title="${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}">${icon(option.status === "active" ? "archive" : "check")}</button></div>`}
           </div>`).join("") : `<div class="empty">Chưa có ${productOptionLabels[type].toLowerCase()}.</div>`}</div>
       </div>`;
   }
@@ -2881,7 +3008,7 @@
   }
 
   function productResourceLink(url, label) {
-    return url ? `<a class="resource-link" href="${escapeAttribute(url)}" target="_blank" rel="noopener">${label} ↗</a>` : `<span class="resource-missing">Chưa tạo</span>`;
+    return url ? `<a class="resource-link" href="${escapeAttribute(url)}" target="_blank" rel="noopener">${escapeHtml(label)} ${icon("external")}</a>` : `<span class="resource-missing">Chưa tạo</span>`;
   }
 
   function productImageUrl(url) {
@@ -2949,9 +3076,9 @@
   function renderProductThumb(product, className = "product-thumb") {
     const imageUrl = productImageDisplayUrl(product && product.imageUrl);
     if (imageUrl) {
-      return `<span class="${className} product-thumb-has-image"><img src="${escapeAttribute(imageUrl)}" alt="" loading="lazy" onload="this.closest('.product-thumb, .cart-product-thumb').classList.add('image-loaded');" onerror="this.closest('.product-thumb, .cart-product-thumb').classList.add('image-error'); this.remove();" /><span class="product-thumb-fallback">◇</span></span>`;
+      return `<span class="${className} product-thumb-has-image"><img src="${escapeAttribute(imageUrl)}" alt="" loading="lazy" onload="this.closest('.product-thumb, .cart-product-thumb').classList.add('image-loaded');" onerror="this.closest('.product-thumb, .cart-product-thumb').classList.add('image-error'); this.remove();" /><span class="product-thumb-fallback">${icon("image")}</span></span>`;
     }
-    return `<span class="${className} product-thumb-empty"><span class="product-thumb-fallback">◇</span></span>`;
+    return `<span class="${className} product-thumb-empty"><span class="product-thumb-fallback">${icon("image")}</span></span>`;
   }
 
   function renderProductPicker() {
@@ -2965,7 +3092,7 @@
       <div class="product-picker">
         <div class="product-picker-toolbar">
           <label class="search-box product-picker-search">
-            <span>⌕</span>
+            ${icon("search")}
             <input type="search" placeholder="Tìm SKU, tên, danh mục, hãng, mã vạch..." data-product-picker-search />
           </label>
           <span class="pill" data-product-picker-count>${products.length} sản phẩm</span>
@@ -2975,7 +3102,7 @@
           <select data-product-picker-filter="brand"><option value="">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
           <select data-product-picker-filter="stock"><option value="">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="low">Sắp hết</option><option value="out">Hết hàng</option></select>
           <select data-product-picker-sort><option value="name">Tên A-Z</option><option value="stock">Tồn kho nhiều</option><option value="priceAsc">Giá thấp</option><option value="priceDesc">Giá cao</option><option value="margin">Biên lãi cao</option></select>
-          <button class="button ghost" type="button" data-reset-product-picker>Làm mới</button>
+          <button class="button ghost icon-only" type="button" data-reset-product-picker aria-label="Làm mới" title="Làm mới">${icon("refresh")}</button>
         </div>
         <div class="product-picker-list" data-product-picker-list>
           ${products.map(renderProductPickerCardV2).join("")}
@@ -3016,7 +3143,7 @@
           <label>Số lượng</label>
           <input name="quantity" data-order-quantity type="number" min="1" value="1" required />
         </div>
-        <button class="icon-button" type="button" data-remove-order-item aria-label="Xóa dòng">×</button>
+        <button class="icon-button" type="button" data-remove-order-item aria-label="Xóa dòng">${icon("close")}</button>
       </div>
     `;
   }
@@ -3071,7 +3198,7 @@
           <input name="lineDiscountPercent" data-order-line-discount type="number" min="0" max="100" step="0.1" value="${discountPercent}" />
         </div>
         <div class="order-line-total"><span>Thành tiền</span><strong data-order-line-total>${money.format(lineTotal)}</strong></div>
-        <button class="icon-button" type="button" data-remove-order-item aria-label="Xóa dòng">×</button>
+        <button class="icon-button" type="button" data-remove-order-item aria-label="Xóa dòng">${icon("close")}</button>
       </div>
     `;
   }
@@ -3377,7 +3504,7 @@
       <div class="field full">
         <div class="order-builder-header">
           <label>Sản phẩm trong đơn</label>
-          <button class="link-button" type="button" data-add-order-item>Thêm dòng</button>
+          <button class="link-button icon-only" type="button" data-add-order-item aria-label="Thêm dòng" title="Thêm dòng">${icon("plus")}</button>
         </div>
         <div class="order-items" data-order-items>${renderOrderItemRow()}</div>
       </div>
@@ -3672,7 +3799,7 @@
                   <div class="field full"><label for="trackingCode">Mã vận đơn</label><input id="trackingCode" name="trackingCode" type="text" placeholder="SPXVN..., GHTK..., GHN..." /></div>
                 </div>
               </details>
-              <div class="field checkbox-field receipt-actions full"><label><input type="checkbox" name="printAfterSave" checked /> In phiếu</label><label><input type="checkbox" name="receiptPdf" /> Lưu PDF</label><button class="link-button" type="button" data-open-receipt-settings>Cài đặt</button></div>
+              <div class="field checkbox-field receipt-actions full"><label><input type="checkbox" name="printAfterSave" checked /> In phiếu</label><label><input type="checkbox" name="receiptPdf" /> Lưu PDF</label><button class="link-button icon-only" type="button" data-open-receipt-settings aria-label="Cài đặt phiếu in" title="Cài đặt phiếu in">${icon("settings")}</button></div>
             </div>
             <div class="summary-lines">
               <div><span>Tạm tính</span><strong data-summary-subtotal>${money.format(0)}</strong></div>
@@ -3695,7 +3822,7 @@
           <div class="order-product-popup-panel">
             <div class="order-product-popup-header">
               <div><h2>Thêm sản phẩm</h2><p>Tìm SKU, tên, danh mục hoặc thương hiệu rồi bấm sản phẩm để thêm vào giỏ.</p></div>
-              <button class="icon-button" type="button" data-close-product-picker aria-label="Đóng">×</button>
+              <button class="icon-button" type="button" data-close-product-picker aria-label="Đóng">${icon("close")}</button>
             </div>
             ${renderProductPicker()}
           </div>
@@ -3709,7 +3836,7 @@
     const products = state.products.filter(product => product.status === "active").sort((a, b) => a.name.localeCompare(b.name));
     return `
       <div class="product-picker purchase-product-picker">
-        <div class="product-picker-toolbar"><label class="search-box product-picker-search"><span>⌕</span><input type="search" placeholder="Tìm SKU, tên, danh mục..." data-purchase-product-search /></label><span class="pill" data-purchase-product-count>${products.length} sản phẩm</span></div>
+        <div class="product-picker-toolbar"><label class="search-box product-picker-search">${icon("search")}<input type="search" placeholder="Tìm SKU, tên, danh mục..." data-purchase-product-search /></label><span class="pill" data-purchase-product-count>${products.length} sản phẩm</span></div>
         <div class="product-picker-list" data-purchase-product-list>${products.map(product => `
           <button class="product-card" type="button" data-add-product-to-purchase="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}">
             <span><strong>${product.name}</strong><small>${product.sku} · ${product.category}</small></span>
@@ -3731,7 +3858,7 @@
         <div class="field compact-field purchase-quantity-field"><label>Số lượng</label><input type="number" min="1" step="1" value="${quantity}" data-purchase-quantity required /></div>
         <div class="field compact-field purchase-cost-field"><label>Đơn giá nhập</label><input type="number" min="0" step="1000" value="${unitCost}" data-purchase-cost required /></div>
         <strong class="purchase-line-total" data-purchase-line-total>${money.format(quantity * unitCost)}</strong>
-        <button class="icon-button" type="button" data-remove-purchase-item aria-label="Xóa dòng">×</button>
+        <button class="icon-button" type="button" data-remove-purchase-item aria-label="Xóa dòng">${icon("close")}</button>
       </div>
     `;
   }
@@ -3975,8 +4102,8 @@
         <div class="spreadsheet-column-list">${columns.map(([name, rule]) => `<div><code>${name}</code><span>${rule}</span></div>`).join("")}</div>
         <p class="spreadsheet-guide-note">Tối đa 500 dòng / 5 MB. Hệ thống kiểm tra toàn bộ file trước khi ghi. ${product ? "SKU cũ sẽ được cập nhật; thay đổi tồn kho được ghi lịch sử." : "Số điện thoại cũ sẽ được cập nhật; doanh số và lịch sử mua không bị ghi đè."}</p>
         <div class="spreadsheet-guide-actions">
-          <button class="button ghost" type="button" data-download-${product ? "product" : "customer"}-template>⇩ Tải file mẫu</button>
-          <button class="button primary" type="button" data-choose-${product ? "product" : "customer"}-file>Chọn file Excel</button>
+          <button class="button ghost" type="button" data-download-${product ? "product" : "customer"}-template>${icon("download")} Tải file mẫu</button>
+          <button class="button primary" type="button" data-choose-${product ? "product" : "customer"}-file>${icon("upload")} Chọn file Excel</button>
         </div>
       </div>`;
   }
@@ -4599,10 +4726,11 @@
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
     els.modalForm.insertAdjacentHTML("beforeend", definition.readOnly ? `
-      <div class="form-actions"><button class="button primary" type="button" data-close-modal>Đóng</button></div>
+      <div class="form-actions"><button class="button primary" type="button" data-close-modal>${icon("check")} Đóng</button></div>
     ` : `
-      <div class="form-actions"><button class="button ghost" type="button" data-close-modal>Hủy</button><button class="button primary" type="submit">Lưu</button></div>
+      <div class="form-actions"><button class="button ghost" type="button" data-close-modal>${icon("close")} Hủy</button><button class="button primary" type="submit">${icon("check")} Lưu</button></div>
     `);
+    hydrateIcons(els.modalForm);
     els.modalForm.onsubmit = definition.readOnly ? null : async event => {
       event.preventDefault();
       const button = event.currentTarget.querySelector("button[type='submit']");
@@ -5346,6 +5474,7 @@
   }
 
   injectSharedUi();
+  hydrateIcons(document);
   bindEvents();
   if (page === "auth") bootstrapAuthPage();
   else bootstrapAppPage();
