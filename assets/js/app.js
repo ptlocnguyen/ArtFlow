@@ -94,6 +94,7 @@
     upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>',
     userPlus: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/>',
+    wallet: '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5"/><path d="M16 13h.01"/>',
     warehouse: '<path d="M22 8.4 12 2 2 8.4"/><path d="M20 10v10H4V10"/><path d="M8 20v-6h8v6"/><path d="M8 14h8"/><path d="M8 17h8"/>'
   };
 
@@ -171,6 +172,12 @@
     accountingDebtSummary: qs("[data-accounting-debt-summary]"),
     accountingAccountFilter: qs("[data-accounting-account-filter]"),
     accountingRangeFilter: qs("[data-accounting-range-filter]"),
+    accountingProfitRange: qs("[data-accounting-profit-range]"),
+    accountingProfitSummary: qs("[data-accounting-profit-summary]"),
+    accountingProfitChart: qs("[data-accounting-profit-chart]"),
+    accountingExpenseBreakdown: qs("[data-accounting-expense-breakdown]"),
+    accountingProductProfitTable: qs("[data-accounting-product-profit-table]"),
+    accountingProfitCount: qs("[data-accounting-profit-count]"),
     purchasingKpis: qs("[data-purchasing-kpis]"),
     purchaseOrdersTable: qs("[data-purchase-orders-table]"),
     suppliersList: qs("[data-suppliers-list]"),
@@ -1338,7 +1345,7 @@
     document.querySelectorAll("[data-open-stock-receive], [data-open-stock-adjust]").forEach(button => {
       button.hidden = !canManageInventory();
     });
-    document.querySelectorAll("[data-open-cash-transaction], [data-open-accounting-account], [data-open-accounting-category], [data-open-accounting-reconciliation]").forEach(button => {
+    document.querySelectorAll("[data-open-cash-transaction], [data-open-payroll-expense], [data-open-accounting-account], [data-open-accounting-category], [data-open-accounting-reconciliation], [data-open-accounting-export]").forEach(button => {
       button.hidden = !canManageAccounting();
     });
     document.querySelectorAll("[data-open-supplier], [data-open-purchase], [data-receive-purchase], [data-return-purchase], [data-cancel-purchase]").forEach(button => {
@@ -1828,11 +1835,220 @@
     showToast(`Đã tạo ${result.created || 0}, cập nhật ${result.updated || 0} khách hàng.`);
   }
 
-  function exportProfitReport() {
-    const snapshot = profitSnapshot(reportFilters.range, reportFilters.channel);
+  function accountingExportRange() {
+    return (els.accountingProfitRange && els.accountingProfitRange.value) || accountingFilters.range || "30";
+  }
+
+  function accountingRangeLabel(range) {
+    return range === "all" ? "Toàn bộ thời gian" : `${range} ngày gần nhất`;
+  }
+
+  function accountingRangeSuffix(range) {
+    return range === "all" ? "all" : `${range}d`;
+  }
+
+  function accountingPeriodSubtitle(range) {
+    return `ArtFlow POS · ${accountingRangeLabel(range)} · Xuất lúc ${new Date().toLocaleString("vi-VN")}`;
+  }
+
+  function accountingTransactionsForRange(range) {
+    const period = reportPeriod(range);
+    return state.cashTransactions
+      .filter(transaction => transaction.status !== "deleted" && inReportPeriod(transaction.transactionDate || transaction.createdAt, period))
+      .slice()
+      .sort((a, b) => String(b.transactionDate || b.createdAt).localeCompare(String(a.transactionDate || a.createdAt)));
+  }
+
+  function accountingReceivableRows() {
+    return state.orders
+      .filter(order => order.status !== "cancelled")
+      .map(order => ({
+        order,
+        customer: getCustomer(order),
+        collected: collectedForOrder(order),
+        outstanding: outstandingForOrder(order),
+        ageDays: orderAgeDays(order)
+      }))
+      .filter(row => row.outstanding > 0)
+      .sort((a, b) => b.ageDays - a.ageDays || b.outstanding - a.outstanding);
+  }
+
+  function appendAccountingSummarySheet(workbook, XLSX, range) {
+    const snapshot = profitSnapshot(range, "all");
+    const transactions = accountingTransactionsForRange(range);
+    const accounts = state.accountingAccounts.filter(account => account.status !== "deleted");
+    const balances = accounts.reduce((sum, account) => sum + Number(account.currentBalance || 0), 0);
+    const income = transactions.filter(transaction => transaction.type === "income").reduce((sum, transaction) => sum + transaction.amount, 0);
+    const expense = transactions.filter(transaction => transaction.type === "expense").reduce((sum, transaction) => sum + transaction.amount, 0);
+    const receivable = accountingReceivableRows().reduce((sum, row) => sum + row.outstanding, 0);
+    const rows = [
+      ["Kỳ báo cáo", accountingRangeLabel(range), ""],
+      ["Số dư quỹ", balances, "Tổng số dư tài khoản tiền hiện tại"],
+      ["Tổng thu", income, "Theo sổ quỹ trong kỳ"],
+      ["Tổng chi", expense, "Theo sổ quỹ trong kỳ"],
+      ["Dòng tiền ròng", income - expense, "Tổng thu - tổng chi"],
+      ["Công nợ phải thu", receivable, "Tổng tiền còn phải thu"],
+      ["Doanh thu thuần", snapshot.revenue, "Đơn đã thanh toán, đã trừ hàng trả"],
+      ["Giá vốn", snapshot.cost, "Giá vốn thực tế của hàng đã bán"],
+      ["Lãi gộp", snapshot.grossProfit, "Doanh thu thuần - giá vốn"],
+      ["Chi phí vận hành", Math.round(snapshot.operatingExpenses), "Không gồm nhập hàng và hoàn tiền khách"],
+      ["Lãi ròng", Math.round(snapshot.netProfit), "Lãi gộp - chi phí vận hành"],
+      ["Biên lãi gộp", snapshot.grossMargin, "Lãi gộp / doanh thu thuần"]
+    ];
+    const sheet = createExcelSheet("BÁO CÁO KẾ TOÁN TỔNG HỢP", accountingPeriodSubtitle(range), ["Chỉ tiêu", "Giá trị", "Ghi chú"], rows, { widths: [26, 24, 54], wrapColumn: 2 });
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach(rowIndex => {
+      const cell = sheet[XLSX.utils.encode_cell({ r: rowIndex + 4, c: 1 })];
+      if (cell) cell.z = '#,##0 "₫"';
+    });
+    const marginCell = sheet[XLSX.utils.encode_cell({ r: 15, c: 1 })];
+    if (marginCell) marginCell.z = "0.00%";
+    XLSX.utils.book_append_sheet(workbook, sheet, "Tổng quan");
+  }
+
+  function appendCashLedgerSheet(workbook, XLSX, range) {
+    const rows = accountingTransactionsForRange(range).map(transaction => {
+      const account = getAccountingAccount(transaction.accountId);
+      const category = getAccountingCategory(transaction.categoryId);
+      return [
+        transaction.transactionDate || reportDayKey(transaction.createdAt),
+        accountingTypeLabel(transaction.type),
+        account.name,
+        category.name,
+        transaction.description,
+        transaction.referenceType || "manual",
+        transaction.referenceId || "",
+        transaction.type === "income" ? transaction.amount : 0,
+        transaction.type === "expense" ? transaction.amount : 0,
+        transaction.type === "income" ? transaction.amount : -transaction.amount,
+        formatDateTime(transaction.createdAt)
+      ];
+    });
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("SỔ QUỸ THU CHI", accountingPeriodSubtitle(range), ["Ngày", "Loại", "Tài khoản", "Danh mục", "Nội dung", "Loại tham chiếu", "Mã tham chiếu", "Thu", "Chi", "Ròng", "Ghi lúc"], rows, { widths: [14, 12, 22, 24, 42, 18, 20, 16, 16, 16, 22], moneyColumns: [7, 8, 9], textColumns: [6], wrapColumn: 4 }), "Sổ quỹ");
+  }
+
+  function appendReceivablesSheet(workbook, XLSX) {
+    const rows = accountingReceivableRows().map(row => [
+      row.order.code,
+      row.customer.name,
+      row.customer.phone || "",
+      channelLabel(row.order.channel),
+      reportDayKey(row.order.createdAt),
+      row.ageDays,
+      row.order.total,
+      row.collected,
+      row.outstanding,
+      row.ageDays >= 14 ? "Quá hạn" : row.ageDays >= 7 ? "Cần chú ý" : "Đang theo dõi"
+    ]);
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("CÔNG NỢ PHẢI THU", `ArtFlow POS · Cập nhật lúc ${new Date().toLocaleString("vi-VN")}`, ["Mã đơn", "Khách hàng", "Điện thoại", "Kênh", "Ngày tạo", "Tuổi nợ", "Tổng đơn", "Đã thu", "Còn phải thu", "Trạng thái"], rows, { widths: [20, 28, 18, 16, 14, 12, 16, 16, 18, 16], moneyColumns: [6, 7, 8], numberColumns: [5], textColumns: [2] }), "Công nợ");
+  }
+
+  function appendProductProfitSheet(workbook, XLSX, range) {
+    const snapshot = profitSnapshot(range, "all");
+    const rows = productProfitRowsFromSnapshot(snapshot).map(row => {
+      const profit = row.revenue - row.cost;
+      return [
+        row.sku,
+        row.name,
+        row.quantity,
+        Math.round(row.revenue),
+        Math.round(row.cost),
+        Math.round(profit),
+        row.revenue > 0 ? profit / row.revenue : 0
+      ];
+    });
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("LỢI NHUẬN THEO SẢN PHẨM", accountingPeriodSubtitle(range), ["SKU", "Sản phẩm", "SL bán", "Doanh thu", "Giá vốn", "Lãi gộp", "Biên lãi"], rows, { widths: [16, 34, 12, 18, 18, 18, 14], numberColumns: [2], moneyColumns: [3, 4, 5], percentColumns: [6], textColumns: [0] }), "Lợi nhuận SP");
+  }
+
+  function appendOperatingExpenseSheet(workbook, XLSX, range) {
+    const snapshot = profitSnapshot(range, "all");
+    const byCategory = snapshot.transactions.reduce((map, transaction) => {
+      const category = getAccountingCategory(transaction.categoryId);
+      const label = category.name || "Chưa phân loại";
+      map[label] = (map[label] || 0) + transaction.amount * snapshot.expenseRatio;
+      return map;
+    }, {});
+    const rows = Object.entries(byCategory)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, amount]) => [
+        label,
+        Math.round(amount),
+        snapshot.operatingExpenses > 0 ? amount / snapshot.operatingExpenses : 0
+      ]);
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("CHI PHÍ VẬN HÀNH", accountingPeriodSubtitle(range), ["Danh mục", "Số tiền", "Tỷ trọng"], rows, { widths: [30, 18, 14], moneyColumns: [1], percentColumns: [2] }), "Chi phí");
+  }
+
+  function appendAccountsAndReconciliationSheets(workbook, XLSX) {
+    const accountRows = state.accountingAccounts
+      .filter(account => account.status !== "deleted")
+      .map(account => [
+        account.name,
+        account.type,
+        account.openingBalance,
+        account.currentBalance,
+        account.status === "archived" ? "Ngừng dùng" : "Hoạt động",
+        formatDateTime(account.updatedAt || account.createdAt)
+      ]);
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("TÀI KHOẢN TIỀN", `ArtFlow POS · Cập nhật lúc ${new Date().toLocaleString("vi-VN")}`, ["Tài khoản", "Loại", "Số dư đầu", "Số dư hiện tại", "Trạng thái", "Cập nhật"], accountRows, { widths: [28, 14, 18, 18, 16, 22], moneyColumns: [2, 3] }), "Tài khoản");
+
+    const reconciliationRows = (state.accountingReconciliations || [])
+      .slice()
+      .sort((a, b) => String(b.reconciledAt || b.createdAt).localeCompare(String(a.reconciledAt || a.createdAt)))
+      .map(reconciliation => {
+        const account = getAccountingAccount(reconciliation.accountId);
+        return [
+          reconciliation.reconciledAt || reportDayKey(reconciliation.createdAt),
+          account.name,
+          reconciliation.systemBalance,
+          reconciliation.actualBalance,
+          reconciliation.difference,
+          reconciliation.note || ""
+        ];
+      });
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("LỊCH SỬ ĐỐI SOÁT", `ArtFlow POS · Cập nhật lúc ${new Date().toLocaleString("vi-VN")}`, ["Ngày", "Tài khoản", "Số dư sổ", "Số dư thực", "Chênh lệch", "Ghi chú"], reconciliationRows, { widths: [14, 28, 18, 18, 18, 40], moneyColumns: [2, 3, 4], wrapColumn: 5 }), "Đối soát");
+  }
+
+  function exportAccountingReport(type = "full") {
+    const range = accountingExportRange();
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
-    const filterText = `${reportFilters.range === "all" ? "Toàn bộ thời gian" : `${reportFilters.range} ngày`} · ${reportFilters.channel === "all" ? "Tất cả kênh" : channelLabel(reportFilters.channel)}`;
+    const include = {
+      full: ["summary", "ledger", "receivables", "profit", "expenses", "accounts"],
+      ledger: ["summary", "ledger"],
+      receivables: ["receivables"],
+      profit: ["summary", "profit", "expenses"],
+      productProfit: ["productProfit"],
+      expenses: ["expenses"],
+      accounts: ["accounts"]
+    }[type] || ["summary", "ledger"];
+
+    if (include.includes("summary")) appendAccountingSummarySheet(workbook, XLSX, range);
+    if (include.includes("ledger")) appendCashLedgerSheet(workbook, XLSX, range);
+    if (include.includes("receivables")) appendReceivablesSheet(workbook, XLSX);
+    if (include.includes("profit")) appendProductProfitSheet(workbook, XLSX, range);
+    if (include.includes("productProfit")) appendProductProfitSheet(workbook, XLSX, range);
+    if (include.includes("expenses")) appendOperatingExpenseSheet(workbook, XLSX, range);
+    if (include.includes("accounts")) appendAccountsAndReconciliationSheets(workbook, XLSX);
+
+    const names = {
+      full: "tong-hop-ke-toan",
+      ledger: "so-quy",
+      receivables: "cong-no-phai-thu",
+      profit: "lai-lo",
+      productProfit: "loi-nhuan-san-pham",
+      expenses: "chi-phi-van-hanh",
+      accounts: "tai-khoan-doi-soat"
+    };
+    saveExcelWorkbook(workbook, `artflow-${names[type] || "ke-toan"}-${accountingRangeSuffix(range)}-${reportDayKey(new Date())}.xlsx`);
+    showToast("Đã xuất file báo cáo kế toán.");
+  }
+
+  function exportProfitReport(options = {}) {
+    const range = options.range || reportFilters.range;
+    const channel = options.channel || reportFilters.channel;
+    const snapshot = profitSnapshot(range, channel);
+    const XLSX = requireXlsx();
+    const workbook = XLSX.utils.book_new();
+    const filterText = `${range === "all" ? "Toàn bộ thời gian" : `${range} ngày`} · ${channel === "all" ? "Tất cả kênh" : channelLabel(channel)}`;
     const summaryRows = [
       ["Bộ lọc", filterText, ""],
       ["Doanh thu thuần", snapshot.revenue, "Đã trừ hàng khách trả"],
@@ -1890,7 +2106,7 @@
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("HIỆU QUẢ THEO KÊNH", filterText, ["Kênh", "Số đơn", "Doanh thu", "Giá vốn", "Lãi gộp", "Biên lãi"], channelRows, { widths: [20, 14, 20, 18, 18, 14], numberColumns: [1], moneyColumns: [2, 3, 4], percentColumns: [5] }), "Theo kênh");
 
     const date = reportDayKey(new Date());
-    saveExcelWorkbook(workbook, `artflow-loi-nhuan-${reportFilters.range}-${reportFilters.channel}-${date}.xlsx`);
+    saveExcelWorkbook(workbook, `artflow-loi-nhuan-${range}-${channel}-${date}.xlsx`);
     showToast(`Đã xuất ${snapshot.orders.length} đơn trong báo cáo.`);
   }
 
@@ -2055,7 +2271,7 @@
     const missingAssets = products.filter(product => !productAssetsComplete(product));
     document.querySelectorAll("[data-provision-missing-products]").forEach(button => {
       button.disabled = !missingAssets.length;
-      const label = missingAssets.length ? `T?o t?i nguy?n h?ng lo?t (${missingAssets.length})` : "T?i nguy?n ?? ??y ??";
+      const label = missingAssets.length ? `Tạo tài nguyên hàng loạt (${missingAssets.length})` : "Tài nguyên đã đầy đủ";
       button.setAttribute("title", label);
       button.setAttribute("aria-label", label);
     });
@@ -2412,6 +2628,7 @@
       els.accountingAccountFilter.value = current;
     }
     if (els.accountingRangeFilter) els.accountingRangeFilter.value = accountingFilters.range;
+    if (els.accountingProfitRange) els.accountingProfitRange.value = accountingFilters.range;
 
     const cutoff = accountingFilters.range === "all" ? null : (() => {
       return shiftDateValue(localDateValue(), -Number(accountingFilters.range));
@@ -2607,6 +2824,8 @@
         `;
       }).join("") : `<tr><td colspan="6" class="empty">Chưa có giao dịch thu/chi.</td></tr>`;
     }
+
+    renderAccountingProfit();
   }
 
   function syncPurchasingView() {
@@ -2722,6 +2941,100 @@
         const dueText = bucket.days === null ? "Chưa đặt hạn" : bucket.days > 0 ? `${bucket.days} ngày quá hạn` : bucket.days === 0 ? "Đến hạn hôm nay" : `Còn ${Math.abs(bucket.days)} ngày`;
         return `<tr class="${bucket.days > 0 ? "overdue-row" : ""}"><td><span class="badge ${bucket.tone}">${bucket.label}</span></td><td><strong>${order.code}</strong></td><td>${supplier.name}</td><td>${order.dueDate ? formatDate(order.dueDate) : "—"}</td><td class="${bucket.days > 0 ? "danger-text" : ""}">${dueText}</td><td><strong>${money.format(order.outstanding)}</strong></td><td><div class="row-actions">${canPayPurchases() ? `<button class="link-button icon-only" type="button" data-pay-purchase="${order.id}" aria-label="Thanh toán" title="Thanh toán">${icon("receipt")}</button>${supplier.creditBalance > 0 ? `<button class="link-button icon-only" type="button" data-apply-supplier-credit="${order.id}" aria-label="Bù trừ" title="Bù trừ">${icon("calculator")}</button>` : ""}` : "—"}</div></td></tr>`;
       }).join("") : `<tr><td colspan="7" class="empty">Không có công nợ phải trả.</td></tr>`;
+    }
+  }
+
+  function productProfitRowsFromSnapshot(snapshot) {
+    const productRows = {};
+    snapshot.orders.forEach(order => {
+      const remainingItems = (order.items || []).map(item => ({
+        item,
+        quantity: Math.max(0, item.quantity - returnedOrderItemQuantity(item.id))
+      })).filter(entry => entry.quantity > 0);
+      const lineRevenue = remainingItems.reduce((sum, entry) => sum + entry.quantity * entry.item.unitPrice, 0);
+      remainingItems.forEach(entry => {
+        const row = productRows[entry.item.productId] || { name: entry.item.name, sku: entry.item.sku, quantity: 0, revenue: 0, cost: 0 };
+        const rawRevenue = entry.quantity * entry.item.unitPrice;
+        row.quantity += entry.quantity;
+        row.revenue += lineRevenue > 0 ? rawRevenue * order.netTotal / lineRevenue : 0;
+        row.cost += entry.quantity * entry.item.costPrice;
+        productRows[entry.item.productId] = row;
+      });
+    });
+    return Object.values(productRows).sort((a, b) => (b.revenue - b.cost) - (a.revenue - a.cost));
+  }
+
+  function renderAccountingProfit() {
+    if (!els.accountingProfitSummary && !els.accountingProductProfitTable) return;
+    const range = els.accountingProfitRange ? els.accountingProfitRange.value || accountingFilters.range : accountingFilters.range;
+    const snapshot = profitSnapshot(range, "all");
+    const previous = profitSnapshot(range, "all", true);
+    const payrollExpense = snapshot.transactions.reduce((sum, transaction) => {
+      const category = byId("accountingCategories", transaction.categoryId);
+      return /lương|luong|cộng tác viên|cong tac vien|payroll/i.test(String(category ? category.name : "") + " " + String(transaction.description || ""))
+        ? sum + transaction.amount
+        : sum;
+    }, 0);
+    if (els.accountingProfitSummary) {
+      const netMargin = snapshot.revenue > 0 ? snapshot.netProfit / snapshot.revenue : 0;
+      const cards = [
+        ["Doanh thu thuần", money.format(snapshot.revenue), range === "all" ? "Toàn bộ dữ liệu" : comparisonText(snapshot, previous, "revenue", "Doanh thu")],
+        ["Giá vốn", money.format(snapshot.cost), "Từ giá vốn sản phẩm đã bán"],
+        ["Lãi gộp", money.format(snapshot.grossProfit), `${(snapshot.grossMargin * 100).toFixed(1)}% biên lãi gộp`],
+        ["Chi phí vận hành", money.format(snapshot.operatingExpenses), payrollExpense > 0 ? `Trong đó lương ${money.format(payrollExpense)}` : "Không gồm nhập hàng và hoàn tiền"],
+        ["Lãi ròng", money.format(snapshot.netProfit), `${(netMargin * 100).toFixed(1)}% biên lãi ròng`]
+      ];
+      els.accountingProfitSummary.innerHTML = cards.map(([label, value, note], index) => `
+        <article class="accounting-profit-card" data-tone="${index}">
+          <span>${label}</span>
+          <strong>${value}</strong>
+          <small>${note}</small>
+        </article>
+      `).join("");
+    }
+    if (els.accountingExpenseBreakdown) {
+      const byCategory = snapshot.transactions.reduce((map, transaction) => {
+        const category = byId("accountingCategories", transaction.categoryId);
+        const label = category ? category.name : "Chưa phân loại";
+        map[label] = (map[label] || 0) + transaction.amount * snapshot.expenseRatio;
+        return map;
+      }, {});
+      const expenses = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+      const maxExpense = Math.max(...expenses.map(entry => entry[1]), 1);
+      els.accountingExpenseBreakdown.innerHTML = expenses.length ? expenses.map(([label, amount]) => {
+        const share = snapshot.operatingExpenses > 0 ? amount / snapshot.operatingExpenses * 100 : 0;
+        return `
+          <div class="expense-row accounting-expense-row">
+            <div><strong>${escapeHtml(label)}</strong><span>${money.format(amount)} · ${share.toFixed(1)}%</span></div>
+            <i style="--expense-width:${Math.round(amount / maxExpense * 100)}%"></i>
+          </div>
+        `;
+      }).join("") : `<div class="empty">Chưa phát sinh chi phí vận hành trong kỳ.</div>`;
+    }
+    if (els.accountingProductProfitTable) {
+      const products = productProfitRowsFromSnapshot(snapshot);
+      if (els.accountingProfitCount) els.accountingProfitCount.textContent = `${products.length} sản phẩm`;
+      els.accountingProductProfitTable.innerHTML = products.length ? products.slice(0, 12).map(row => {
+        const profit = row.revenue - row.cost;
+        const margin = row.revenue > 0 ? profit / row.revenue : 0;
+        return `<tr><td><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.sku)}</small></td><td>${row.quantity}</td><td>${money.format(row.revenue)}</td><td>${money.format(row.cost)}</td><td><strong>${money.format(profit)}</strong></td><td><span class="margin-value ${margin < 0 ? "negative" : ""}">${(margin * 100).toFixed(1)}%</span></td></tr>`;
+      }).join("") : `<tr><td colspan="6" class="empty">Chưa có dữ liệu sản phẩm trong kỳ.</td></tr>`;
+    }
+    if (els.accountingProfitChart) {
+      const dayMap = {};
+      snapshot.orders.forEach(order => {
+        const day = reportDayKey(order.createdAt);
+        const row = dayMap[day] || { revenue: 0, profit: 0 };
+        row.revenue += order.netTotal;
+        row.profit += order.netTotal - orderCost(order);
+        dayMap[day] = row;
+      });
+      const days = Object.keys(dayMap).sort();
+      const maxValue = Math.max(...days.map(day => Math.max(dayMap[day].revenue, Math.max(0, dayMap[day].profit))), 1);
+      els.accountingProfitChart.innerHTML = days.length ? days.map(day => {
+        const row = dayMap[day];
+        return `<div class="profit-chart-day"><div class="profit-bars"><i class="revenue" style="--value:${Math.max(3, Math.round(row.revenue / maxValue * 100))}%" title="Doanh thu ${money.format(row.revenue)}"></i><i class="profit" style="--value:${Math.max(3, Math.round(Math.max(0, row.profit) / maxValue * 100))}%" title="Lãi gộp ${money.format(row.profit)}"></i></div><span>${day.slice(5).replace("-", "/")}</span></div>`;
+      }).join("") : `<div class="empty">Chưa có doanh thu trong kỳ.</div>`;
     }
   }
 
@@ -3286,11 +3599,17 @@
       .join("");
   }
 
-  function renderAccountingCategoryOptions(type) {
+  function renderAccountingCategoryOptions(type, selectedId = "") {
     return (state.accountingCategories || [])
       .filter(category => category.status === "active" && category.type === type)
-      .map(category => `<option value="${category.id}">${category.name}</option>`)
+      .map(category => `<option value="${category.id}" ${category.id === selectedId ? "selected" : ""}>${category.name}</option>`)
       .join("");
+  }
+
+  function findAccountingCategoryByName(pattern, type = "expense") {
+    return (state.accountingCategories || []).find(category => {
+      return category.status === "active" && category.type === type && pattern.test(String(category.name || "").toLowerCase());
+    }) || null;
   }
 
   function renderCashTransactionForm() {
@@ -3304,6 +3623,48 @@
       <div class="field"><label for="referenceId">Mã tham chiếu</label><input id="referenceId" name="referenceId" type="text" placeholder="Mã đơn, phiếu chi..." /></div>
       <div class="field full"><label for="description">Nội dung</label><input id="description" name="description" type="text" placeholder="Thu tiền đơn hàng, chi nhập vật tư..." required /></div>
     `;
+  }
+
+  function renderPayrollExpenseForm() {
+    const today = localDateValue();
+    const salaryCategory = findAccountingCategoryByName(/lương|luong|cộng tác viên|cong tac vien|nhân sự|nhan su|payroll/i, "expense")
+      || (state.accountingCategories || []).find(category => category.status === "active" && category.type === "expense");
+    const staffOptions = (staffUsers || [])
+      .filter(user => user.status !== "deleted")
+      .map(user => `<option value="${escapeAttribute(user.name || user.email)}">${escapeHtml(user.name || user.email)}</option>`)
+      .join("");
+    return `
+      <div class="modal-summary full">
+        <strong>Tính lương nhanh</strong>
+        <span>Ghi một khoản chi lương, hoa hồng hoặc cộng tác viên vào sổ quỹ.</span>
+      </div>
+      <div class="field"><label for="transactionDate">Ngày ghi nhận</label><input id="transactionDate" name="transactionDate" type="date" value="${today}" required /></div>
+      <div class="field"><label for="staffName">Nhân sự</label><select id="staffName" name="staffName"><option value="">Không gắn nhân sự</option>${staffOptions}</select></div>
+      <div class="field"><label for="accountId">Tài khoản chi</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions()}</select></div>
+      <div class="field"><label for="categoryId">Danh mục chi</label><select id="categoryId" name="categoryId" required>${renderAccountingCategoryOptions("expense", salaryCategory ? salaryCategory.id : "")}</select></div>
+      <div class="field"><label for="baseSalary">Lương cơ bản</label><input id="baseSalary" name="baseSalary" type="number" min="0" step="1000" value="0" data-payroll-money /></div>
+      <div class="field"><label for="commission">Hoa hồng</label><input id="commission" name="commission" type="number" min="0" step="1000" value="0" data-payroll-money /></div>
+      <div class="field"><label for="bonus">Thưởng / phụ cấp</label><input id="bonus" name="bonus" type="number" min="0" step="1000" value="0" data-payroll-money /></div>
+      <div class="field"><label for="deduction">Khấu trừ</label><input id="deduction" name="deduction" type="number" min="0" step="1000" value="0" data-payroll-money /></div>
+      <div class="reconciliation-preview full payroll-preview">
+        <span><small>Tổng chi lương</small><b data-payroll-total>${money.format(0)}</b></span>
+        <span><small>Phân loại</small><b>Chi phí vận hành</b></span>
+        <span><small>Ghi vết</small><b>Sổ quỹ</b></span>
+      </div>
+      <div class="field full"><label for="description">Ghi chú</label><input id="description" name="description" type="text" placeholder="Lương tháng, ca làm, hoa hồng bán hàng..." /></div>
+    `;
+  }
+
+  function payrollFormTotal(form) {
+    if (!form) return 0;
+    const data = Object.fromEntries(new FormData(form));
+    return Math.max(0, Number(data.baseSalary || 0) + Number(data.commission || 0) + Number(data.bonus || 0) - Number(data.deduction || 0));
+  }
+
+  function updatePayrollPreview(form) {
+    if (!form) return;
+    const output = form.querySelector("[data-payroll-total]");
+    if (output) output.textContent = money.format(payrollFormTotal(form));
   }
 
   function renderOrderPaymentForm(order) {
@@ -4239,6 +4600,34 @@
       </div>`;
   }
 
+  function renderAccountingExportForm() {
+    const range = accountingExportRange();
+    const options = [
+      ["full", "Bộ báo cáo đầy đủ", "Tổng quan, sổ quỹ, công nợ, lãi lỗ, chi phí, tài khoản và đối soát.", "spreadsheet"],
+      ["profit", "Báo cáo lãi/lỗ", "Lãi gộp, lãi ròng, chi phí vận hành và lợi nhuận sản phẩm theo kỳ.", "chart"],
+      ["ledger", "Sổ quỹ thu/chi", "Chi tiết dòng tiền theo ngày, tài khoản, danh mục và tham chiếu.", "receipt"],
+      ["receivables", "Công nợ phải thu", "Danh sách đơn còn phải thu, tuổi nợ và trạng thái ưu tiên.", "clipboard"],
+      ["productProfit", "Lợi nhuận sản phẩm", "Xếp hạng sản phẩm theo doanh thu, giá vốn, lãi gộp và biên lãi.", "package"],
+      ["expenses", "Chi phí vận hành", "Tổng hợp chi phí theo danh mục và tỷ trọng.", "calculator"],
+      ["accounts", "Tài khoản & đối soát", "Số dư tài khoản tiền và lịch sử chênh lệch đối soát.", "wallet"]
+    ];
+    return `
+      <div class="modal-summary full">
+        <strong>Kỳ xuất: ${escapeHtml(accountingRangeLabel(range))}</strong>
+        <span>File Excel có định dạng sẵn, dùng để gửi báo cáo hoặc mở tiếp bằng Google Sheets.</span>
+      </div>
+      <div class="accounting-export-grid full">
+        ${options.map(([type, title, note, iconName]) => `
+          <button class="export-choice" type="button" data-export-accounting-report="${type}">
+            <span>${icon(iconName)}</span>
+            <strong>${title}</strong>
+            <small>${note}</small>
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
   function openModal(type, options = {}) {
     if (!els.modalBackdrop || !els.modalForm) return;
     if (type === "product" && !canManageProducts()) {
@@ -4269,7 +4658,7 @@
       showToast("Bạn không có quyền quản lý kho.", "error");
       return;
     }
-    if (["cashTransaction", "orderPayment", "orderRefund", "accountingAccount", "accountingCategory", "accountingReconciliation"].includes(type) && !canManageAccounting()) {
+    if (["cashTransaction", "payrollExpense", "orderPayment", "orderRefund", "accountingAccount", "accountingCategory", "accountingReconciliation", "accountingExport"].includes(type) && !canManageAccounting()) {
       showToast("Bạn không có quyền quản lý kế toán.", "error");
       return;
     }
@@ -4311,6 +4700,10 @@
     }
     if (type === "cashTransaction" && (!state.accountingAccounts.length || !state.accountingCategories.length)) {
       showToast("Cần có tài khoản tiền và danh mục trước khi ghi thu/chi.", "error");
+      return;
+    }
+    if (type === "payrollExpense" && (!(state.accountingAccounts || []).some(account => account.status === "active") || !(state.accountingCategories || []).some(category => category.status === "active" && category.type === "expense"))) {
+      showToast("Cần có tài khoản tiền và danh mục chi trước khi tính lương.", "error");
       return;
     }
     if (type === "orderPayment" && (!state.accountingAccounts.length || !state.accountingCategories.some(category => category.status === "active" && category.type === "income"))) {
@@ -4393,6 +4786,12 @@
         eyebrow: "Nhập dữ liệu Excel",
         title: "Nhập danh mục sản phẩm",
         body: renderSpreadsheetImportGuide("product"),
+        readOnly: true
+      },
+      accountingExport: {
+        eyebrow: "Kế toán",
+        title: "Xuất file báo cáo",
+        body: renderAccountingExportForm(),
         readOnly: true
       },
       customerImport: {
@@ -4602,6 +5001,37 @@
           await loadAccountingData({ quiet: true });
           renderPage();
           showToast("Đã ghi nhận giao dịch thu/chi.");
+        }
+      },
+      payrollExpense: {
+        eyebrow: "Chi phí nhân sự",
+        title: "Tính lương",
+        body: renderPayrollExpenseForm(),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const amount = payrollFormTotal(form);
+          if (!data.accountId || !data.categoryId || amount <= 0) {
+            throw new Error("Vui lòng nhập khoản lương hợp lệ.");
+          }
+          const staffName = String(data.staffName || "").trim();
+          const description = String(data.description || "").trim() || `Chi lương${staffName ? " - " + staffName : ""}`;
+          const dataFromApi = await apiRequest("/accounting/transactions/create", {
+            method: "POST",
+            body: JSON.stringify({
+              type: "expense",
+              accountId: data.accountId,
+              categoryId: data.categoryId,
+              amount,
+              transactionDate: data.transactionDate,
+              description,
+              referenceType: "payroll",
+              referenceId: staffName
+            })
+          });
+          state.cashTransactions.unshift(normalizeCashTransaction(dataFromApi.transaction));
+          await loadAccountingData({ quiet: true });
+          renderPage();
+          showToast("Đã ghi nhận chi phí lương.");
         }
       },
       orderPayment: {
@@ -5039,6 +5469,13 @@
       });
     }
 
+    if (els.accountingProfitRange) {
+      els.accountingProfitRange.addEventListener("change", event => {
+        accountingFilters.range = event.target.value;
+        renderPage();
+      });
+    }
+
     if (els.purchaseStatusFilter) {
       els.purchaseStatusFilter.addEventListener("change", event => {
         purchasingFilters.status = event.target.value;
@@ -5127,7 +5564,7 @@
         const auditLog = auditLogs.find(log => log.id === target.dataset.viewAudit);
         if (auditLog) openModal("auditDetail", { auditLog });
       }
-      if (target.matches("[data-export-profit-report]")) exportProfitReport();
+      if (target.matches("[data-export-profit-report]")) exportProfitReport(page === "accounting" ? { range: accountingExportRange(), channel: "all" } : {});
       if (target.matches("[data-export-products]")) exportProductsCsv();
       if (target.matches("[data-import-products]")) openModal("productImport");
       if (target.matches("[data-export-customers]")) exportCustomersCsv();
@@ -5229,6 +5666,12 @@
         renderInventory();
       }
       if (target.matches("[data-open-cash-transaction]")) openModal("cashTransaction");
+      if (target.matches("[data-open-payroll-expense]")) openModal("payrollExpense");
+      if (target.matches("[data-open-accounting-export]")) openModal("accountingExport");
+      if (target.dataset.exportAccountingReport) {
+        exportAccountingReport(target.dataset.exportAccountingReport);
+        closeModal();
+      }
       if (target.matches("[data-open-accounting-account]")) openModal("accountingAccount");
       if (target.matches("[data-open-accounting-reconciliation]")) openModal("accountingReconciliation");
       if (target.matches("[data-open-accounting-category]")) openModal("accountingCategory");
@@ -5531,6 +5974,7 @@
       if (event.target.matches("[data-return-quantity]")) updatePurchaseReturnPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-order-return-quantity]")) updateOrderReturnPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-reconciliation-actual]")) updateReconciliationPreview(event.target.closest("form") || els.modalForm);
+      if (event.target.matches("[data-payroll-money]")) updatePayrollPreview(event.target.closest("form") || els.modalForm);
     });
 
     document.addEventListener("change", async event => {

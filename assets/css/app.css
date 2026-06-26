@@ -1128,6 +1128,7 @@ body[data-page="reports"] .view.active {
 
 body[data-page="accounting"] .view.active {
   grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
 }
 
 body[data-page="purchasing"] .view.active {
@@ -1331,6 +1332,25 @@ body[data-page="purchasing"] .view.active {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
+}
+
+.accounting-kpi-grid {
+  gap: 10px;
+}
+
+body[data-page="accounting"] .kpi-card {
+  padding: 12px 14px;
+}
+
+body[data-page="accounting"] .kpi-value {
+  margin: 4px 0 2px;
+  font-size: 22px;
+}
+
+body[data-page="accounting"] .kpi-note {
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .accounting-ledger,
@@ -1343,7 +1363,26 @@ body[data-page="purchasing"] .view.active {
 
 .accounting-view-switch {
   justify-self: start;
-  margin: 0 0 2px;
+  position: relative;
+  z-index: 2;
+  margin: 0;
+}
+
+.accounting-tabbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 4px 0;
+}
+
+.accounting-tab-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .accounting-ledger .table-wrap {
@@ -1385,6 +1424,104 @@ body[data-page="purchasing"] .view.active {
   grid-template-columns: auto minmax(150px, 1fr) minmax(130px, 0.7fr);
   gap: 10px;
   padding: 12px 16px 6px;
+}
+
+.accounting-profit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+  grid-template-rows: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.accounting-profit-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.accounting-profit-panel>.panel-header {
+  padding-bottom: 10px;
+}
+
+.accounting-profit-panel>.panel-header select {
+  flex: 0 0 160px;
+  width: 160px;
+  min-height: 38px;
+}
+
+.accounting-wide-panel {
+  grid-column: 1 / -1;
+}
+
+.accounting-wide-panel .table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.accounting-wide-panel table {
+  min-width: 820px;
+}
+
+.accounting-profit-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 16px 10px;
+}
+
+.accounting-profit-card {
+  min-width: 0;
+  padding: 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.accounting-profit-card span,
+.accounting-profit-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.accounting-profit-card strong {
+  display: block;
+  margin: 4px 0 2px;
+  font-size: 16px;
+  line-height: 1.15;
+}
+
+.compact-accounting-chart {
+  flex: 1 1 auto;
+  min-height: 165px;
+  margin: 0 16px 14px;
+  padding: 10px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.compact-accounting-chart .profit-chart-day {
+  grid-template-rows: minmax(96px, 1fr) auto;
+}
+
+.accounting-expense-row {
+  margin: 0 0 10px;
+}
+
+.accounting-profit-panel>.expense-breakdown {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.payroll-preview {
+  grid-column: 1 / -1;
 }
 
 .segmented-control {
@@ -2333,6 +2470,63 @@ body[data-page="inventory"] .inventory-card[data-card-tone="3"] strong {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.accounting-export-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.export-choice {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  min-height: 104px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 4px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease;
+}
+
+.export-choice:hover,
+.export-choice:focus-visible {
+  border-color: rgba(37, 99, 235, .45);
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.export-choice>span {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, .12);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+  grid-row: span 2;
+}
+
+.export-choice svg {
+  width: 20px;
+  height: 20px;
+}
+
+.export-choice strong {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.export-choice small {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 body[data-page="activity"] .view.active {
@@ -4091,6 +4285,25 @@ body[data-page="orderCreate"] .summary-total strong {
     grid-template-columns: 1fr;
   }
 
+  .accounting-tabbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .accounting-tab-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .accounting-profit-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(260px, 0.9fr) minmax(220px, 0.75fr) minmax(280px, 1fr);
+  }
+
+  .accounting-profit-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .supplier-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4499,6 +4712,39 @@ body[data-page="orderCreate"] .summary-total strong {
     min-width: 0;
   }
 
+  .accounting-tabbar {
+    gap: 8px;
+  }
+
+  .accounting-tab-actions .button:not(.icon-only) {
+    flex: 1 1 130px;
+  }
+
+  .accounting-profit-summary {
+    grid-template-columns: 1fr;
+    padding-inline: 14px;
+  }
+
+  .compact-accounting-chart {
+    margin-inline: 14px;
+    min-height: 160px;
+  }
+
+  .accounting-wide-panel .table-wrap,
+  .accounting-profit-panel>.expense-breakdown {
+    max-height: none;
+  }
+
+  .accounting-profit-grid .panel-header.split {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .accounting-profit-panel>.panel-header select {
+    width: 100%;
+    flex-basis: auto;
+  }
+
   .segmented-control button {
     flex: 1;
     min-width: 0;
@@ -4514,6 +4760,14 @@ body[data-page="orderCreate"] .summary-total strong {
 
   .spreadsheet-guide-actions {
     display: grid;
+  }
+
+  .accounting-export-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .export-choice {
+    min-height: 92px;
   }
 
   .audit-filters,
