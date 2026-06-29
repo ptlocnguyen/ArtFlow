@@ -25,6 +25,7 @@
   const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" };
   const inventoryFilters = { category: "all", stock: "all", sort: "risk" };
   const contentFilters = { status: "all", type: "all", owner: "all", channel: "all", product: "all", schedule: "all" };
+  const teamFilters = { view: "meetings", status: "all", owner: "all", range: "30" };
 
   const channels = {
     pos: "POS",
@@ -74,6 +75,7 @@
     eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
     file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/>',
     sparkles: '<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8Z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9Z"/><path d="M5 14l.9 2.1L8 17l-2.1.9L5 20l-.9-2.1L2 17l2.1-.9Z"/>',
+    briefcase: '<path d="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1"/><rect width="20" height="14" x="2" y="6" rx="2"/><path d="M2 13h20"/><path d="M12 12v2"/>',
     folderPlus: '<path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 4A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
     history: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>',
     image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
@@ -112,12 +114,18 @@
     });
   }
 
+  function makeLocalId(prefix) {
+    if (window.crypto && window.crypto.randomUUID) return `${prefix}_${window.crypto.randomUUID()}`;
+    return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  }
+
   const pages = {
     dashboard: { title: "Tổng quan", href: "./dashboard.html", icon: "dashboard" },
     orders: { title: "Đơn hàng", href: "./orders.html", icon: "clipboard" },
     orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "shoppingCart", hidden: true },
     products: { title: "Sản phẩm", href: "./products.html", icon: "package" },
     content: { title: "Content", href: "./content.html", icon: "sparkles" },
+    team: { title: "Team Hub", href: "./team.html", icon: "briefcase" },
     customers: { title: "Khách hàng", href: "./customers.html", icon: "users" },
     purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "truck" },
     purchaseCreate: { title: "Tạo phiếu mua", href: "./purchase-create.html", icon: "plus", hidden: true },
@@ -163,6 +171,13 @@
     contentChannelFilter: qs("[data-content-channel-filter]"),
     contentProductFilter: qs("[data-content-product-filter]"),
     contentScheduleFilter: qs("[data-content-schedule-filter]"),
+    teamKpis: qs("[data-team-kpis]"),
+    teamContent: qs("[data-team-content]"),
+    teamStatusFilter: qs("[data-team-status-filter]"),
+    teamOwnerFilter: qs("[data-team-owner-filter]"),
+    teamRangeFilter: qs("[data-team-range-filter]"),
+    teamPanelTitle: qs("[data-team-panel-title]"),
+    teamPanelNote: qs("[data-team-panel-note]"),
     customersTable: qs("[data-customers-table]"),
     customerCsvFile: qs("[data-customer-csv-file]"),
     usersTable: qs("[data-users-table]"),
@@ -849,6 +864,107 @@
     };
   }
 
+  function normalizeTeamAction(action) {
+    return {
+      id: action.id || makeLocalId("action"),
+      title: action.title || "",
+      owner: action.owner || "",
+      dueDate: action.dueDate || "",
+      status: action.status || "todo"
+    };
+  }
+
+  function normalizeTeamMeeting(meeting) {
+    return {
+      id: meeting.id || makeLocalId("meeting"),
+      title: meeting.title || "",
+      type: meeting.type || "weekly",
+      status: meeting.status || "draft",
+      meetingAt: meeting.meetingAt || "",
+      owner: meeting.owner || "",
+      attendees: meeting.attendees || "",
+      agenda: meeting.agenda || "",
+      notes: meeting.notes || "",
+      decisions: Array.isArray(meeting.decisions) ? meeting.decisions : [],
+      actions: Array.isArray(meeting.actions) ? meeting.actions.map(normalizeTeamAction) : [],
+      links: meeting.links || "",
+      createdAt: meeting.createdAt || "",
+      updatedAt: meeting.updatedAt || ""
+    };
+  }
+
+  function normalizeTeamPlan(plan) {
+    return {
+      id: plan.id || makeLocalId("plan"),
+      title: plan.title || "",
+      period: plan.period || "",
+      status: plan.status || "idea",
+      owner: plan.owner || "",
+      goalRevenue: Number(plan.goalRevenue || 0),
+      goalProfit: Number(plan.goalProfit || 0),
+      budget: Number(plan.budget || 0),
+      channels: plan.channels || "",
+      focusProducts: plan.focusProducts || "",
+      milestones: Array.isArray(plan.milestones) ? plan.milestones : [],
+      risks: plan.risks || "",
+      note: plan.note || "",
+      createdAt: plan.createdAt || "",
+      updatedAt: plan.updatedAt || ""
+    };
+  }
+
+  function normalizePricingLine(line) {
+    return {
+      id: line.id || makeLocalId("price_line"),
+      label: line.label || "",
+      type: line.type || "fixed",
+      value: Number(line.value || 0)
+    };
+  }
+
+  function normalizePricingScenario(scenario) {
+    return {
+      id: scenario.id || makeLocalId("price_scenario"),
+      label: scenario.label || "",
+      targetMargin: Number(scenario.targetMargin || 35),
+      salePrice: Number(scenario.salePrice || 0)
+    };
+  }
+
+  function normalizePricingModel(model) {
+    return {
+      id: model.id || makeLocalId("pricing"),
+      title: model.title || "",
+      productId: model.productId || "",
+      status: model.status || "draft",
+      owner: model.owner || "",
+      baseCost: Number(model.baseCost || 0),
+      quantity: Math.max(1, Number(model.quantity || 1)),
+      lines: Array.isArray(model.lines) ? model.lines.map(normalizePricingLine) : [],
+      scenarios: Array.isArray(model.scenarios) ? model.scenarios.map(normalizePricingScenario) : [],
+      note: model.note || "",
+      createdAt: model.createdAt || "",
+      updatedAt: model.updatedAt || ""
+    };
+  }
+
+  function normalizeTeamDecision(decision) {
+    return {
+      id: decision.id || makeLocalId("decision"),
+      title: decision.title || "",
+      sourceType: decision.sourceType || "manual",
+      sourceId: decision.sourceId || "",
+      status: decision.status || "active",
+      owner: decision.owner || "",
+      decidedAt: decision.decidedAt || "",
+      tags: decision.tags || "",
+      detail: decision.detail || "",
+      nextReviewAt: decision.nextReviewAt || "",
+      createdAt: decision.createdAt || "",
+      updatedAt: decision.updatedAt || ""
+    };
+  }
+
   async function loadProducts(options = {}) {
     try {
       const data = await apiRequest("/products");
@@ -1246,6 +1362,7 @@
       orderCreate: ["products", "customers"],
       products: ["products"],
       content: ["content"],
+      team: [],
       customers: ["customers"],
       inventory: ["products", "stockMovements"],
       accounting: ["customers", "orders", "accounting"],
@@ -1928,6 +2045,26 @@
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("BÁO CÁO CONTENT", `Xuất lúc ${new Date().toLocaleString("vi-VN")} · ${items.length} chủ đề`, ["Chủ đề", "Loại", "Trạng thái", "Kênh", "Ưu tiên", "Phụ trách", "Phối hợp", "SKU", "Sản phẩm", "Deadline", "Lịch đăng", "Checklist", "Asset", "Docs", "Drive", "Link đã đăng", "Tag", "Ghi chú", "Cập nhật"], rows, { widths: [34, 18, 18, 16, 14, 22, 28, 16, 32, 14, 20, 12, 12, 38, 38, 38, 28, 40, 22], textColumns: [7], wrapColumn: 17 }), "Content");
     saveExcelWorkbook(workbook, `artflow-content-${reportDayKey(new Date())}.xlsx`);
     showToast(`Đã xuất ${items.length} chủ đề content.`);
+  }
+
+  function exportTeamReport() {
+    const XLSX = requireXlsx();
+    const workbook = XLSX.utils.book_new();
+    const meetings = (state.teamMeetings || []).map(normalizeTeamMeeting);
+    const plans = (state.teamPlans || []).map(normalizeTeamPlan);
+    const pricing = (state.teamPricingModels || []).map(normalizePricingModel);
+    const decisions = (state.teamDecisions || []).map(normalizeTeamDecision);
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - BIÊN BẢN", `Xuất lúc ${new Date().toLocaleString("vi-VN")} · ${meetings.length} cuộc họp`, ["Cuộc họp", "Loại", "Trạng thái", "Thời gian", "Chủ trì", "Thành viên", "Agenda", "Biên bản", "Quyết định", "Việc cần làm"], meetings.map(item => [item.title, item.type, teamStatuses[item.status] || item.status, item.meetingAt, item.owner, item.attendees, item.agenda, item.notes, (item.decisions || []).join("\n"), textFromActionRows(item.actions)]), { widths: [32, 14, 16, 20, 22, 32, 42, 52, 44, 44], wrapColumn: 7 }), "Biên bản");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - KẾ HOẠCH", `${plans.length} kế hoạch`, ["Kế hoạch", "Kỳ", "Trạng thái", "Phụ trách", "Doanh thu mục tiêu", "Lợi nhuận mục tiêu", "Ngân sách", "Kênh", "Sản phẩm trọng tâm", "Milestone", "Rủi ro", "Ghi chú"], plans.map(item => [item.title, item.period, teamStatuses[item.status] || item.status, item.owner, item.goalRevenue, item.goalProfit, item.budget, item.channels, item.focusProducts, (item.milestones || []).map(m => [m.title, m.dueDate, m.owner].filter(Boolean).join(" | ")).join("\n"), item.risks, item.note]), { widths: [32, 14, 16, 22, 18, 18, 16, 26, 32, 42, 36, 42], moneyColumns: [4, 5, 6], wrapColumn: 9 }), "Kế hoạch");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - TÍNH GIÁ", `${pricing.length} bảng tính giá`, ["Bảng tính", "Sản phẩm", "Trạng thái", "Phụ trách", "Giá vốn", "Chi phí thêm", "Kịch bản", "Giá gợi ý", "Biên lãi", "Ghi chú"], pricing.map(item => {
+      const product = item.productId ? byId("products", item.productId) : null;
+      const scenario = (item.scenarios || [])[0] || { targetMargin: 35, salePrice: 0 };
+      const totals = pricingTotals(item, scenario);
+      return [item.title, product ? `${product.sku} · ${product.name}` : "", teamStatuses[item.status] || item.status, item.owner, item.baseCost, (item.lines || []).map(line => `${line.label}: ${line.type === "fixed" ? money.format(line.value) : line.value + "%"}`).join("\n"), (item.scenarios || []).map(s => `${s.label}: ${s.targetMargin}%`).join("\n"), totals.suggested, totals.margin / 100, item.note];
+    }), { widths: [32, 34, 16, 22, 16, 34, 30, 16, 12, 38], moneyColumns: [4, 7], percentColumns: [8], wrapColumn: 5 }), "Tính giá");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - QUYẾT ĐỊNH", `${decisions.length} quyết định`, ["Quyết định", "Trạng thái", "Phụ trách", "Ngày chốt", "Tag", "Nội dung", "Ngày xem lại"], decisions.map(item => [item.title, teamStatuses[item.status] || item.status, item.owner, item.decidedAt, item.tags, item.detail, item.nextReviewAt]), { widths: [38, 16, 22, 14, 28, 56, 14], wrapColumn: 5 }), "Quyết định");
+    saveExcelWorkbook(workbook, `artflow-team-hub-${reportDayKey(new Date())}.xlsx`);
+    showToast("Đã xuất báo cáo Team Hub.");
   }
 
   function customerRowsFromCsv(text) {
@@ -2926,6 +3063,394 @@
     showToast("Đã ẩn chủ đề content.");
   }
 
+  const teamViews = {
+    meetings: { title: "Biên bản họp", note: "Agenda, quyết định và việc cần làm sau mỗi cuộc họp.", action: "Cuộc họp" },
+    plans: { title: "Kế hoạch kinh doanh", note: "Mục tiêu, ngân sách, kênh triển khai và milestone theo kỳ.", action: "Kế hoạch" },
+    pricing: { title: "Pricing Lab", note: "Cân đối giá vốn, chi phí, biên lãi và kịch bản giá bán.", action: "Bảng giá" },
+    decisions: { title: "Quyết định", note: "Các quyết định đã chốt, người chịu trách nhiệm và ngày cần xem lại.", action: "Quyết định" }
+  };
+
+  const teamStatuses = {
+    draft: "Nháp",
+    scheduled: "Đã lên lịch",
+    completed: "Hoàn tất",
+    cancelled: "Hủy",
+    idea: "Ý tưởng",
+    active: "Đang chạy",
+    paused: "Tạm dừng",
+    done: "Xong",
+    archived: "Lưu trữ",
+    todo: "Cần làm",
+    doing: "Đang làm",
+    approved: "Đã duyệt"
+  };
+
+  function teamOwners() {
+    const values = new Set();
+    [
+      ...(state.teamMeetings || []),
+      ...(state.teamPlans || []),
+      ...(state.teamPricingModels || []),
+      ...(state.teamDecisions || [])
+    ].forEach(item => {
+      if (item.owner) values.add(item.owner);
+      (item.actions || []).forEach(action => { if (action.owner) values.add(action.owner); });
+    });
+    (state.users || []).filter(user => user.status === "active").forEach(user => values.add(user.name || user.email));
+    if (currentUser) values.add(currentUser.name || currentUser.email);
+    return [...values].filter(Boolean).sort((a, b) => a.localeCompare(b, "vi"));
+  }
+
+  function teamDateInRange(value) {
+    if (teamFilters.range === "all") return true;
+    if (!value) return true;
+    const date = new Date(value).getTime();
+    if (!isFinite(date)) return true;
+    const days = Math.max(1, Number(teamFilters.range || 30));
+    return Date.now() - date <= days * 86400000;
+  }
+
+  function teamSearchText(item) {
+    return [
+      item.title, item.type, item.status, item.owner, item.attendees, item.agenda, item.notes,
+      item.channels, item.focusProducts, item.tags, item.detail, item.note, item.links
+    ].join(" ").toLowerCase();
+  }
+
+  function currentTeamItems() {
+    const map = {
+      meetings: (state.teamMeetings || []).map(normalizeTeamMeeting),
+      plans: (state.teamPlans || []).map(normalizeTeamPlan),
+      pricing: (state.teamPricingModels || []).map(normalizePricingModel),
+      decisions: (state.teamDecisions || []).map(normalizeTeamDecision)
+    };
+    const term = searchTerm.trim().toLowerCase();
+    return (map[teamFilters.view] || [])
+      .filter(item => item.status !== "deleted")
+      .filter(item => teamFilters.status === "all" || item.status === teamFilters.status)
+      .filter(item => teamFilters.owner === "all" || item.owner === teamFilters.owner || (item.actions || []).some(action => action.owner === teamFilters.owner))
+      .filter(item => teamDateInRange(item.meetingAt || item.updatedAt || item.createdAt || item.decidedAt || item.period))
+      .filter(item => !term || teamSearchText(item).includes(term))
+      .sort((a, b) => String(b.meetingAt || b.decidedAt || b.updatedAt || b.createdAt || "").localeCompare(String(a.meetingAt || a.decidedAt || a.updatedAt || a.createdAt || "")));
+  }
+
+  function setTeamOptions(select, entries, current, allLabel) {
+    if (!select) return;
+    select.innerHTML = `<option value="all">${allLabel}</option>${entries.map(([value, label]) => `<option value="${escapeAttribute(value)}">${escapeHtml(label)}</option>`).join("")}`;
+    select.value = entries.some(([value]) => value === current) ? current : "all";
+  }
+
+  function renderTeamFilters() {
+    const items = {
+      meetings: state.teamMeetings || [],
+      plans: state.teamPlans || [],
+      pricing: state.teamPricingModels || [],
+      decisions: state.teamDecisions || []
+    }[teamFilters.view] || [];
+    const statuses = [...new Set(items.map(item => item.status).filter(Boolean))]
+      .map(status => [status, teamStatuses[status] || status]);
+    setTeamOptions(els.teamStatusFilter, statuses, teamFilters.status, "Tất cả trạng thái");
+    setTeamOptions(els.teamOwnerFilter, teamOwners().map(owner => [owner, owner]), teamFilters.owner, "Tất cả phụ trách");
+    if (els.teamRangeFilter) els.teamRangeFilter.value = teamFilters.range;
+  }
+
+  function teamKpis() {
+    const meetings = (state.teamMeetings || []).map(normalizeTeamMeeting);
+    const plans = (state.teamPlans || []).map(normalizeTeamPlan);
+    const pricing = (state.teamPricingModels || []).map(normalizePricingModel);
+    const decisions = (state.teamDecisions || []).map(normalizeTeamDecision);
+    const openActions = meetings.flatMap(item => item.actions || []).filter(action => action.status !== "done").length;
+    return [
+      ["Cuộc họp", meetings.length, "Biên bản và action items"],
+      ["Việc mở", openActions, "Từ các cuộc họp"],
+      ["Kế hoạch", plans.filter(plan => ["idea", "active"].includes(plan.status)).length, "Đang theo dõi"],
+      ["Bảng giá", pricing.length, "Kịch bản giá bán"],
+      ["Quyết định", decisions.filter(decision => decision.status === "active").length, "Đang có hiệu lực"]
+    ];
+  }
+
+  function renderTeamHub() {
+    if (!els.teamContent) return;
+    renderTeamFilters();
+    document.querySelectorAll("[data-team-view]").forEach(button => {
+      button.classList.toggle("active", button.dataset.teamView === teamFilters.view);
+    });
+    const view = teamViews[teamFilters.view] || teamViews.meetings;
+    if (els.teamPanelTitle) els.teamPanelTitle.textContent = view.title;
+    if (els.teamPanelNote) els.teamPanelNote.textContent = view.note;
+    const primary = qs("[data-team-primary-action]");
+    const secondary = qs("[data-team-secondary-action]");
+    [primary, secondary].forEach(button => {
+      if (button) button.innerHTML = `${icon("plus")} ${button === primary ? "Tạo " : ""}${view.action}`;
+    });
+    if (els.teamKpis) {
+      els.teamKpis.innerHTML = teamKpis().map(([label, value, note]) => `<article><span>${escapeHtml(label)}</span><strong>${value}</strong><small>${escapeHtml(note)}</small></article>`).join("");
+    }
+    const renderers = {
+      meetings: renderTeamMeetings,
+      plans: renderTeamPlans,
+      pricing: renderTeamPricing,
+      decisions: renderTeamDecisions
+    };
+    els.teamContent.innerHTML = renderers[teamFilters.view]();
+    enhanceResponsiveTables(els.teamContent);
+  }
+
+  function teamStatusBadge(status) {
+    return `<span class="badge team-status-${escapeAttribute(status)}">${escapeHtml(teamStatuses[status] || status || "—")}</span>`;
+  }
+
+  function renderTeamMeetings() {
+    const items = currentTeamItems();
+    return `<div class="team-list">${items.length ? items.map(meeting => {
+      const openActions = (meeting.actions || []).filter(action => action.status !== "done").length;
+      return `<article class="team-item">
+        <div><strong>${escapeHtml(meeting.title)}</strong><small>${escapeHtml(meeting.type)} · ${meeting.meetingAt ? formatDateTimeShort(meeting.meetingAt) : "Chưa có lịch"} · ${escapeHtml(meeting.owner || "Chưa giao")}</small></div>
+        <div>${teamStatusBadge(meeting.status)}<small>${openActions} việc mở · ${(meeting.decisions || []).length} quyết định</small></div>
+        <div class="team-item-preview">${escapeHtml(meeting.agenda || meeting.notes || "Chưa có nội dung.").slice(0, 160)}</div>
+        <div class="row-actions"><button class="link-button icon-only" type="button" data-view-team-meeting="${meeting.id}" title="Xem">${icon("eye")}</button><button class="link-button icon-only action-edit" type="button" data-edit-team-meeting="${meeting.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="meetings:${meeting.id}" title="Lưu trữ">${icon("archive")}</button></div>
+      </article>`;
+    }).join("") : `<div class="empty">Chưa có biên bản phù hợp.</div>`}</div>`;
+  }
+
+  function renderTeamPlans() {
+    const items = currentTeamItems();
+    return `<div class="team-card-grid">${items.length ? items.map(plan => `<article class="team-plan-card">
+      <div class="team-card-head"><div><strong>${escapeHtml(plan.title)}</strong><small>${escapeHtml(plan.period || "Chưa có kỳ")} · ${escapeHtml(plan.owner || "Chưa giao")}</small></div>${teamStatusBadge(plan.status)}</div>
+      <div class="team-money-grid"><span><small>Doanh thu mục tiêu</small><b>${money.format(plan.goalRevenue)}</b></span><span><small>Lợi nhuận mục tiêu</small><b>${money.format(plan.goalProfit)}</b></span><span><small>Ngân sách</small><b>${money.format(plan.budget)}</b></span></div>
+      <p>${escapeHtml(plan.note || plan.risks || "Chưa có ghi chú.")}</p>
+      <div class="row-actions"><button class="link-button icon-only action-edit" type="button" data-edit-team-plan="${plan.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="plans:${plan.id}" title="Lưu trữ">${icon("archive")}</button></div>
+    </article>`).join("") : `<div class="empty">Chưa có kế hoạch phù hợp.</div>`}</div>`;
+  }
+
+  function pricingLineAmount(line, baseCost, salePrice) {
+    if (line.type === "cost_percent") return baseCost * line.value / 100;
+    if (line.type === "price_percent") return salePrice * line.value / 100;
+    return line.value;
+  }
+
+  function pricingTotals(model, scenario) {
+    const targetMargin = Math.max(0, Number(scenario?.targetMargin || 0));
+    const baseCost = Number(model.baseCost || 0);
+    const fixedExtra = (model.lines || []).filter(line => line.type !== "price_percent").reduce((sum, line) => sum + pricingLineAmount(line, baseCost, 0), 0);
+    const pricePercent = (model.lines || []).filter(line => line.type === "price_percent").reduce((sum, line) => sum + Number(line.value || 0), 0);
+    const divisor = Math.max(0.01, 1 - (targetMargin + pricePercent) / 100);
+    const suggested = Math.ceil((baseCost + fixedExtra) / divisor / 1000) * 1000;
+    const salePrice = Number(scenario?.salePrice || 0) || suggested;
+    const extra = (model.lines || []).reduce((sum, line) => sum + pricingLineAmount(line, baseCost, salePrice), 0);
+    const totalCost = baseCost + extra;
+    const grossProfit = salePrice - totalCost;
+    return { salePrice, totalCost, grossProfit, margin: salePrice > 0 ? grossProfit / salePrice * 100 : 0, suggested };
+  }
+
+  function renderTeamPricing() {
+    const items = currentTeamItems();
+    return `<div class="team-pricing-list">${items.length ? items.map(model => {
+      const product = model.productId ? byId("products", model.productId) : null;
+      const scenario = (model.scenarios || [])[0] || { targetMargin: 35, salePrice: 0 };
+      const totals = pricingTotals(model, scenario);
+      return `<article class="team-pricing-card">
+        <div class="team-card-head"><div><strong>${escapeHtml(model.title || (product ? "Tính giá " + product.name : "Bảng tính giá"))}</strong><small>${product ? `${escapeHtml(product.sku)} · ${escapeHtml(product.name)}` : "Không gắn sản phẩm"} · ${escapeHtml(model.owner || "Chưa giao")}</small></div>${teamStatusBadge(model.status)}</div>
+        <div class="team-money-grid"><span><small>Tổng chi phí</small><b>${money.format(totals.totalCost)}</b></span><span><small>Giá gợi ý</small><b>${money.format(totals.suggested)}</b></span><span><small>Biên lãi</small><b class="${totals.margin < 20 ? "negative-text" : "positive-text"}">${totals.margin.toFixed(1)}%</b></span></div>
+        <div class="team-cost-lines">${(model.lines || []).slice(0, 4).map(line => `<span>${escapeHtml(line.label)} <b>${line.type === "fixed" ? money.format(line.value) : line.value + "%"}</b></span>`).join("") || "<span>Chưa có chi phí thêm</span>"}</div>
+        <div class="row-actions"><button class="link-button icon-only action-edit" type="button" data-edit-team-pricing="${model.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="pricing:${model.id}" title="Lưu trữ">${icon("archive")}</button></div>
+      </article>`;
+    }).join("") : `<div class="empty">Chưa có bảng tính giá phù hợp.</div>`}</div>`;
+  }
+
+  function renderTeamDecisions() {
+    const items = currentTeamItems();
+    return `<div class="team-list">${items.length ? items.map(decision => `<article class="team-item compact">
+      <div><strong>${escapeHtml(decision.title)}</strong><small>${decision.decidedAt ? formatDate(decision.decidedAt) : "Chưa có ngày"} · ${escapeHtml(decision.owner || "Chưa giao")} · ${escapeHtml(decision.tags || "Không tag")}</small></div>
+      <div>${teamStatusBadge(decision.status)}<small>${decision.nextReviewAt ? "Xem lại " + formatDate(decision.nextReviewAt) : "Không lịch xem lại"}</small></div>
+      <div class="team-item-preview">${escapeHtml(decision.detail || "Chưa có mô tả.")}</div>
+      <div class="row-actions"><button class="link-button icon-only action-edit" type="button" data-edit-team-decision="${decision.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="decisions:${decision.id}" title="Lưu trữ">${icon("archive")}</button></div>
+    </article>`).join("") : `<div class="empty">Chưa có quyết định phù hợp.</div>`}</div>`;
+  }
+
+  function teamOwnerOptions(selected) {
+    const values = teamOwners();
+    if (selected && !values.includes(selected)) values.unshift(selected);
+    return `<option value="">Chưa giao</option>${values.map(name => `<option value="${escapeAttribute(name)}" ${selected === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}`;
+  }
+
+  function teamProductOptions(selected) {
+    const products = [...(state.products || [])].filter(product => product.status !== "deleted").sort((a, b) => a.name.localeCompare(b.name, "vi"));
+    return `<option value="">Không gắn sản phẩm</option>${products.map(product => `<option value="${product.id}" ${selected === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}`;
+  }
+
+  function actionRowsFromText(text) {
+    return String(text || "").split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => {
+      const parts = line.split("|").map(part => part.trim());
+      return normalizeTeamAction({ title: parts[0] || "", owner: parts[1] || "", dueDate: parts[2] || "", status: parts[3] || "todo" });
+    });
+  }
+
+  function textFromActionRows(actions) {
+    return (actions || []).map(action => [action.title, action.owner, action.dueDate, action.status].filter(Boolean).join(" | ")).join("\n");
+  }
+
+  function renderMeetingForm(meeting) {
+    const item = normalizeTeamMeeting(meeting || {});
+    return `
+      <div class="field"><label for="teamMeetingTitle">Tên cuộc họp</label><input id="teamMeetingTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Họp kế hoạch tháng 7" required /></div>
+      <div class="field"><label for="teamMeetingType">Loại họp</label><select id="teamMeetingType" name="type">${[["weekly", "Họp tuần"], ["planning", "Kế hoạch"], ["product", "Sản phẩm"], ["finance", "Tài chính"], ["content", "Content"], ["other", "Khác"]].map(([value, label]) => `<option value="${value}" ${item.type === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="teamMeetingAt">Thời gian</label><input id="teamMeetingAt" name="meetingAt" type="datetime-local" value="${escapeAttribute(item.meetingAt)}" /></div>
+      <div class="field"><label for="teamMeetingStatus">Trạng thái</label><select id="teamMeetingStatus" name="status">${[["draft", "Nháp"], ["scheduled", "Đã lên lịch"], ["completed", "Hoàn tất"], ["cancelled", "Hủy"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="teamMeetingOwner">Người chủ trì</label><select id="teamMeetingOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
+      <div class="field"><label for="teamMeetingAttendees">Thành viên</label><input id="teamMeetingAttendees" name="attendees" value="${escapeAttribute(item.attendees)}" placeholder="Nguyên, Linh, Kho..." /></div>
+      <div class="field full"><label for="teamMeetingAgenda">Agenda</label><textarea id="teamMeetingAgenda" name="agenda" rows="4" placeholder="1. Kết quả tuần trước&#10;2. Vấn đề cần chốt&#10;3. Việc tuần này">${escapeHtml(item.agenda)}</textarea></div>
+      <div class="field full"><label for="teamMeetingNotes">Nội dung biên bản</label><textarea id="teamMeetingNotes" name="notes" rows="6" placeholder="Ghi nhanh diễn biến, số liệu, bối cảnh...">${escapeHtml(item.notes)}</textarea></div>
+      <div class="field full"><label for="teamMeetingDecisions">Quyết định đã chốt</label><textarea id="teamMeetingDecisions" name="decisionsText" rows="3" placeholder="Mỗi dòng một quyết định">${escapeHtml((item.decisions || []).join("\n"))}</textarea></div>
+      <div class="field full"><label for="teamMeetingActions">Việc cần làm</label><textarea id="teamMeetingActions" name="actionsText" rows="4" placeholder="Nội dung | Người phụ trách | YYYY-MM-DD | todo/doing/done">${escapeHtml(textFromActionRows(item.actions))}</textarea><small>Mỗi dòng một việc. Có thể bỏ trống người phụ trách/deadline nếu chưa chốt.</small></div>
+      <div class="field full"><label for="teamMeetingLinks">Link liên quan</label><textarea id="teamMeetingLinks" name="links" rows="2" placeholder="Google Drive, tài liệu, sản phẩm, content...">${escapeHtml(item.links)}</textarea></div>
+    `;
+  }
+
+  function renderPlanForm(plan) {
+    const item = normalizeTeamPlan(plan || {});
+    return `
+      <div class="field"><label for="teamPlanTitle">Tên kế hoạch</label><input id="teamPlanTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Kế hoạch bán Back to School" required /></div>
+      <div class="field"><label for="teamPlanPeriod">Kỳ</label><input id="teamPlanPeriod" name="period" value="${escapeAttribute(item.period)}" placeholder="07/2026 hoặc Q3/2026" /></div>
+      <div class="field"><label for="teamPlanStatus">Trạng thái</label><select id="teamPlanStatus" name="status">${[["idea", "Ý tưởng"], ["active", "Đang chạy"], ["paused", "Tạm dừng"], ["done", "Xong"], ["archived", "Lưu trữ"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="teamPlanOwner">Phụ trách</label><select id="teamPlanOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
+      <div class="field"><label for="teamPlanRevenue">Doanh thu mục tiêu</label><input id="teamPlanRevenue" name="goalRevenue" type="number" min="0" step="1000" value="${item.goalRevenue}" /></div>
+      <div class="field"><label for="teamPlanProfit">Lợi nhuận mục tiêu</label><input id="teamPlanProfit" name="goalProfit" type="number" min="0" step="1000" value="${item.goalProfit}" /></div>
+      <div class="field"><label for="teamPlanBudget">Ngân sách</label><input id="teamPlanBudget" name="budget" type="number" min="0" step="1000" value="${item.budget}" /></div>
+      <div class="field"><label for="teamPlanChannels">Kênh triển khai</label><input id="teamPlanChannels" name="channels" value="${escapeAttribute(item.channels)}" placeholder="POS, Shopee, TikTok..." /></div>
+      <div class="field full"><label for="teamPlanProducts">Sản phẩm trọng tâm</label><input id="teamPlanProducts" name="focusProducts" value="${escapeAttribute(item.focusProducts)}" placeholder="SKU hoặc nhóm sản phẩm" /></div>
+      <div class="field full"><label for="teamPlanMilestones">Milestone</label><textarea id="teamPlanMilestones" name="milestonesText" rows="4" placeholder="Mỗi dòng: Việc cần đạt | Deadline | Phụ trách">${escapeHtml((item.milestones || []).map(m => [m.title, m.dueDate, m.owner].filter(Boolean).join(" | ")).join("\n"))}</textarea></div>
+      <div class="field full"><label for="teamPlanRisks">Rủi ro / giả định</label><textarea id="teamPlanRisks" name="risks" rows="3">${escapeHtml(item.risks)}</textarea></div>
+      <div class="field full"><label for="teamPlanNote">Ghi chú</label><textarea id="teamPlanNote" name="note" rows="3">${escapeHtml(item.note)}</textarea></div>
+    `;
+  }
+
+  function renderPricingForm(model) {
+    const item = normalizePricingModel(model || {});
+    const lines = item.lines.length ? item.lines : [
+      { label: "Bao bì", type: "fixed", value: 1000 },
+      { label: "Phí sàn / thanh toán", type: "price_percent", value: 3 },
+      { label: "Marketing dự kiến", type: "price_percent", value: 5 }
+    ].map(normalizePricingLine);
+    const scenarios = item.scenarios.length ? item.scenarios : [
+      { label: "Giá bán lẻ", targetMargin: 35, salePrice: 0 },
+      { label: "Giá sale", targetMargin: 25, salePrice: 0 }
+    ].map(normalizePricingScenario);
+    return `
+      <div class="field"><label for="teamPricingTitle">Tên bảng tính</label><input id="teamPricingTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Tính giá bộ màu nước 24 màu" required /></div>
+      <div class="field"><label for="teamPricingProduct">Sản phẩm</label><select id="teamPricingProduct" name="productId" data-team-pricing-product>${teamProductOptions(item.productId)}</select></div>
+      <div class="field"><label for="teamPricingStatus">Trạng thái</label><select id="teamPricingStatus" name="status">${[["draft", "Nháp"], ["active", "Đang dùng"], ["approved", "Đã duyệt"], ["archived", "Lưu trữ"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="teamPricingOwner">Phụ trách</label><select id="teamPricingOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
+      <div class="field"><label for="teamPricingBaseCost">Giá vốn gốc</label><input id="teamPricingBaseCost" name="baseCost" type="number" min="0" step="1000" value="${item.baseCost}" data-team-pricing-input /></div>
+      <div class="field"><label for="teamPricingQuantity">Số lượng tính</label><input id="teamPricingQuantity" name="quantity" type="number" min="1" step="1" value="${item.quantity}" /></div>
+      <div class="team-pricing-editor full">
+        <div class="team-editor-head"><strong>Dòng chi phí</strong><button class="button ghost compact-button" type="button" data-add-pricing-line>Thêm dòng</button></div>
+        <div data-pricing-lines>${lines.map((line, index) => renderPricingLineInput(line, index)).join("")}</div>
+      </div>
+      <div class="team-pricing-editor full">
+        <div class="team-editor-head"><strong>Kịch bản giá</strong><button class="button ghost compact-button" type="button" data-add-pricing-scenario>Thêm kịch bản</button></div>
+        <div data-pricing-scenarios>${scenarios.map((scenario, index) => renderPricingScenarioInput(scenario, index)).join("")}</div>
+      </div>
+      <div class="team-pricing-preview full" data-team-pricing-preview></div>
+      <div class="field full"><label for="teamPricingNote">Ghi chú</label><textarea id="teamPricingNote" name="note" rows="3">${escapeHtml(item.note)}</textarea></div>
+    `;
+  }
+
+  function renderPricingLineInput(line, index) {
+    return `<div class="team-dynamic-row" data-pricing-line-row>
+      <input name="lineLabel${index}" value="${escapeAttribute(line.label)}" placeholder="Tên chi phí" />
+      <select name="lineType${index}" data-team-pricing-input><option value="fixed" ${line.type === "fixed" ? "selected" : ""}>Số tiền</option><option value="cost_percent" ${line.type === "cost_percent" ? "selected" : ""}>% giá vốn</option><option value="price_percent" ${line.type === "price_percent" ? "selected" : ""}>% giá bán</option></select>
+      <input name="lineValue${index}" type="number" step="0.1" value="${line.value}" data-team-pricing-input />
+      <button class="icon-button" type="button" data-remove-pricing-row title="Xóa">${icon("trash")}</button>
+    </div>`;
+  }
+
+  function renderPricingScenarioInput(scenario, index) {
+    return `<div class="team-dynamic-row" data-pricing-scenario-row>
+      <input name="scenarioLabel${index}" value="${escapeAttribute(scenario.label)}" placeholder="Tên kịch bản" />
+      <input name="scenarioMargin${index}" type="number" step="0.1" value="${scenario.targetMargin}" data-team-pricing-input placeholder="Biên lãi %" />
+      <input name="scenarioPrice${index}" type="number" step="1000" value="${scenario.salePrice}" data-team-pricing-input placeholder="Giá tự nhập" />
+      <button class="icon-button" type="button" data-remove-pricing-row title="Xóa">${icon("trash")}</button>
+    </div>`;
+  }
+
+  function renderDecisionForm(decision) {
+    const item = normalizeTeamDecision(decision || {});
+    return `
+      <div class="field"><label for="teamDecisionTitle">Quyết định</label><input id="teamDecisionTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Chốt giá bán lẻ bộ màu nước 24 màu" required /></div>
+      <div class="field"><label for="teamDecisionStatus">Trạng thái</label><select id="teamDecisionStatus" name="status">${[["active", "Có hiệu lực"], ["archived", "Lưu trữ"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="teamDecisionOwner">Phụ trách</label><select id="teamDecisionOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
+      <div class="field"><label for="teamDecisionAt">Ngày chốt</label><input id="teamDecisionAt" name="decidedAt" type="date" value="${escapeAttribute(item.decidedAt)}" /></div>
+      <div class="field"><label for="teamDecisionReview">Ngày xem lại</label><input id="teamDecisionReview" name="nextReviewAt" type="date" value="${escapeAttribute(item.nextReviewAt)}" /></div>
+      <div class="field"><label for="teamDecisionTags">Tag</label><input id="teamDecisionTags" name="tags" value="${escapeAttribute(item.tags)}" placeholder="giá bán, nhập hàng, marketing" /></div>
+      <div class="field full"><label for="teamDecisionDetail">Nội dung chi tiết</label><textarea id="teamDecisionDetail" name="detail" rows="6">${escapeHtml(item.detail)}</textarea></div>
+    `;
+  }
+
+  function collectPricingLines(form) {
+    return [...form.querySelectorAll("[data-pricing-line-row]")].map((row, index) => normalizePricingLine({
+      label: row.querySelector(`[name="lineLabel${index}"]`)?.value || row.querySelector("input")?.value || "",
+      type: row.querySelector(`[name="lineType${index}"]`)?.value || row.querySelector("select")?.value || "fixed",
+      value: row.querySelector(`[name="lineValue${index}"]`)?.value || row.querySelectorAll("input")[1]?.value || 0
+    })).filter(line => line.label);
+  }
+
+  function collectPricingScenarios(form) {
+    return [...form.querySelectorAll("[data-pricing-scenario-row]")].map((row, index) => normalizePricingScenario({
+      label: row.querySelector(`[name="scenarioLabel${index}"]`)?.value || row.querySelector("input")?.value || "",
+      targetMargin: row.querySelector(`[name="scenarioMargin${index}"]`)?.value || row.querySelectorAll("input")[1]?.value || 0,
+      salePrice: row.querySelector(`[name="scenarioPrice${index}"]`)?.value || row.querySelectorAll("input")[2]?.value || 0
+    })).filter(scenario => scenario.label);
+  }
+
+  function updateTeamPricingPreview(form) {
+    if (!form) return;
+    const output = form.querySelector("[data-team-pricing-preview]");
+    if (!output) return;
+    const model = normalizePricingModel({
+      baseCost: Number(form.baseCost?.value || 0),
+      lines: collectPricingLines(form),
+      scenarios: collectPricingScenarios(form)
+    });
+    output.innerHTML = model.scenarios.length ? model.scenarios.map(scenario => {
+      const totals = pricingTotals(model, scenario);
+      return `<article><span>${escapeHtml(scenario.label)}</span><strong>${money.format(totals.salePrice)}</strong><small>Chi phí ${money.format(totals.totalCost)} · Lãi ${money.format(totals.grossProfit)} · Biên ${totals.margin.toFixed(1)}%</small></article>`;
+    }).join("") : `<p class="content-empty">Thêm ít nhất một kịch bản giá để xem gợi ý.</p>`;
+  }
+
+  function saveTeamItem(type, form, existing) {
+    const data = Object.fromEntries(new FormData(form));
+    const now = new Date().toISOString();
+    const id = existing ? existing.id : makeLocalId(type);
+    const base = { id, createdAt: existing?.createdAt || now, updatedAt: now };
+    if (type === "meeting") {
+      const saved = normalizeTeamMeeting({ ...base, ...data, decisions: String(data.decisionsText || "").split(/\n+/).map(item => item.trim()).filter(Boolean), actions: actionRowsFromText(data.actionsText) });
+      state.teamMeetings = upsertLocalItem(state.teamMeetings || [], saved);
+    } else if (type === "plan") {
+      const milestones = String(data.milestonesText || "").split(/\n+/).map(line => {
+        const [title, dueDate, owner] = line.split("|").map(part => part.trim());
+        return title ? { title, dueDate: dueDate || "", owner: owner || "" } : null;
+      }).filter(Boolean);
+      const saved = normalizeTeamPlan({ ...base, ...data, milestones });
+      state.teamPlans = upsertLocalItem(state.teamPlans || [], saved);
+    } else if (type === "pricing") {
+      const saved = normalizePricingModel({ ...base, ...data, lines: collectPricingLines(form), scenarios: collectPricingScenarios(form) });
+      state.teamPricingModels = upsertLocalItem(state.teamPricingModels || [], saved);
+    } else if (type === "decision") {
+      const saved = normalizeTeamDecision({ ...base, ...data });
+      state.teamDecisions = upsertLocalItem(state.teamDecisions || [], saved);
+    }
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    showToast("Đã lưu Team Hub.");
+  }
+
+  function upsertLocalItem(items, saved) {
+    const index = items.findIndex(item => item.id === saved.id);
+    if (index >= 0) return items.map(item => item.id === saved.id ? saved : item);
+    return [saved, ...items];
+  }
+
   function renderCustomers() {
     if (!els.customersTable) return;
     const rows = filtered(state.customers, ["name", "phone", "email", "group"]);
@@ -3740,6 +4265,7 @@
     renderOrdersRows(els.ordersTable, orders);
     renderProducts();
     renderContentWorkspace();
+    renderTeamHub();
     renderCustomers();
     renderUsers();
     renderAuditLogs();
@@ -5417,6 +5943,10 @@
 
     const editingProduct = options.product || null;
     const editingContentItem = options.contentItem || null;
+    const editingTeamMeeting = options.teamMeeting || null;
+    const editingTeamPlan = options.teamPlan || null;
+    const editingTeamPricing = options.teamPricing || null;
+    const editingTeamDecision = options.teamDecision || null;
     const editingCustomer = options.customer || null;
     const editingOrder = options.order || null;
     const viewingOrder = options.orderDetail || null;
@@ -5444,6 +5974,38 @@
         body: renderContentItemForm(editingContentItem, options.defaults || {}),
         submit(form) {
           return saveContentItem(form, editingContentItem);
+        }
+      },
+      teamMeeting: {
+        eyebrow: "Team Hub",
+        title: editingTeamMeeting ? "Cập nhật biên bản" : "Tạo biên bản họp",
+        body: renderMeetingForm(editingTeamMeeting),
+        submit(form) {
+          return saveTeamItem("meeting", form, editingTeamMeeting);
+        }
+      },
+      teamPlan: {
+        eyebrow: "Team Hub",
+        title: editingTeamPlan ? "Cập nhật kế hoạch" : "Tạo kế hoạch kinh doanh",
+        body: renderPlanForm(editingTeamPlan),
+        submit(form) {
+          return saveTeamItem("plan", form, editingTeamPlan);
+        }
+      },
+      teamPricing: {
+        eyebrow: "Team Hub",
+        title: editingTeamPricing ? "Cập nhật bảng tính giá" : "Tạo bảng tính giá",
+        body: renderPricingForm(editingTeamPricing),
+        submit(form) {
+          return saveTeamItem("pricing", form, editingTeamPricing);
+        }
+      },
+      teamDecision: {
+        eyebrow: "Team Hub",
+        title: editingTeamDecision ? "Cập nhật quyết định" : "Ghi quyết định",
+        body: renderDecisionForm(editingTeamDecision),
+        submit(form) {
+          return saveTeamItem("decision", form, editingTeamDecision);
         }
       },
       auditDetail: {
@@ -6012,6 +6574,7 @@
     if (type === "order") updateOrderTotalPreviewV2(els.modalForm);
     if (type === "orderReturn") updateOrderReturnPreview(els.modalForm);
     if (type === "product") updateProductPricingPreview(els.modalForm);
+    if (type === "teamPricing") updateTeamPricingPreview(els.modalForm);
     const firstInput = els.modalForm.querySelector("input, select");
     if (firstInput) firstInput.focus();
   }
@@ -6289,6 +6852,7 @@
       if (target.matches("[data-export-profit-report]")) exportProfitReport(page === "accounting" ? { range: accountingExportRange(), channel: "all" } : {});
       if (target.matches("[data-export-products]")) exportProductsCsv();
       if (target.matches("[data-export-content]")) exportContentReport();
+      if (target.matches("[data-export-team]")) exportTeamReport();
       if (target.matches("[data-import-products]")) openModal("productImport");
       if (target.matches("[data-export-customers]")) exportCustomersCsv();
       if (target.matches("[data-import-customers]")) openModal("customerImport");
@@ -6328,6 +6892,68 @@
             showToast(error.message, "error");
           }
         }
+      }
+      if (target.dataset.teamView) {
+        teamFilters.view = target.dataset.teamView;
+        teamFilters.status = "all";
+        renderPage();
+      }
+      if (target.matches("[data-team-primary-action], [data-team-secondary-action]")) {
+        const modalByView = { meetings: "teamMeeting", plans: "teamPlan", pricing: "teamPricing", decisions: "teamDecision" };
+        openModal(modalByView[teamFilters.view] || "teamMeeting");
+      }
+      if (target.dataset.editTeamMeeting) {
+        const item = (state.teamMeetings || []).find(entry => entry.id === target.dataset.editTeamMeeting);
+        if (item) openModal("teamMeeting", { teamMeeting: item });
+      }
+      if (target.dataset.viewTeamMeeting) {
+        const item = (state.teamMeetings || []).find(entry => entry.id === target.dataset.viewTeamMeeting);
+        if (item) openModal("teamMeeting", { teamMeeting: item });
+      }
+      if (target.dataset.editTeamPlan) {
+        const item = (state.teamPlans || []).find(entry => entry.id === target.dataset.editTeamPlan);
+        if (item) openModal("teamPlan", { teamPlan: item });
+      }
+      if (target.dataset.editTeamPricing) {
+        const item = (state.teamPricingModels || []).find(entry => entry.id === target.dataset.editTeamPricing);
+        if (item) openModal("teamPricing", { teamPricing: item });
+      }
+      if (target.dataset.editTeamDecision) {
+        const item = (state.teamDecisions || []).find(entry => entry.id === target.dataset.editTeamDecision);
+        if (item) openModal("teamDecision", { teamDecision: item });
+      }
+      if (target.dataset.archiveTeamItem) {
+        const [collection, id] = target.dataset.archiveTeamItem.split(":");
+        const map = { meetings: "teamMeetings", plans: "teamPlans", pricing: "teamPricingModels", decisions: "teamDecisions" };
+        const key = map[collection];
+        if (key && confirm("Lưu trữ mục này?")) {
+          state[key] = (state[key] || []).map(item => item.id === id ? { ...item, status: "archived", updatedAt: new Date().toISOString() } : item);
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          showToast("Đã lưu trữ.");
+        }
+      }
+      if (target.matches("[data-add-pricing-line]")) {
+        const container = target.closest("form")?.querySelector("[data-pricing-lines]");
+        if (container) {
+          const index = container.querySelectorAll("[data-pricing-line-row]").length;
+          container.insertAdjacentHTML("beforeend", renderPricingLineInput({ label: "", type: "fixed", value: 0 }, index));
+          hydrateIcons(container);
+          updateTeamPricingPreview(target.closest("form"));
+        }
+      }
+      if (target.matches("[data-add-pricing-scenario]")) {
+        const container = target.closest("form")?.querySelector("[data-pricing-scenarios]");
+        if (container) {
+          const index = container.querySelectorAll("[data-pricing-scenario-row]").length;
+          container.insertAdjacentHTML("beforeend", renderPricingScenarioInput({ label: "Kịch bản mới", targetMargin: 35, salePrice: 0 }, index));
+          hydrateIcons(container);
+          updateTeamPricingPreview(target.closest("form"));
+        }
+      }
+      if (target.matches("[data-remove-pricing-row]")) {
+        target.closest(".team-dynamic-row")?.remove();
+        updateTeamPricingPreview(target.closest("form"));
       }
       if (target.matches("[data-open-product-options]")) openModal("productOptions", { optionType: "category" });
       if (target.dataset.productOptionType) openModal("productOptions", { optionType: target.dataset.productOptionType });
@@ -6730,6 +7356,7 @@
       if (event.target.matches("[data-order-return-quantity]")) updateOrderReturnPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-reconciliation-actual]")) updateReconciliationPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-payroll-money]")) updatePayrollPreview(event.target.closest("form") || els.modalForm);
+      if (event.target.matches("[data-team-pricing-input]")) updateTeamPricingPreview(event.target.closest("form") || els.modalForm);
     });
 
     document.addEventListener("change", async event => {
@@ -6779,6 +7406,26 @@
         const brief = form?.querySelector("[data-content-brief]");
         const template = contentBriefTemplates[event.target.value];
         if (brief && template && !brief.value.trim()) brief.value = template.brief;
+      }
+      if (event.target.matches("[data-team-status-filter]")) {
+        teamFilters.status = event.target.value;
+        renderTeamHub();
+      }
+      if (event.target.matches("[data-team-owner-filter]")) {
+        teamFilters.owner = event.target.value;
+        renderTeamHub();
+      }
+      if (event.target.matches("[data-team-range-filter]")) {
+        teamFilters.range = event.target.value;
+        renderTeamHub();
+      }
+      if (event.target.matches("[data-team-pricing-product]")) {
+        const product = byId("products", event.target.value);
+        const form = event.target.closest("form");
+        if (product && form?.baseCost && !Number(form.baseCost.value || 0)) {
+          form.baseCost.value = product.costPrice || 0;
+          updateTeamPricingPreview(form);
+        }
       }
       if (event.target.matches("[data-order-product], #customerId, #roundingStep, #paymentMethod")) updateOrderTotalPreviewV2(event.target.closest("form") || els.orderCreateForm || els.modalForm);
       if (event.target.matches("[data-cash-type]")) {

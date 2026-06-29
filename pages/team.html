@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Team Hub | ArtFlow POS</title>
+  <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+</head>
+<body data-page="team" data-root="..">
+  <div class="app-shell" data-app-shell hidden>
+    <aside class="sidebar">
+      <a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a>
+      <nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav>
+      <div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div>
+    </aside>
+    <main class="workspace">
+      <header class="topbar">
+        <button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu"><span data-icon="menu"></span></button>
+        <div><p class="eyebrow">Team workspace</p><h1 data-page-title>Team Hub</h1></div>
+        <div class="topbar-actions">
+          <label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm cuộc họp, kế hoạch, quyết định..." /></label>
+          <button class="button primary" type="button" data-team-primary-action><span data-icon="plus"></span> Tạo mới</button>
+          <div class="user-chip" data-current-user></div>
+          <button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button>
+        </div>
+      </header>
+
+      <section class="view active team-workspace">
+        <section class="team-toolbar panel">
+          <div class="team-tabs" role="tablist" aria-label="Không gian làm việc nhóm">
+            <button type="button" data-team-view="meetings" class="active"><span data-icon="clipboard"></span> Biên bản</button>
+            <button type="button" data-team-view="plans"><span data-icon="chart"></span> Kế hoạch</button>
+            <button type="button" data-team-view="pricing"><span data-icon="calculator"></span> Tính giá</button>
+            <button type="button" data-team-view="decisions"><span data-icon="check"></span> Quyết định</button>
+          </div>
+          <div class="team-filter-bar">
+            <label><span>Trạng thái</span><select data-team-status-filter></select></label>
+            <label><span>Phụ trách</span><select data-team-owner-filter></select></label>
+            <label><span>Thời gian</span><select data-team-range-filter><option value="all">Toàn bộ</option><option value="7">7 ngày</option><option value="30" selected>30 ngày</option><option value="90">90 ngày</option></select></label>
+          </div>
+        </section>
+
+        <section class="team-kpi-strip" data-team-kpis></section>
+
+        <section class="panel team-main-panel">
+          <div class="panel-header split">
+            <div><h2 data-team-panel-title>Biên bản họp</h2><p data-team-panel-note>Agenda, quyết định và việc cần làm sau mỗi cuộc họp.</p></div>
+            <div class="row-actions">
+              <button class="button ghost icon-only" type="button" data-export-team title="Xuất báo cáo" aria-label="Xuất báo cáo"><span data-icon="download"></span></button>
+              <button class="button ghost" type="button" data-team-secondary-action><span data-icon="plus"></span> Thêm</button>
+            </div>
+          </div>
+          <div data-team-content></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div data-shared-ui></div>
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/storage.js"></script>
+  <script src="../assets/vendor/xlsx.bundle.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>
