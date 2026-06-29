@@ -291,6 +291,10 @@
       "/content/update": "updateContentItem",
       "/content/archive": "archiveContentItem",
       "/content/provision-assets": "provisionContentItemAssets",
+      "/team": "getTeamWorkspaceData",
+      "/team/create": "createTeamItem",
+      "/team/update": "updateTeamItem",
+      "/team/archive": "archiveTeamItem",
       "/products/import": "importProducts",
       "/products/provision-content": "provisionProductContent",
       "/products/provision-missing-content": "provisionMissingProductContent",
@@ -1362,7 +1366,7 @@
       orderCreate: ["products", "customers"],
       products: ["products"],
       content: ["content"],
-      team: [],
+      team: ["team"],
       customers: ["customers"],
       inventory: ["products", "stockMovements"],
       accounting: ["customers", "orders", "accounting"],
@@ -1387,6 +1391,15 @@
       state.contentItems = (data.contentItems || []).map(normalizeContentItem);
       state.products = (data.products || []).map(normalizeProduct);
       state.contentOwners = data.contentOwners || [];
+    }
+    if (scopes.includes("team")) {
+      state.teamMeetings = (data.teamMeetings || []).map(normalizeTeamMeeting);
+      state.teamPlans = (data.teamPlans || []).map(normalizeTeamPlan);
+      state.teamPricingModels = (data.teamPricingModels || []).map(normalizePricingModel);
+      state.teamDecisions = (data.teamDecisions || []).map(normalizeTeamDecision);
+      state.products = (data.products || state.products || []).map(normalizeProduct);
+      state.contentOwners = data.contentOwners || state.contentOwners || [];
+      if (Array.isArray(data.users)) state.users = data.users;
     }
     if (scopes.includes("customers")) state.customers = (data.customers || []).map(normalizeCustomer);
     if (scopes.includes("orders")) {
@@ -1435,6 +1448,17 @@
             state.contentItems = (data.contentItems || []).map(normalizeContentItem);
             state.products = (data.products || []).map(normalizeProduct);
             state.contentOwners = data.contentOwners || [];
+            window.ArtFlowPosStore.save(state);
+          },
+          team: async () => {
+            const data = await apiRequest("/team");
+            state.teamMeetings = (data.teamMeetings || []).map(normalizeTeamMeeting);
+            state.teamPlans = (data.teamPlans || []).map(normalizeTeamPlan);
+            state.teamPricingModels = (data.teamPricingModels || []).map(normalizePricingModel);
+            state.teamDecisions = (data.teamDecisions || []).map(normalizeTeamDecision);
+            state.products = (data.products || state.products || []).map(normalizeProduct);
+            state.contentOwners = data.contentOwners || state.contentOwners || [];
+            if (Array.isArray(data.users)) state.users = data.users;
             window.ArtFlowPosStore.save(state);
           }
         };
@@ -3418,28 +3442,54 @@
     }).join("") : `<p class="content-empty">Thêm ít nhất một kịch bản giá để xem gợi ý.</p>`;
   }
 
-  function saveTeamItem(type, form, existing) {
+  function teamApiCollection(type) {
+    return {
+      meeting: ["teamMeetings", normalizeTeamMeeting],
+      plan: ["teamPlans", normalizeTeamPlan],
+      pricing: ["teamPricingModels", normalizePricingModel],
+      decision: ["teamDecisions", normalizeTeamDecision]
+    }[type] || ["teamMeetings", normalizeTeamMeeting];
+  }
+
+  function teamApiItemType(type) {
+    return {
+      meeting: "meeting",
+      plan: "plan",
+      pricing: "pricing",
+      decision: "decision"
+    }[type] || "meeting";
+  }
+
+  async function saveTeamItem(type, form, existing) {
     const data = Object.fromEntries(new FormData(form));
     const now = new Date().toISOString();
     const id = existing ? existing.id : makeLocalId(type);
     const base = { id, createdAt: existing?.createdAt || now, updatedAt: now };
+    let item;
     if (type === "meeting") {
-      const saved = normalizeTeamMeeting({ ...base, ...data, decisions: String(data.decisionsText || "").split(/\n+/).map(item => item.trim()).filter(Boolean), actions: actionRowsFromText(data.actionsText) });
-      state.teamMeetings = upsertLocalItem(state.teamMeetings || [], saved);
+      item = normalizeTeamMeeting({ ...base, ...data, decisions: String(data.decisionsText || "").split(/\n+/).map(item => item.trim()).filter(Boolean), actions: actionRowsFromText(data.actionsText) });
     } else if (type === "plan") {
       const milestones = String(data.milestonesText || "").split(/\n+/).map(line => {
         const [title, dueDate, owner] = line.split("|").map(part => part.trim());
         return title ? { title, dueDate: dueDate || "", owner: owner || "" } : null;
       }).filter(Boolean);
-      const saved = normalizeTeamPlan({ ...base, ...data, milestones });
-      state.teamPlans = upsertLocalItem(state.teamPlans || [], saved);
+      item = normalizeTeamPlan({ ...base, ...data, milestones });
     } else if (type === "pricing") {
-      const saved = normalizePricingModel({ ...base, ...data, lines: collectPricingLines(form), scenarios: collectPricingScenarios(form) });
-      state.teamPricingModels = upsertLocalItem(state.teamPricingModels || [], saved);
+      item = normalizePricingModel({ ...base, ...data, lines: collectPricingLines(form), scenarios: collectPricingScenarios(form) });
     } else if (type === "decision") {
-      const saved = normalizeTeamDecision({ ...base, ...data });
-      state.teamDecisions = upsertLocalItem(state.teamDecisions || [], saved);
+      item = normalizeTeamDecision({ ...base, ...data });
     }
+    const response = await apiRequest(existing ? "/team/update" : "/team/create", {
+      method: "POST",
+      body: JSON.stringify({
+        id: existing ? existing.id : "",
+        itemType: teamApiItemType(type),
+        itemJson: JSON.stringify(item)
+      })
+    });
+    const [collection, normalizer] = teamApiCollection(type);
+    const saved = normalizer(response.teamItem || item);
+    state[collection] = upsertLocalItem(state[collection] || [], saved);
     window.ArtFlowPosStore.save(state);
     renderPage();
     showToast("Đã lưu Team Hub.");
@@ -3449,6 +3499,22 @@
     const index = items.findIndex(item => item.id === saved.id);
     if (index >= 0) return items.map(item => item.id === saved.id ? saved : item);
     return [saved, ...items];
+  }
+
+  async function archiveTeamItem(kind, id) {
+    const typeMap = { meetings: "meeting", plans: "plan", pricing: "pricing", decisions: "decision" };
+    const collectionMap = { meetings: "teamMeetings", plans: "teamPlans", pricing: "teamPricingModels", decisions: "teamDecisions" };
+    const itemType = typeMap[kind];
+    const collection = collectionMap[kind];
+    if (!itemType || !collection) return;
+    await apiRequest("/team/archive", {
+      method: "POST",
+      body: JSON.stringify({ id, itemType })
+    });
+    state[collection] = (state[collection] || []).filter(item => item.id !== id);
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    showToast("Đã lưu trữ Team Hub.");
   }
 
   function renderCustomers() {
@@ -6924,13 +6990,9 @@
       }
       if (target.dataset.archiveTeamItem) {
         const [collection, id] = target.dataset.archiveTeamItem.split(":");
-        const map = { meetings: "teamMeetings", plans: "teamPlans", pricing: "teamPricingModels", decisions: "teamDecisions" };
-        const key = map[collection];
+        const key = collection;
         if (key && confirm("Lưu trữ mục này?")) {
-          state[key] = (state[key] || []).map(item => item.id === id ? { ...item, status: "archived", updatedAt: new Date().toISOString() } : item);
-          window.ArtFlowPosStore.save(state);
-          renderPage();
-          showToast("Đã lưu trữ.");
+          await withLoading("Đang lưu trữ Team Hub...", () => archiveTeamItem(collection, id));
         }
       }
       if (target.matches("[data-add-pricing-line]")) {
