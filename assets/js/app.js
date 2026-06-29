@@ -24,6 +24,7 @@
   const auditFilters = { entityType: "all", range: "30" };
   const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" };
   const inventoryFilters = { category: "all", stock: "all", sort: "risk" };
+  const contentFilters = { status: "all", type: "all", owner: "all", channel: "all", product: "all", schedule: "all" };
 
   const channels = {
     pos: "POS",
@@ -72,6 +73,7 @@
     external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
     eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
     file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/>',
+    sparkles: '<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8Z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9Z"/><path d="M5 14l.9 2.1L8 17l-2.1.9L5 20l-.9-2.1L2 17l2.1-.9Z"/>',
     folderPlus: '<path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 4A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
     history: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>',
     image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
@@ -115,6 +117,7 @@
     orders: { title: "Đơn hàng", href: "./orders.html", icon: "clipboard" },
     orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "shoppingCart", hidden: true },
     products: { title: "Sản phẩm", href: "./products.html", icon: "package" },
+    content: { title: "Content", href: "./content.html", icon: "sparkles" },
     customers: { title: "Khách hàng", href: "./customers.html", icon: "users" },
     purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "truck" },
     purchaseCreate: { title: "Tạo phiếu mua", href: "./purchase-create.html", icon: "plus", hidden: true },
@@ -153,6 +156,13 @@
     productContentFilter: qs("[data-product-content-filter]"),
     productAssetsFilter: qs("[data-product-assets-filter]"),
     productSort: qs("[data-product-sort]"),
+    contentTable: qs("[data-content-table]"),
+    contentStatusFilter: qs("[data-content-status-filter]"),
+    contentTypeFilter: qs("[data-content-type-filter]"),
+    contentOwnerFilter: qs("[data-content-owner-filter]"),
+    contentChannelFilter: qs("[data-content-channel-filter]"),
+    contentProductFilter: qs("[data-content-product-filter]"),
+    contentScheduleFilter: qs("[data-content-schedule-filter]"),
     customersTable: qs("[data-customers-table]"),
     customerCsvFile: qs("[data-customer-csv-file]"),
     usersTable: qs("[data-users-table]"),
@@ -261,6 +271,11 @@
       "/products/options/create": "createProductOption",
       "/products/options/update": "updateProductOption",
       "/products/options/toggle": "toggleProductOption",
+      "/content": "getContentWorkspaceData",
+      "/content/create": "createContentItem",
+      "/content/update": "updateContentItem",
+      "/content/archive": "archiveContentItem",
+      "/content/provision-assets": "provisionContentItemAssets",
       "/products/import": "importProducts",
       "/products/provision-content": "provisionProductContent",
       "/products/provision-missing-content": "provisionMissingProductContent",
@@ -425,6 +440,21 @@
     return Number.isNaN(date.getTime()) ? String(value) : dateTimeFormat.format(date);
   }
 
+  function formatDateTimeShort(value) {
+    if (!value) return "Chưa có";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Ho_Chi_Minh"
+    }).format(date);
+  }
+
   function compactMoney(value) {
     const amount = Math.round(Number(value || 0));
     if (!amount) return "0";
@@ -463,13 +493,20 @@
       phone: "",
       address: "",
       footer: "Cam on quy khach. Hang da mua vui long doi tra theo chinh sach cua cua hang.",
+      taxCode: "",
+      paperSize: "thermal80",
       paperWidth: "80",
+      receiptStyle: "pro",
       showSku: true,
       showCustomer: true,
-      showPoints: true
+      showPoints: true,
+      showUnitPrice: true
     };
     try {
-      return { ...defaults, ...(JSON.parse(localStorage.getItem(receiptSettingsKey) || "{}")) };
+      const saved = JSON.parse(localStorage.getItem(receiptSettingsKey) || "{}");
+      const merged = { ...defaults, ...saved };
+      if (saved.paperWidth && !saved.paperSize) merged.paperSize = `thermal${saved.paperWidth}`;
+      return merged;
     } catch (error) {
       return defaults;
     }
@@ -477,6 +514,23 @@
 
   function saveReceiptSettings(settings) {
     localStorage.setItem(receiptSettingsKey, JSON.stringify(settings));
+  }
+
+  function receiptPaperProfile(settings = getReceiptSettings()) {
+    const key = String(settings.paperSize || settings.paperWidth || "thermal80").toLowerCase();
+    const profiles = {
+      "58": { width: 58, margin: 3, font: 10.5, title: 15, compact: true },
+      thermal58: { width: 58, margin: 3, font: 10.5, title: 15, compact: true },
+      "76": { width: 76, margin: 4, font: 11, title: 17, compact: false },
+      thermal76: { width: 76, margin: 4, font: 11, title: 17, compact: false },
+      "80": { width: 80, margin: 4, font: 11, title: 17, compact: false },
+      thermal80: { width: 80, margin: 4, font: 11, title: 17, compact: false },
+      "112": { width: 112, margin: 6, font: 12, title: 19, compact: false },
+      thermal112: { width: 112, margin: 6, font: 12, title: 19, compact: false },
+      a5: { width: 148, margin: 10, font: 12, title: 20, compact: false },
+      a4: { width: 210, margin: 14, font: 12, title: 22, compact: false }
+    };
+    return profiles[key] || profiles.thermal80;
   }
 
   function loyaltyPointsForCustomer(customer) {
@@ -517,6 +571,10 @@
 
   function canManagePurchasing() {
     return currentUser && ["admin", "inventory"].includes(currentUser.role);
+  }
+
+  function canManageContent() {
+    return currentUser && ["admin", "inventory", "sales"].includes(currentUser.role);
   }
 
   function canPayPurchases() {
@@ -758,6 +816,36 @@
       status: option.status || "active",
       createdAt: option.createdAt || "",
       updatedAt: option.updatedAt || ""
+    };
+  }
+
+  function normalizeContentItem(item) {
+    return {
+      id: item.id,
+      type: item.type || "campaign",
+      title: item.title || "",
+      productId: item.productId || "",
+      channel: item.channel || "multi",
+      status: item.status || "idea",
+      priority: item.priority || "normal",
+      dueDate: item.dueDate || "",
+      publishAt: item.publishAt || "",
+      template: item.template || "",
+      owner: item.owner || "",
+      collaborators: item.collaborators || "",
+      tags: item.tags || "",
+      brief: item.brief || "",
+      checklist: Array.isArray(item.checklist) ? item.checklist : [],
+      assetChecklist: Array.isArray(item.assetChecklist) ? item.assetChecklist : [],
+      commentLog: Array.isArray(item.commentLog) ? item.commentLog : [],
+      promptText: item.promptText || "",
+      note: item.note || "",
+      publishUrl: item.publishUrl || "",
+      contentDocUrl: item.contentDocUrl || "",
+      mediaFolderUrl: item.mediaFolderUrl || "",
+      createdBy: item.createdBy || "",
+      createdAt: item.createdAt || "",
+      updatedAt: item.updatedAt || ""
     };
   }
 
@@ -1157,6 +1245,7 @@
       orders: ["customers", "orders", "accounting"],
       orderCreate: ["products", "customers"],
       products: ["products"],
+      content: ["content"],
       customers: ["customers"],
       inventory: ["products", "stockMovements"],
       accounting: ["customers", "orders", "accounting"],
@@ -1175,6 +1264,11 @@
     if (scopes.includes("products")) {
       state.products = (data.products || []).map(normalizeProduct);
       state.productOptions = (data.productOptions || []).map(normalizeProductOption);
+      state.contentOwners = data.contentOwners || [];
+    }
+    if (scopes.includes("content")) {
+      state.contentItems = (data.contentItems || []).map(normalizeContentItem);
+      state.products = (data.products || []).map(normalizeProduct);
       state.contentOwners = data.contentOwners || [];
     }
     if (scopes.includes("customers")) state.customers = (data.customers || []).map(normalizeCustomer);
@@ -1218,7 +1312,14 @@
           orders: loadOrders,
           stockMovements: loadStockMovements,
           accounting: loadAccountingData,
-          purchasing: loadPurchasingData
+          purchasing: loadPurchasingData,
+          content: async () => {
+            const data = await apiRequest("/content");
+            state.contentItems = (data.contentItems || []).map(normalizeContentItem);
+            state.products = (data.products || []).map(normalizeProduct);
+            state.contentOwners = data.contentOwners || [];
+            window.ArtFlowPosStore.save(state);
+          }
         };
         await Promise.all(scopes.map(scope => legacyLoaders[scope]({ quiet: true })));
         pageDataReady = true;
@@ -1332,6 +1433,9 @@
     });
     document.querySelectorAll("[data-open-product-options]").forEach(button => {
       button.hidden = !canManageProducts();
+    });
+    document.querySelectorAll("[data-open-content-item]").forEach(button => {
+      button.hidden = !canManageContent();
     });
     document.querySelectorAll("[data-open-customer]").forEach(button => {
       button.hidden = !canManageCustomers();
@@ -1791,6 +1895,41 @@
     showToast(`Đã xuất ${customers.length} khách hàng.`);
   }
 
+  function exportContentReport() {
+    const items = filteredContentItems();
+    const rows = items.map(item => {
+      const product = getContentProduct(item);
+      const checklist = Array.isArray(item.checklist) ? item.checklist : [];
+      const assetChecklist = Array.isArray(item.assetChecklist) ? item.assetChecklist : [];
+      return [
+        item.title,
+        contentItemTypes[item.type] || item.type,
+        contentItemStatuses[item.status] || item.status,
+        contentChannels[item.channel] || item.channel,
+        contentPriorities[item.priority] || item.priority,
+        item.owner || "",
+        item.collaborators || "",
+        product ? product.sku : "",
+        product ? product.name : "",
+        item.dueDate || "",
+        item.publishAt || "",
+        `${checklist.filter(entry => entry.done).length}/${checklist.length || 0}`,
+        `${assetChecklist.filter(entry => entry.done).length}/${assetChecklist.length || 0}`,
+        item.contentDocUrl || "",
+        item.mediaFolderUrl || "",
+        item.publishUrl || "",
+        item.tags || "",
+        item.note || "",
+        item.updatedAt || item.createdAt || ""
+      ];
+    });
+    const XLSX = requireXlsx();
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("BÁO CÁO CONTENT", `Xuất lúc ${new Date().toLocaleString("vi-VN")} · ${items.length} chủ đề`, ["Chủ đề", "Loại", "Trạng thái", "Kênh", "Ưu tiên", "Phụ trách", "Phối hợp", "SKU", "Sản phẩm", "Deadline", "Lịch đăng", "Checklist", "Asset", "Docs", "Drive", "Link đã đăng", "Tag", "Ghi chú", "Cập nhật"], rows, { widths: [34, 18, 18, 16, 14, 22, 28, 16, 32, 14, 20, 12, 12, 38, 38, 38, 28, 40, 22], textColumns: [7], wrapColumn: 17 }), "Content");
+    saveExcelWorkbook(workbook, `artflow-content-${reportDayKey(new Date())}.xlsx`);
+    showToast(`Đã xuất ${items.length} chủ đề content.`);
+  }
+
   function customerRowsFromCsv(text) {
     const rows = parseCsv(text);
     if (rows.length < 2) throw new Error("File chưa có dữ liệu khách hàng.");
@@ -2202,16 +2341,16 @@
             <td>${orderItemSummary(order)}</td>
             <td><span class="badge ${order.status}">${statusLabel(order.status)}</span></td>
             <td><strong>${money.format(order.netTotal)}</strong>${order.returnedAmount > 0 ? `<br><small>Đã trả ${money.format(order.returnedAmount)}</small>` : ""}</td>
-            <td>${formatDate(order.createdAt)}</td>
+            <td>${formatDateTimeShort(order.createdAt)}</td>
           </tr>
         `;
       }
 
-      const actions = `<div class="row-actions compact-actions">${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button icon-only" data-edit-order-fulfillment="${order.id}" aria-label="Cập nhật" title="Cập nhật">${icon("edit")}</button>` : ""}${canReturnOrder(order) ? `<button class="link-button icon-only" data-return-order="${order.id}" aria-label="Trả hàng" title="Trả hàng">${icon("rotateCcw")}</button>` : ""}${isAdmin() && refundableForOrder(order) > 0 ? `<button class="link-button icon-only" data-refund-order="${order.id}" aria-label="Hoàn tiền" title="Hoàn tiền">${icon("receipt")}</button>` : ""}${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button icon-only" data-complete-order="${order.id}" aria-label="Hoàn tất" title="Hoàn tất">${icon("check")}</button>` : ""}${canManageOrders() && order.status !== "cancelled" && order.returnedAmount <= 0 && order.refundedAmount <= 0 && collectedForOrder(order) <= 0 ? `<button class="link-button danger-link icon-only" data-cancel-order="${order.id}" aria-label="Hủy" title="Hủy">${icon("close")}</button>` : ""}</div>`;
+      const actions = `<div class="row-actions compact-actions"><button class="link-button icon-only" data-view-order="${order.id}" aria-label="Xem chi tiết" title="Xem chi tiết">${icon("eye")}</button><button class="link-button icon-only" data-order-receipt-pdf="${order.id}" aria-label="${order.receiptPdfUrl ? "Mở hóa đơn PDF" : "Tạo hóa đơn PDF"}" title="${order.receiptPdfUrl ? "Mở hóa đơn PDF" : "Tạo hóa đơn PDF"}">${icon(order.receiptPdfUrl ? "external" : "printer")}</button>${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button icon-only" data-edit-order-fulfillment="${order.id}" aria-label="Cập nhật" title="Cập nhật">${icon("edit")}</button>` : ""}${canReturnOrder(order) ? `<button class="link-button icon-only" data-return-order="${order.id}" aria-label="Trả hàng" title="Trả hàng">${icon("rotateCcw")}</button>` : ""}${isAdmin() && refundableForOrder(order) > 0 ? `<button class="link-button icon-only" data-refund-order="${order.id}" aria-label="Hoàn tiền" title="Hoàn tiền">${icon("receipt")}</button>` : ""}${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button icon-only" data-complete-order="${order.id}" aria-label="Hoàn tất" title="Hoàn tất">${icon("check")}</button>` : ""}${canManageOrders() && order.status !== "cancelled" && order.returnedAmount <= 0 && order.refundedAmount <= 0 && collectedForOrder(order) <= 0 ? `<button class="link-button danger-link icon-only" data-cancel-order="${order.id}" aria-label="Hủy" title="Hủy">${icon("close")}</button>` : ""}</div>`;
       const shippingMeta = `${carrierLabel(order.carrier)}${order.trackingCode ? ` · ${order.trackingCode}` : ""}`;
       return `
         <tr>
-          <td><div class="order-code-cell"><strong>${order.code}</strong><small>${formatDate(order.createdAt)}</small></div></td>
+          <td><div class="order-code-cell"><strong>${order.code}</strong><small>${formatDateTimeShort(order.createdAt)}</small></div></td>
           <td><div class="customer-channel-cell"><strong>${customer.name}</strong><span class="badge">${channelLabel(order.channel)}</span></div></td>
           <td><span class="item-summary">${orderItemSummary(order)}</span></td>
           <td><span class="badge ${order.status}">${statusLabel(order.status)}</span></td>
@@ -2225,6 +2364,70 @@
         </tr>
       `;
     }).join("") : `<tr><td colspan="${target === els.ordersTable ? 8 : 6}" class="empty">Chưa có đơn hàng.</td></tr>`;
+  }
+
+  function renderOrderDetail(order) {
+    const customer = getCustomer(order);
+    const collected = collectedForOrder(order);
+    const outstanding = outstandingForOrder(order);
+    const lineDiscount = (order.items || []).reduce((sum, item) => {
+      const gross = Number(item.unitPrice || 0) * Number(item.quantity || 0);
+      return sum + Math.max(0, gross - Number(item.lineTotal || 0));
+    }, 0);
+    const itemRows = (order.items || []).map(item => {
+      const gross = Number(item.unitPrice || 0) * Number(item.quantity || 0);
+      const lineDiscountAmount = Math.max(0, gross - Number(item.lineTotal || 0));
+      return `
+        <tr>
+          <td><div class="order-detail-product"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.sku)}</small></div></td>
+          <td>${item.quantity}</td>
+          <td>${money.format(item.unitPrice)}</td>
+          <td>${Number(item.discountPercent || 0) ? `${Number(item.discountPercent).toFixed(1)}%` : "0%"}</td>
+          <td>${lineDiscountAmount ? money.format(lineDiscountAmount) : "—"}</td>
+          <td><strong>${money.format(item.lineTotal)}</strong></td>
+        </tr>
+      `;
+    }).join("");
+    return `
+      <div class="order-detail">
+        <div class="order-detail-head">
+          <div>
+            <span class="eyebrow">Đơn hàng</span>
+            <h3>${escapeHtml(order.code)}</h3>
+            <p>Tạo lúc ${escapeHtml(formatDateTime(order.createdAt))} · Cập nhật ${escapeHtml(formatDateTime(order.updatedAt))}</p>
+          </div>
+          <div class="order-detail-actions">
+            ${order.receiptPdfUrl ? `<a class="button ghost" href="${escapeAttribute(order.receiptPdfUrl)}" target="_blank" rel="noopener">${icon("external")} Mở PDF</a>` : ""}
+            <button class="button ghost" type="button" data-order-receipt-pdf="${order.id}">${icon(order.receiptPdfUrl ? "printer" : "download")} ${order.receiptPdfUrl ? "In lại PDF" : "Tạo PDF"}</button>
+            <button class="button ghost" type="button" data-order-receipt-regenerate="${order.id}">${icon("refresh")} Tạo lại PDF</button>
+          </div>
+        </div>
+        <div class="order-detail-grid">
+          <article><span>Khách hàng</span><strong>${escapeHtml(customer.name || "Khách lẻ")}</strong><small>${escapeHtml(customer.phone || customer.email || "")}</small></article>
+          <article><span>Kênh bán</span><strong>${escapeHtml(channelLabel(order.channel))}</strong><small>${escapeHtml(order.paymentMethod || "cash")}</small></article>
+          <article><span>Trạng thái</span><strong>${escapeHtml(statusLabel(order.status))}</strong><small>${escapeHtml(paymentLabel(order.paymentStatus))}</small></article>
+          <article><span>Vận chuyển</span><strong>${escapeHtml(shippingLabel(order.shippingStatus))}</strong><small>${escapeHtml([carrierLabel(order.carrier), order.trackingCode].filter(Boolean).join(" · "))}</small></article>
+        </div>
+        <div class="table-wrap order-detail-table"><table><thead><tr><th>Sản phẩm</th><th>SL</th><th>Giá bán</th><th>Giảm %</th><th>Giảm tiền</th><th>Thành tiền</th></tr></thead><tbody>${itemRows || `<tr><td colspan="6" class="empty">Không có sản phẩm.</td></tr>`}</tbody></table></div>
+        <div class="order-detail-bottom">
+          <div class="order-detail-note">
+            <strong>Ghi chú</strong>
+            <p>${escapeHtml(order.note || "Không có ghi chú.")}</p>
+            <span>PDF: ${order.receiptPdfUrl ? "Đã lưu trên Drive" : "Chưa tạo"}</span>
+          </div>
+          <div class="order-detail-totals">
+            <div><span>Tạm tính</span><strong>${money.format(order.subtotal)}</strong></div>
+            <div><span>Giảm từng dòng</span><strong>${money.format(lineDiscount)}</strong></div>
+            <div><span>Giảm đơn</span><strong>${money.format(Number(order.discount || 0) + Number(order.loyaltyDiscount || 0))}</strong></div>
+            <div><span>Phí giao hàng</span><strong>${money.format(order.shippingFee)}</strong></div>
+            <div><span>Làm tròn</span><strong>${money.format(order.roundingAmount)}</strong></div>
+            <div><span>Đã thu</span><strong>${money.format(collected || order.cashReceived || 0)}</strong></div>
+            <div><span>Còn phải thu</span><strong>${money.format(outstanding)}</strong></div>
+            <div class="total"><span>Tổng thanh toán</span><strong>${money.format(order.netTotal)}</strong></div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function renderInlineOrderSelect(field, orderId, value) {
@@ -2360,6 +2563,367 @@
         </td>
       </tr>
     `).join("") : `<tr><td colspan="8" class="empty">${products.length ? "Không có sản phẩm phù hợp bộ lọc." : "Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên."}</td></tr>`;
+  }
+
+  function getContentProduct(item) {
+    return item && item.productId ? byId("products", item.productId) : null;
+  }
+
+  function contentAssetsComplete(item) {
+    return Boolean(item && item.contentDocUrl && item.mediaFolderUrl);
+  }
+
+  function contentDueTone(item) {
+    if (!item || !item.dueDate || ["published", "archived"].includes(item.status)) return "";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(item.dueDate);
+    if (Number.isNaN(due.getTime())) return "";
+    const diff = Math.ceil((due.getTime() - today.getTime()) / 86400000);
+    if (diff < 0) return "overdue";
+    if (diff <= 2) return "soon";
+    return "";
+  }
+
+  function contentSearchText(item) {
+    const product = getContentProduct(item);
+    return [
+      item.title, item.type, item.channel, item.status, item.priority, item.owner,
+      item.collaborators, item.tags, item.brief, item.note, item.publishUrl,
+      product ? product.sku : "", product ? product.name : "", product ? product.category : ""
+    ].join(" ").toLowerCase();
+  }
+
+  function contentOwnerOptions(selected) {
+    const owners = [...(state.contentOwners || [])].sort((a, b) => String(a.name).localeCompare(String(b.name), "vi"));
+    const values = owners.map(user => user.name || user.email).filter(Boolean);
+    if (selected && !values.includes(selected)) values.unshift(selected);
+    return `<option value="">Chưa giao</option>${values.map(name => `<option value="${escapeAttribute(name)}" ${selected === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}`;
+  }
+
+  function contentProductOptions(selected) {
+    const products = [...(state.products || [])].filter(product => product.status !== "deleted").sort((a, b) => a.name.localeCompare(b.name, "vi"));
+    return `<option value="">Không gắn sản phẩm</option>${products.map(product => `<option value="${product.id}" ${selected === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}`;
+  }
+
+  function renderContentFilters(items) {
+    const setOptions = (select, options, current, allLabel) => {
+      if (!select) return;
+      select.innerHTML = `<option value="all">${allLabel}</option>${options.map(([value, label]) => `<option value="${escapeAttribute(value)}">${escapeHtml(label)}</option>`).join("")}`;
+      select.value = options.some(([value]) => value === current) ? current : "all";
+    };
+    setOptions(els.contentStatusFilter, Object.entries(contentItemStatuses), contentFilters.status, "Tất cả trạng thái");
+    setOptions(els.contentTypeFilter, Object.entries(contentItemTypes), contentFilters.type, "Tất cả loại");
+    setOptions(els.contentChannelFilter, Object.entries(contentChannels), contentFilters.channel, "Tất cả kênh");
+    const owners = [...new Set(items.map(item => item.owner).filter(Boolean))].sort((a, b) => a.localeCompare(b, "vi")).map(name => [name, name]);
+    setOptions(els.contentOwnerFilter, owners, contentFilters.owner, "Tất cả phụ trách");
+    const products = (state.products || []).filter(product => product.status !== "deleted").map(product => [product.id, `${product.sku} · ${product.name}`]);
+    setOptions(els.contentProductFilter, products, contentFilters.product, "Tất cả sản phẩm");
+    setOptions(els.contentScheduleFilter, [["overdue", "Quá hạn"], ["today", "Hôm nay"], ["week", "7 ngày tới"], ["unscheduled", "Chưa có lịch"]], contentFilters.schedule, "Tất cả lịch đăng");
+  }
+
+  function filteredContentItems() {
+    const items = (state.contentItems || []).filter(item => item.status !== "deleted");
+    const term = searchTerm.trim().toLowerCase();
+    return items.filter(item => {
+      return (contentFilters.status === "all" || item.status === contentFilters.status) &&
+        (contentFilters.type === "all" || item.type === contentFilters.type) &&
+        (contentFilters.owner === "all" || item.owner === contentFilters.owner) &&
+        (contentFilters.channel === "all" || item.channel === contentFilters.channel) &&
+        (contentFilters.product === "all" || item.productId === contentFilters.product) &&
+        contentScheduleMatches(item) &&
+        (!term || contentSearchText(item).includes(term));
+    });
+  }
+
+  function contentScheduleMatches(item) {
+    const filter = contentFilters.schedule || "all";
+    if (filter === "all") return true;
+    if (!item.publishAt) return filter === "unscheduled";
+    const publishTime = new Date(item.publishAt).getTime();
+    if (Number.isNaN(publishTime)) return filter === "unscheduled";
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endToday = startToday + 24 * 60 * 60 * 1000;
+    const endWeek = startToday + 7 * 24 * 60 * 60 * 1000;
+    if (filter === "overdue") return publishTime < now.getTime() && item.status !== "published";
+    if (filter === "today") return publishTime >= startToday && publishTime < endToday;
+    if (filter === "week") return publishTime >= startToday && publishTime < endWeek;
+    return true;
+  }
+
+  function renderContentCard(item) {
+    const product = getContentProduct(item);
+    const dueTone = contentDueTone(item);
+    return `
+      <article class="content-card ${dueTone ? `content-due-${dueTone}` : ""}">
+        <div class="content-card-head">
+          <span class="badge content-${item.status}">${contentItemStatuses[item.status] || item.status}</span>
+          <span class="badge priority-${item.priority}">${contentPriorities[item.priority] || item.priority}</span>
+        </div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.brief || item.note || "Chưa có brief.")}</p>
+        <div class="content-meta">
+          <span>${icon("file")} ${contentItemTypes[item.type] || item.type}</span>
+          <span>${icon("external")} ${contentChannels[item.channel] || item.channel}</span>
+          ${product ? `<span>${icon("package")} ${escapeHtml(product.sku)}</span>` : ""}
+          ${item.dueDate ? `<span>${icon("history")} ${formatDate(item.dueDate)}</span>` : ""}
+        </div>
+        <div class="content-card-foot">
+          <small>${escapeHtml(item.owner || "Chưa giao")}${item.tags ? ` · ${escapeHtml(item.tags)}` : ""}</small>
+          <div class="row-actions">
+            ${item.contentDocUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.contentDocUrl)}" target="_blank" rel="noopener" aria-label="Mở Docs" title="Mở Docs">${icon("external")}</a>` : ""}
+            ${canManageContent() ? `<button class="link-button icon-only" type="button" data-edit-content="${item.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button><button class="link-button icon-only" type="button" data-provision-content-item="${item.id}" aria-label="Tạo tài nguyên" title="Tạo tài nguyên">${icon("folderPlus")}</button>` : ""}
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderContentTopicCard(item) {
+    const product = getContentProduct(item);
+    const dueTone = contentDueTone(item);
+    return `
+      <article class="content-topic-card ${dueTone ? `content-due-${dueTone}` : ""}">
+        <div class="content-topic-main">
+          <div class="content-topic-title">
+            <span class="badge content-${item.status}">${contentItemStatuses[item.status] || item.status}</span>
+            <h3>${escapeHtml(item.title)}</h3>
+            <p>${escapeHtml(item.brief || item.note || "Chưa có brief.")}</p>
+          </div>
+          <div class="content-topic-meta">
+            <span>${icon("file")} ${contentItemTypes[item.type] || item.type}</span>
+            <span>${icon("external")} ${contentChannels[item.channel] || item.channel}</span>
+            <span>${icon("users")} ${escapeHtml(item.owner || "Chưa giao")}</span>
+            ${product ? `<span>${icon("package")} ${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</span>` : ""}
+            ${item.dueDate ? `<span>${icon("history")} ${formatDate(item.dueDate)}</span>` : ""}
+          </div>
+        </div>
+        <div class="content-topic-side">
+          <span class="badge priority-${item.priority}">${contentPriorities[item.priority] || item.priority}</span>
+          <span class="${contentAssetsComplete(item) ? "assets-complete" : "assets-missing"}">${contentAssetsComplete(item) ? "Đủ tài nguyên" : "Thiếu tài nguyên"}</span>
+          <div class="row-actions">
+            ${item.contentDocUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.contentDocUrl)}" target="_blank" rel="noopener" title="Mở Docs">${icon("external")}</a>` : ""}
+            ${item.mediaFolderUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.mediaFolderUrl)}" target="_blank" rel="noopener" title="Mở Drive">${icon("folderPlus")}</a>` : ""}
+            ${canManageContent() ? `<button class="link-button icon-only" type="button" data-edit-content="${item.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-content="${item.id}" title="Ẩn">${icon("archive")}</button>` : ""}
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function contentChecklistItems(item, key, defaults) {
+    const values = Array.isArray(item && item[key]) && item[key].length ? item[key] : defaults.map(label => ({ label, done: false }));
+    return values.map(entry => {
+      if (typeof entry === "string") return { label: entry, done: false, link: "" };
+      return { label: entry.label || "", done: Boolean(entry.done), link: entry.link || "" };
+    }).filter(entry => entry.label);
+  }
+
+  function renderContentChecklist(name, title, items, withLink) {
+    return `
+      <div class="content-form-box full">
+        <strong>${title}</strong>
+        <div class="content-checklist">
+          ${items.map((entry, index) => `
+            <label class="content-check-item ${withLink ? "has-link" : ""}">
+              <input type="checkbox" data-content-${name}-done="${index}" ${entry.done ? "checked" : ""} />
+              <input type="text" data-content-${name}-label="${index}" value="${escapeAttribute(entry.label)}" />
+              ${withLink ? `<input type="url" data-content-${name}-link="${index}" value="${escapeAttribute(entry.link || "")}" placeholder="Link" />` : ""}
+            </label>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function collectContentChecklist(form, name, withLink) {
+    return Array.from(form.querySelectorAll(`[data-content-${name}-label]`)).map(input => {
+      const index = input.dataset[`content${name[0].toUpperCase()}${name.slice(1)}Label`];
+      const done = form.querySelector(`[data-content-${name}-done="${index}"]`)?.checked || false;
+      const link = withLink ? form.querySelector(`[data-content-${name}-link="${index}"]`)?.value.trim() || "" : "";
+      return { label: input.value.trim(), done, link };
+    }).filter(item => item.label);
+  }
+
+  function contentPromptFor(item, product) {
+    const channel = contentChannels[item.channel] || item.channel || "đa kênh";
+    const productText = product ? `\nSản phẩm: ${product.sku} - ${product.name}\nDanh mục: ${product.category}\nĐiểm nổi bật: ${product.keyFeatures || ""}\nMô tả ngắn: ${product.shortDescription || ""}` : "";
+    return `Bạn là content creator cho cửa hàng họa cụ ArtFlow. Hãy tạo nội dung cho kênh ${channel}.\nChủ đề: ${item.title}\nLoại nội dung: ${contentItemTypes[item.type] || item.type}\nBrief:\n${item.brief || ""}${productText}\nYêu cầu: viết rõ hook, nội dung chính, CTA, hashtag/SEO nếu phù hợp.`;
+  }
+
+  function renderContentWorkspace() {
+    if (!els.contentTable) return;
+    const items = (state.contentItems || []).filter(item => item.status !== "deleted");
+    renderContentFilters(items);
+    const visibleItems = filteredContentItems().sort((a, b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    const productContent = (state.products || []).filter(product => product.status !== "deleted");
+    const missingProductAssets = productContent.filter(product => !productAssetsComplete(product));
+    if (els.contentKpis) {
+      els.contentKpis.innerHTML = [
+        ["Chủ đề", items.length, "Tất cả topic/content task"],
+        ["Đang xử lý", items.filter(item => ["briefing", "drafting", "review"].includes(item.status)).length, "Brief, viết, chờ duyệt"],
+        ["Sẵn sàng", ready, "Có thể đăng hoặc đã lên lịch"],
+        ["Trễ hạn", overdue, "Cần ưu tiên xử lý"]
+      ].map(([label, value, note], index) => `<article class="content-kpi-card" data-tone="${index}"><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`).join("");
+    }
+    if (els.contentProductList) {
+      const rows = productContent
+        .filter(product => {
+          const term = searchTerm.trim().toLowerCase();
+          return !term || [product.sku, product.name, product.category, product.brand, product.seoKeywords].join(" ").toLowerCase().includes(term);
+        })
+        .sort((a, b) => Number(!productAssetsComplete(b)) - Number(!productAssetsComplete(a)) || a.name.localeCompare(b.name, "vi"))
+        .slice(0, 16);
+      els.contentProductList.innerHTML = rows.map(product => {
+        const related = items.filter(item => item.productId === product.id);
+        return `<article class="content-product-card"><div>${renderProductThumb(product, "content-product-thumb")}<span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}</small></span></div><div><span class="badge content-${product.contentStatus}">${productContentStatuses[product.contentStatus]}</span><small>${related.length} chủ đề · ${productAssetsComplete(product) ? "Đủ tài nguyên" : "Thiếu tài nguyên"}</small></div><div class="row-actions">${product.contentDocUrl ? `<a class="link-button icon-only" href="${escapeAttribute(product.contentDocUrl)}" target="_blank" rel="noopener" title="Mở Docs">${icon("external")}</a>` : ""}${canManageContent() ? `<button class="link-button icon-only" type="button" data-create-product-content="${product.id}" title="Tạo chủ đề">${icon("plus")}</button><button class="link-button icon-only" type="button" data-provision-product="${product.id}" title="Tạo tài nguyên sản phẩm">${icon("folderPlus")}</button>` : ""}</div></article>`;
+      }).join("") || `<p class="content-empty">Không có sản phẩm phù hợp.</p>`;
+    }
+    if (els.contentTable) {
+      els.contentTable.innerHTML = visibleItems.length ? visibleItems.map(item => {
+        const product = getContentProduct(item);
+        return `<tr><td><strong>${escapeHtml(item.title)}</strong><br><small>${escapeHtml(contentItemTypes[item.type] || item.type)}${product ? ` · ${escapeHtml(product.sku)}` : ""}</small></td><td><span class="badge content-${item.status}">${contentItemStatuses[item.status] || item.status}</span></td><td>${escapeHtml(contentChannels[item.channel] || item.channel)}</td><td>${escapeHtml(item.owner || "—")}</td><td>${item.dueDate ? formatDate(item.dueDate) : "—"}${item.publishAt ? `<br><small>Đăng: ${escapeHtml(formatDateTimeShort(item.publishAt))}</small>` : ""}</td><td>${contentAssetsComplete(item) ? `<span class="assets-complete">Đủ</span>` : `<span class="assets-missing">Thiếu</span>`}</td><td><div class="row-actions">${item.contentDocUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.contentDocUrl)}" target="_blank" rel="noopener" title="Mở Docs">${icon("external")}</a>` : ""}${item.mediaFolderUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.mediaFolderUrl)}" target="_blank" rel="noopener" title="Mở Drive">${icon("folderPlus")}</a>` : ""}${canManageContent() ? `<button class="link-button icon-only" type="button" data-edit-content="${item.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-content="${item.id}" title="Ẩn">${icon("archive")}</button>` : ""}</div></td></tr>`;
+      }).join("") : `<tr><td colspan="7" class="empty">Chưa có chủ đề content phù hợp.</td></tr>`;
+    }
+    document.querySelectorAll("[data-content-missing-count]").forEach(node => { node.textContent = missingProductAssets.length; });
+  }
+
+  function renderContentItemForm(item, defaults = {}) {
+    const selectedProductId = item ? item.productId : (defaults.productId || "");
+    const defaultProduct = selectedProductId ? byId("products", selectedProductId) : null;
+    const value = key => escapeAttribute(item ? item[key] : (defaults[key] || ""));
+    const selectedTemplate = item ? (item.template || "blank") : (defaults.template || "blank");
+    const briefValue = item ? item.brief : (defaults.brief || contentBriefTemplates[selectedTemplate]?.brief || (defaultProduct ? `${defaultProduct.shortDescription || ""}\n\nĐiểm nổi bật:\n${defaultProduct.keyFeatures || ""}` : ""));
+    const checklistItems = contentChecklistItems(item, "checklist", defaultContentChecklist);
+    const assetItems = contentChecklistItems(item, "assetChecklist", defaultContentAssetChecklist);
+    const comments = Array.isArray(item && item.commentLog) ? item.commentLog : [];
+    const promptText = item && item.promptText ? item.promptText : contentPromptFor({
+      title: item ? item.title : (defaults.title || (defaultProduct ? "Content cho " + defaultProduct.name : "")),
+      type: item ? item.type : (defaults.type || (selectedProductId ? "product" : "campaign")),
+      channel: item ? item.channel : (defaults.channel || "multi"),
+      brief: briefValue
+    }, defaultProduct);
+    return `
+      <div class="field"><label for="contentTitle">Tiêu đề</label><input id="contentTitle" name="title" value="${value("title") || (defaultProduct ? escapeAttribute("Content cho " + defaultProduct.name) : "")}" placeholder="VD: Video hướng dẫn dùng màu nước cho người mới" required /></div>
+      <div class="field"><label for="contentTemplate">Mẫu brief</label><select id="contentTemplate" name="template" data-content-template>${Object.entries(contentBriefTemplates).map(([key, template]) => `<option value="${key}" ${selectedTemplate === key ? "selected" : ""}>${template.label}</option>`).join("")}</select></div>
+      <div class="field"><label for="contentType">Loại</label><select id="contentType" name="type">${Object.entries(contentItemTypes).map(([key, label]) => `<option value="${key}" ${(item ? item.type : defaults.type || (selectedProductId ? "product" : "campaign")) === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="contentProductId">Sản phẩm liên quan</label><select id="contentProductId" name="productId">${contentProductOptions(selectedProductId)}</select></div>
+      <div class="field"><label for="contentChannel">Kênh</label><select id="contentChannel" name="channel">${Object.entries(contentChannels).map(([key, label]) => `<option value="${key}" ${(item ? item.channel : defaults.channel || "multi") === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="contentStatus">Trạng thái</label><select id="contentStatus" name="status">${Object.entries(contentItemStatuses).filter(([key]) => key !== "archived").map(([key, label]) => `<option value="${key}" ${(item ? item.status : defaults.status || "idea") === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="contentPriority">Ưu tiên</label><select id="contentPriority" name="priority">${Object.entries(contentPriorities).map(([key, label]) => `<option value="${key}" ${(item ? item.priority : defaults.priority || "normal") === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="field"><label for="contentDueDate">Deadline</label><input id="contentDueDate" name="dueDate" type="date" value="${value("dueDate")}" /></div>
+      <div class="field"><label for="contentPublishAt">Lịch đăng</label><input id="contentPublishAt" name="publishAt" type="datetime-local" value="${value("publishAt")}" /></div>
+      <div class="field"><label for="contentOwner">Người phụ trách</label><select id="contentOwner" name="owner">${contentOwnerOptions(item ? item.owner : defaults.owner || "")}</select></div>
+      <div class="field full"><label for="contentCollaborators">Người phối hợp</label><input id="contentCollaborators" name="collaborators" value="${value("collaborators")}" placeholder="Tên thành viên, phân tách bằng dấu phẩy" /></div>
+      <div class="field full"><label for="contentTags">Tag</label><input id="contentTags" name="tags" value="${value("tags") || (defaultProduct ? escapeAttribute([defaultProduct.category, defaultProduct.brand].filter(Boolean).join(", ")) : "")}" placeholder="launch, hướng dẫn, back-to-school..." /></div>
+      <div class="field full"><label for="contentBrief">Brief</label><textarea id="contentBrief" name="brief" rows="6" data-content-brief placeholder="Mục tiêu, insight, thông điệp chính, format, yêu cầu hình ảnh/video...">${escapeHtml(briefValue)}</textarea></div>
+      ${renderContentChecklist("checklist", "Checklist xử lý", checklistItems, false)}
+      ${renderContentChecklist("asset", "Asset cần chuẩn bị", assetItems, true)}
+      <div class="field full"><label for="contentPromptText">Prompt hỗ trợ viết</label><textarea id="contentPromptText" name="promptText" rows="5" data-content-prompt>${escapeHtml(promptText)}</textarea><button class="button ghost compact-button" type="button" data-copy-content-prompt>Copy prompt</button></div>
+      <div class="content-form-box full"><strong>Góp ý / comment</strong>${comments.length ? `<div class="content-comment-log">${comments.slice(-5).map(comment => `<p><span>${escapeHtml(comment.author || "Team")} · ${escapeHtml(formatDateTime(comment.createdAt || ""))}</span>${escapeHtml(comment.text || "")}</p>`).join("")}</div>` : `<p class="content-empty">Chưa có góp ý.</p>`}<textarea name="newComment" rows="2" placeholder="Thêm góp ý mới..."></textarea></div>
+      <div class="field full"><label for="contentNote">Ghi chú nội bộ</label><textarea id="contentNote" name="note" rows="3">${escapeHtml(item ? item.note : defaults.note || "")}</textarea></div>
+      <div class="field full"><label for="contentPublishUrl">Link đã đăng</label><input id="contentPublishUrl" name="publishUrl" type="url" value="${value("publishUrl")}" placeholder="https://..." /></div>
+      ${item ? "" : `<div class="field checkbox-field full"><label><input type="checkbox" name="createAssets" checked /> Tạo Google Docs và folder Drive ngay khi lưu</label></div>`}
+    `;
+  }
+
+  function contentDetailsSection(title, note, nodes, open) {
+    const details = document.createElement("details");
+    details.className = "content-details full";
+    if (open) details.open = true;
+    const summary = document.createElement("summary");
+    const summaryText = document.createElement("span");
+    summaryText.textContent = title;
+    const summaryNote = document.createElement("small");
+    summaryNote.textContent = note;
+    summaryText.appendChild(summaryNote);
+    summary.appendChild(summaryText);
+    const body = document.createElement("div");
+    body.className = "content-details-body";
+    nodes.filter(Boolean).forEach(node => body.appendChild(node));
+    details.append(summary, body);
+    return details;
+  }
+
+  function compactContentItemForm(form) {
+    if (!form || form.dataset.contentCompacted === "true") return;
+    const checklistBoxes = Array.from(form.querySelectorAll(".content-form-box.full")).slice(0, 2);
+    const promptField = form.querySelector("[data-content-prompt]")?.closest(".field");
+    const commentBox = Array.from(form.querySelectorAll(".content-form-box.full"))[2];
+    const noteField = form.querySelector("#contentNote")?.closest(".field");
+    const publishUrlField = form.querySelector("#contentPublishUrl")?.closest(".field");
+    const firstAdvancedNode = checklistBoxes[0] || promptField || noteField;
+    if (!firstAdvancedNode) return;
+    const marker = document.createComment("content advanced sections");
+    form.insertBefore(marker, firstAdvancedNode);
+
+    const sections = [
+      contentDetailsSection("Checklist và tài nguyên", "Việc cần làm, asset cần chuẩn bị và link Drive liên quan.", checklistBoxes, false),
+      contentDetailsSection("Prompt và góp ý", "Prompt hỗ trợ viết, lịch sử comment và góp ý mới.", [promptField, commentBox], false),
+      contentDetailsSection("Ghi chú và link xuất bản", "Thông tin nội bộ và đường dẫn bài đã đăng.", [noteField, publishUrlField], false)
+    ];
+    sections.forEach(section => form.insertBefore(section, marker));
+    marker.remove();
+    form.dataset.contentCompacted = "true";
+  }
+
+  async function saveContentItem(form, item) {
+    const data = Object.fromEntries(new FormData(form));
+    const commentLog = Array.isArray(item && item.commentLog) ? [...item.commentLog] : [];
+    const newComment = String(data.newComment || "").trim();
+    if (newComment) {
+      commentLog.push({
+        text: newComment,
+        author: currentUser ? currentUser.name : "Team",
+        createdAt: new Date().toISOString()
+      });
+    }
+    const path = item ? "/content/update" : "/content/create";
+    const response = await apiRequest(path, {
+      method: "POST",
+      body: JSON.stringify({
+        id: item ? item.id : "",
+        ...data,
+        checklistJson: JSON.stringify(collectContentChecklist(form, "checklist", false)),
+        assetChecklistJson: JSON.stringify(collectContentChecklist(form, "asset", true)),
+        commentLogJson: JSON.stringify(commentLog),
+        createAssets: item ? "false" : Boolean(data.createAssets)
+      })
+    });
+    const saved = normalizeContentItem(response.contentItem);
+    state.contentItems = state.contentItems || [];
+    const index = state.contentItems.findIndex(entry => entry.id === saved.id);
+    if (index >= 0) state.contentItems[index] = saved;
+    else state.contentItems.unshift(saved);
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    if (response.assetWarning) showToast("Đã lưu content, nhưng chưa tạo được tài nguyên Drive: " + response.assetWarning, "error");
+    else showToast(item ? "Đã cập nhật content." : "Đã tạo chủ đề content.");
+  }
+
+  async function provisionContentItem(itemId) {
+    const response = await apiRequest("/content/provision-assets", {
+      method: "POST",
+      body: JSON.stringify({ id: itemId })
+    });
+    const saved = normalizeContentItem(response.contentItem);
+    state.contentItems = (state.contentItems || []).map(item => item.id === saved.id ? saved : item);
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    showToast("Đã tạo tài nguyên content.");
+    return saved;
+  }
+
+  async function archiveContentItem(itemId) {
+    await apiRequest("/content/archive", {
+      method: "POST",
+      body: JSON.stringify({ id: itemId })
+    });
+    state.contentItems = (state.contentItems || []).filter(item => item.id !== itemId);
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    showToast("Đã ẩn chủ đề content.");
   }
 
   function renderCustomers() {
@@ -3175,6 +3739,7 @@
     renderOrdersRows(els.recentOrders, recentOrders, 5);
     renderOrdersRows(els.ordersTable, orders);
     renderProducts();
+    renderContentWorkspace();
     renderCustomers();
     renderUsers();
     renderAuditLogs();
@@ -3190,6 +3755,9 @@
 
   function closeModal() {
     if (!els.modalBackdrop || !els.modalForm) return;
+    const modal = els.modalBackdrop.querySelector(".modal");
+    if (modal) delete modal.dataset.modalType;
+    els.modalForm.classList.remove("modal-form-wide");
     els.modalBackdrop.hidden = true;
     els.modalForm.innerHTML = "";
   }
@@ -3215,9 +3783,64 @@
     not_started: "Chưa bắt đầu",
     drafting: "Đang soạn",
     review: "Chờ duyệt",
+    revision: "Cần sửa",
     ready: "Sẵn sàng",
     published: "Đã đăng"
   };
+
+  const contentItemStatuses = {
+    brief: "Lên brief",
+    revision: "Cần sửa",
+    idea: "Ý tưởng",
+    briefing: "Lên brief",
+    drafting: "Đang làm",
+    review: "Chờ duyệt",
+    ready: "Sẵn sàng",
+    scheduled: "Đã lên lịch",
+    published: "Đã đăng",
+    archived: "Tạm ẩn"
+  };
+
+  const contentItemTypes = {
+    product: "Theo sản phẩm",
+    campaign: "Chiến dịch",
+    idea: "Ý tưởng",
+    post: "Bài đăng",
+    video: "Video",
+    short_video: "Video ngắn",
+    blog: "Bài SEO",
+    brief: "Brief"
+  };
+
+  const contentChannels = {
+    multi: "Đa kênh",
+    website: "Website",
+    facebook: "Facebook",
+    tiktok: "TikTok",
+    shopee: "Shopee",
+    lazada: "Lazada",
+    email: "Email",
+    offline: "POS / Offline"
+  };
+
+  const contentPriorities = {
+    low: "Thấp",
+    normal: "Thường",
+    high: "Cao",
+    urgent: "Gấp"
+  };
+
+  const contentBriefTemplates = {
+    blank: { label: "Tự do", brief: "" },
+    facebook: { label: "Bài Facebook", brief: "Mục tiêu:\nĐối tượng:\nHook mở đầu:\nThông điệp chính:\nLợi ích sản phẩm:\nCTA:\nAsset cần có:\nHashtag:" },
+    tiktok: { label: "Video TikTok", brief: "Mục tiêu video:\nĐối tượng:\nHook 3 giây đầu:\nKịch bản cảnh 1-2-3:\nGóc quay/đạo cụ:\nText overlay:\nCTA:\nNhạc/nhịp dựng:" },
+    shopee: { label: "Mô tả Shopee", brief: "Tên/từ khóa chính:\nĐiểm nổi bật:\nThông số:\nCách dùng:\nĐối tượng phù hợp:\nCam kết/chính sách:\nTừ khóa SEO:" },
+    website: { label: "Mô tả Website", brief: "Mục tiêu SEO:\nMô tả ngắn:\nUSP:\nThông số kỹ thuật:\nCách dùng/bảo quản:\nFAQ:\nMeta keywords:" },
+    campaign: { label: "Campaign", brief: "Tên campaign:\nMục tiêu:\nInsight:\nThông điệp chính:\nKênh triển khai:\nDanh sách nội dung cần làm:\nTimeline:\nAsset cần chuẩn bị:" }
+  };
+
+  const defaultContentChecklist = ["Brief rõ mục tiêu", "Caption/nội dung nháp", "Hình/video đã chuẩn bị", "Đã review", "Đã lên lịch hoặc đăng"];
+  const defaultContentAssetChecklist = ["Ảnh chính", "Ảnh phụ", "Video/Reel", "File thiết kế", "Link bài đã đăng"];
 
   const productOptionLabels = {
     category: "Danh mục",
@@ -3972,18 +4595,10 @@
   }
 
   async function submitOrderForm(form) {
-    const shouldPrint = Boolean(
-      form.printAfterSave &&
-      form.printAfterSave.checked
-    );
-
-    const printWindow = shouldPrint
-      ? openReceiptPrintWindow()
-      : null;
-
-    const data = Object.fromEntries(
-      new FormData(form)
-    );
+    const shouldPrint = Boolean(form.printAfterSave && form.printAfterSave.checked);
+    const shouldSavePdf = Boolean(form.receiptPdf && form.receiptPdf.checked);
+    const printWindow = shouldPrint ? openReceiptPrintWindow() : null;
+    const data = Object.fromEntries(new FormData(form));
     const totals = updateOrderTotalPreviewV2(form);
     const customer = byId("customers", data.customerId);
     const items = [...form.querySelectorAll("[data-order-item-row]")].map(row => ({
@@ -4021,24 +4636,17 @@
         items
       })
     });
-    const savedOrder = normalizeOrder(dataFromApi.order);
-    state.orders.unshift(savedOrder);
+    const savedOrder = saveOrderToState(dataFromApi.order);
     lastCreatedOrder = savedOrder;
-    if (form.receiptPdf && form.receiptPdf.checked) {
+
+    if (shouldPrint || shouldSavePdf) {
       try {
-        const pdfResponse = await apiRequest("/orders/receipt-pdf", {
-          method: "POST",
-          body: JSON.stringify({ orderId: savedOrder.id, receiptSettings: getReceiptSettings() })
-        });
-        if (pdfResponse.order) {
-          const pdfOrder = normalizeOrder(pdfResponse.order);
-          lastCreatedOrder = pdfOrder;
-          state.orders = state.orders.map(order => order.id === pdfOrder.id ? pdfOrder : order);
-        }
+        lastCreatedOrder = await ensureOrderReceiptPdf(savedOrder, { force: true });
       } catch (error) {
         showToast(`Đã tạo đơn, nhưng chưa lưu được PDF hóa đơn: ${error.message}`, "error");
       }
     }
+
     await Promise.all([
       loadProducts({ quiet: true }),
       loadCustomers({ quiet: true })
@@ -4047,61 +4655,113 @@
     window.ArtFlowPosStore.save(state);
 
     if (shouldPrint) {
-      if (printWindow && !printWindow.closed) {
-        printReceipt(
-          lastCreatedOrder || savedOrder,
-          printWindow
-        );
+      const printableOrder = lastCreatedOrder || savedOrder;
+      if (printableOrder.receiptPdfUrl) {
+        openReceiptPdf(printableOrder, printWindow);
+      } else if (printWindow && !printWindow.closed) {
+        printReceipt(printableOrder, printWindow);
       } else {
-        showToast(
-          "Đơn đã được tạo nhưng cửa sổ in đã bị đóng hoặc bị chặn.",
-          "error"
-        );
+        showToast("Đơn đã được tạo nhưng cửa sổ in đã bị đóng hoặc bị chặn.", "error");
       }
     }
 
     renderPage();
     showToast("Đã tạo đơn và trừ tồn kho.");
-    return dataFromApi.order;
+    return lastCreatedOrder || savedOrder;
+  }
+
+  function saveOrderToState(order) {
+    const normalized = normalizeOrder(order);
+    const index = state.orders.findIndex(item => item.id === normalized.id);
+    if (index >= 0) state.orders[index] = normalized;
+    else state.orders.unshift(normalized);
+    window.ArtFlowPosStore.save(state);
+    return normalized;
+  }
+
+  async function ensureOrderReceiptPdf(order, options = {}) {
+    if (!order) throw new Error("Không tìm thấy đơn hàng.");
+    if (order.receiptPdfUrl && !options.force) return order;
+    const response = await apiRequest("/orders/receipt-pdf", {
+      method: "POST",
+      body: JSON.stringify({ orderId: order.id, receiptSettings: getReceiptSettings() })
+    });
+    if (!response.order) throw new Error("Không nhận được thông tin hóa đơn PDF.");
+    return saveOrderToState(response.order);
+  }
+
+  async function openOrCreateOrderReceiptPdf(order, options = {}) {
+    const preparedOrder = await ensureOrderReceiptPdf(order, options);
+    openReceiptPdf(preparedOrder, options.printWindow);
+    renderPage();
+    return preparedOrder;
   }
 
   function renderReceiptSettingsForm() {
     const settings = getReceiptSettings();
     return `
       <div class="field"><label for="storeName">Tên cửa hàng</label><input id="storeName" name="storeName" value="${escapeAttribute(settings.storeName)}" required /></div>
-      <div class="field"><label for="paperWidth">Khổ phiếu</label><select id="paperWidth" name="paperWidth"><option value="58" ${settings.paperWidth === "58" ? "selected" : ""}>58mm</option><option value="80" ${settings.paperWidth === "80" ? "selected" : ""}>80mm</option></select></div>
+      <div class="field"><label for="paperSize">Khổ giấy</label><select id="paperSize" name="paperSize">
+        <option value="thermal80" ${settings.paperSize === "thermal80" ? "selected" : ""}>Nhiệt 80mm - phổ biến POS</option>
+        <option value="thermal58" ${settings.paperSize === "thermal58" || settings.paperWidth === "58" ? "selected" : ""}>Nhiệt 58mm - máy mini</option>
+        <option value="thermal76" ${settings.paperSize === "thermal76" ? "selected" : ""}>Nhiệt 76mm</option>
+        <option value="thermal112" ${settings.paperSize === "thermal112" ? "selected" : ""}>Nhiệt 112mm</option>
+        <option value="a5" ${settings.paperSize === "a5" ? "selected" : ""}>A5</option>
+        <option value="a4" ${settings.paperSize === "a4" ? "selected" : ""}>A4</option>
+      </select></div>
       <div class="field"><label for="phone">Điện thoại</label><input id="phone" name="phone" value="${escapeAttribute(settings.phone)}" /></div>
-      <div class="field"><label for="storeInfo">Dòng mô tả</label><input id="storeInfo" name="storeInfo" value="${escapeAttribute(settings.storeInfo)}" /></div>
+      <div class="field"><label for="taxCode">Mã số thuế</label><input id="taxCode" name="taxCode" value="${escapeAttribute(settings.taxCode)}" /></div>
+      <div class="field full"><label for="storeInfo">Dòng mô tả</label><input id="storeInfo" name="storeInfo" value="${escapeAttribute(settings.storeInfo)}" /></div>
       <div class="field full"><label for="address">Địa chỉ</label><input id="address" name="address" value="${escapeAttribute(settings.address)}" /></div>
       <div class="field full"><label for="footer">Lời cuối phiếu</label><input id="footer" name="footer" value="${escapeAttribute(settings.footer)}" /></div>
       <div class="field checkbox-field full">
         <label><input type="checkbox" name="showSku" ${settings.showSku ? "checked" : ""} /> Hiện SKU</label>
         <label><input type="checkbox" name="showCustomer" ${settings.showCustomer ? "checked" : ""} /> Hiện khách hàng</label>
         <label><input type="checkbox" name="showPoints" ${settings.showPoints ? "checked" : ""} /> Hiện điểm tích lũy</label>
+        <label><input type="checkbox" name="showUnitPrice" ${settings.showUnitPrice ? "checked" : ""} /> Hiện đơn giá</label>
+      </div>
+      <div class="receipt-setting-note full">
+        Khuyên dùng 80mm cho quầy POS cố định, 58mm cho máy in mini. PDF lưu trên Drive sẽ dùng đúng khổ giấy đã chọn.
       </div>
     `;
   }
 
   function receiptHtml(order) {
     const settings = getReceiptSettings();
+    const profile = receiptPaperProfile(settings);
     const customer = getCustomer(order);
     const rows = (order.items || []).map(item => `
-      <tr><td><b>${escapeHtml(item.name)}</b>${settings.showSku ? `<small>${escapeHtml(item.sku)}</small>` : ""}</td><td>${item.quantity}</td><td>${money.format(item.unitPrice)}</td><td>${money.format(item.lineTotal)}</td></tr>
+      <tr>
+        <td><b>${escapeHtml(item.name)}</b>${settings.showSku ? `<small>SKU: ${escapeHtml(item.sku)}</small>` : ""}${settings.showUnitPrice ? `<small>Đơn giá: ${money.format(item.unitPrice)}${item.discountPercent ? ` · Giảm ${Number(item.discountPercent).toFixed(1)}%` : ""}</small>` : ""}</td>
+        <td>${item.quantity}</td>
+        ${profile.compact ? "" : `<td>${money.format(item.unitPrice)}</td>`}
+        <td><b>${money.format(item.lineTotal)}</b></td>
+      </tr>
     `).join("");
     return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(order.code)}</title><style>
-      @page { size: ${settings.paperWidth}mm auto; margin: 4mm; }
-      body { width: ${settings.paperWidth}mm; margin: 0; font: 12px/1.35 Arial, sans-serif; color: #111; }
-      h1 { margin: 0; font-size: 18px; text-align: center; } p { margin: 2px 0; } .center { text-align: center; }
-      .line { border-top: 1px dashed #777; margin: 8px 0; } table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 4px 0; vertical-align: top; text-align: right; } th:first-child, td:first-child { text-align: left; }
-      small { display: block; color: #444; } .totals div { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; }
-      .total { font-weight: 700; font-size: 15px; }
+      @page { size: ${profile.width}mm auto; margin: ${profile.margin}mm; }
+      * { box-sizing: border-box; }
+      body { width: ${profile.width - profile.margin * 2}mm; margin: 0; font: ${profile.font}px/1.35 Arial, sans-serif; color: #101828; }
+      h1 { margin: 0 0 3px; font-size: ${profile.title}px; line-height: 1.15; text-align: center; letter-spacing: .04em; }
+      p { margin: 2px 0; } .center { text-align: center; } .muted { color: #475467; }
+      .title { margin-top: 8px; text-align: center; font-weight: 800; font-size: ${profile.title - 1}px; }
+      .line { border-top: 1px dashed #667085; margin: 8px 0; }
+      .info div, .totals div { display: flex; justify-content: space-between; gap: 8px; margin: 3px 0; }
+      .info b, .totals b { text-align: right; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th { background: #eef2f7; font-weight: 800; }
+      th, td { padding: 4px 2px; vertical-align: top; text-align: right; border-bottom: 1px solid #eaecf0; }
+      th:first-child, td:first-child { width: ${profile.compact ? 64 : 50}%; text-align: left; }
+      th:nth-child(2), td:nth-child(2) { width: ${profile.compact ? 12 : 10}%; text-align: center; }
+      small { display: block; margin-top: 2px; color: #475467; font-size: ${Math.max(9, profile.font - 1)}px; }
+      .total { margin-top: 5px; padding: 6px; background: #eef2f7; font-weight: 800; font-size: ${profile.font + 2}px; }
+      .footer { margin-top: 8px; text-align: center; color: #344054; }
     </style></head><body>
-      <h1>${escapeHtml(settings.storeName)}</h1><p class="center">${escapeHtml(settings.storeInfo)}</p>
-      ${settings.address ? `<p class="center">${escapeHtml(settings.address)}</p>` : ""}${settings.phone ? `<p class="center">ĐT: ${escapeHtml(settings.phone)}</p>` : ""}
-      <div class="line"></div><p><b>Hóa đơn:</b> ${escapeHtml(order.code)}</p><p><b>Ngày:</b> ${escapeHtml(formatDateTime(order.createdAt || new Date().toISOString()))}</p>
-      ${settings.showCustomer ? `<p><b>Khách:</b> ${escapeHtml(customer.name || "Khách lẻ")}</p>` : ""}
-      <div class="line"></div><table><thead><tr><th>Sản phẩm</th><th>SL</th><th>Giá</th><th>Tiền</th></tr></thead><tbody>${rows}</tbody></table>
+      <h1>${escapeHtml(settings.storeName).toUpperCase()}</h1><p class="center muted">${escapeHtml(settings.storeInfo)}</p>
+      ${settings.address ? `<p class="center muted">${escapeHtml(settings.address)}</p>` : ""}${settings.phone ? `<p class="center muted">ĐT: ${escapeHtml(settings.phone)}</p>` : ""}${settings.taxCode ? `<p class="center muted">MST: ${escapeHtml(settings.taxCode)}</p>` : ""}
+      <div class="line"></div><div class="title">PHIẾU BÁN HÀNG</div>
+      <div class="info"><div><span>Mã đơn</span><b>${escapeHtml(order.code)}</b></div><div><span>Thời gian</span><b>${escapeHtml(formatDateTime(order.createdAt || new Date().toISOString()))}</b></div><div><span>Kênh</span><b>${escapeHtml(channelLabel(order.channel))}</b></div><div><span>Thanh toán</span><b>${escapeHtml(order.paymentMethod || "cash")}</b></div>${settings.showCustomer ? `<div><span>Khách</span><b>${escapeHtml(customer.name || "Khách lẻ")}</b></div>` : ""}</div>
+      <div class="line"></div><table><thead><tr><th>Sản phẩm</th><th>SL</th>${profile.compact ? "" : "<th>Đơn giá</th>"}<th>Tiền</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="line"></div><div class="totals">
         <div><span>Tạm tính</span><b>${money.format(order.subtotal)}</b></div>
         ${(order.discount || order.loyaltyDiscount) ? `<div><span>Giảm</span><b>${money.format(Number(order.discount || 0) + Number(order.loyaltyDiscount || 0))}</b></div>` : ""}
@@ -4110,7 +4770,7 @@
         <div class="total"><span>Tổng cộng</span><b>${money.format(order.total)}</b></div>
         ${order.cashReceived ? `<div><span>Tiền nhận</span><b>${money.format(order.cashReceived)}</b></div><div><span>Tiền thối</span><b>${money.format(order.changeAmount)}</b></div>` : ""}
         ${settings.showPoints ? `<div><span>Điểm dùng/cộng</span><b>${Number(order.loyaltyPointsUsed || 0)} / ${Math.floor(Number(order.total || 0) / loyaltyRules.earnPerVnd)}</b></div>` : ""}
-      </div><div class="line"></div><p class="center">${escapeHtml(settings.footer)}</p><script>window.onload=()=>{setTimeout(()=>window.print(),150)};</script>
+      </div><div class="line"></div><p class="footer">${escapeHtml(settings.footer)}</p><p class="center muted">Khổ ${escapeHtml(settings.paperSize || settings.paperWidth || "80")}</p><script>window.onload=()=>{setTimeout(()=>window.print(),150)};</script>
     </body></html>`;
   }
 
@@ -4224,6 +4884,22 @@
         "error"
       );
     }
+  }
+
+  function openReceiptPdf(order, existingWindow) {
+    if (!order || !order.receiptPdfUrl) return false;
+    const targetWindow = existingWindow && !existingWindow.closed ? existingWindow : null;
+    if (targetWindow) {
+      targetWindow.location.href = order.receiptPdfUrl;
+      targetWindow.focus();
+      return true;
+    }
+    const opened = window.open(order.receiptPdfUrl, "_blank", "noopener");
+    if (!opened) {
+      showToast("Trình duyệt đã chặn cửa sổ hóa đơn PDF. Hãy cho phép popup cho ArtFlow POS.", "error");
+      return false;
+    }
+    return true;
   }
 
   function renderOrderCreatePage() {
@@ -4638,6 +5314,10 @@
       showToast("Bạn không có quyền quản lý thuộc tính sản phẩm.", "error");
       return;
     }
+    if (type === "contentItem" && !canManageContent()) {
+      showToast("Bạn không có quyền quản lý content.", "error");
+      return;
+    }
     if (type === "customer" && !canManageCustomers()) {
       showToast("Bạn không có quyền quản lý khách hàng.", "error");
       return;
@@ -4736,8 +5416,10 @@
     }
 
     const editingProduct = options.product || null;
+    const editingContentItem = options.contentItem || null;
     const editingCustomer = options.customer || null;
     const editingOrder = options.order || null;
+    const viewingOrder = options.orderDetail || null;
     const editingAccountingAccount = options.account || null;
     const editingAccountingCategory = options.category || null;
     const editingSupplier = options.supplier || null;
@@ -4756,10 +5438,24 @@
         body: editingProduct ? renderProductDetail(editingProduct) : "",
         readOnly: true
       },
+      contentItem: {
+        eyebrow: "Content workspace",
+        title: editingContentItem ? "Cập nhật content" : "Tạo chủ đề content",
+        body: renderContentItemForm(editingContentItem, options.defaults || {}),
+        submit(form) {
+          return saveContentItem(form, editingContentItem);
+        }
+      },
       auditDetail: {
         eyebrow: "Nhật ký hệ thống",
         title: viewingAuditLog ? viewingAuditLog.description : "Chi tiết hoạt động",
         body: viewingAuditLog ? renderAuditDetail(viewingAuditLog) : "",
+        readOnly: true
+      },
+      orderDetail: {
+        eyebrow: "Bán hàng",
+        title: viewingOrder ? `Chi tiết ${viewingOrder.code}` : "Chi tiết đơn hàng",
+        body: viewingOrder ? renderOrderDetail(viewingOrder) : "",
         readOnly: true
       },
       receiptSettings: {
@@ -4772,12 +5468,15 @@
             storeName: String(data.storeName || "ArtFlow").trim(),
             storeInfo: String(data.storeInfo || "").trim(),
             phone: String(data.phone || "").trim(),
+            taxCode: String(data.taxCode || "").trim(),
             address: String(data.address || "").trim(),
             footer: String(data.footer || "").trim(),
-            paperWidth: String(data.paperWidth || "80"),
+            paperSize: String(data.paperSize || "thermal80"),
+            paperWidth: String(data.paperSize || "thermal80").replace("thermal", ""),
             showSku: Boolean(data.showSku),
             showCustomer: Boolean(data.showCustomer),
-            showPoints: Boolean(data.showPoints)
+            showPoints: Boolean(data.showPoints),
+            showUnitPrice: Boolean(data.showUnitPrice)
           });
           showToast("Đã lưu cài đặt phiếu in.");
         }
@@ -5283,9 +5982,13 @@
 
     const definition = definitions[type];
     if (!definition) return;
+    const modal = els.modalBackdrop.querySelector(".modal");
+    if (modal) modal.dataset.modalType = type;
+    els.modalForm.classList.toggle("modal-form-wide", type === "orderDetail");
     els.modalEyebrow.textContent = definition.eyebrow;
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
+    if (type === "contentItem") compactContentItemForm(els.modalForm);
     els.modalForm.insertAdjacentHTML("beforeend", definition.readOnly ? `
       <div class="form-actions"><button class="button primary" type="button" data-close-modal>${icon("check")} Đóng</button></div>
     ` : `
@@ -5564,8 +6267,28 @@
         const auditLog = auditLogs.find(log => log.id === target.dataset.viewAudit);
         if (auditLog) openModal("auditDetail", { auditLog });
       }
+      if (target.dataset.viewOrder) {
+        const order = byId("orders", target.dataset.viewOrder);
+        if (order) openModal("orderDetail", { orderDetail: order });
+      }
+      if (target.dataset.orderReceiptPdf) {
+        const order = byId("orders", target.dataset.orderReceiptPdf);
+        if (order) {
+          const pdfWindow = order.receiptPdfUrl ? null : openReceiptPrintWindow();
+          await withLoading(order.receiptPdfUrl ? "Đang mở hóa đơn PDF..." : "Đang tạo hóa đơn PDF...", () => openOrCreateOrderReceiptPdf(order, { printWindow: pdfWindow }));
+        }
+      }
+      if (target.dataset.orderReceiptRegenerate) {
+        const order = byId("orders", target.dataset.orderReceiptRegenerate);
+        if (order) {
+          const pdfWindow = openReceiptPrintWindow();
+          const updated = await withLoading("Đang tạo lại hóa đơn PDF...", () => openOrCreateOrderReceiptPdf(order, { force: true, printWindow: pdfWindow }));
+          openModal("orderDetail", { orderDetail: updated });
+        }
+      }
       if (target.matches("[data-export-profit-report]")) exportProfitReport(page === "accounting" ? { range: accountingExportRange(), channel: "all" } : {});
       if (target.matches("[data-export-products]")) exportProductsCsv();
+      if (target.matches("[data-export-content]")) exportContentReport();
       if (target.matches("[data-import-products]")) openModal("productImport");
       if (target.matches("[data-export-customers]")) exportCustomersCsv();
       if (target.matches("[data-import-customers]")) openModal("customerImport");
@@ -5574,6 +6297,38 @@
       if (target.matches("[data-choose-product-file]")) els.productCsvFile?.click();
       if (target.matches("[data-choose-customer-file]")) els.customerCsvFile?.click();
       if (target.matches("[data-open-product]")) openModal("product");
+      if (target.matches("[data-open-content-item]")) openModal("contentItem");
+      if (target.matches("[data-copy-content-prompt]")) {
+        const prompt = target.closest("form")?.querySelector("[data-content-prompt]")?.value || "";
+        if (prompt) {
+          await navigator.clipboard.writeText(prompt);
+          showToast("Đã copy prompt.");
+        }
+      }
+      if (target.dataset.createProductContent) {
+        const product = byId("products", target.dataset.createProductContent);
+        if (product) openModal("contentItem", { defaults: { productId: product.id, type: "product", title: "Content cho " + product.name } });
+      }
+      if (target.dataset.editContent) {
+        const item = (state.contentItems || []).find(entry => entry.id === target.dataset.editContent);
+        if (item) openModal("contentItem", { contentItem: item });
+      }
+      if (target.dataset.provisionContentItem) {
+        try {
+          await withLoading("Đang tạo tài nguyên content...", () => provisionContentItem(target.dataset.provisionContentItem));
+        } catch (error) {
+          showToast(error.message, "error");
+        }
+      }
+      if (target.dataset.archiveContent) {
+        if (confirm("Ẩn chủ đề content này?")) {
+          try {
+            await withLoading("Đang ẩn chủ đề content...", () => archiveContentItem(target.dataset.archiveContent));
+          } catch (error) {
+            showToast(error.message, "error");
+          }
+        }
+      }
       if (target.matches("[data-open-product-options]")) openModal("productOptions", { optionType: "category" });
       if (target.dataset.productOptionType) openModal("productOptions", { optionType: target.dataset.productOptionType });
       if (target.dataset.editProductOption) openModal("productOptions", { optionType: target.dataset.optionType, editOptionId: target.dataset.editProductOption });
@@ -6014,6 +6769,16 @@
       if (event.target.matches("[data-inventory-filter]")) {
         inventoryFilters[event.target.dataset.inventoryFilter] = event.target.value;
         renderInventory();
+      }
+      if (event.target.matches("[data-content-filter]")) {
+        contentFilters[event.target.dataset.contentFilter] = event.target.value;
+        renderContentWorkspace();
+      }
+      if (event.target.matches("[data-content-template]")) {
+        const form = event.target.closest("form");
+        const brief = form?.querySelector("[data-content-brief]");
+        const template = contentBriefTemplates[event.target.value];
+        if (brief && template && !brief.value.trim()) brief.value = template.brief;
       }
       if (event.target.matches("[data-order-product], #customerId, #roundingStep, #paymentMethod")) updateOrderTotalPreviewV2(event.target.closest("form") || els.orderCreateForm || els.modalForm);
       if (event.target.matches("[data-cash-type]")) {
