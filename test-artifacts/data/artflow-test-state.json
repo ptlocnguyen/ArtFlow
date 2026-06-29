@@ -1,0 +1,771 @@
+{
+  "user": {
+    "id": "user-admin",
+    "name": "Phan Ton Loc Nguyen",
+    "email": "admin@artflow.local",
+    "role": "admin",
+    "status": "active"
+  },
+  "users": [
+    {
+      "id": "user-admin",
+      "name": "Phan Ton Loc Nguyen",
+      "email": "admin@artflow.local",
+      "role": "admin",
+      "status": "active"
+    },
+    {
+      "id": "user-content",
+      "name": "Minh Anh",
+      "email": "content@artflow.local",
+      "role": "sales",
+      "status": "active"
+    },
+    {
+      "id": "user-inventory",
+      "name": "Kho ArtFlow",
+      "email": "kho@artflow.local",
+      "role": "inventory",
+      "status": "active"
+    }
+  ],
+  "products": [
+    {
+      "id": "prod-001",
+      "sku": "ART001",
+      "name": "But chi 2B Faber Castell",
+      "category": "But chi",
+      "brand": "Faber Castell",
+      "barcode": "",
+      "unit": "cai",
+      "weightGrams": 0,
+      "dimensions": "",
+      "origin": "Vietnam",
+      "material": "",
+      "costPrice": 5000,
+      "salePrice": 8000,
+      "stock": 42,
+      "lowStock": 15,
+      "imageUrl": "https://placehold.co/160x160/eef6ff/1f2937?text=2B",
+      "shortDescription": "But chi 2B Faber Castell dung cho cua hang hoa cu.",
+      "keyFeatures": "De ban, de bao quan",
+      "targetAudience": "Hoc sinh, sinh vien, studio",
+      "seoKeywords": "But chi 2B Faber Castell",
+      "contentStatus": "drafting",
+      "contentOwner": "user-content",
+      "contentNote": "",
+      "websiteProductUrl": "",
+      "shopeeProductUrl": "",
+      "tiktokProductUrl": "",
+      "facebookProductUrl": "",
+      "contentPostLinks": "",
+      "contentDocId": "",
+      "contentDocUrl": "",
+      "mediaFolderId": "",
+      "mediaFolderUrl": "",
+      "imageFolderId": "",
+      "imageFolderUrl": "",
+      "videoFolderId": "",
+      "videoFolderUrl": "",
+      "status": "active",
+      "createdAt": "2026-06-20T08:00:00+07:00",
+      "updatedAt": "2026-06-29T09:00:00+07:00"
+    },
+    {
+      "id": "prod-002",
+      "sku": "ART002",
+      "name": "But chi 4B Faber Castell",
+      "category": "But chi",
+      "brand": "Faber Castell",
+      "barcode": "",
+      "unit": "cai",
+      "weightGrams": 0,
+      "dimensions": "",
+      "origin": "Vietnam",
+      "material": "",
+      "costPrice": 6000,
+      "salePrice": 9000,
+      "stock": 4,
+      "lowStock": 5,
+      "imageUrl": "https://placehold.co/160x160/f3f4f6/1f2937?text=4B",
+      "shortDescription": "But chi 4B Faber Castell dung cho cua hang hoa cu.",
+      "keyFeatures": "De ban, de bao quan",
+      "targetAudience": "Hoc sinh, sinh vien, studio",
+      "seoKeywords": "But chi 4B Faber Castell",
+      "contentStatus": "drafting",
+      "contentOwner": "user-content",
+      "contentNote": "",
+      "websiteProductUrl": "",
+      "shopeeProductUrl": "",
+      "tiktokProductUrl": "",
+      "facebookProductUrl": "",
+      "contentPostLinks": "",
+      "contentDocId": "",
+      "contentDocUrl": "",
+      "mediaFolderId": "",
+      "mediaFolderUrl": "",
+      "imageFolderId": "",
+      "imageFolderUrl": "",
+      "videoFolderId": "",
+      "videoFolderUrl": "",
+      "status": "active",
+      "createdAt": "2026-06-20T08:00:00+07:00",
+      "updatedAt": "2026-06-29T09:00:00+07:00"
+    },
+    {
+      "id": "prod-003",
+      "sku": "ART003",
+      "name": "But chi 6B Staedtler",
+      "category": "But chi",
+      "brand": "Staedtler",
+      "barcode": "",
+      "unit": "cai",
+      "weightGrams": 0,
+      "dimensions": "",
+      "origin": "Vietnam",
+      "material": "",
+      "costPrice": 7000,
+      "salePrice": 11000,
+      "stock": 6,
+      "lowStock": 10,
+      "imageUrl": "https://placehold.co/160x160/eff6ff/1f2937?text=6B",
+      "shortDescription": "But chi 6B Staedtler dung cho cua hang hoa cu.",
+      "keyFeatures": "De ban, de bao quan",
+      "targetAudience": "Hoc sinh, sinh vien, studio",
+      "seoKeywords": "But chi 6B Staedtler",
+      "contentStatus": "drafting",
+      "contentOwner": "user-content",
+      "contentNote": "",
+      "websiteProductUrl": "",
+      "shopeeProductUrl": "",
+      "tiktokProductUrl": "",
+      "facebookProductUrl": "",
+      "contentPostLinks": "",
+      "contentDocId": "",
+      "contentDocUrl": "",
+      "mediaFolderId": "",
+      "mediaFolderUrl": "",
+      "imageFolderId": "",
+      "imageFolderUrl": "",
+      "videoFolderId": "",
+      "videoFolderUrl": "",
+      "status": "active",
+      "createdAt": "2026-06-20T08:00:00+07:00",
+      "updatedAt": "2026-06-29T09:00:00+07:00"
+    },
+    {
+      "id": "prod-004",
+      "sku": "ART004",
+      "name": "Bang pha mau nhua",
+      "category": "Phu kien",
+      "brand": "ArtFlow",
+      "barcode": "",
+      "unit": "cai",
+      "weightGrams": 0,
+      "dimensions": "",
+      "origin": "Vietnam",
+      "material": "",
+      "costPrice": 9000,
+      "salePrice": 15000,
+      "stock": 18,
+      "lowStock": 8,
+      "imageUrl": "https://placehold.co/160x160/ecfeff/155e75?text=Palette",
+      "shortDescription": "Bang pha mau nhua dung cho cua hang hoa cu.",
+      "keyFeatures": "De ban, de bao quan",
+      "targetAudience": "Hoc sinh, sinh vien, studio",
+      "seoKeywords": "Bang pha mau nhua",
+      "contentStatus": "drafting",
+      "contentOwner": "user-content",
+      "contentNote": "",
+      "websiteProductUrl": "",
+      "shopeeProductUrl": "",
+      "tiktokProductUrl": "",
+      "facebookProductUrl": "",
+      "contentPostLinks": "",
+      "contentDocId": "",
+      "contentDocUrl": "",
+      "mediaFolderId": "",
+      "mediaFolderUrl": "",
+      "imageFolderId": "",
+      "imageFolderUrl": "",
+      "videoFolderId": "",
+      "videoFolderUrl": "",
+      "status": "active",
+      "createdAt": "2026-06-20T08:00:00+07:00",
+      "updatedAt": "2026-06-29T09:00:00+07:00"
+    },
+    {
+      "id": "prod-005",
+      "sku": "ART005",
+      "name": "Mau nuoc Giorgione 24 mau",
+      "category": "Mau ve",
+      "brand": "Giorgione",
+      "barcode": "",
+      "unit": "cai",
+      "weightGrams": 0,
+      "dimensions": "",
+      "origin": "Vietnam",
+      "material": "",
+      "costPrice": 153000,
+      "salePrice": 223000,
+      "stock": 11,
+      "lowStock": 4,
+      "imageUrl": "https://placehold.co/160x160/fef3c7/92400e?text=24+Mau",
+      "shortDescription": "Mau nuoc Giorgione 24 mau dung cho cua hang hoa cu.",
+      "keyFeatures": "De ban, de bao quan",
+      "targetAudience": "Hoc sinh, sinh vien, studio",
+      "seoKeywords": "Mau nuoc Giorgione 24 mau",
+      "contentStatus": "drafting",
+      "contentOwner": "user-content",
+      "contentNote": "",
+      "websiteProductUrl": "",
+      "shopeeProductUrl": "",
+      "tiktokProductUrl": "",
+      "facebookProductUrl": "",
+      "contentPostLinks": "",
+      "contentDocId": "",
+      "contentDocUrl": "",
+      "mediaFolderId": "",
+      "mediaFolderUrl": "",
+      "imageFolderId": "",
+      "imageFolderUrl": "",
+      "videoFolderId": "",
+      "videoFolderUrl": "",
+      "status": "active",
+      "createdAt": "2026-06-20T08:00:00+07:00",
+      "updatedAt": "2026-06-29T09:00:00+07:00"
+    }
+  ],
+  "productOptions": [
+    {
+      "id": "category-but-chi",
+      "type": "category",
+      "name": "But chi",
+      "status": "active"
+    },
+    {
+      "id": "category-phu-kien",
+      "type": "category",
+      "name": "Phu kien",
+      "status": "active"
+    },
+    {
+      "id": "category-mau-ve",
+      "type": "category",
+      "name": "Mau ve",
+      "status": "active"
+    },
+    {
+      "id": "brand-faber-castell",
+      "type": "brand",
+      "name": "Faber Castell",
+      "status": "active"
+    },
+    {
+      "id": "brand-staedtler",
+      "type": "brand",
+      "name": "Staedtler",
+      "status": "active"
+    },
+    {
+      "id": "brand-giorgione",
+      "type": "brand",
+      "name": "Giorgione",
+      "status": "active"
+    },
+    {
+      "id": "unit-cai",
+      "type": "unit",
+      "name": "cai",
+      "status": "active"
+    },
+    {
+      "id": "unit-hop",
+      "type": "unit",
+      "name": "hop",
+      "status": "active"
+    }
+  ],
+  "contentOwners": [
+    {
+      "id": "user-admin",
+      "name": "Phan Ton Loc Nguyen",
+      "email": "admin@artflow.local"
+    },
+    {
+      "id": "user-content",
+      "name": "Minh Anh",
+      "email": "content@artflow.local"
+    },
+    {
+      "id": "user-inventory",
+      "name": "Kho ArtFlow",
+      "email": "kho@artflow.local"
+    }
+  ],
+  "contentItems": [
+    {
+      "id": "content-001",
+      "type": "campaign",
+      "title": "Back to school - but chi",
+      "status": "drafting",
+      "channel": "facebook",
+      "productId": "prod-001",
+      "owner": "user-content",
+      "dueDate": "2026-07-03",
+      "brief": "Goi y combo but chi cho hoc sinh.",
+      "contentDocUrl": "https://docs.google.com/document/d/fake-doc",
+      "mediaFolderUrl": "https://drive.google.com/drive/folders/fake-folder",
+      "postLinks": "",
+      "createdAt": "2026-06-29T09:30:00+07:00",
+      "updatedAt": "2026-06-29T09:30:00+07:00"
+    }
+  ],
+  "teamMeetings": [
+    {
+      "id": "team-meeting-001",
+      "title": "Hop ke hoach thang 7",
+      "status": "scheduled",
+      "owner": "user-admin",
+      "meetingDate": "2026-06-30",
+      "participants": "Admin, Content, Kho",
+      "agenda": "Doanh thu, hang can nhap, lich content",
+      "decisions": "Tap trung combo back to school",
+      "nextActions": "Chot bang gia combo",
+      "createdAt": "2026-06-29T09:30:00+07:00",
+      "updatedAt": "2026-06-29T09:30:00+07:00"
+    }
+  ],
+  "teamPlans": [
+    {
+      "id": "team-plan-001",
+      "title": "Ke hoach Back to School",
+      "status": "active",
+      "owner": "user-admin",
+      "period": "2026-07",
+      "goal": "Tang doanh thu but ve 20%",
+      "budget": 2500000,
+      "expectedRevenue": 18000000,
+      "tasks": "Nhap hang, content, chay ads",
+      "createdAt": "2026-06-29T09:30:00+07:00",
+      "updatedAt": "2026-06-29T09:30:00+07:00"
+    }
+  ],
+  "teamPricingModels": [
+    {
+      "id": "team-price-001",
+      "title": "Gia combo but chi",
+      "status": "draft",
+      "owner": "user-admin",
+      "productId": "prod-001",
+      "baseCost": 5000,
+      "overheadPercent": 8,
+      "targetMarginPercent": 35,
+      "lines": [
+        {
+          "label": "Bao bi",
+          "amount": 500
+        }
+      ],
+      "scenarios": [
+        {
+          "label": "Ban le",
+          "price": 9000
+        }
+      ],
+      "createdAt": "2026-06-29T09:30:00+07:00",
+      "updatedAt": "2026-06-29T09:30:00+07:00"
+    }
+  ],
+  "teamDecisions": [
+    {
+      "id": "team-decision-001",
+      "title": "Giu gia but chi 2B",
+      "status": "approved",
+      "owner": "user-admin",
+      "decisionDate": "2026-06-29",
+      "context": "Can giu bien loi nhuan tot",
+      "decision": "Gia ban 8.000d",
+      "impact": "On dinh POS va san",
+      "createdAt": "2026-06-29T09:30:00+07:00",
+      "updatedAt": "2026-06-29T09:30:00+07:00"
+    }
+  ],
+  "customers": [
+    {
+      "id": "cust-001",
+      "name": "Nguyen Minh Anh",
+      "phone": "990388981",
+      "email": "",
+      "group": "ban-le",
+      "status": "active",
+      "totalSpent": 990000,
+      "lastOrderAt": "2026-06-27T14:20:00+07:00",
+      "note": "",
+      "loyaltyPoints": 80,
+      "createdAt": "2026-06-20T08:00:00+07:00",
+      "updatedAt": "2026-06-27T14:20:00+07:00"
+    },
+    {
+      "id": "cust-002",
+      "name": "Blue Studio",
+      "phone": "0909123456",
+      "email": "",
+      "group": "studio",
+      "status": "active",
+      "totalSpent": 5145000,
+      "lastOrderAt": "2026-06-25T10:10:00+07:00",
+      "note": "",
+      "loyaltyPoints": 260,
+      "createdAt": "2026-06-20T08:00:00+07:00",
+      "updatedAt": "2026-06-25T10:10:00+07:00"
+    }
+  ],
+  "orders": [
+    {
+      "id": "ord-001",
+      "code": "POS-20260627-0001",
+      "customerId": "cust-001",
+      "status": "completed",
+      "paymentStatus": "paid",
+      "paymentMethod": "cash",
+      "subtotal": 236000,
+      "discount": 0,
+      "shippingFee": 0,
+      "total": 236000,
+      "returnedAmount": 0,
+      "refundedAmount": 0,
+      "netTotal": 236000,
+      "note": "",
+      "createdBy": "user-admin",
+      "createdAt": "2026-06-27T01:48:36+07:00",
+      "updatedAt": "2026-06-27T01:48:36+07:00",
+      "channel": "pos",
+      "shippingStatus": "delivered",
+      "carrier": "",
+      "trackingCode": "",
+      "items": [
+        {
+          "id": "oi-001",
+          "orderId": "ord-001",
+          "productId": "prod-002",
+          "sku": "ART002",
+          "name": "But chi 4B Faber Castell",
+          "quantity": 1,
+          "unitPrice": 9000,
+          "costPrice": 6000,
+          "lineTotal": 9000,
+          "createdAt": "2026-06-27T01:48:36+07:00"
+        },
+        {
+          "id": "oi-002",
+          "orderId": "ord-001",
+          "productId": "prod-005",
+          "sku": "ART005",
+          "name": "Mau nuoc Giorgione 24 mau",
+          "quantity": 1,
+          "unitPrice": 223000,
+          "costPrice": 153000,
+          "lineTotal": 223000,
+          "createdAt": "2026-06-27T01:48:36+07:00"
+        }
+      ],
+      "receiptPdfUrl": "https://drive.google.com/file/d/fake-receipt-1/view"
+    },
+    {
+      "id": "ord-002",
+      "code": "SHP-20260625-0002",
+      "customerId": "cust-002",
+      "status": "completed",
+      "paymentStatus": "unpaid",
+      "paymentMethod": "cash",
+      "subtotal": 145000,
+      "discount": 0,
+      "shippingFee": 0,
+      "total": 145000,
+      "returnedAmount": 0,
+      "refundedAmount": 0,
+      "netTotal": 145000,
+      "note": "",
+      "createdBy": "user-admin",
+      "createdAt": "2026-06-25T15:30:00+07:00",
+      "updatedAt": "2026-06-25T15:30:00+07:00",
+      "channel": "shopee",
+      "shippingStatus": "shipping",
+      "carrier": "",
+      "trackingCode": "",
+      "items": [
+        {
+          "id": "oi-003",
+          "orderId": "ord-002",
+          "productId": "prod-001",
+          "sku": "ART001",
+          "name": "But chi 2B Faber Castell",
+          "quantity": 3,
+          "unitPrice": 8000,
+          "costPrice": 5000,
+          "lineTotal": 24000,
+          "createdAt": "2026-06-27T01:48:36+07:00"
+        },
+        {
+          "id": "oi-004",
+          "orderId": "ord-002",
+          "productId": "prod-004",
+          "sku": "ART004",
+          "name": "Bang pha mau nhua",
+          "quantity": 2,
+          "unitPrice": 15000,
+          "costPrice": 9000,
+          "lineTotal": 30000,
+          "createdAt": "2026-06-27T01:48:36+07:00"
+        }
+      ]
+    }
+  ],
+  "salesReturns": [],
+  "orderRefunds": [],
+  "stockMovements": [
+    {
+      "id": "mv-001",
+      "productId": "prod-002",
+      "sku": "ART002",
+      "productName": "But chi 4B Faber Castell",
+      "type": "low_stock_audit",
+      "quantityDelta": -1,
+      "stockBefore": 5,
+      "stockAfter": 4,
+      "reason": "Kiem kho nhanh",
+      "referenceType": "manual",
+      "referenceId": "",
+      "createdBy": "user-admin",
+      "createdAt": "2026-06-29T09:00:00+07:00"
+    },
+    {
+      "id": "mv-002",
+      "productId": "prod-005",
+      "sku": "ART005",
+      "productName": "Mau nuoc Giorgione 24 mau",
+      "type": "sale",
+      "quantityDelta": -1,
+      "stockBefore": 12,
+      "stockAfter": 11,
+      "reason": "Tao don POS-20260627-0001",
+      "referenceType": "order",
+      "referenceId": "",
+      "createdBy": "user-admin",
+      "createdAt": "2026-06-29T09:00:00+07:00"
+    }
+  ],
+  "accountingAccounts": [
+    {
+      "id": "acc-cash",
+      "name": "Tien mat",
+      "type": "cash",
+      "openingBalance": 25000000,
+      "currentBalance": 24923000,
+      "status": "active",
+      "createdAt": "2026-06-29T09:30:00+07:00",
+      "updatedAt": "2026-06-29T09:30:00+07:00"
+    },
+    {
+      "id": "acc-bank",
+      "name": "Ngan hang",
+      "type": "bank",
+      "openingBalance": 0,
+      "currentBalance": 236000,
+      "status": "active",
+      "createdAt": "2026-06-29T09:30:00+07:00",
+      "updatedAt": "2026-06-29T09:30:00+07:00"
+    }
+  ],
+  "accountingCategories": [
+    {
+      "id": "cat-sales",
+      "name": "Thu ban hang",
+      "type": "income",
+      "status": "active"
+    },
+    {
+      "id": "cat-stock",
+      "name": "Nhap hang",
+      "type": "expense",
+      "status": "active"
+    },
+    {
+      "id": "cat-payroll",
+      "name": "Luong / cong tac vien",
+      "type": "expense",
+      "status": "active"
+    },
+    {
+      "id": "cat-marketing",
+      "name": "Marketing",
+      "type": "expense",
+      "status": "active"
+    }
+  ],
+  "accountingReconciliations": [],
+  "cashTransactions": [
+    {
+      "id": "tx-001",
+      "type": "income",
+      "accountId": "acc-bank",
+      "categoryId": "cat-sales",
+      "amount": 236000,
+      "transactionDate": "2026-06-27",
+      "description": "Thu don POS-20260627-0001",
+      "referenceType": "order",
+      "referenceId": "POS-20260627-0001",
+      "createdBy": "user-admin",
+      "status": "active",
+      "createdAt": "2026-06-27T09:00:00+07:00",
+      "updatedAt": "2026-06-27T09:00:00+07:00"
+    },
+    {
+      "id": "tx-002",
+      "type": "expense",
+      "accountId": "acc-cash",
+      "categoryId": "cat-stock",
+      "amount": 1000000,
+      "transactionDate": "2026-06-24",
+      "description": "Nhap hang ve",
+      "referenceType": "purchase_order",
+      "referenceId": "PO-20260624-0001",
+      "createdBy": "user-admin",
+      "status": "active",
+      "createdAt": "2026-06-24T09:00:00+07:00",
+      "updatedAt": "2026-06-24T09:00:00+07:00"
+    },
+    {
+      "id": "tx-003",
+      "type": "expense",
+      "accountId": "acc-cash",
+      "categoryId": "cat-marketing",
+      "amount": 100000,
+      "transactionDate": "2026-06-20",
+      "description": "Chay quang cao",
+      "referenceType": "manual",
+      "referenceId": "",
+      "createdBy": "user-admin",
+      "status": "active",
+      "createdAt": "2026-06-20T09:00:00+07:00",
+      "updatedAt": "2026-06-20T09:00:00+07:00"
+    }
+  ],
+  "suppliers": [
+    {
+      "id": "sup-001",
+      "code": "NCC-0001",
+      "name": "Art Supplies VN",
+      "phone": "090000001",
+      "email": "sales@supplier.local",
+      "taxCode": "",
+      "address": "HCM",
+      "status": "active",
+      "totalPurchased": 1800000,
+      "outstanding": 800000,
+      "creditBalance": 0,
+      "lastPurchaseAt": "2026-06-24T09:00:00+07:00",
+      "note": ""
+    }
+  ],
+  "purchaseOrders": [
+    {
+      "id": "po-001",
+      "code": "PO-20260624-0001",
+      "supplierId": "sup-001",
+      "status": "received",
+      "paymentStatus": "partial",
+      "subtotal": 1800000,
+      "discount": 0,
+      "shippingFee": 0,
+      "total": 1800000,
+      "paidAmount": 1000000,
+      "creditAppliedAmount": 0,
+      "settledAmount": 1000000,
+      "returnedAmount": 0,
+      "netTotal": 1800000,
+      "outstanding": 800000,
+      "creditAmount": 0,
+      "dueDate": "2026-07-04",
+      "invoiceNumber": "INV-001",
+      "note": "",
+      "createdBy": "user-admin",
+      "receivedAt": "2026-06-24T09:00:00+07:00",
+      "createdAt": "2026-06-24T08:30:00+07:00",
+      "updatedAt": "2026-06-24T09:00:00+07:00",
+      "items": []
+    }
+  ],
+  "supplierPayments": [],
+  "purchaseReturns": [],
+  "supplierCreditApplications": [],
+  "auditLogs": [
+    {
+      "id": "audit-001",
+      "action": "createOrder",
+      "description": "Tao don hang",
+      "entityType": "order",
+      "entityId": "ord-001",
+      "actorId": "user-admin",
+      "actorName": "Phan Ton Loc Nguyen",
+      "actorEmail": "admin@artflow.local",
+      "detail": {
+        "result": {
+          "order": {
+            "id": "ord-001",
+            "code": "POS-20260627-0001",
+            "customerId": "cust-001",
+            "status": "completed",
+            "paymentStatus": "paid",
+            "paymentMethod": "cash",
+            "subtotal": 236000,
+            "discount": 0,
+            "shippingFee": 0,
+            "total": 236000,
+            "returnedAmount": 0,
+            "refundedAmount": 0,
+            "netTotal": 236000,
+            "note": "",
+            "createdBy": "user-admin",
+            "createdAt": "2026-06-27T01:48:36+07:00",
+            "updatedAt": "2026-06-27T01:48:36+07:00",
+            "channel": "pos",
+            "shippingStatus": "delivered",
+            "carrier": "",
+            "trackingCode": "",
+            "items": [
+              {
+                "id": "oi-001",
+                "orderId": "ord-001",
+                "productId": "prod-002",
+                "sku": "ART002",
+                "name": "But chi 4B Faber Castell",
+                "quantity": 1,
+                "unitPrice": 9000,
+                "costPrice": 6000,
+                "lineTotal": 9000,
+                "createdAt": "2026-06-27T01:48:36+07:00"
+              },
+              {
+                "id": "oi-002",
+                "orderId": "ord-001",
+                "productId": "prod-005",
+                "sku": "ART005",
+                "name": "Mau nuoc Giorgione 24 mau",
+                "quantity": 1,
+                "unitPrice": 223000,
+                "costPrice": 153000,
+                "lineTotal": 223000,
+                "createdAt": "2026-06-27T01:48:36+07:00"
+              }
+            ],
+            "receiptPdfUrl": "https://drive.google.com/file/d/fake-receipt-1/view"
+          }
+        }
+      },
+      "createdAt": "2026-06-27T01:48:36+07:00",
+      "timezone": "Asia/Ho_Chi_Minh"
+    }
+  ]
+}

@@ -3776,7 +3776,7 @@ body[data-page="products"] .view.active {
 
 .team-workspace {
   align-content: start;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
 }
 
 .team-toolbar {
@@ -3860,13 +3860,14 @@ body[data-page="products"] .view.active {
 
 .team-main-panel {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  align-self: start;
+  grid-template-rows: auto auto;
   min-height: 0;
 }
 
 .team-main-panel>[data-team-content] {
   min-height: 0;
-  max-height: min(560px, calc(100vh - 360px));
+  max-height: min(560px, calc(100dvh - 360px));
   overflow: auto;
   padding: 0 16px 16px;
   scrollbar-color: #b8c4d6 transparent;

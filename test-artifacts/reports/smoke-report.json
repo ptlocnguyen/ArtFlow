@@ -1,0 +1,771 @@
+{
+  "startedAt": "2026-06-29T16:54:56.092Z",
+  "viewports": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "pages": [
+    {
+      "page": "dashboard",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 742,
+      "screenshot": "test-artifacts/screenshots/desktop/dashboard.png",
+      "metrics": {
+        "title": "Tổng quan",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "orders",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 519,
+      "screenshot": "test-artifacts/screenshots/desktop/orders.png",
+      "metrics": {
+        "title": "Đơn hàng",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "order-create",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 695,
+      "screenshot": "test-artifacts/screenshots/desktop/order-create.png",
+      "metrics": {
+        "title": "Tạo đơn",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "products",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 538,
+      "screenshot": "test-artifacts/screenshots/desktop/products.png",
+      "metrics": {
+        "title": "Sản phẩm",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "content",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 527,
+      "screenshot": "test-artifacts/screenshots/desktop/content.png",
+      "metrics": {
+        "title": "Content",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "team",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 685,
+      "screenshot": "test-artifacts/screenshots/desktop/team.png",
+      "metrics": {
+        "title": "Team Hub",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "customers",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 517,
+      "screenshot": "test-artifacts/screenshots/desktop/customers.png",
+      "metrics": {
+        "title": "Khách hàng",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "inventory",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 529,
+      "screenshot": "test-artifacts/screenshots/desktop/inventory.png",
+      "metrics": {
+        "title": "Kho hàng",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "accounting",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 688,
+      "screenshot": "test-artifacts/screenshots/desktop/accounting.png",
+      "metrics": {
+        "title": "Kế toán",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "purchasing",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 499,
+      "screenshot": "test-artifacts/screenshots/desktop/purchasing.png",
+      "metrics": {
+        "title": "Mua hàng",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "reports",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 511,
+      "screenshot": "test-artifacts/screenshots/desktop/reports.png",
+      "metrics": {
+        "title": "Báo cáo",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": [
+          {
+            "tag": "table",
+            "className": "",
+            "text": "KênhĐơnDoanh thuLãi gộpBiên lãiShopee1145.000 ₫112.000 ₫77.2%POS1236.000 ₫77.000",
+            "right": 1951
+          },
+          {
+            "tag": "thead",
+            "className": "",
+            "text": "KênhĐơnDoanh thuLãi gộpBiên lãi",
+            "right": 1951
+          },
+          {
+            "tag": "tr",
+            "className": "",
+            "text": "KênhĐơnDoanh thuLãi gộpBiên lãi",
+            "right": 1951
+          },
+          {
+            "tag": "th",
+            "className": "",
+            "text": "Doanh thu",
+            "right": 1549
+          },
+          {
+            "tag": "th",
+            "className": "",
+            "text": "Lãi gộp",
+            "right": 1768
+          },
+          {
+            "tag": "th",
+            "className": "",
+            "text": "Biên lãi",
+            "right": 1951
+          }
+        ]
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "users",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 476,
+      "screenshot": "test-artifacts/screenshots/desktop/users.png",
+      "metrics": {
+        "title": "Nhân viên",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "activity",
+      "viewport": "desktop",
+      "ok": true,
+      "durationMs": 494,
+      "screenshot": "test-artifacts/screenshots/desktop/activity.png",
+      "metrics": {
+        "title": "Lịch sử hoạt động",
+        "scrollWidth": 1440,
+        "clientWidth": 1440,
+        "scrollHeight": 900,
+        "clientHeight": 900,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "dashboard",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 519,
+      "screenshot": "test-artifacts/screenshots/mobile/dashboard.png",
+      "metrics": {
+        "title": "Tổng quan",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 1902,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "orders",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 482,
+      "screenshot": "test-artifacts/screenshots/mobile/orders.png",
+      "metrics": {
+        "title": "Đơn hàng",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 1417,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "order-create",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 633,
+      "screenshot": "test-artifacts/screenshots/mobile/order-create.png",
+      "metrics": {
+        "title": "Tạo đơn",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 1875,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "products",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 528,
+      "screenshot": "test-artifacts/screenshots/mobile/products.png",
+      "metrics": {
+        "title": "Sản phẩm",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 2939,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "content",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 506,
+      "screenshot": "test-artifacts/screenshots/mobile/content.png",
+      "metrics": {
+        "title": "Content",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 908,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "team",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 655,
+      "screenshot": "test-artifacts/screenshots/mobile/team.png",
+      "metrics": {
+        "title": "Team Hub",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 1363,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "customers",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 480,
+      "screenshot": "test-artifacts/screenshots/mobile/customers.png",
+      "metrics": {
+        "title": "Khách hàng",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 906,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "inventory",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 496,
+      "screenshot": "test-artifacts/screenshots/mobile/inventory.png",
+      "metrics": {
+        "title": "Kho hàng",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 6874,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": [
+          {
+            "tag": "table",
+            "className": "inventory-table",
+            "text": "Sản phẩmPhân loạiTồn khoNgưỡngGiá vốnGiá trịGợi ýThao tác\n              \n       ",
+            "right": 951
+          },
+          {
+            "tag": "tbody",
+            "className": "",
+            "text": "But chi 4B Faber CastellART002\n            \n          \n          But chiFaber Ca",
+            "right": 951
+          },
+          {
+            "tag": "tr",
+            "className": "inventory-product-row",
+            "text": "But chi 4B Faber CastellART002\n            \n          \n          But chiFaber Ca",
+            "right": 951
+          },
+          {
+            "tag": "td",
+            "className": "",
+            "text": "But chi 4B Faber CastellART002",
+            "right": 938
+          },
+          {
+            "tag": "div",
+            "className": "inventory-product-cell",
+            "text": "But chi 4B Faber CastellART002",
+            "right": 938
+          },
+          {
+            "tag": "span",
+            "className": "",
+            "text": "But chi 4B Faber CastellART002",
+            "right": 507
+          }
+        ]
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "accounting",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 659,
+      "screenshot": "test-artifacts/screenshots/mobile/accounting.png",
+      "metrics": {
+        "title": "Kế toán",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 3703,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "purchasing",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 469,
+      "screenshot": "test-artifacts/screenshots/mobile/purchasing.png",
+      "metrics": {
+        "title": "Mua hàng",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 1316,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "reports",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 516,
+      "screenshot": "test-artifacts/screenshots/mobile/reports.png",
+      "metrics": {
+        "title": "Báo cáo",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 2176,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "users",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 475,
+      "screenshot": "test-artifacts/screenshots/mobile/users.png",
+      "metrics": {
+        "title": "Nhân viên",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 1056,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "page": "activity",
+      "viewport": "mobile",
+      "ok": true,
+      "durationMs": 470,
+      "screenshot": "test-artifacts/screenshots/mobile/activity.png",
+      "metrics": {
+        "title": "Lịch sử hoạt động",
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 1237,
+        "clientHeight": 844,
+        "horizontalOverflow": false,
+        "overflowing": []
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    }
+  ],
+  "apiCalls": [
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "listUsers",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "listAuditLogs",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "getPageData",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "listUsers",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "me",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    },
+    {
+      "action": "listAuditLogs",
+      "url": "https://artflow-pos-api.ptlocnguyen.workers.dev/"
+    }
+  ],
+  "failures": [],
+  "finishedAt": "2026-06-29T16:55:12.987Z"
+}
