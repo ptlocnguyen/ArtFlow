@@ -307,6 +307,8 @@
       "/orders": "listOrders",
       "/orders/create": "createOrder",
       "/orders/receipt-pdf": "createOrderReceiptPdf",
+      "/settings": "getAppSettings",
+      "/settings/update": "updateAppSettings",
       "/orders/status": "updateOrderStatus",
       "/orders/fulfillment": "updateOrderFulfillment",
       "/orders/cancel": "cancelOrder",
@@ -522,7 +524,9 @@
       showUnitPrice: true
     };
     try {
-      const saved = JSON.parse(localStorage.getItem(receiptSettingsKey) || "{}");
+      const stateSettings = state.appSettings && state.appSettings.receiptSettings;
+      const localSettings = JSON.parse(localStorage.getItem(receiptSettingsKey) || "{}");
+      const saved = stateSettings && typeof stateSettings === "object" ? stateSettings : localSettings;
       const merged = { ...defaults, ...saved };
       if (saved.paperWidth && !saved.paperSize) merged.paperSize = `thermal${saved.paperWidth}`;
       return merged;
@@ -531,8 +535,20 @@
     }
   }
 
-  function saveReceiptSettings(settings) {
-    localStorage.setItem(receiptSettingsKey, JSON.stringify(settings));
+  async function saveReceiptSettings(settings) {
+    const saved = { ...getReceiptSettings(), ...settings };
+    try {
+      const response = await apiRequest("/settings/update", {
+        method: "POST",
+        body: JSON.stringify({ key: "receiptSettings", value: saved })
+      });
+      state.appSettings = response.settings || { ...(state.appSettings || {}), receiptSettings: saved };
+      window.ArtFlowPosStore.save(state);
+    } catch (error) {
+      showToast(`Chưa lưu được cài đặt lên Sheet: ${error.message}`, "error");
+      throw error;
+    }
+    localStorage.setItem(receiptSettingsKey, JSON.stringify(saved));
   }
 
   function receiptPaperProfile(settings = getReceiptSettings()) {
@@ -1362,8 +1378,8 @@
   function dataScopesForPage() {
     const scopesByPage = {
       dashboard: ["products", "customers", "orders", "accounting"],
-      orders: ["customers", "orders", "accounting"],
-      orderCreate: ["products", "customers"],
+      orders: ["customers", "orders", "accounting", "settings"],
+      orderCreate: ["products", "customers", "settings"],
       products: ["products"],
       content: ["content"],
       team: ["team"],
@@ -1421,6 +1437,9 @@
       state.purchaseReturns = (data.purchaseReturns || []).map(normalizePurchaseReturn);
       state.supplierCreditApplications = (data.supplierCreditApplications || []).map(normalizeSupplierCreditApplication);
     }
+    if (scopes.includes("settings")) {
+      state.appSettings = data.settings && typeof data.settings === "object" ? data.settings : (state.appSettings || {});
+    }
     window.ArtFlowPosStore.save(state);
   }
 
@@ -1459,6 +1478,11 @@
             state.products = (data.products || state.products || []).map(normalizeProduct);
             state.contentOwners = data.contentOwners || state.contentOwners || [];
             if (Array.isArray(data.users)) state.users = data.users;
+            window.ArtFlowPosStore.save(state);
+          },
+          settings: async () => {
+            const data = await apiRequest("/settings");
+            state.appSettings = data.settings || {};
             window.ArtFlowPosStore.save(state);
           }
         };
@@ -6090,9 +6114,9 @@
         eyebrow: "POS",
         title: "Cài đặt phiếu in",
         body: renderReceiptSettingsForm(),
-        submit(form) {
+        async submit(form) {
           const data = Object.fromEntries(new FormData(form));
-          saveReceiptSettings({
+          await saveReceiptSettings({
             storeName: String(data.storeName || "ArtFlow").trim(),
             storeInfo: String(data.storeInfo || "").trim(),
             phone: String(data.phone || "").trim(),

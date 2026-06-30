@@ -6,7 +6,8 @@ node_modules/
 .dev.vars
 dist/
 .wrangler/
-apps-script/
+apps-script/*
+!apps-script/Code.gs
 *.local
 *.secret
 secrets.json

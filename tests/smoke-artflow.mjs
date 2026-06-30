@@ -219,6 +219,11 @@ function handleAction(state, payload) {
       return createOrder(state, payload);
     case "createOrderReceiptPdf":
       return createReceipt(state, payload);
+    case "getAppSettings":
+      return { ok: true, settings: state.appSettings || {} };
+    case "updateAppSettings":
+      state.appSettings = { ...(state.appSettings || {}), [payload.key]: payload.value };
+      return { ok: true, settings: state.appSettings };
     case "getTeamWorkspaceData":
       return teamData(state);
     case "listProducts":
@@ -254,6 +259,7 @@ function pageData(state, scopes) {
     if (scope === "purchasing") Object.assign(payload, purchasingData(state));
     if (scope === "content") Object.assign(payload, contentData(state));
     if (scope === "team") Object.assign(payload, teamData(state));
+    if (scope === "settings") payload.settings = state.appSettings || {};
     return payload;
   }, { ok: true });
 }

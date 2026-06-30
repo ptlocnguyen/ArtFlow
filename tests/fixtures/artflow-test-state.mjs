@@ -135,6 +135,23 @@ export function createArtflowFixture() {
     supplierPayments: [],
     purchaseReturns: [],
     supplierCreditApplications: [],
+    appSettings: {
+      receiptSettings: {
+        storeName: "ArtFlow",
+        storeInfo: "Hoa cu va phu kien my thuat",
+        phone: "0900000000",
+        address: "Ho Chi Minh",
+        footer: "Cam on quy khach.",
+        taxCode: "",
+        paperSize: "thermal80",
+        paperWidth: "80",
+        receiptStyle: "pro",
+        showSku: true,
+        showCustomer: true,
+        showPoints: true,
+        showUnitPrice: true
+      }
+    },
     auditLogs: [
       { id: "audit-001", action: "createOrder", description: "Tao don hang", entityType: "order", entityId: "ord-001", actorId: user.id, actorName: user.name, actorEmail: user.email, detail: { result: { order: orders[0] } }, createdAt: "2026-06-27T01:48:36+07:00", timezone: "Asia/Ho_Chi_Minh" }
     ]

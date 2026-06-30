@@ -28,6 +28,7 @@
       supplierPayments: clone(window.ArtFlowPosSeed.supplierPayments || []),
       purchaseReturns: clone(window.ArtFlowPosSeed.purchaseReturns || []),
       supplierCreditApplications: clone(window.ArtFlowPosSeed.supplierCreditApplications || []),
+      appSettings: clone(window.ArtFlowPosSeed.appSettings || {}),
       users: clone(window.ArtFlowPosSeed.users),
       updatedAt: new Date().toISOString()
     };
@@ -59,6 +60,7 @@
       supplierPayments: Array.isArray(state.supplierPayments) ? state.supplierPayments : initial.supplierPayments,
       purchaseReturns: Array.isArray(state.purchaseReturns) ? state.purchaseReturns : initial.purchaseReturns,
       supplierCreditApplications: Array.isArray(state.supplierCreditApplications) ? state.supplierCreditApplications : initial.supplierCreditApplications,
+      appSettings: state.appSettings && typeof state.appSettings === "object" ? state.appSettings : initial.appSettings,
       users: Array.isArray(state.users) ? state.users : initial.users
     };
   }

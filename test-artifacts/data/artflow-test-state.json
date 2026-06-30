@@ -700,6 +700,23 @@
   "supplierPayments": [],
   "purchaseReturns": [],
   "supplierCreditApplications": [],
+  "appSettings": {
+    "receiptSettings": {
+      "storeName": "ArtFlow",
+      "storeInfo": "Hoa cu va phu kien my thuat",
+      "phone": "0900000000",
+      "address": "Ho Chi Minh",
+      "footer": "Cam on quy khach.",
+      "taxCode": "",
+      "paperSize": "thermal80",
+      "paperWidth": "80",
+      "receiptStyle": "pro",
+      "showSku": true,
+      "showCustomer": true,
+      "showPoints": true,
+      "showUnitPrice": true
+    }
+  },
   "auditLogs": [
     {
       "id": "audit-001",
