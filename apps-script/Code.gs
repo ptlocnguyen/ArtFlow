@@ -2,7 +2,7 @@ const SPREADSHEET_ID = "1L6b0QGzti33SVadVMKG2AnlsIKHjg98mNhuU3gJSd18";
 const SESSION_DAYS = 14;
 const USER_CACHE_SECONDS = 300;
 const HASH_ROUNDS = 12000;
-const DATABASE_SCHEMA_VERSION = "2026-06-30-settings-1";
+const DATABASE_SCHEMA_VERSION = "2026-07-01-content-team-1";
 const VIETNAM_TIMEZONE = "Asia/Ho_Chi_Minh";
 
 let databaseReady = false;
@@ -88,11 +88,14 @@ const SHEETS = {
     "owner",
     "collaborators",
     "tags",
+    "campaign",
     "brief",
     "checklist_json",
     "asset_checklist_json",
     "comment_log_json",
     "prompt_text",
+    "target_metric",
+    "result_json",
     "note",
     "publish_url",
     "content_doc_id",
@@ -1556,11 +1559,14 @@ function normalizeContentItemInput(body) {
     owner: String(body.owner || "").trim(),
     collaborators: String(body.collaborators || "").trim(),
     tags: String(body.tags || "").trim(),
+    campaign: String(body.campaign || "").trim(),
     brief: String(body.brief || "").trim(),
     checklist_json: normalizeContentJson(body.checklistJson || body.checklist_json || body.checklist, "array"),
     asset_checklist_json: normalizeContentJson(body.assetChecklistJson || body.asset_checklist_json || body.assetChecklist, "array"),
     comment_log_json: normalizeContentJson(body.commentLogJson || body.comment_log_json || body.commentLog, "array"),
     prompt_text: String(body.promptText || body.prompt_text || "").trim(),
+    target_metric: String(body.targetMetric || body.target_metric || "").trim(),
+    result_json: normalizeContentJson(body.resultJson || body.result_json || body.result, "object"),
     note: String(body.note || "").trim(),
     publish_url: String(body.publishUrl || body.publish_url || "").trim()
   };
@@ -1602,11 +1608,14 @@ function publicContentItem(item) {
     owner: item.owner || "",
     collaborators: item.collaborators || "",
     tags: item.tags || "",
+    campaign: item.campaign || "",
     brief: item.brief || "",
     checklist: parseContentJson(item.checklist_json, []),
     assetChecklist: parseContentJson(item.asset_checklist_json, []),
     commentLog: parseContentJson(item.comment_log_json, []),
     promptText: item.prompt_text || "",
+    targetMetric: item.target_metric || "",
+    result: parseContentJson(item.result_json, {}),
     note: item.note || "",
     publishUrl: item.publish_url || "",
     contentDocId: item.content_doc_id || "",

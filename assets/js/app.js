@@ -869,11 +869,14 @@
       owner: item.owner || "",
       collaborators: item.collaborators || "",
       tags: item.tags || "",
+      campaign: item.campaign || "",
       brief: item.brief || "",
       checklist: Array.isArray(item.checklist) ? item.checklist : [],
       assetChecklist: Array.isArray(item.assetChecklist) ? item.assetChecklist : [],
       commentLog: Array.isArray(item.commentLog) ? item.commentLog : [],
       promptText: item.promptText || "",
+      targetMetric: item.targetMetric || "",
+      result: item.result && typeof item.result === "object" ? item.result : {},
       note: item.note || "",
       publishUrl: item.publishUrl || "",
       contentDocUrl: item.contentDocUrl || "",
@@ -907,6 +910,10 @@
       notes: meeting.notes || "",
       decisions: Array.isArray(meeting.decisions) ? meeting.decisions : [],
       actions: Array.isArray(meeting.actions) ? meeting.actions.map(normalizeTeamAction) : [],
+      template: meeting.template || "",
+      sourceType: meeting.sourceType || "manual",
+      sourceId: meeting.sourceId || "",
+      commentLog: Array.isArray(meeting.commentLog) ? meeting.commentLog : [],
       links: meeting.links || "",
       createdAt: meeting.createdAt || "",
       updatedAt: meeting.updatedAt || ""
@@ -926,6 +933,9 @@
       channels: plan.channels || "",
       focusProducts: plan.focusProducts || "",
       milestones: Array.isArray(plan.milestones) ? plan.milestones : [],
+      sourceType: plan.sourceType || "manual",
+      sourceId: plan.sourceId || "",
+      commentLog: Array.isArray(plan.commentLog) ? plan.commentLog : [],
       risks: plan.risks || "",
       note: plan.note || "",
       createdAt: plan.createdAt || "",
@@ -962,6 +972,9 @@
       quantity: Math.max(1, Number(model.quantity || 1)),
       lines: Array.isArray(model.lines) ? model.lines.map(normalizePricingLine) : [],
       scenarios: Array.isArray(model.scenarios) ? model.scenarios.map(normalizePricingScenario) : [],
+      sourceType: model.sourceType || "product",
+      sourceId: model.sourceId || model.productId || "",
+      commentLog: Array.isArray(model.commentLog) ? model.commentLog : [],
       note: model.note || "",
       createdAt: model.createdAt || "",
       updatedAt: model.updatedAt || ""
@@ -980,6 +993,9 @@
       tags: decision.tags || "",
       detail: decision.detail || "",
       nextReviewAt: decision.nextReviewAt || "",
+      sourceType: decision.sourceType || "manual",
+      sourceId: decision.sourceId || "",
+      commentLog: Array.isArray(decision.commentLog) ? decision.commentLog : [],
       createdAt: decision.createdAt || "",
       updatedAt: decision.updatedAt || ""
     };
@@ -2774,7 +2790,7 @@
     const product = getContentProduct(item);
     return [
       item.title, item.type, item.channel, item.status, item.priority, item.owner,
-      item.collaborators, item.tags, item.brief, item.note, item.publishUrl,
+      item.collaborators, item.tags, item.campaign, item.targetMetric, item.brief, item.note, item.publishUrl,
       product ? product.sku : "", product ? product.name : "", product ? product.category : ""
     ].join(" ").toLowerCase();
   }
@@ -3001,12 +3017,15 @@
       <div class="field"><label for="contentPublishAt">Lịch đăng</label><input id="contentPublishAt" name="publishAt" type="datetime-local" value="${value("publishAt")}" /></div>
       <div class="field"><label for="contentOwner">Người phụ trách</label><select id="contentOwner" name="owner">${contentOwnerOptions(item ? item.owner : defaults.owner || "")}</select></div>
       <div class="field full"><label for="contentCollaborators">Người phối hợp</label><input id="contentCollaborators" name="collaborators" value="${value("collaborators")}" placeholder="Tên thành viên, phân tách bằng dấu phẩy" /></div>
+      <div class="field"><label for="contentCampaign">Campaign / series</label><input id="contentCampaign" name="campaign" value="${value("campaign")}" placeholder="Back to School, ra mat san pham..." /></div>
+      <div class="field"><label for="contentTargetMetric">Muc tieu KPI</label><input id="contentTargetMetric" name="targetMetric" value="${value("targetMetric")}" placeholder="VD: 2.000 views, 20 inbox, 5 don" /></div>
       <div class="field full"><label for="contentTags">Tag</label><input id="contentTags" name="tags" value="${value("tags") || (defaultProduct ? escapeAttribute([defaultProduct.category, defaultProduct.brand].filter(Boolean).join(", ")) : "")}" placeholder="launch, hướng dẫn, back-to-school..." /></div>
       <div class="field full"><label for="contentBrief">Brief</label><textarea id="contentBrief" name="brief" rows="6" data-content-brief placeholder="Mục tiêu, insight, thông điệp chính, format, yêu cầu hình ảnh/video...">${escapeHtml(briefValue)}</textarea></div>
       ${renderContentChecklist("checklist", "Checklist xử lý", checklistItems, false)}
       ${renderContentChecklist("asset", "Asset cần chuẩn bị", assetItems, true)}
       <div class="field full"><label for="contentPromptText">Prompt hỗ trợ viết</label><textarea id="contentPromptText" name="promptText" rows="5" data-content-prompt>${escapeHtml(promptText)}</textarea><button class="button ghost compact-button" type="button" data-copy-content-prompt>Copy prompt</button></div>
       <div class="content-form-box full"><strong>Góp ý / comment</strong>${comments.length ? `<div class="content-comment-log">${comments.slice(-5).map(comment => `<p><span>${escapeHtml(comment.author || "Team")} · ${escapeHtml(formatDateTime(comment.createdAt || ""))}</span>${escapeHtml(comment.text || "")}</p>`).join("")}</div>` : `<p class="content-empty">Chưa có góp ý.</p>`}<textarea name="newComment" rows="2" placeholder="Thêm góp ý mới..."></textarea></div>
+      <div class="content-form-box full"><strong>Ket qua sau dang</strong><div class="content-result-grid"><label>Luot xem<input name="resultViews" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.views || 0 : 0)}" /></label><label>Tuong tac<input name="resultEngagement" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.engagement || 0 : 0)}" /></label><label>Inbox/lead<input name="resultLeads" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.leads || 0 : 0)}" /></label><label>Don hang<input name="resultOrders" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.orders || 0 : 0)}" /></label></div></div>
       <div class="field full"><label for="contentNote">Ghi chú nội bộ</label><textarea id="contentNote" name="note" rows="3">${escapeHtml(item ? item.note : defaults.note || "")}</textarea></div>
       <div class="field full"><label for="contentPublishUrl">Link đã đăng</label><input id="contentPublishUrl" name="publishUrl" type="url" value="${value("publishUrl")}" placeholder="https://..." /></div>
       ${item ? "" : `<div class="field checkbox-field full"><label><input type="checkbox" name="createAssets" checked /> Tạo Google Docs và folder Drive ngay khi lưu</label></div>`}
@@ -3035,7 +3054,9 @@
     if (!form || form.dataset.contentCompacted === "true") return;
     const checklistBoxes = Array.from(form.querySelectorAll(".content-form-box.full")).slice(0, 2);
     const promptField = form.querySelector("[data-content-prompt]")?.closest(".field");
-    const commentBox = Array.from(form.querySelectorAll(".content-form-box.full"))[2];
+    const formBoxes = Array.from(form.querySelectorAll(".content-form-box.full"));
+    const commentBox = formBoxes[2];
+    const resultBox = formBoxes[3];
     const noteField = form.querySelector("#contentNote")?.closest(".field");
     const publishUrlField = form.querySelector("#contentPublishUrl")?.closest(".field");
     const firstAdvancedNode = checklistBoxes[0] || promptField || noteField;
@@ -3046,7 +3067,7 @@
     const sections = [
       contentDetailsSection("Checklist và tài nguyên", "Việc cần làm, asset cần chuẩn bị và link Drive liên quan.", checklistBoxes, false),
       contentDetailsSection("Prompt và góp ý", "Prompt hỗ trợ viết, lịch sử comment và góp ý mới.", [promptField, commentBox], false),
-      contentDetailsSection("Ghi chú và link xuất bản", "Thông tin nội bộ và đường dẫn bài đã đăng.", [noteField, publishUrlField], false)
+      contentDetailsSection("Ghi chú và link xuất bản", "Thông tin nội bộ và đường dẫn bài đã đăng.", [resultBox, noteField, publishUrlField], false)
     ];
     sections.forEach(section => form.insertBefore(section, marker));
     marker.remove();
@@ -3073,6 +3094,12 @@
         checklistJson: JSON.stringify(collectContentChecklist(form, "checklist", false)),
         assetChecklistJson: JSON.stringify(collectContentChecklist(form, "asset", true)),
         commentLogJson: JSON.stringify(commentLog),
+        resultJson: JSON.stringify({
+          views: Number(data.resultViews || 0),
+          engagement: Number(data.resultEngagement || 0),
+          leads: Number(data.resultLeads || 0),
+          orders: Number(data.resultOrders || 0)
+        }),
         createAssets: item ? "false" : Boolean(data.createAssets)
       })
     });
@@ -3327,6 +3354,42 @@
     return `<option value="">Không gắn sản phẩm</option>${products.map(product => `<option value="${product.id}" ${selected === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}`;
   }
 
+  function renderTeamSourceAndComments(item) {
+    const comments = Array.isArray(item.commentLog) ? item.commentLog : [];
+    const sourceTypes = [
+      ["manual", "Ghi chu rieng"],
+      ["product", "San pham"],
+      ["content", "Content"],
+      ["order", "Don hang"],
+      ["pricing", "Bang tinh gia"],
+      ["plan", "Ke hoach"]
+    ];
+    return `
+      <details class="content-details team-extra-details full">
+        <summary><span>Lien ket va trao doi<small>Nguon tham chieu, link lien quan va comment noi bo.</small></span></summary>
+        <div class="content-details-body">
+          <div class="field"><label>Nguon lien ket</label><select name="sourceType">${sourceTypes.map(([value, label]) => `<option value="${value}" ${item.sourceType === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+          <div class="field"><label>Ma/link nguon</label><input name="sourceId" value="${escapeAttribute(item.sourceId || "")}" placeholder="SKU, ma don, link Docs/Drive..." /></div>
+          <div class="content-form-box full"><strong>Lich su trao doi</strong>${comments.length ? `<div class="content-comment-log">${comments.slice(-6).map(comment => `<p><span>${escapeHtml(comment.author || "Team")} · ${escapeHtml(formatDateTime(comment.createdAt || ""))}</span>${escapeHtml(comment.text || "")}</p>`).join("")}</div>` : `<p class="content-empty">Chua co trao doi.</p>`}<textarea name="newComment" rows="2" placeholder="Them comment, canh bao, so lieu can theo doi..."></textarea></div>
+        </div>
+      </details>
+    `;
+  }
+
+  function appendTeamCommentLog(existing, data) {
+    const comments = Array.isArray(existing && existing.commentLog) ? [...existing.commentLog] : [];
+    const text = String(data.newComment || "").trim();
+    delete data.newComment;
+    if (text) {
+      comments.push({
+        text,
+        author: currentUser ? currentUser.name : "Team",
+        createdAt: new Date().toISOString()
+      });
+    }
+    return comments;
+  }
+
   function actionRowsFromText(text) {
     return String(text || "").split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => {
       const parts = line.split("|").map(part => part.trim());
@@ -3352,6 +3415,7 @@
       <div class="field full"><label for="teamMeetingDecisions">Quyết định đã chốt</label><textarea id="teamMeetingDecisions" name="decisionsText" rows="3" placeholder="Mỗi dòng một quyết định">${escapeHtml((item.decisions || []).join("\n"))}</textarea></div>
       <div class="field full"><label for="teamMeetingActions">Việc cần làm</label><textarea id="teamMeetingActions" name="actionsText" rows="4" placeholder="Nội dung | Người phụ trách | YYYY-MM-DD | todo/doing/done">${escapeHtml(textFromActionRows(item.actions))}</textarea><small>Mỗi dòng một việc. Có thể bỏ trống người phụ trách/deadline nếu chưa chốt.</small></div>
       <div class="field full"><label for="teamMeetingLinks">Link liên quan</label><textarea id="teamMeetingLinks" name="links" rows="2" placeholder="Google Drive, tài liệu, sản phẩm, content...">${escapeHtml(item.links)}</textarea></div>
+      ${renderTeamSourceAndComments(item)}
     `;
   }
 
@@ -3370,6 +3434,7 @@
       <div class="field full"><label for="teamPlanMilestones">Milestone</label><textarea id="teamPlanMilestones" name="milestonesText" rows="4" placeholder="Mỗi dòng: Việc cần đạt | Deadline | Phụ trách">${escapeHtml((item.milestones || []).map(m => [m.title, m.dueDate, m.owner].filter(Boolean).join(" | ")).join("\n"))}</textarea></div>
       <div class="field full"><label for="teamPlanRisks">Rủi ro / giả định</label><textarea id="teamPlanRisks" name="risks" rows="3">${escapeHtml(item.risks)}</textarea></div>
       <div class="field full"><label for="teamPlanNote">Ghi chú</label><textarea id="teamPlanNote" name="note" rows="3">${escapeHtml(item.note)}</textarea></div>
+      ${renderTeamSourceAndComments(item)}
     `;
   }
 
@@ -3401,6 +3466,7 @@
       </div>
       <div class="team-pricing-preview full" data-team-pricing-preview></div>
       <div class="field full"><label for="teamPricingNote">Ghi chú</label><textarea id="teamPricingNote" name="note" rows="3">${escapeHtml(item.note)}</textarea></div>
+      ${renderTeamSourceAndComments(item)}
     `;
   }
 
@@ -3432,6 +3498,7 @@
       <div class="field"><label for="teamDecisionReview">Ngày xem lại</label><input id="teamDecisionReview" name="nextReviewAt" type="date" value="${escapeAttribute(item.nextReviewAt)}" /></div>
       <div class="field"><label for="teamDecisionTags">Tag</label><input id="teamDecisionTags" name="tags" value="${escapeAttribute(item.tags)}" placeholder="giá bán, nhập hàng, marketing" /></div>
       <div class="field full"><label for="teamDecisionDetail">Nội dung chi tiết</label><textarea id="teamDecisionDetail" name="detail" rows="6">${escapeHtml(item.detail)}</textarea></div>
+      ${renderTeamSourceAndComments(item)}
     `;
   }
 
@@ -3486,22 +3553,23 @@
 
   async function saveTeamItem(type, form, existing) {
     const data = Object.fromEntries(new FormData(form));
+    const commentLog = appendTeamCommentLog(existing, data);
     const now = new Date().toISOString();
     const id = existing ? existing.id : makeLocalId(type);
     const base = { id, createdAt: existing?.createdAt || now, updatedAt: now };
     let item;
     if (type === "meeting") {
-      item = normalizeTeamMeeting({ ...base, ...data, decisions: String(data.decisionsText || "").split(/\n+/).map(item => item.trim()).filter(Boolean), actions: actionRowsFromText(data.actionsText) });
+      item = normalizeTeamMeeting({ ...base, ...data, commentLog, decisions: String(data.decisionsText || "").split(/\n+/).map(item => item.trim()).filter(Boolean), actions: actionRowsFromText(data.actionsText) });
     } else if (type === "plan") {
       const milestones = String(data.milestonesText || "").split(/\n+/).map(line => {
         const [title, dueDate, owner] = line.split("|").map(part => part.trim());
         return title ? { title, dueDate: dueDate || "", owner: owner || "" } : null;
       }).filter(Boolean);
-      item = normalizeTeamPlan({ ...base, ...data, milestones });
+      item = normalizeTeamPlan({ ...base, ...data, commentLog, milestones });
     } else if (type === "pricing") {
-      item = normalizePricingModel({ ...base, ...data, lines: collectPricingLines(form), scenarios: collectPricingScenarios(form) });
+      item = normalizePricingModel({ ...base, ...data, commentLog, lines: collectPricingLines(form), scenarios: collectPricingScenarios(form) });
     } else if (type === "decision") {
-      item = normalizeTeamDecision({ ...base, ...data });
+      item = normalizeTeamDecision({ ...base, ...data, commentLog });
     }
     const response = await apiRequest(existing ? "/team/update" : "/team/create", {
       method: "POST",

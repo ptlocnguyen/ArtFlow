@@ -3768,6 +3768,37 @@ body[data-page="products"] .view.active {
   font-weight: 800;
 }
 
+.content-result-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.content-result-grid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.content-result-grid input {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+}
+
+.team-extra-details {
+  margin-top: 2px;
+}
+
+@media (max-width: 720px) {
+  .content-result-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .compact-button {
   justify-self: start;
   min-height: 36px;

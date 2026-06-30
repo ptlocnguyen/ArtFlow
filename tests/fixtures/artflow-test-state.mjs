@@ -68,10 +68,14 @@ export function createArtflowFixture() {
       productId: "prod-001",
       owner: "user-content",
       dueDate: "2026-07-03",
+      campaign: "Back to School 2026",
+      targetMetric: "2.000 views / 5 don POS",
       brief: "Goi y combo but chi cho hoc sinh.",
+      result: { views: 1380, engagement: 122, leads: 9, orders: 3 },
       contentDocUrl: "https://docs.google.com/document/d/fake-doc",
       mediaFolderUrl: "https://drive.google.com/drive/folders/fake-folder",
       postLinks: "",
+      commentLog: [{ author: "Minh Anh", text: "Can them anh combo va CTA mua tai cua hang.", createdAt: now }],
       createdAt: now,
       updatedAt: now
     }
@@ -87,18 +91,21 @@ export function createArtflowFixture() {
       agenda: "Doanh thu, hang can nhap, lich content",
       decisions: "Tap trung combo back to school",
       nextActions: "Chot bang gia combo",
+      sourceType: "plan",
+      sourceId: "team-plan-001",
+      commentLog: [{ author: "Phan Ton Loc Nguyen", text: "Khoa agenda truoc 10h thu hai.", createdAt: now }],
       createdAt: now,
       updatedAt: now
     }
   ];
   const teamPlans = [
-    { id: "team-plan-001", title: "Ke hoach Back to School", status: "active", owner: "user-admin", period: "2026-07", goal: "Tang doanh thu but ve 20%", budget: 2500000, expectedRevenue: 18000000, tasks: "Nhap hang, content, chay ads", createdAt: now, updatedAt: now }
+    { id: "team-plan-001", title: "Ke hoach Back to School", status: "active", owner: "user-admin", period: "2026-07", goal: "Tang doanh thu but ve 20%", budget: 2500000, expectedRevenue: 18000000, tasks: "Nhap hang, content, chay ads", sourceType: "content", sourceId: "content-001", commentLog: [{ author: "Kho ArtFlow", text: "Can chot danh sach SKU uu tien.", createdAt: now }], createdAt: now, updatedAt: now }
   ];
   const teamPricingModels = [
-    { id: "team-price-001", title: "Gia combo but chi", status: "draft", owner: "user-admin", productId: "prod-001", baseCost: 5000, overheadPercent: 8, targetMarginPercent: 35, lines: [{ label: "Bao bi", amount: 500 }], scenarios: [{ label: "Ban le", price: 9000 }], createdAt: now, updatedAt: now }
+    { id: "team-price-001", title: "Gia combo but chi", status: "draft", owner: "user-admin", productId: "prod-001", baseCost: 5000, overheadPercent: 8, targetMarginPercent: 35, lines: [{ label: "Bao bi", amount: 500 }], scenarios: [{ label: "Ban le", price: 9000 }], sourceType: "product", sourceId: "prod-001", commentLog: [{ author: "Phan Ton Loc Nguyen", text: "Kiem tra lai phi san truoc khi duyet.", createdAt: now }], createdAt: now, updatedAt: now }
   ];
   const teamDecisions = [
-    { id: "team-decision-001", title: "Giu gia but chi 2B", status: "approved", owner: "user-admin", decisionDate: "2026-06-29", context: "Can giu bien loi nhuan tot", decision: "Gia ban 8.000d", impact: "On dinh POS va san", createdAt: now, updatedAt: now }
+    { id: "team-decision-001", title: "Giu gia but chi 2B", status: "approved", owner: "user-admin", decisionDate: "2026-06-29", context: "Can giu bien loi nhuan tot", decision: "Gia ban 8.000d", impact: "On dinh POS va san", sourceType: "pricing", sourceId: "team-price-001", commentLog: [{ author: "Phan Ton Loc Nguyen", text: "Ap dung den het thang 7 neu ton kho on dinh.", createdAt: now }], createdAt: now, updatedAt: now }
   ];
 
   return {
