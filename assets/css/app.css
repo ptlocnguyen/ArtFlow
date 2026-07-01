@@ -4006,8 +4006,27 @@ body[data-page="products"] .view.active {
   place-items: end center;
   min-height: 190px;
   padding: 24px;
-  background: linear-gradient(180deg, #fff7ed 0%, #f8fafc 100%);
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 58%, rgba(251, 146, 60, 0.22), transparent 26%),
+    radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08), transparent 42%),
+    linear-gradient(180deg, #fff7ed 0%, #f8fafc 100%);
   border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.incense-aura {
+  position: absolute;
+  bottom: 42px;
+  left: 50%;
+  z-index: -1;
+  width: 210px;
+  height: 112px;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.26), rgba(239, 68, 68, 0.08) 48%, transparent 72%);
+  border-radius: 999px;
+  filter: blur(4px);
+  transform: translateX(-50%);
+  animation: incenseAura 3.2s ease-in-out infinite;
 }
 
 .incense-bowl {
@@ -4017,6 +4036,7 @@ body[data-page="products"] .view.active {
   border: 1px solid rgba(127, 29, 29, 0.32);
   border-radius: 18px 18px 48px 48px;
   box-shadow: inset 0 12px 20px rgba(255, 255, 255, 0.18), 0 16px 30px rgba(127, 29, 29, 0.14);
+  animation: incenseBowl 3.6s ease-in-out infinite;
 }
 
 .incense-sticks {
@@ -4034,7 +4054,9 @@ body[data-page="products"] .view.active {
   height: 98px;
   background: linear-gradient(180deg, #f59e0b 0 14px, #7c2d12 14px);
   border-radius: 99px;
+  box-shadow: 0 0 0 rgba(251, 191, 36, 0);
   transform-origin: bottom;
+  animation: incenseStickGlow 2.2s ease-in-out infinite;
 }
 
 .incense-sticks i:nth-child(1) {
@@ -4051,7 +4073,7 @@ body[data-page="products"] .view.active {
   left: 50%;
   width: 50px;
   height: 100px;
-  border-left: 3px solid rgba(100, 116, 139, 0.22);
+  border-left: 3px solid rgba(100, 116, 139, 0.2);
   border-radius: 50%;
   animation: incenseSmoke 4s ease-in-out infinite;
 }
@@ -4060,6 +4082,80 @@ body[data-page="products"] .view.active {
   margin-left: 18px;
   animation-delay: 1.4s;
   transform: scale(0.82) rotate(12deg);
+}
+
+.incense-smoke.smoke-three {
+  margin-left: -22px;
+  animation-delay: 2.2s;
+  transform: scale(0.72) rotate(-16deg);
+}
+
+.incense-spark {
+  position: absolute;
+  bottom: 156px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  background: #f59e0b;
+  border-radius: 999px;
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.8);
+  opacity: 0;
+  animation: incenseSpark 3.4s ease-in-out infinite;
+}
+
+.incense-spark.spark-one {
+  margin-left: -28px;
+}
+
+.incense-spark.spark-two {
+  margin-left: 8px;
+  animation-delay: 1.2s;
+}
+
+.incense-spark.spark-three {
+  margin-left: 28px;
+  animation-delay: 2.1s;
+}
+
+.incense-panel.just-lit .incense-scene::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 55%, rgba(250, 204, 21, 0.34), transparent 34%);
+  animation: incenseBlessing 900ms ease-out;
+}
+
+@keyframes incenseAura {
+  0%, 100% {
+    opacity: 0.68;
+    transform: translateX(-50%) scale(0.94);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.08);
+  }
+}
+
+@keyframes incenseBowl {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes incenseStickGlow {
+  0%, 100% {
+    box-shadow: 0 -8px 10px rgba(245, 158, 11, 0.08);
+  }
+
+  50% {
+    box-shadow: 0 -10px 20px rgba(245, 158, 11, 0.42);
+  }
 }
 
 @keyframes incenseSmoke {
@@ -4075,6 +4171,38 @@ body[data-page="products"] .view.active {
   100% {
     opacity: 0;
     transform: translateX(-50%) translateY(-28px) scale(1.15) rotate(14deg);
+  }
+}
+
+@keyframes incenseSpark {
+  0%, 14%, 100% {
+    opacity: 0;
+    transform: translate(-50%, 12px) scale(0.6);
+  }
+
+  28% {
+    opacity: 1;
+  }
+
+  58% {
+    opacity: 0;
+    transform: translate(-50%, -42px) scale(1.05);
+  }
+}
+
+@keyframes incenseBlessing {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+
+  35% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.22);
   }
 }
 
@@ -4107,6 +4235,13 @@ body[data-page="products"] .view.active {
   font: inherit;
   font-weight: 800;
   cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.incense-kind-grid button:hover {
+  transform: translateY(-1px);
+  border-color: #bfdbfe;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
 }
 
 .incense-kind-grid button.active {
@@ -4114,6 +4249,37 @@ body[data-page="products"] .view.active {
   border-color: #a8c7fa;
   background: #eff6ff;
   box-shadow: inset 0 0 0 1px #bfdbfe;
+  animation: incenseChoice 220ms ease-out;
+}
+
+@keyframes incenseChoice {
+  0% {
+    transform: scale(0.97);
+  }
+
+  70% {
+    transform: scale(1.02);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .incense-aura,
+  .incense-bowl,
+  .incense-sticks i,
+  .incense-smoke,
+  .incense-spark,
+  .incense-panel.just-lit .incense-scene::after,
+  .incense-kind-grid button.active {
+    animation: none;
+  }
+
+  .incense-kind-grid button {
+    transition: none;
+  }
 }
 
 .incense-kind-grid .app-icon {

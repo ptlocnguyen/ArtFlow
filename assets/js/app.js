@@ -3431,6 +3431,12 @@
         const kind = incenseKinds[data.kind] || incenseKinds.sales;
         els.incenseResult.textContent = kind[1];
       }
+      const panel = form.closest(".incense-panel");
+      if (panel) {
+        panel.classList.remove("just-lit");
+        window.requestAnimationFrame(() => panel.classList.add("just-lit"));
+        window.setTimeout(() => panel.classList.remove("just-lit"), 950);
+      }
       renderIncense();
       showToast("Đã thắp một nén nhỏ.");
     } finally {
