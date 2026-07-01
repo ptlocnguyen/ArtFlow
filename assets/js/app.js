@@ -2953,6 +2953,81 @@
     return `Bạn là content creator cho cửa hàng họa cụ ArtFlow. Hãy tạo nội dung cho kênh ${channel}.\nChủ đề: ${item.title}\nLoại nội dung: ${contentItemTypes[item.type] || item.type}\nBrief:\n${item.brief || ""}${productText}\nYêu cầu: viết rõ hook, nội dung chính, CTA, hashtag/SEO nếu phù hợp.`;
   }
 
+
+  function preferredContentTemplate(type, channel, current) {
+    if (current && current !== "blank") return current;
+    if (channel && contentBriefTemplates[channel]) return channel;
+    if (type && contentBriefTemplates[type]) return type;
+    return "blank";
+  }
+
+  function contentProductContext(product) {
+    if (!product) return "";
+    return [
+      "",
+      "Thông tin sản phẩm:",
+      `- SKU: ${product.sku}`,
+      `- Tên: ${product.name}`,
+      `- Danh mục: ${product.category || "Chưa có"}`,
+      `- Thương hiệu: ${product.brand || "Chưa có"}`,
+      product.shortDescription ? `- Mô tả ngắn: ${product.shortDescription}` : "",
+      product.keyFeatures ? `- Điểm nổi bật: ${product.keyFeatures}` : "",
+      product.targetAudience ? `- Khách hàng mục tiêu: ${product.targetAudience}` : "",
+      product.seoKeywords ? `- Từ khóa: ${product.seoKeywords}` : ""
+    ].filter(Boolean).join("\n");
+  }
+
+  function setContentChecklistValues(form, name, labels) {
+    Array.from(form.querySelectorAll(`[data-content-${name}-label]`)).forEach((input, index) => {
+      if (labels[index]) input.value = labels[index];
+    });
+  }
+
+  function contentAutoTitle(type, channel, product) {
+    if (product) {
+      if (type === "video" || channel === "tiktok") return "Video giới thiệu " + product.name;
+      if (channel === "shopee") return "Mô tả bán hàng " + product.name;
+      if (channel === "website") return "Bài SEO " + product.name;
+      return "Content cho " + product.name;
+    }
+    if (type === "campaign") return "Chiến dịch content mới";
+    if (type === "video") return "Kịch bản video mới";
+    return "Chủ đề content mới";
+  }
+
+  function applyContentAutomation(form, mode) {
+    if (!form) return;
+    const product = byId("products", form.productId?.value || "");
+    const type = form.type?.value || "campaign";
+    const channel = form.channel?.value || "multi";
+    const templateKey = preferredContentTemplate(type, channel, form.template?.value || "");
+    const template = contentBriefTemplates[templateKey] || contentBriefTemplates.blank;
+    if (form.template && (!form.template.value || mode === "template")) form.template.value = templateKey;
+    if (form.title && (!form.title.value.trim() || mode === "product")) form.title.value = contentAutoTitle(type, channel, product);
+    if (form.campaign && !form.campaign.value.trim() && type === "campaign") form.campaign.value = form.title?.value || "";
+    if (form.tags && (!form.tags.value.trim() || mode === "product")) {
+      form.tags.value = [product?.category, product?.brand, channel !== "multi" ? contentChannels[channel] : "", template.label].filter(Boolean).join(", ");
+    }
+    if (form.targetMetric && (!form.targetMetric.value.trim() || mode === "template")) {
+      form.targetMetric.value = template.kpi || "1 nội dung hoàn chỉnh, có CTA rõ và link đăng";
+    }
+    const brief = form.querySelector("[data-content-brief]");
+    if (brief && (!brief.value.trim() || mode !== "gentle")) {
+      brief.value = [template.brief || "", contentProductContext(product)].filter(Boolean).join("\n");
+    }
+    setContentChecklistValues(form, "checklist", template.checklist || defaultContentChecklist);
+    setContentChecklistValues(form, "asset", template.assets || defaultContentAssetChecklist);
+    const prompt = form.querySelector("[data-content-prompt]");
+    if (prompt) {
+      prompt.value = contentPromptFor({
+        title: form.title?.value || "",
+        type,
+        channel,
+        brief: brief ? brief.value : ""
+      }, product);
+    }
+  }
+
   function renderContentWorkspace() {
     if (!els.contentTable) return;
     const items = (state.contentItems || []).filter(item => item.status !== "deleted");
@@ -3013,19 +3088,27 @@
       <div class="field"><label for="contentChannel">Kênh</label><select id="contentChannel" name="channel">${Object.entries(contentChannels).map(([key, label]) => `<option value="${key}" ${(item ? item.channel : defaults.channel || "multi") === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
       <div class="field"><label for="contentStatus">Trạng thái</label><select id="contentStatus" name="status">${Object.entries(contentItemStatuses).filter(([key]) => key !== "archived").map(([key, label]) => `<option value="${key}" ${(item ? item.status : defaults.status || "idea") === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
       <div class="field"><label for="contentPriority">Ưu tiên</label><select id="contentPriority" name="priority">${Object.entries(contentPriorities).map(([key, label]) => `<option value="${key}" ${(item ? item.priority : defaults.priority || "normal") === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+      <div class="content-automation-box full">
+        <div><strong>Trợ lý tạo nhanh</strong><small>Tự điền brief, KPI, checklist và prompt theo loại nội dung, kênh và sản phẩm.</small></div>
+        <div class="content-automation-actions">
+          <button class="button ghost compact-button" type="button" data-content-auto="template">Tạo từ mẫu</button>
+          <button class="button ghost compact-button" type="button" data-content-auto="product">Đồng bộ sản phẩm</button>
+          <button class="button ghost compact-button" type="button" data-content-auto="gentle">Chỉ gợi ý chỗ trống</button>
+        </div>
+      </div>
       <div class="field"><label for="contentDueDate">Deadline</label><input id="contentDueDate" name="dueDate" type="date" value="${value("dueDate")}" /></div>
       <div class="field"><label for="contentPublishAt">Lịch đăng</label><input id="contentPublishAt" name="publishAt" type="datetime-local" value="${value("publishAt")}" /></div>
       <div class="field"><label for="contentOwner">Người phụ trách</label><select id="contentOwner" name="owner">${contentOwnerOptions(item ? item.owner : defaults.owner || "")}</select></div>
       <div class="field full"><label for="contentCollaborators">Người phối hợp</label><input id="contentCollaborators" name="collaborators" value="${value("collaborators")}" placeholder="Tên thành viên, phân tách bằng dấu phẩy" /></div>
-      <div class="field"><label for="contentCampaign">Campaign / series</label><input id="contentCampaign" name="campaign" value="${value("campaign")}" placeholder="Back to School, ra mat san pham..." /></div>
-      <div class="field"><label for="contentTargetMetric">Muc tieu KPI</label><input id="contentTargetMetric" name="targetMetric" value="${value("targetMetric")}" placeholder="VD: 2.000 views, 20 inbox, 5 don" /></div>
+      <div class="field"><label for="contentCampaign">Campaign / series</label><input id="contentCampaign" name="campaign" value="${value("campaign")}" placeholder="Back to School, ra mắt sản phẩm..." /></div>
+      <div class="field"><label for="contentTargetMetric">Mục tiêu KPI</label><input id="contentTargetMetric" name="targetMetric" value="${value("targetMetric")}" placeholder="VD: 2.000 views, 20 inbox, 5 đơn" /></div>
       <div class="field full"><label for="contentTags">Tag</label><input id="contentTags" name="tags" value="${value("tags") || (defaultProduct ? escapeAttribute([defaultProduct.category, defaultProduct.brand].filter(Boolean).join(", ")) : "")}" placeholder="launch, hướng dẫn, back-to-school..." /></div>
       <div class="field full"><label for="contentBrief">Brief</label><textarea id="contentBrief" name="brief" rows="6" data-content-brief placeholder="Mục tiêu, insight, thông điệp chính, format, yêu cầu hình ảnh/video...">${escapeHtml(briefValue)}</textarea></div>
       ${renderContentChecklist("checklist", "Checklist xử lý", checklistItems, false)}
       ${renderContentChecklist("asset", "Asset cần chuẩn bị", assetItems, true)}
       <div class="field full"><label for="contentPromptText">Prompt hỗ trợ viết</label><textarea id="contentPromptText" name="promptText" rows="5" data-content-prompt>${escapeHtml(promptText)}</textarea><button class="button ghost compact-button" type="button" data-copy-content-prompt>Copy prompt</button></div>
       <div class="content-form-box full"><strong>Góp ý / comment</strong>${comments.length ? `<div class="content-comment-log">${comments.slice(-5).map(comment => `<p><span>${escapeHtml(comment.author || "Team")} · ${escapeHtml(formatDateTime(comment.createdAt || ""))}</span>${escapeHtml(comment.text || "")}</p>`).join("")}</div>` : `<p class="content-empty">Chưa có góp ý.</p>`}<textarea name="newComment" rows="2" placeholder="Thêm góp ý mới..."></textarea></div>
-      <div class="content-form-box full"><strong>Ket qua sau dang</strong><div class="content-result-grid"><label>Luot xem<input name="resultViews" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.views || 0 : 0)}" /></label><label>Tuong tac<input name="resultEngagement" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.engagement || 0 : 0)}" /></label><label>Inbox/lead<input name="resultLeads" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.leads || 0 : 0)}" /></label><label>Don hang<input name="resultOrders" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.orders || 0 : 0)}" /></label></div></div>
+      <div class="content-form-box full"><strong>Kết quả sau đăng</strong><div class="content-result-grid"><label>Lượt xem<input name="resultViews" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.views || 0 : 0)}" /></label><label>Tương tác<input name="resultEngagement" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.engagement || 0 : 0)}" /></label><label>Inbox/lead<input name="resultLeads" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.leads || 0 : 0)}" /></label><label>Đơn hàng<input name="resultOrders" type="number" min="0" step="1" value="${Number(item && item.result ? item.result.orders || 0 : 0)}" /></label></div></div>
       <div class="field full"><label for="contentNote">Ghi chú nội bộ</label><textarea id="contentNote" name="note" rows="3">${escapeHtml(item ? item.note : defaults.note || "")}</textarea></div>
       <div class="field full"><label for="contentPublishUrl">Link đã đăng</label><input id="contentPublishUrl" name="publishUrl" type="url" value="${value("publishUrl")}" placeholder="https://..." /></div>
       ${item ? "" : `<div class="field checkbox-field full"><label><input type="checkbox" name="createAssets" checked /> Tạo Google Docs và folder Drive ngay khi lưu</label></div>`}
@@ -3357,20 +3440,20 @@
   function renderTeamSourceAndComments(item) {
     const comments = Array.isArray(item.commentLog) ? item.commentLog : [];
     const sourceTypes = [
-      ["manual", "Ghi chu rieng"],
-      ["product", "San pham"],
+      ["manual", "Ghi chú riêng"],
+      ["product", "Sản phẩm"],
       ["content", "Content"],
-      ["order", "Don hang"],
-      ["pricing", "Bang tinh gia"],
-      ["plan", "Ke hoach"]
+      ["order", "Đơn hàng"],
+      ["pricing", "Bảng tính giá"],
+      ["plan", "Kế hoạch"]
     ];
     return `
       <details class="content-details team-extra-details full">
-        <summary><span>Lien ket va trao doi<small>Nguon tham chieu, link lien quan va comment noi bo.</small></span></summary>
+        <summary><span>Liên kết và trao đổi<small>Nguồn tham chiếu, link liên quan và comment nội bộ.</small></span></summary>
         <div class="content-details-body">
-          <div class="field"><label>Nguon lien ket</label><select name="sourceType">${sourceTypes.map(([value, label]) => `<option value="${value}" ${item.sourceType === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-          <div class="field"><label>Ma/link nguon</label><input name="sourceId" value="${escapeAttribute(item.sourceId || "")}" placeholder="SKU, ma don, link Docs/Drive..." /></div>
-          <div class="content-form-box full"><strong>Lich su trao doi</strong>${comments.length ? `<div class="content-comment-log">${comments.slice(-6).map(comment => `<p><span>${escapeHtml(comment.author || "Team")} · ${escapeHtml(formatDateTime(comment.createdAt || ""))}</span>${escapeHtml(comment.text || "")}</p>`).join("")}</div>` : `<p class="content-empty">Chua co trao doi.</p>`}<textarea name="newComment" rows="2" placeholder="Them comment, canh bao, so lieu can theo doi..."></textarea></div>
+          <div class="field"><label>Nguồn liên kết</label><select name="sourceType">${sourceTypes.map(([value, label]) => `<option value="${value}" ${item.sourceType === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+          <div class="field"><label>Mã/link nguồn</label><input name="sourceId" value="${escapeAttribute(item.sourceId || "")}" placeholder="SKU, mã đơn, link Docs/Drive..." /></div>
+          <div class="content-form-box full"><strong>Lịch sử trao đổi</strong>${comments.length ? `<div class="content-comment-log">${comments.slice(-6).map(comment => `<p><span>${escapeHtml(comment.author || "Team")} · ${escapeHtml(formatDateTime(comment.createdAt || ""))}</span>${escapeHtml(comment.text || "")}</p>`).join("")}</div>` : `<p class="content-empty">Chưa có trao đổi.</p>`}<textarea name="newComment" rows="2" placeholder="Thêm comment, cảnh báo, số liệu cần theo dõi..."></textarea></div>
         </div>
       </details>
     `;
@@ -4515,12 +4598,55 @@
   };
 
   const contentBriefTemplates = {
-    blank: { label: "Tự do", brief: "" },
-    facebook: { label: "Bài Facebook", brief: "Mục tiêu:\nĐối tượng:\nHook mở đầu:\nThông điệp chính:\nLợi ích sản phẩm:\nCTA:\nAsset cần có:\nHashtag:" },
-    tiktok: { label: "Video TikTok", brief: "Mục tiêu video:\nĐối tượng:\nHook 3 giây đầu:\nKịch bản cảnh 1-2-3:\nGóc quay/đạo cụ:\nText overlay:\nCTA:\nNhạc/nhịp dựng:" },
-    shopee: { label: "Mô tả Shopee", brief: "Tên/từ khóa chính:\nĐiểm nổi bật:\nThông số:\nCách dùng:\nĐối tượng phù hợp:\nCam kết/chính sách:\nTừ khóa SEO:" },
-    website: { label: "Mô tả Website", brief: "Mục tiêu SEO:\nMô tả ngắn:\nUSP:\nThông số kỹ thuật:\nCách dùng/bảo quản:\nFAQ:\nMeta keywords:" },
-    campaign: { label: "Campaign", brief: "Tên campaign:\nMục tiêu:\nInsight:\nThông điệp chính:\nKênh triển khai:\nDanh sách nội dung cần làm:\nTimeline:\nAsset cần chuẩn bị:" }
+    blank: {
+      label: "T\u1EF1 do",
+      brief: "",
+      kpi: "1 n\u1ED9i dung ho\u00E0n ch\u1EC9nh, c\u00F3 CTA r\u00F5",
+      checklist: ["X\u00E1c \u0111\u1ECBnh m\u1EE5c ti\u00EAu", "Vi\u1EBFt b\u1EA3n nh\u00E1p", "Chu\u1EA9n b\u1ECB asset", "Review", "\u0110\u0103ng/l\u00EAn l\u1ECBch"],
+      assets: ["\u1EA2nh/video ch\u00EDnh", "File thi\u1EBFt k\u1EBF", "Link tham kh\u1EA3o", "Link b\u00E0i \u0111\u00E3 \u0111\u0103ng", "S\u1ED1 li\u1EC7u sau \u0111\u0103ng"]
+    },
+    facebook: {
+      label: "B\u00E0i Facebook",
+      brief: "M\u1EE5c ti\u00EAu:\n\u0110\u1ED1i t\u01B0\u1EE3ng:\nHook m\u1EDF \u0111\u1EA7u:\nV\u1EA5n \u0111\u1EC1/insight:\nL\u1EE3i \u00EDch s\u1EA3n ph\u1EA9m:\nN\u1ED9i dung ch\u00EDnh:\nCTA:\nHashtag:",
+      kpi: "1 b\u00E0i Facebook c\u00F3 hook r\u00F5, CTA v\u00E0 t\u1ED1i thi\u1EC3u 1 asset ch\u00EDnh",
+      checklist: ["Ch\u1ED1t hook", "Vi\u1EBFt caption", "G\u1EAFn CTA", "Review h\u00ECnh/hashtag", "L\u00EAn l\u1ECBch \u0111\u0103ng"],
+      assets: ["\u1EA2nh b\u00ECa", "\u1EA2nh ph\u1EE5/reel", "Hashtag", "Link s\u1EA3n ph\u1EA9m", "Link b\u00E0i \u0111\u00E3 \u0111\u0103ng"]
+    },
+    tiktok: {
+      label: "Video TikTok/Reels",
+      brief: "M\u1EE5c ti\u00EAu video:\n\u0110\u1ED1i t\u01B0\u1EE3ng:\nHook 3 gi\u00E2y \u0111\u1EA7u:\nK\u1ECBch b\u1EA3n c\u1EA3nh 1-2-3:\nG\u00F3c quay/\u0111\u1EA1o c\u1EE5:\nText overlay:\nCTA:\nNh\u1EA1c/nh\u1ECBp d\u1EF1ng:",
+      kpi: "1 video ng\u1EAFn 15-45s, c\u00F3 hook 3s v\u00E0 CTA mua/nh\u1EAFn tin",
+      checklist: ["Ch\u1ED1t hook 3 gi\u00E2y", "Vi\u1EBFt shot list", "Quay demo", "D\u1EF1ng video + text overlay", "L\u00EAn l\u1ECBch \u0111\u0103ng"],
+      assets: ["Video th\u00F4", "\u1EA2nh thumbnail", "Nh\u1EA1c/voice", "Caption", "Link video \u0111\u00E3 \u0111\u0103ng"]
+    },
+    shopee: {
+      label: "M\u00F4 t\u1EA3 Shopee",
+      brief: "T\u00EAn/t\u1EEB kh\u00F3a ch\u00EDnh:\n\u0110i\u1EC3m n\u1ED5i b\u1EADt:\nTh\u00F4ng s\u1ED1:\nC\u00E1ch d\u00F9ng:\n\u0110\u1ED1i t\u01B0\u1EE3ng ph\u00F9 h\u1EE3p:\nCam k\u1EBFt/ch\u00EDnh s\u00E1ch:\nT\u1EEB kh\u00F3a SEO:",
+      kpi: "1 m\u00F4 t\u1EA3 s\u00E0n \u0111\u1EE7 t\u1EEB kh\u00F3a, th\u00F4ng s\u1ED1 v\u00E0 h\u01B0\u1EDBng d\u1EABn d\u00F9ng",
+      checklist: ["T\u1ED1i \u01B0u t\u00EAn s\u1EA3n ph\u1EA9m", "Vi\u1EBFt m\u00F4 t\u1EA3", "Th\u00EAm th\u00F4ng s\u1ED1", "Review t\u1EEB kh\u00F3a", "C\u1EADp nh\u1EADt link s\u00E0n"],
+      assets: ["\u1EA2nh ch\u00EDnh 1:1", "\u1EA2nh chi ti\u1EBFt", "B\u1EA3ng th\u00F4ng s\u1ED1", "T\u1EEB kh\u00F3a", "Link Shopee"]
+    },
+    website: {
+      label: "M\u00F4 t\u1EA3 Website/SEO",
+      brief: "M\u1EE5c ti\u00EAu SEO:\nM\u00F4 t\u1EA3 ng\u1EAFn:\nUSP:\nTh\u00F4ng s\u1ED1 k\u1EF9 thu\u1EADt:\nC\u00E1ch d\u00F9ng/b\u1EA3o qu\u1EA3n:\nFAQ:\nMeta title/description:\nMeta keywords:",
+      kpi: "1 b\u00E0i/m\u00F4 t\u1EA3 website c\u00F3 SEO title, FAQ v\u00E0 CTA",
+      checklist: ["Vi\u1EBFt m\u00F4 t\u1EA3 ng\u1EAFn", "Vi\u1EBFt USP", "Th\u00EAm FAQ", "T\u1ED1i \u01B0u SEO", "G\u1EAFn link s\u1EA3n ph\u1EA9m"],
+      assets: ["\u1EA2nh s\u1EA3n ph\u1EA9m", "\u1EA2nh lifestyle", "T\u1EEB kh\u00F3a SEO", "FAQ", "Link website"]
+    },
+    campaign: {
+      label: "Campaign",
+      brief: "T\u00EAn campaign:\nM\u1EE5c ti\u00EAu:\nInsight:\nTh\u00F4ng \u0111i\u1EC7p ch\u00EDnh:\nK\u00EAnh tri\u1EC3n khai:\nDanh s\u00E1ch n\u1ED9i dung c\u1EA7n l\u00E0m:\nTimeline:\nAsset c\u1EA7n chu\u1EA9n b\u1ECB:\nC\u00E1ch \u0111o hi\u1EC7u qu\u1EA3:",
+      kpi: "Danh s\u00E1ch topic, deadline, owner v\u00E0 KPI cho t\u1EEBng k\u00EAnh",
+      checklist: ["Ch\u1ED1t m\u1EE5c ti\u00EAu", "Ch\u1ED1t danh s\u00E1ch topic", "Ph\u00E2n owner", "Chu\u1EA9n b\u1ECB asset", "Theo d\u00F5i k\u1EBFt qu\u1EA3"],
+      assets: ["Brief campaign", "L\u1ECBch \u0111\u0103ng", "Folder asset", "B\u1EA3ng KPI", "Link t\u1ED5ng h\u1EE3p"]
+    },
+    product: {
+      label: "Theo s\u1EA3n ph\u1EA9m",
+      brief: "S\u1EA3n ph\u1EA9m:\nKh\u00E1ch h\u00E0ng m\u1EE5c ti\u00EAu:\nV\u1EA5n \u0111\u1EC1 kh\u00E1ch g\u1EB7p:\nL\u1EE3i \u00EDch ch\u00EDnh:\nB\u1EB1ng ch\u1EE9ng/demo c\u1EA7n quay/ch\u1EE5p:\nCTA:\nK\u00EAnh \u0111\u0103ng:",
+      kpi: "1 b\u1ED9 content s\u1EA3n ph\u1EA9m \u0111\u1EE7 brief, asset v\u00E0 prompt",
+      checklist: ["Ch\u1ED1t insight s\u1EA3n ph\u1EA9m", "Vi\u1EBFt USP", "Chu\u1EA9n b\u1ECB demo", "Review gi\u00E1/link", "\u0110\u0103ng/l\u00EAn l\u1ECBch"],
+      assets: ["\u1EA2nh s\u1EA3n ph\u1EA9m", "Video demo", "Gi\u00E1/link b\u00E1n", "Feedback/USP", "Link b\u00E0i \u0111\u0103ng"]
+    }
   };
 
   const defaultContentChecklist = ["Brief rõ mục tiêu", "Caption/nội dung nháp", "Hình/video đã chuẩn bị", "Đã review", "Đã lên lịch hoặc đăng"];
@@ -6709,6 +6835,7 @@
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
     if (type === "contentItem") compactContentItemForm(els.modalForm);
+    if (type === "contentItem" && !options.contentItem) applyContentAutomation(els.modalForm, "gentle");
     els.modalForm.insertAdjacentHTML("beforeend", definition.readOnly ? `
       <div class="form-actions"><button class="button primary" type="button" data-close-modal>${icon("check")} Đóng</button></div>
     ` : `
@@ -7026,6 +7153,10 @@
           await navigator.clipboard.writeText(prompt);
           showToast("Đã copy prompt.");
         }
+      }
+      if (target.matches("[data-content-auto]")) {
+        applyContentAutomation(target.closest("form"), target.dataset.contentAuto || "template");
+        showToast("?? g?i ? n?i dung theo d? li?u hi?n c?.");
       }
       if (target.dataset.createProductContent) {
         const product = byId("products", target.dataset.createProductContent);
@@ -7560,6 +7691,13 @@
         const brief = form?.querySelector("[data-content-brief]");
         const template = contentBriefTemplates[event.target.value];
         if (brief && template && !brief.value.trim()) brief.value = template.brief;
+        applyContentAutomation(form, "gentle");
+      }
+      if (event.target.matches("#contentProductId")) {
+        applyContentAutomation(event.target.closest("form"), "product");
+      }
+      if (event.target.matches("#contentType, #contentChannel")) {
+        applyContentAutomation(event.target.closest("form"), "gentle");
       }
       if (event.target.matches("[data-team-status-filter]")) {
         teamFilters.status = event.target.value;

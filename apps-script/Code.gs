@@ -1537,7 +1537,7 @@ function requireContentManager(token) {
 }
 
 function normalizeContentItemInput(body) {
-  const allowedTypes = ["product", "campaign", "idea", "post", "video", "brief"];
+  const allowedTypes = ["product", "campaign", "idea", "post", "video", "short_video", "blog", "brief"];
   const allowedStatuses = ["idea", "briefing", "drafting", "review", "revision", "ready", "scheduled", "published", "archived"];
   const allowedPriorities = ["low", "normal", "high", "urgent"];
   const type = allowedTypes.indexOf(String(body.type || "campaign")) === -1 ? "campaign" : String(body.type || "campaign");
@@ -1648,6 +1648,170 @@ function contentItemFolderName(item, product) {
   return prefix + "Content - " + item.title;
 }
 
+function contentItemTypeLabel(type) {
+  return {
+    product: "Theo sản phẩm",
+    campaign: "Chiến dịch",
+    idea: "Ý tưởng",
+    post: "Bài đăng",
+    video: "Video",
+    short_video: "Video ngắn",
+    blog: "Bài SEO",
+    brief: "Brief"
+  }[String(type || "")] || String(type || "Content");
+}
+
+function contentChannelLabel(channel) {
+  return {
+    multi: "Đa kênh",
+    website: "Website",
+    facebook: "Facebook",
+    tiktok: "TikTok",
+    shopee: "Shopee",
+    lazada: "Lazada",
+    email: "Email",
+    offline: "POS / Offline"
+  }[String(channel || "")] || String(channel || "Đa kênh");
+}
+
+function appendContentDocSection(body, title, content) {
+  body.appendParagraph(title).setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  String(content || "").split("\n").forEach(function (line) {
+    body.appendParagraph(line || " ");
+  });
+}
+
+function contentDocDraftSection(item) {
+  const channel = String(item.channel || "multi");
+  const type = String(item.type || "campaign");
+  if (type === "video" || type === "short_video" || channel === "tiktok") {
+    return [
+      "HOOK 3 GIÂY ĐẦU",
+      "[Viết câu mở đầu, tình huống hoặc hình ảnh gây chú ý]",
+      "",
+      "KỊCH BẢN CẢNH",
+      "1. Cảnh mở đầu:",
+      "2. Cảnh demo / vấn đề:",
+      "3. Cảnh lợi ích / bằng chứng:",
+      "4. CTA:",
+      "",
+      "TEXT OVERLAY / VOICE",
+      "[Text hiện trên video hoặc lời thoại chính]"
+    ].join("\n");
+  }
+  if (channel === "shopee" || channel === "lazada") {
+    return [
+      "TÊN SẢN PHẨM TỐI ƯU",
+      "[Tên có từ khóa chính, dung lượng/kích thước nếu có]",
+      "",
+      "MÔ TẢ SÀN",
+      "- Điểm nổi bật:",
+      "- Thông số:",
+      "- Cách dùng:",
+      "- Đối tượng phù hợp:",
+      "- Cam kết/chính sách:",
+      "",
+      "TỪ KHÓA SEO",
+      "[Từ khóa chính, từ khóa phụ]"
+    ].join("\n");
+  }
+  if (channel === "website" || type === "blog") {
+    return [
+      "META TITLE",
+      "[Tiêu đề SEO]",
+      "",
+      "META DESCRIPTION",
+      "[Mô tả 140-160 ký tự]",
+      "",
+      "OUTLINE",
+      "H2: Vấn đề / nhu cầu",
+      "H2: Lợi ích sản phẩm",
+      "H2: Cách dùng / bảo quản",
+      "H2: FAQ",
+      "",
+      "CTA",
+      "[Kêu gọi mua, inbox hoặc ghé cửa hàng]"
+    ].join("\n");
+  }
+  if (type === "campaign") {
+    return [
+      "THÔNG ĐIỆP CHÍNH",
+      "[Big idea / key message]",
+      "",
+      "DANH SÁCH CONTENT CẦN LÀM",
+      "1. Topic:",
+      "2. Topic:",
+      "3. Topic:",
+      "",
+      "TIMELINE",
+      "[Ngày - kênh - owner - trạng thái]"
+    ].join("\n");
+  }
+  return [
+    "HOOK",
+    "[Câu mở đầu thu hút]",
+    "",
+    "NỘI DUNG CHÍNH",
+    "[Viết caption / nội dung nháp tại đây]",
+    "",
+    "CTA",
+    "[Mua hàng / inbox / xem thêm / ghé cửa hàng]",
+    "",
+    "HASHTAG / SEO",
+    "[Hashtag hoặc từ khóa]"
+  ].join("\n");
+}
+
+function createContentDocBase(document, item, product) {
+  const body = document.getBody();
+  const checklist = parseContentJson(item.checklist_json, []);
+  const assetChecklist = parseContentJson(item.asset_checklist_json, []);
+  body.clear();
+  body.appendParagraph(item.title).setHeading(DocumentApp.ParagraphHeading.TITLE);
+  body.appendParagraph("ArtFlow Content Workspace").setHeading(DocumentApp.ParagraphHeading.SUBTITLE);
+  body.appendTable([
+    ["Loại", contentItemTypeLabel(item.type), "Kênh", contentChannelLabel(item.channel)],
+    ["Trạng thái", item.status || "idea", "Ưu tiên", item.priority || "normal"],
+    ["Campaign", item.campaign || "[chưa có]", "KPI", item.target_metric || "[chưa có]"],
+    ["Deadline", item.due_date || "[chưa có]", "Lịch đăng", item.publish_at || "[chưa có]"]
+  ]);
+  if (product) {
+    appendContentDocSection(body, "SẢN PHẨM LIÊN QUAN", [
+      "SKU: " + product.sku,
+      "Tên: " + product.name,
+      "Danh mục: " + (product.category || ""),
+      "Thương hiệu: " + (product.brand || ""),
+      "Giá bán: " + Number(product.sale_price || 0),
+      "Mô tả ngắn: " + (product.short_description || ""),
+      "Điểm nổi bật: " + (product.key_features || ""),
+      "Khách hàng mục tiêu: " + (product.target_audience || "")
+    ].join("\n"));
+  }
+  appendContentDocSection(body, "BRIEF", item.brief || "[Điền mục tiêu, insight, thông điệp chính, format và yêu cầu hình ảnh/video]");
+  appendContentDocSection(body, "BẢN NHÁP / KỊCH BẢN", contentDocDraftSection(item));
+  appendContentDocSection(body, "ASSET CẦN CHUẨN BỊ", (assetChecklist.length ? assetChecklist : [
+    { label: "Ảnh/video chính" },
+    { label: "File thiết kế" },
+    { label: "Link tham khảo" },
+    { label: "Link bài đã đăng" }
+  ]).map(function (entry) { return "- [ ] " + (entry.label || entry); }).join("\n"));
+  appendContentDocSection(body, "CHECKLIST XỬ LÝ", (checklist.length ? checklist : [
+    { label: "Brief rõ mục tiêu" },
+    { label: "Nội dung nháp" },
+    { label: "Asset đã chuẩn bị" },
+    { label: "Đã review" },
+    { label: "Đã lên lịch hoặc đăng" }
+  ]).map(function (entry) { return "- [ ] " + (entry.label || entry); }).join("\n"));
+  appendContentDocSection(body, "ĐO HIỆU QUẢ SAU ĐĂNG", [
+    "Link bài đăng: " + (item.publish_url || "[chưa có]"),
+    "Lượt xem:",
+    "Tương tác:",
+    "Inbox/lead:",
+    "Đơn hàng:",
+    "Ghi chú học được cho lần sau:"
+  ].join("\n"));
+}
+
 function createContentItemAssets(item, product) {
   const properties = PropertiesService.getScriptProperties();
   const root = contentWorkspaceFolder(properties);
@@ -1660,16 +1824,7 @@ function createContentItemAssets(item, product) {
     const document = DocumentApp.create(folderName);
     documentId = document.getId();
     DriveApp.getFileById(documentId).moveTo(root);
-    const body = document.getBody();
-    body.appendParagraph(item.title).setHeading(DocumentApp.ParagraphHeading.TITLE);
-    body.appendParagraph("Loại: " + item.type + " | Kênh: " + item.channel + " | Trạng thái: " + item.status);
-    if (product) body.appendParagraph("Sản phẩm: " + product.sku + " - " + product.name);
-    body.appendParagraph("BRIEF").setHeading(DocumentApp.ParagraphHeading.HEADING1);
-    body.appendParagraph(item.brief || "[Điền mục tiêu, insight, thông điệp chính, yêu cầu hình ảnh/video]");
-    body.appendParagraph("NỘI DUNG NHÁP").setHeading(DocumentApp.ParagraphHeading.HEADING1);
-    body.appendParagraph("[Soạn nội dung tại đây]");
-    body.appendParagraph("CHECKLIST").setHeading(DocumentApp.ParagraphHeading.HEADING1);
-    body.appendParagraph("- Hook / tiêu đề\n- Caption / mô tả\n- CTA\n- Hashtag / SEO keywords\n- Link đăng / lịch đăng");
+    createContentDocBase(document, item, product);
     document.saveAndClose();
   }
   const documentFile = DriveApp.getFileById(documentId);
