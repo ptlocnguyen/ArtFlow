@@ -9,6 +9,7 @@ let databaseReady = false;
 let spreadsheetCache = null;
 const sheetCache = {};
 let requestAuditContext = null;
+let rowCache = {};
 
 const SHEETS = {
   users: [
@@ -391,6 +392,7 @@ function doPost(e) {
 }
 
 function handleRequest(e) {
+  rowCache = {};
   try {
     setupDatabase();
 
@@ -869,11 +871,15 @@ function ensureHeaders(sheet, expectedHeaders) {
 }
 
 function readRows(name) {
+  if (rowCache[name]) {
+    return cloneRows(rowCache[name]);
+  }
+
   const sheet = getSheet(name);
   const values = sheet.getDataRange().getValues();
   const headers = values.shift() || [];
 
-  return values
+  const rows = values
     .filter(function (row) {
       return row.some(function (cell) {
         return cell !== "";
@@ -886,6 +892,22 @@ function readRows(name) {
       });
       return obj;
     });
+  rowCache[name] = rows;
+  return cloneRows(rows);
+}
+
+function cloneRows(rows) {
+  return rows.map(function (row) {
+    return Object.assign({}, row);
+  });
+}
+
+function invalidateRows(name) {
+  if (name) {
+    delete rowCache[name];
+  } else {
+    rowCache = {};
+  }
 }
 
 function appendRow(name, obj) {
@@ -895,6 +917,7 @@ function appendRow(name, obj) {
     return obj[key] === undefined ? "" : obj[key];
   });
   sheet.appendRow(values);
+  invalidateRows(name);
 }
 
 function updateRow(name, rowNumber, patch) {
@@ -909,6 +932,7 @@ function updateRow(name, rowNumber, patch) {
   });
 
   sheet.getRange(rowNumber, 1, 1, headers.length).setValues([existing]);
+  invalidateRows(name);
 }
 
 function deleteRows(name, rowNumbers) {
@@ -920,6 +944,7 @@ function deleteRows(name, rowNumbers) {
     .forEach(function (rowNumber) {
       sheet.deleteRow(rowNumber);
     });
+  invalidateRows(name);
 }
 
 function publicAppSettings() {

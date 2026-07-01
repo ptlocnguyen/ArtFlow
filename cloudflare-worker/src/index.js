@@ -99,6 +99,7 @@ export default {
         return json({ ok: false, error: "Missing action" }, 400, allowedOrigin);
       }
 
+      const upstreamStartedAt = Date.now();
       const upstream = await fetch(env.APPS_SCRIPT_URL, {
         method: "POST",
         headers: {
@@ -108,6 +109,7 @@ export default {
         redirect: "follow",
         signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)
       });
+      const upstreamDurationMs = Date.now() - upstreamStartedAt;
 
       const responseBody = await upstream.text();
       let responseJson;
@@ -125,7 +127,9 @@ export default {
         status: upstream.ok ? 200 : upstream.status,
         headers: {
           ...corsHeaders(allowedOrigin),
-          "Content-Type": "application/json; charset=utf-8"
+          "Content-Type": "application/json; charset=utf-8",
+          "Server-Timing": `apps-script;dur=${upstreamDurationMs}`,
+          "X-Upstream-Duration-Ms": String(upstreamDurationMs)
         }
       });
     } catch (error) {
