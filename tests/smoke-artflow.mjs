@@ -20,6 +20,7 @@ const pages = [
   ["products", "pages/products.html"],
   ["content", "pages/content.html"],
   ["team", "pages/team.html"],
+  ["incense", "pages/incense.html"],
   ["customers", "pages/customers.html"],
   ["inventory", "pages/inventory.html"],
   ["accounting", "pages/accounting.html"],
@@ -167,6 +168,12 @@ async function runPageInteractions(page, pageName) {
     await page.locator("[data-accounting-view-filter='profit']").click().catch(() => {});
     await page.waitForTimeout(100);
   }
+  if (pageName === "incense") {
+    await page.locator("[data-incense-kind-choice='team']").click().catch(() => {});
+    await page.locator("[data-incense-wish]").fill("Team vui ve, don vao deu.");
+    await page.locator("[data-incense-form] button[type='submit']").click();
+    await page.waitForTimeout(150);
+  }
 }
 
 async function installApiMock(page, state) {
@@ -215,6 +222,10 @@ function handleAction(state, payload) {
       return updateTeamItem(state, payload);
     case "archiveTeamItem":
       return archiveTeamItem(state, payload);
+    case "getIncenseData":
+      return incenseData(state);
+    case "createIncenseWish":
+      return createIncenseWish(state, payload);
     case "createOrder":
       return createOrder(state, payload);
     case "createOrderReceiptPdf":
@@ -259,6 +270,7 @@ function pageData(state, scopes) {
     if (scope === "purchasing") Object.assign(payload, purchasingData(state));
     if (scope === "content") Object.assign(payload, contentData(state));
     if (scope === "team") Object.assign(payload, teamData(state));
+    if (scope === "incense") Object.assign(payload, incenseData(state));
     if (scope === "settings") payload.settings = state.appSettings || {};
     return payload;
   }, { ok: true });
@@ -309,6 +321,27 @@ function teamData(state) {
     contentOwners: state.contentOwners,
     users: state.users
   };
+}
+
+function incenseData(state) {
+  return {
+    ok: true,
+    incenseWishes: state.incenseWishes || []
+  };
+}
+
+function createIncenseWish(state, payload) {
+  const item = {
+    id: `qa-wish-${Date.now()}`,
+    kind: payload.kind || "sales",
+    wish: payload.wish || "Xin mot ngay nhe dau.",
+    actorId: state.user.id,
+    actorName: state.user.name,
+    actorEmail: state.user.email,
+    createdAt: "2026-06-29T10:30:00+07:00"
+  };
+  state.incenseWishes = [item, ...(state.incenseWishes || [])].slice(0, 30);
+  return { ok: true, incenseWish: item, incenseWishes: state.incenseWishes };
 }
 
 function createTeamItem(state, payload) {

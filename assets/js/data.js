@@ -7,6 +7,7 @@ window.ArtFlowPosSeed = {
   teamPlans: [],
   teamPricingModels: [],
   teamDecisions: [],
+  incenseWishes: [],
   customers: [],
   orders: [],
   salesReturns: [],

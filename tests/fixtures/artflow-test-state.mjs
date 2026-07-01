@@ -107,6 +107,10 @@ export function createArtflowFixture() {
   const teamDecisions = [
     { id: "team-decision-001", title: "Giu gia but chi 2B", status: "approved", owner: "user-admin", decisionDate: "2026-06-29", context: "Can giu bien loi nhuan tot", decision: "Gia ban 8.000d", impact: "On dinh POS va san", sourceType: "pricing", sourceId: "team-price-001", commentLog: [{ author: "Phan Ton Loc Nguyen", text: "Ap dung den het thang 7 neu ton kho on dinh.", createdAt: now }], createdAt: now, updatedAt: now }
   ];
+  const incenseWishes = [
+    { id: "wish-001", kind: "sales", wish: "Chot don muot, khach vui ve.", actorId: user.id, actorName: user.name, actorEmail: user.email, createdAt: now },
+    { id: "wish-002", kind: "content", wish: "Y tuong den nhanh, brief gon dep.", actorId: "user-content", actorName: "Minh Anh", actorEmail: "content@artflow.local", createdAt: "2026-06-29T08:40:00+07:00" }
+  ];
 
   return {
     user,
@@ -128,6 +132,7 @@ export function createArtflowFixture() {
     teamPlans,
     teamPricingModels,
     teamDecisions,
+    incenseWishes,
     customers,
     orders,
     salesReturns: [],

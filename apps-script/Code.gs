@@ -2,7 +2,7 @@ const SPREADSHEET_ID = "1L6b0QGzti33SVadVMKG2AnlsIKHjg98mNhuU3gJSd18";
 const SESSION_DAYS = 14;
 const USER_CACHE_SECONDS = 300;
 const HASH_ROUNDS = 12000;
-const DATABASE_SCHEMA_VERSION = "2026-07-01-content-team-1";
+const DATABASE_SCHEMA_VERSION = "2026-07-01-incense-1";
 const VIETNAM_TIMEZONE = "Asia/Ho_Chi_Minh";
 
 let databaseReady = false;
@@ -125,6 +125,15 @@ const SHEETS = {
     "value_json",
     "updated_by",
     "updated_at"
+  ],
+  incense_wishes: [
+    "id",
+    "kind",
+    "wish",
+    "actor_id",
+    "actor_name",
+    "actor_email",
+    "created_at"
   ],
   customers: [
     "id",
@@ -457,6 +466,10 @@ function handleRequest(e) {
         return json(updateTeamItem(body));
       case "archiveTeamItem":
         return json(archiveTeamItem(body));
+      case "getIncenseData":
+        return json(getIncenseData(body));
+      case "createIncenseWish":
+        return json(createIncenseWish(body));
       case "getAppSettings":
         return json(getAppSettings(body));
       case "updateAppSettings":
@@ -578,6 +591,7 @@ function json(payload) {
 
 function auditActionMetadata(action) {
   return {
+    createIncenseWish: ["Ghi nhận lời xin vía", "incense_wish"],
     setupAdmin: ["Thiết lập tài khoản quản trị", "user"],
     login: ["Đăng nhập hệ thống", "session"],
     logout: ["Đăng xuất hệ thống", "session"],
@@ -724,7 +738,7 @@ function auditEntityId(context, payload) {
   const preferred = preferredByAction[context.action];
   if (preferred && payload[preferred] && payload[preferred].id) return String(payload[preferred].id);
   const resultKeys = [
-    "user", "product", "option", "contentItem", "customer", "order", "salesReturn", "refund", "movement",
+    "user", "product", "option", "contentItem", "teamItem", "incenseWish", "customer", "order", "salesReturn", "refund", "movement",
     "transaction", "account", "category", "reconciliation", "supplier", "purchaseOrder",
     "purchaseReturn", "payment", "creditApplication"
   ];
@@ -2163,6 +2177,57 @@ function archiveTeamItem(body) {
   const patch = { status: "deleted", detail_json: JSON.stringify(detail), updated_at: detail.updatedAt };
   updateRow("team_items", item._row, patch);
   return { ok: true };
+}
+
+function normalizeIncenseKind(kind) {
+  const value = String(kind || "").trim();
+  return ["sales", "content", "stock", "cash", "bug", "team"].indexOf(value) === -1 ? "sales" : value;
+}
+
+function publicIncenseWish(wish) {
+  return {
+    id: wish.id,
+    kind: wish.kind || "sales",
+    wish: wish.wish || "",
+    actorId: wish.actor_id || "",
+    actorName: wish.actor_name || "",
+    actorEmail: wish.actor_email || "",
+    createdAt: wish.created_at || ""
+  };
+}
+
+function getIncenseData(body) {
+  requireUser(body.token);
+  const wishes = readRows("incense_wishes")
+    .sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); })
+    .slice(0, 30)
+    .map(publicIncenseWish);
+  return { ok: true, incenseWishes: wishes };
+}
+
+function createIncenseWish(body) {
+  const user = requireUser(body.token);
+  const text = String(body.wish || "").trim();
+  if (!text || text.length > 160) {
+    return { ok: false, error: "Lời xin vía cần ngắn gọn, tối đa 160 ký tự" };
+  }
+  const wish = {
+    id: Utilities.getUuid(),
+    kind: normalizeIncenseKind(body.kind),
+    wish: text,
+    actor_id: user.id,
+    actor_name: user.name,
+    actor_email: user.email,
+    created_at: nowIso()
+  };
+  appendRow("incense_wishes", wish);
+  return {
+    ok: true,
+    incenseWish: publicIncenseWish(wish),
+    incenseWishes: [publicIncenseWish(wish)].concat(getIncenseData(body).incenseWishes.filter(function (item) {
+      return item.id !== wish.id;
+    })).slice(0, 30)
+  };
 }
 
 function ensureProductOptionDefaults() {
@@ -4508,7 +4573,7 @@ function getPageData(body) {
   }
   if (!Array.isArray(scopes)) scopes = [];
 
-  const allowedScopes = ["products", "customers", "orders", "stockMovements", "accounting", "purchasing", "content", "team", "settings"];
+  const allowedScopes = ["products", "customers", "orders", "stockMovements", "accounting", "purchasing", "content", "team", "incense", "settings"];
   const requested = {};
   scopes.forEach(function (scope) {
     const normalized = String(scope || "").trim();
@@ -4530,6 +4595,7 @@ function getPageData(body) {
   if (requested.purchasing) merge(getPurchasingData(body));
   if (requested.content) merge(getContentWorkspaceData(body));
   if (requested.team) merge(getTeamWorkspaceData(body));
+  if (requested.incense) merge(getIncenseData(body));
   if (requested.settings) merge(getAppSettings(body));
 
   return payload;

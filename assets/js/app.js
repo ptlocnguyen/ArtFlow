@@ -126,6 +126,7 @@
     products: { title: "Sản phẩm", href: "./products.html", icon: "package" },
     content: { title: "Content", href: "./content.html", icon: "sparkles" },
     team: { title: "Team Hub", href: "./team.html", icon: "briefcase" },
+    incense: { title: "Xin vía", href: "./incense.html", icon: "sparkles" },
     customers: { title: "Khách hàng", href: "./customers.html", icon: "users" },
     purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "truck" },
     purchaseCreate: { title: "Tạo phiếu mua", href: "./purchase-create.html", icon: "plus", hidden: true },
@@ -178,6 +179,11 @@
     teamRangeFilter: qs("[data-team-range-filter]"),
     teamPanelTitle: qs("[data-team-panel-title]"),
     teamPanelNote: qs("[data-team-panel-note]"),
+    incenseForm: qs("[data-incense-form]"),
+    incenseKind: qs("[data-incense-kind]"),
+    incenseWish: qs("[data-incense-wish]"),
+    incenseHistory: qs("[data-incense-history]"),
+    incenseResult: qs("[data-incense-result]"),
     customersTable: qs("[data-customers-table]"),
     customerCsvFile: qs("[data-customer-csv-file]"),
     usersTable: qs("[data-users-table]"),
@@ -297,6 +303,8 @@
       "/team/create": "createTeamItem",
       "/team/update": "updateTeamItem",
       "/team/archive": "archiveTeamItem",
+      "/incense": "getIncenseData",
+      "/incense/create": "createIncenseWish",
       "/products/import": "importProducts",
       "/products/provision-content": "provisionProductContent",
       "/products/provision-missing-content": "provisionMissingProductContent",
@@ -889,6 +897,18 @@
     };
   }
 
+  function normalizeIncenseWish(item) {
+    return {
+      id: item.id || makeLocalId("wish"),
+      kind: item.kind || "sales",
+      wish: item.wish || "",
+      actorId: item.actorId || "",
+      actorName: item.actorName || "",
+      actorEmail: item.actorEmail || "",
+      createdAt: item.createdAt || ""
+    };
+  }
+
   function normalizeTeamAction(action) {
     return {
       id: action.id || makeLocalId("action"),
@@ -1401,6 +1421,7 @@
       products: ["products"],
       content: ["content"],
       team: ["team"],
+      incense: ["incense"],
       customers: ["customers"],
       inventory: ["products", "stockMovements"],
       accounting: ["customers", "orders", "accounting"],
@@ -1434,6 +1455,9 @@
       state.products = (data.products || state.products || []).map(normalizeProduct);
       state.contentOwners = data.contentOwners || state.contentOwners || [];
       if (Array.isArray(data.users)) state.users = data.users;
+    }
+    if (scopes.includes("incense")) {
+      state.incenseWishes = (data.incenseWishes || []).map(normalizeIncenseWish);
     }
     if (scopes.includes("customers")) state.customers = (data.customers || []).map(normalizeCustomer);
     if (scopes.includes("orders")) {
@@ -3366,6 +3390,54 @@
     enhanceResponsiveTables(els.teamContent);
   }
 
+  const incenseKinds = {
+    sales: ["Đơn", "Xin chốt đơn mượt."],
+    content: ["Content", "Xin ý tưởng tới nhanh."],
+    stock: ["Kho", "Xin kho gọn, hàng đủ."],
+    cash: ["Tiền", "Xin dòng tiền sáng."],
+    bug: ["Bug", "Xin bug tự lộ mặt."],
+    team: ["Team", "Xin cả team nhẹ đầu."]
+  };
+
+  function renderIncense() {
+    if (!els.incenseHistory) return;
+    const wishes = (state.incenseWishes || []).map(normalizeIncenseWish)
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    els.incenseHistory.innerHTML = wishes.length ? wishes.slice(0, 18).map(item => {
+      const kind = incenseKinds[item.kind] || incenseKinds.sales;
+      return `<article class="incense-wish-card">
+        <span>${escapeHtml(kind[0])}</span>
+        <strong>${escapeHtml(item.wish)}</strong>
+        <small>${escapeHtml(item.actorName || "ArtFlow")} · ${item.createdAt ? formatDateTimeShort(item.createdAt) : "vừa xong"}</small>
+      </article>`;
+    }).join("") : `<div class="empty-state">Chưa ai thắp hôm nay.</div>`;
+  }
+
+  async function submitIncenseWish(form) {
+    const button = form.querySelector("button[type='submit']");
+    const data = Object.fromEntries(new FormData(form));
+    const wish = String(data.wish || "").trim();
+    if (!wish) throw new Error("Nhập một câu ngắn thôi nha.");
+    setBusy(button, true, "Đang thắp...");
+    try {
+      const response = await apiRequest("/incense/create", {
+        method: "POST",
+        body: JSON.stringify({ kind: data.kind || "sales", wish })
+      });
+      state.incenseWishes = (response.incenseWishes || [response.incenseWish]).filter(Boolean).map(normalizeIncenseWish);
+      window.ArtFlowPosStore.save(state);
+      if (els.incenseWish) els.incenseWish.value = "";
+      if (els.incenseResult) {
+        const kind = incenseKinds[data.kind] || incenseKinds.sales;
+        els.incenseResult.textContent = kind[1];
+      }
+      renderIncense();
+      showToast("Đã thắp một nén nhỏ.");
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
   function teamStatusBadge(status) {
     return `<span class="badge team-status-${escapeAttribute(status)}">${escapeHtml(teamStatuses[status] || status || "—")}</span>`;
   }
@@ -4519,6 +4591,7 @@
     renderProducts();
     renderContentWorkspace();
     renderTeamHub();
+    renderIncense();
     renderCustomers();
     renderUsers();
     renderAuditLogs();
@@ -7151,6 +7224,17 @@
       });
     }
 
+    if (els.incenseForm) {
+      els.incenseForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        try {
+          await submitIncenseWish(event.currentTarget);
+        } catch (error) {
+          showToast(error.message, "error");
+        }
+      });
+    }
+
     if (els.purchaseCreateForm) {
       els.purchaseCreateForm.addEventListener("submit", async event => {
         event.preventDefault();
@@ -7176,6 +7260,17 @@
       if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
       if (target.matches("[data-close-modal]")) closeModal();
       if (target.matches("[data-open-profile]")) openModal("profile");
+      if (target.matches("[data-incense-kind-choice]")) {
+        const kind = target.dataset.incenseKindChoice || "sales";
+        if (els.incenseKind) els.incenseKind.value = kind;
+        document.querySelectorAll("[data-incense-kind-choice]").forEach(button => {
+          button.classList.toggle("active", button.dataset.incenseKindChoice === kind);
+        });
+        if (els.incenseResult) {
+          const info = incenseKinds[kind] || incenseKinds.sales;
+          els.incenseResult.textContent = info[1];
+        }
+      }
       if (target.matches("[data-reset-product-filters]")) {
         Object.assign(productFilters, { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" });
         searchTerm = "";

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Xin vía | ArtFlow POS</title>
+  <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+</head>
+<body data-page="incense" data-root="..">
+  <div class="app-shell" data-app-shell hidden>
+    <aside class="sidebar">
+      <a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a>
+      <nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav>
+      <div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div>
+    </aside>
+    <main class="workspace">
+      <header class="topbar">
+        <button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu"><span data-icon="menu"></span></button>
+        <div><p class="eyebrow">Góc vui</p><h1 data-page-title>Xin vía</h1></div>
+        <div class="topbar-actions">
+          <div class="user-chip" data-current-user></div>
+          <button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button>
+        </div>
+      </header>
+
+      <section class="view active incense-workspace">
+        <section class="panel incense-panel">
+          <div class="incense-scene" aria-hidden="true">
+            <span class="incense-smoke smoke-one"></span>
+            <span class="incense-smoke smoke-two"></span>
+            <div class="incense-sticks"><i></i><i></i><i></i></div>
+            <div class="incense-bowl"></div>
+          </div>
+          <form class="incense-form" data-incense-form>
+            <input type="hidden" name="kind" value="sales" data-incense-kind />
+            <div class="incense-kind-grid" aria-label="Chọn điều muốn xin vía">
+              <button class="active" type="button" data-incense-kind-choice="sales"><span data-icon="shoppingCart"></span><b>Đơn</b></button>
+              <button type="button" data-incense-kind-choice="content"><span data-icon="sparkles"></span><b>Content</b></button>
+              <button type="button" data-incense-kind-choice="stock"><span data-icon="warehouse"></span><b>Kho</b></button>
+              <button type="button" data-incense-kind-choice="cash"><span data-icon="wallet"></span><b>Tiền</b></button>
+              <button type="button" data-incense-kind-choice="bug"><span data-icon="settings"></span><b>Bug</b></button>
+              <button type="button" data-incense-kind-choice="team"><span data-icon="users"></span><b>Team</b></button>
+            </div>
+            <label class="incense-input-row">
+              <span data-icon="edit"></span>
+              <input name="wish" data-incense-wish maxlength="160" placeholder="Một câu thôi..." autocomplete="off" />
+              <button class="button primary" type="submit">Thắp</button>
+            </label>
+            <p data-incense-result>Xin chốt đơn mượt.</p>
+          </form>
+        </section>
+
+        <section class="panel incense-history-panel">
+          <div class="panel-header split">
+            <div><h2>Gần đây</h2><p>Lời chúc vui, lưu lại cho cả team.</p></div>
+          </div>
+          <div class="incense-history" data-incense-history></div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <div data-shared-ui></div>
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/storage.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

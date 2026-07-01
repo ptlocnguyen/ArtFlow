@@ -3985,6 +3985,219 @@ body[data-page="products"] .view.active {
   scrollbar-width: thin;
 }
 
+.incense-workspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: 16px;
+  min-height: 0;
+}
+
+.incense-panel {
+  display: grid;
+  grid-template-rows: minmax(170px, 0.8fr) auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.incense-scene {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  min-height: 190px;
+  padding: 24px;
+  background: linear-gradient(180deg, #fff7ed 0%, #f8fafc 100%);
+  border-bottom: 1px solid var(--line);
+}
+
+.incense-bowl {
+  width: 132px;
+  height: 54px;
+  background: linear-gradient(180deg, #ef4444, #991b1b);
+  border: 1px solid rgba(127, 29, 29, 0.32);
+  border-radius: 18px 18px 48px 48px;
+  box-shadow: inset 0 12px 20px rgba(255, 255, 255, 0.18), 0 16px 30px rgba(127, 29, 29, 0.14);
+}
+
+.incense-sticks {
+  position: absolute;
+  bottom: 66px;
+  left: 50%;
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.incense-sticks i {
+  display: block;
+  width: 4px;
+  height: 98px;
+  background: linear-gradient(180deg, #f59e0b 0 14px, #7c2d12 14px);
+  border-radius: 99px;
+  transform-origin: bottom;
+}
+
+.incense-sticks i:nth-child(1) {
+  transform: rotate(-8deg);
+}
+
+.incense-sticks i:nth-child(3) {
+  transform: rotate(8deg);
+}
+
+.incense-smoke {
+  position: absolute;
+  bottom: 156px;
+  left: 50%;
+  width: 50px;
+  height: 100px;
+  border-left: 3px solid rgba(100, 116, 139, 0.22);
+  border-radius: 50%;
+  animation: incenseSmoke 4s ease-in-out infinite;
+}
+
+.incense-smoke.smoke-two {
+  margin-left: 18px;
+  animation-delay: 1.4s;
+  transform: scale(0.82) rotate(12deg);
+}
+
+@keyframes incenseSmoke {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px) scale(0.76) rotate(-8deg);
+  }
+
+  35% {
+    opacity: 0.8;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-28px) scale(1.15) rotate(14deg);
+  }
+}
+
+.incense-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.incense-kind-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.incense-kind-grid button,
+.incense-input-row {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.incense-kind-grid button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.incense-kind-grid button.active {
+  color: #0759c7;
+  border-color: #a8c7fa;
+  background: #eff6ff;
+  box-shadow: inset 0 0 0 1px #bfdbfe;
+}
+
+.incense-kind-grid .app-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.incense-input-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+}
+
+.incense-input-row input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  font: inherit;
+}
+
+.incense-input-row .button {
+  min-height: 40px;
+}
+
+.incense-form p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.incense-history-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  max-height: min(560px, calc(100dvh - 132px));
+  overflow: hidden;
+}
+
+.incense-history {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  padding: 0 16px 16px;
+  overflow: auto;
+}
+
+.incense-wish-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 10px;
+  align-items: center;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.incense-wish-card span {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  min-width: 58px;
+  height: 42px;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 900;
+  background: #ffedd5;
+  border-radius: 999px;
+}
+
+.incense-wish-card strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+
+.incense-wish-card small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .team-list,
 .team-pricing-list,
 .team-card-grid {
@@ -5262,6 +5475,21 @@ body[data-page="orderCreate"] .summary-total strong {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .incense-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .incense-panel {
+    grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1fr);
+    grid-template-rows: auto;
+  }
+
+  .incense-scene {
+    min-height: 260px;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+  }
+
   .content-side-rail {
     grid-template-rows: none;
     grid-template-columns: minmax(0, 1fr);
@@ -5514,6 +5742,45 @@ body[data-page="orderCreate"] .summary-total strong {
 }
 
 @media (max-width: 640px) {
+  .incense-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .incense-scene {
+    min-height: 170px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .incense-sticks {
+    bottom: 54px;
+  }
+
+  .incense-sticks i {
+    height: 70px;
+  }
+
+  .incense-smoke {
+    bottom: 116px;
+  }
+
+  .incense-kind-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .incense-kind-grid button {
+    min-height: 46px;
+  }
+
+  .incense-input-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .incense-input-row .button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
   .team-toolbar {
     padding: 10px;
   }
