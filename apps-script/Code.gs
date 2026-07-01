@@ -411,6 +411,10 @@ function handleRequest(e) {
         return json(getCurrentUser(body));
       case "logout":
         return json(logoutUser(body));
+      case "updateMyProfile":
+        return json(updateMyProfile(body));
+      case "changeMyPassword":
+        return json(changeMyPassword(body));
       case "listUsers":
         return json(listUsers(body));
       case "createUser":
@@ -577,6 +581,8 @@ function auditActionMetadata(action) {
     setupAdmin: ["Thiết lập tài khoản quản trị", "user"],
     login: ["Đăng nhập hệ thống", "session"],
     logout: ["Đăng xuất hệ thống", "session"],
+    updateMyProfile: ["Cập nhật hồ sơ cá nhân", "user"],
+    changeMyPassword: ["Đổi mật khẩu cá nhân", "user"],
     createUser: ["Tạo tài khoản nhân viên", "user"],
     toggleUser: ["Đổi trạng thái tài khoản nhân viên", "user"],
     deleteUser: ["Xóa tài khoản nhân viên", "user"],
@@ -651,6 +657,7 @@ function buildAuditContext(action, body) {
 
 function auditBeforeSnapshot(action, body) {
   const sources = {
+    updateMyProfile: ["users", "id"], changeMyPassword: ["users", "id"],
     toggleUser: ["users", "id"], deleteUser: ["users", "id"],
     updateProduct: ["products", "id"], archiveProduct: ["products", "id"], provisionProductContent: ["products", "id"],
     updateProductOption: ["product_options", "id"], toggleProductOption: ["product_options", "id"],
@@ -669,6 +676,13 @@ function auditBeforeSnapshot(action, body) {
   };
   const source = sources[action];
   if (!source) return null;
+  if (action === "updateMyProfile" || action === "changeMyPassword") {
+    const token = String(body.token || "");
+    if (!token) return null;
+    return readRows("users").find(function (user) {
+      return user.session_token === token && user.status === "active";
+    }) || null;
+  }
   const key = source[1];
   const id = String(body[key] || body.id || body.order_id || body.product_id || body.purchase_order_id || "");
   if (!id) return null;
@@ -1184,6 +1198,81 @@ function logoutUser(body) {
     updated_at: nowIso()
   });
   return { ok: true };
+}
+
+function updateMyProfile(body) {
+  const current = requireUser(body.token);
+  const name = String(body.name || "").trim();
+  const email = normalizeEmail(body.email);
+
+  if (!name || !email || email.indexOf("@") === -1) {
+    return { ok: false, error: "Thông tin tài khoản không hợp lệ" };
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    const users = readRows("users");
+    const user = users.find(function (item) {
+      return item.id === current.id && item.status === "active";
+    });
+    if (!user) return { ok: false, error: "Không tìm thấy tài khoản" };
+
+    if (users.some(function (item) {
+      return item.id !== user.id && item.status !== "deleted" && normalizeEmail(item.email) === email;
+    })) {
+      return { ok: false, error: "Email đã thuộc về tài khoản khác" };
+    }
+
+    const patch = {
+      name: name,
+      email: email,
+      updated_at: nowIso()
+    };
+    updateRow("users", user._row, patch);
+    const saved = Object.assign({}, user, patch);
+    cacheSessionUser(saved);
+    return { ok: true, user: publicUser(saved) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function changeMyPassword(body) {
+  const current = requireUser(body.token);
+  const currentPassword = String(body.currentPassword || body.current_password || "");
+  const newPassword = String(body.newPassword || body.new_password || "");
+
+  if (!currentPassword || newPassword.length < 8) {
+    return { ok: false, error: "Mật khẩu không hợp lệ" };
+  }
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+
+  try {
+    const user = readRows("users").find(function (item) {
+      return item.id === current.id && item.status === "active";
+    });
+    if (!user) return { ok: false, error: "Không tìm thấy tài khoản" };
+    if (user.password_hash !== hashPassword(currentPassword, user.salt)) {
+      return { ok: false, error: "Mật khẩu hiện tại không đúng" };
+    }
+
+    const salt = makeToken();
+    const patch = {
+      password_hash: hashPassword(newPassword, salt),
+      salt: salt,
+      updated_at: nowIso()
+    };
+    updateRow("users", user._row, patch);
+    const saved = Object.assign({}, user, patch);
+    cacheSessionUser(saved);
+    return { ok: true, user: publicUser(saved) };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function listUsers(body) {

@@ -274,6 +274,8 @@
       "/auth/login": "login",
       "/auth/me": "me",
       "/auth/logout": "logout",
+      "/auth/profile": "updateMyProfile",
+      "/auth/password": "changeMyPassword",
       "/users": "listUsers",
       "/users/create": "createUser",
       "/users/toggle": "toggleUser",
@@ -1669,6 +1671,16 @@
     auditLogs = (data.logs || []).map(normalizeAuditLog);
   }
 
+  function renderCurrentUserChip() {
+    if (!els.currentUser || !currentUser) return;
+    els.currentUser.innerHTML = `
+      <button class="user-chip-button" type="button" data-open-profile title="Hồ sơ cá nhân">
+        <span class="user-chip-icon">${icon("users")}</span>
+        <span class="user-chip-text"><strong>${escapeHtml(currentUser.name)}</strong><span>${roleLabel(currentUser.role)}</span></span>
+      </button>
+    `;
+  }
+
   async function showApp(user) {
     currentUser = user;
     if (["users", "activity"].includes(page) && !isAdmin()) {
@@ -1683,7 +1695,7 @@
     if (els.authScreen) els.authScreen.hidden = true;
     if (els.appShell) els.appShell.hidden = false;
     if (els.title && pages[page]) els.title.textContent = pages[page].title;
-    if (els.currentUser) els.currentUser.innerHTML = `<strong>${user.name}</strong><span>${roleLabel(user.role)}</span>`;
+    renderCurrentUserChip();
     renderNav();
     applyPermissions();
     renderPage();
@@ -6064,6 +6076,69 @@
     `;
   }
 
+  function renderProfileForm() {
+    return `
+      <div class="modal-summary full profile-summary">
+        <span><small>Tài khoản</small><strong>${escapeHtml(currentUser ? currentUser.name : "")}</strong></span>
+        <span><small>Vai trò</small><strong>${currentUser ? roleLabel(currentUser.role) : ""}</strong></span>
+        <span><small>Email hiện tại</small><strong>${escapeHtml(currentUser ? currentUser.email : "")}</strong></span>
+      </div>
+      <div class="product-form-section full"><h3>Thông tin cá nhân</h3><p>Tên và email dùng để hiển thị trên hệ thống, lịch sử hoạt động và phân công công việc.</p></div>
+      <div class="field"><label for="profileName">Họ tên</label><input id="profileName" name="name" type="text" value="${escapeAttribute(currentUser ? currentUser.name : "")}" autocomplete="name" required /></div>
+      <div class="field"><label for="profileEmail">Email đăng nhập</label><input id="profileEmail" name="email" type="email" value="${escapeAttribute(currentUser ? currentUser.email : "")}" autocomplete="username" required /></div>
+      <div class="product-form-section full"><h3>Đổi mật khẩu</h3><p>Để trống phần này nếu bạn chỉ muốn cập nhật thông tin cá nhân.</p></div>
+      <div class="field"><label for="currentPassword">Mật khẩu hiện tại</label><input id="currentPassword" name="currentPassword" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu đang dùng" /></div>
+      <div class="field"><label for="newPassword">Mật khẩu mới</label><input id="newPassword" name="newPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Ít nhất 8 ký tự" /></div>
+      <div class="field"><label for="confirmPassword">Nhập lại mật khẩu mới</label><input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" placeholder="Nhập lại để xác nhận" /></div>
+      <div class="field"><label>Phiên đăng nhập</label><input type="text" value="Sau khi đổi mật khẩu, phiên hiện tại vẫn được giữ." disabled /></div>
+    `;
+  }
+
+  async function saveMyProfile(form) {
+    const data = Object.fromEntries(new FormData(form));
+    const name = String(data.name || "").trim();
+    const email = String(data.email || "").trim().toLowerCase();
+    const currentPassword = String(data.currentPassword || "");
+    const newPassword = String(data.newPassword || "");
+    const confirmPassword = String(data.confirmPassword || "");
+    const wantsPasswordChange = Boolean(currentPassword || newPassword || confirmPassword);
+
+    if (!name || !email || !email.includes("@")) throw new Error("Vui lòng nhập họ tên và email hợp lệ.");
+    if (wantsPasswordChange) {
+      if (!currentPassword || !newPassword || !confirmPassword) throw new Error("Vui lòng nhập đủ mật khẩu hiện tại và mật khẩu mới.");
+      if (newPassword.length < 8) throw new Error("Mật khẩu mới cần ít nhất 8 ký tự.");
+      if (newPassword !== confirmPassword) throw new Error("Mật khẩu mới nhập lại chưa khớp.");
+    }
+
+    const profileChanged = !currentUser || currentUser.name !== name || String(currentUser.email || "").toLowerCase() !== email;
+    let savedUser = currentUser;
+    if (wantsPasswordChange) {
+      const response = await apiRequest("/auth/password", {
+        method: "POST",
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      savedUser = response.user || savedUser;
+    }
+
+    if (profileChanged) {
+      const response = await apiRequest("/auth/profile", {
+        method: "POST",
+        body: JSON.stringify({ name, email })
+      });
+      savedUser = response.user || savedUser;
+    }
+
+    if (savedUser) {
+      currentUser = savedUser;
+      renderCurrentUserChip();
+      if (isAdmin()) {
+        staffUsers = staffUsers.map(user => user.id === savedUser.id ? savedUser : user);
+        if (page === "users") renderUsers();
+      }
+    }
+    showToast(wantsPasswordChange ? "Đã cập nhật hồ sơ và mật khẩu." : "Đã cập nhật hồ sơ cá nhân.");
+  }
+
   function renderSpreadsheetImportGuide(kind) {
     const product = kind === "product";
     const columns = product
@@ -6240,6 +6315,14 @@
     const editingPurchaseOrder = options.purchaseOrder || null;
     const viewingAuditLog = options.auditLog || null;
     const definitions = {
+      profile: {
+        eyebrow: "Tài khoản",
+        title: "Hồ sơ cá nhân",
+        body: renderProfileForm(),
+        submit(form) {
+          return saveMyProfile(form);
+        }
+      },
       productOptions: {
         eyebrow: "Thiết lập sản phẩm",
         title: "Quản lý thuộc tính",
@@ -7085,13 +7168,14 @@
     }
 
     document.addEventListener("click", async event => {
-      const target = event.target.closest("button, a");
+      const target = event.target.closest("button, a, [data-open-profile]");
       if (!target || target.disabled) return;
 
       if (target.matches("[data-menu-toggle]")) document.body.classList.toggle("menu-open");
       if (target.matches("[data-menu-close]")) document.body.classList.remove("menu-open");
       if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
       if (target.matches("[data-close-modal]")) closeModal();
+      if (target.matches("[data-open-profile]")) openModal("profile");
       if (target.matches("[data-reset-product-filters]")) {
         Object.assign(productFilters, { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" });
         searchTerm = "";
