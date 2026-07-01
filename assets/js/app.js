@@ -7156,7 +7156,7 @@
       }
       if (target.matches("[data-content-auto]")) {
         applyContentAutomation(target.closest("form"), target.dataset.contentAuto || "template");
-        showToast("?? g?i ? n?i dung theo d? li?u hi?n c?.");
+        showToast("Đã gợi ý nội dung theo dữ liệu hiện có.");
       }
       if (target.dataset.createProductContent) {
         const product = byId("products", target.dataset.createProductContent);
