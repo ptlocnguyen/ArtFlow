@@ -39,6 +39,7 @@
             <span class="incense-spark spark-two"></span>
             <span class="incense-spark spark-three"></span>
             <div class="incense-sticks"><i></i><i></i><i></i></div>
+            <div class="offering-tray" data-offering-tray></div>
             <div class="monkey-troupe">
               <img class="monkey monkey-swing" src="../assets/images/chibi-monkey.png" alt="" />
               <img class="monkey monkey-climb" src="../assets/images/chibi-monkey.png" alt="" />
@@ -49,6 +50,7 @@
           </div>
           <form class="incense-form" data-incense-form>
             <input type="hidden" name="kind" value="sales" data-incense-kind />
+            <input type="hidden" name="offerings" value="banana" data-incense-offerings />
             <div class="incense-kind-grid" aria-label="Chọn điều muốn xin vía">
               <button class="active" type="button" data-incense-kind-choice="sales"><span data-icon="shoppingCart"></span><b>Đơn</b></button>
               <button type="button" data-incense-kind-choice="content"><span data-icon="sparkles"></span><b>Content</b></button>
@@ -56,6 +58,14 @@
               <button type="button" data-incense-kind-choice="cash"><span data-icon="wallet"></span><b>Tiền</b></button>
               <button type="button" data-incense-kind-choice="bug"><span data-icon="settings"></span><b>Bug</b></button>
               <button type="button" data-incense-kind-choice="team"><span data-icon="users"></span><b>Team</b></button>
+            </div>
+            <div class="incense-offerings" aria-label="Chọn đồ cúng chay">
+              <button class="active" type="button" data-offering-choice="banana"><span>Chuối</span></button>
+              <button type="button" data-offering-choice="fruit"><span>Trái cây</span></button>
+              <button type="button" data-offering-choice="cake"><span>Bánh chay</span></button>
+              <button type="button" data-offering-choice="tea"><span>Trà</span></button>
+              <button type="button" data-offering-choice="water"><span>Nước</span></button>
+              <button type="button" data-offering-choice="flower"><span>Hoa</span></button>
             </div>
             <label class="incense-input-row">
               <span data-icon="edit"></span>

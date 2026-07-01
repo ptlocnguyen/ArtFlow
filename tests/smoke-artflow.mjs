@@ -170,6 +170,7 @@ async function runPageInteractions(page, pageName) {
   }
   if (pageName === "incense") {
     await page.locator("[data-incense-kind-choice='team']").click().catch(() => {});
+    await page.locator("[data-offering-choice='tea']").click().catch(() => {});
     await page.locator("[data-incense-wish]").fill("Team vui ve, don vao deu.");
     await page.locator("[data-incense-form] button[type='submit']").click();
     await page.waitForTimeout(150);
@@ -335,6 +336,7 @@ function createIncenseWish(state, payload) {
     id: `qa-wish-${Date.now()}`,
     kind: payload.kind || "sales",
     wish: payload.wish || "Xin mot ngay nhe dau.",
+    offerings: Array.isArray(payload.offerings) ? payload.offerings : ["banana"],
     actorId: state.user.id,
     actorName: state.user.name,
     actorEmail: state.user.email,

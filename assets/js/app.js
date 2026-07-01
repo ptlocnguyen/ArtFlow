@@ -181,6 +181,8 @@
     teamPanelNote: qs("[data-team-panel-note]"),
     incenseForm: qs("[data-incense-form]"),
     incenseKind: qs("[data-incense-kind]"),
+    incenseOfferings: qs("[data-incense-offerings]"),
+    offeringTray: qs("[data-offering-tray]"),
     incenseWish: qs("[data-incense-wish]"),
     incenseHistory: qs("[data-incense-history]"),
     incenseResult: qs("[data-incense-result]"),
@@ -905,6 +907,9 @@
       actorId: item.actorId || "",
       actorName: item.actorName || "",
       actorEmail: item.actorEmail || "",
+      offerings: Array.isArray(item.offerings)
+        ? item.offerings
+        : String(item.offerings || "").split(",").map(value => value.trim()).filter(Boolean),
       createdAt: item.createdAt || ""
     };
   }
@@ -3399,6 +3404,36 @@
     team: ["Team", "Xin cả team nhẹ đầu."]
   };
 
+  const incenseOfferings = {
+    banana: "Chuối",
+    fruit: "Trái cây",
+    cake: "Bánh chay",
+    tea: "Trà",
+    water: "Nước",
+    flower: "Hoa"
+  };
+
+  function selectedIncenseOfferings() {
+    const selected = Array.from(document.querySelectorAll("[data-offering-choice].active"))
+      .map(button => button.dataset.offeringChoice)
+      .filter(key => Object.prototype.hasOwnProperty.call(incenseOfferings, key));
+    return selected.length ? selected : ["banana"];
+  }
+
+  function syncIncenseOfferings() {
+    if (els.incenseOfferings) {
+      els.incenseOfferings.value = selectedIncenseOfferings().join(",");
+    }
+  }
+
+  function renderOfferingTray(items) {
+    if (!els.offeringTray) return;
+    const selected = (items && items.length ? items : selectedIncenseOfferings()).slice(0, 4);
+    els.offeringTray.innerHTML = selected.map(key => `<span class="offering-item offering-${escapeAttribute(key)}">${escapeHtml(incenseOfferings[key] || key)}</span>`).join("");
+    els.offeringTray.classList.remove("is-offered");
+    window.requestAnimationFrame(() => els.offeringTray.classList.add("is-offered"));
+  }
+
   function renderIncense() {
     if (!els.incenseHistory) return;
     const wishes = (state.incenseWishes || []).map(normalizeIncenseWish)
@@ -3417,12 +3452,13 @@
     const button = form.querySelector("button[type='submit']");
     const data = Object.fromEntries(new FormData(form));
     const wish = String(data.wish || "").trim();
+    const offerings = selectedIncenseOfferings();
     if (!wish) throw new Error("Nhập một câu ngắn thôi nha.");
     setBusy(button, true, "Đang thắp...");
     try {
       const response = await apiRequest("/incense/create", {
         method: "POST",
-        body: JSON.stringify({ kind: data.kind || "sales", wish })
+        body: JSON.stringify({ kind: data.kind || "sales", wish, offerings })
       });
       state.incenseWishes = (response.incenseWishes || [response.incenseWish]).filter(Boolean).map(normalizeIncenseWish);
       window.ArtFlowPosStore.save(state);
@@ -3437,6 +3473,7 @@
         window.requestAnimationFrame(() => panel.classList.add("just-lit"));
         window.setTimeout(() => panel.classList.remove("just-lit"), 950);
       }
+      renderOfferingTray(offerings);
       renderIncense();
       showToast("Đã thắp một nén nhỏ.");
     } finally {
@@ -7276,6 +7313,13 @@
           const info = incenseKinds[kind] || incenseKinds.sales;
           els.incenseResult.textContent = info[1];
         }
+      }
+      if (target.matches("[data-offering-choice]")) {
+        target.classList.toggle("active");
+        if (!document.querySelector("[data-offering-choice].active")) {
+          target.classList.add("active");
+        }
+        syncIncenseOfferings();
       }
       if (target.matches("[data-reset-product-filters]")) {
         Object.assign(productFilters, { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" });

@@ -2,7 +2,7 @@ const SPREADSHEET_ID = "1L6b0QGzti33SVadVMKG2AnlsIKHjg98mNhuU3gJSd18";
 const SESSION_DAYS = 14;
 const USER_CACHE_SECONDS = 300;
 const HASH_ROUNDS = 12000;
-const DATABASE_SCHEMA_VERSION = "2026-07-01-incense-1";
+const DATABASE_SCHEMA_VERSION = "2026-07-01-incense-2";
 const VIETNAM_TIMEZONE = "Asia/Ho_Chi_Minh";
 
 let databaseReady = false;
@@ -133,7 +133,8 @@ const SHEETS = {
     "actor_id",
     "actor_name",
     "actor_email",
-    "created_at"
+    "created_at",
+    "offerings"
   ],
   customers: [
     "id",
@@ -2184,11 +2185,35 @@ function normalizeIncenseKind(kind) {
   return ["sales", "content", "stock", "cash", "bug", "team"].indexOf(value) === -1 ? "sales" : value;
 }
 
+function normalizeIncenseOfferings(value) {
+  const allowed = ["banana", "fruit", "cake", "tea", "water", "flower"];
+  let items = value || [];
+  if (typeof items === "string") {
+    try {
+      items = JSON.parse(items);
+    } catch (error) {
+      items = items.split(",");
+    }
+  }
+  if (!Array.isArray(items)) items = [];
+  const seen = {};
+  const output = [];
+  items.forEach(function (item) {
+    const key = String(item || "").trim();
+    if (allowed.indexOf(key) !== -1 && !seen[key]) {
+      seen[key] = true;
+      output.push(key);
+    }
+  });
+  return output.length ? output : ["banana"];
+}
+
 function publicIncenseWish(wish) {
   return {
     id: wish.id,
     kind: wish.kind || "sales",
     wish: wish.wish || "",
+    offerings: normalizeIncenseOfferings(wish.offerings),
     actorId: wish.actor_id || "",
     actorName: wish.actor_name || "",
     actorEmail: wish.actor_email || "",
@@ -2215,6 +2240,7 @@ function createIncenseWish(body) {
     id: Utilities.getUuid(),
     kind: normalizeIncenseKind(body.kind),
     wish: text,
+    offerings: normalizeIncenseOfferings(body.offerings).join(","),
     actor_id: user.id,
     actor_name: user.name,
     actor_email: user.email,
