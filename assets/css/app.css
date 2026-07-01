@@ -4039,6 +4039,146 @@ body[data-page="products"] .view.active {
   animation: incenseBowl 3.6s ease-in-out infinite;
 }
 
+.lucky-cat {
+  position: absolute;
+  right: clamp(34px, 17%, 120px);
+  bottom: 52px;
+  width: 82px;
+  height: 106px;
+  transform-origin: 50% 100%;
+  animation: luckyCatFloat 3.8s ease-in-out infinite;
+}
+
+.lucky-cat-face {
+  position: absolute;
+  inset: 18px 10px 16px;
+  display: block;
+  background:
+    radial-gradient(circle at 32% 34%, #111827 0 3px, transparent 4px),
+    radial-gradient(circle at 68% 34%, #111827 0 3px, transparent 4px),
+    linear-gradient(135deg, transparent 0 63%, rgba(239, 68, 68, 0.82) 64% 74%, transparent 75%),
+    #fff;
+  border: 2px solid #f8c6a0;
+  border-radius: 32px 32px 28px 28px;
+  box-shadow: inset 0 -10px 18px rgba(251, 191, 36, 0.12), 0 16px 28px rgba(124, 45, 18, 0.12);
+}
+
+.lucky-cat-ear {
+  position: absolute;
+  top: 9px;
+  width: 24px;
+  height: 28px;
+  background: #fff;
+  border: 2px solid #f8c6a0;
+  border-radius: 8px 18px 5px 18px;
+}
+
+.lucky-cat-ear.left {
+  left: 18px;
+  transform: rotate(-22deg);
+}
+
+.lucky-cat-ear.right {
+  right: 18px;
+  transform: rotate(22deg) scaleX(-1);
+}
+
+.lucky-cat-face .eye {
+  position: absolute;
+  top: 24px;
+  width: 7px;
+  height: 7px;
+  background: #111827;
+  border-radius: 999px;
+  animation: luckyCatBlink 5.4s ease-in-out infinite;
+}
+
+.lucky-cat-face .eye.left {
+  left: 20px;
+}
+
+.lucky-cat-face .eye.right {
+  right: 20px;
+}
+
+.lucky-cat-face .nose {
+  position: absolute;
+  top: 38px;
+  left: 50%;
+  width: 8px;
+  height: 6px;
+  background: #ef4444;
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
+.lucky-cat-face .whisker {
+  position: absolute;
+  top: 46px;
+  width: 18px;
+  height: 1px;
+  background: rgba(17, 24, 39, 0.55);
+}
+
+.lucky-cat-face .whisker.left {
+  left: 12px;
+  transform: rotate(12deg);
+}
+
+.lucky-cat-face .whisker.right {
+  right: 12px;
+  transform: rotate(-12deg);
+}
+
+.lucky-cat-paw {
+  position: absolute;
+  right: 4px;
+  top: 34px;
+  width: 24px;
+  height: 46px;
+  background: #fff;
+  border: 2px solid #f8c6a0;
+  border-radius: 999px;
+  box-shadow: inset 0 -10px 12px rgba(251, 191, 36, 0.1);
+  transform-origin: 50% 88%;
+  animation: luckyCatWave 1.25s ease-in-out infinite;
+}
+
+.lucky-cat-paw::before {
+  position: absolute;
+  inset: 7px auto auto 50%;
+  width: 10px;
+  height: 10px;
+  content: "";
+  background: #f97316;
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
+.lucky-cat-coin {
+  position: absolute;
+  left: 50%;
+  bottom: 7px;
+  width: 30px;
+  height: 24px;
+  background: linear-gradient(180deg, #fde68a, #f59e0b);
+  border: 2px solid #d97706;
+  border-radius: 999px;
+  box-shadow: 0 8px 18px rgba(245, 158, 11, 0.2);
+  transform: translateX(-50%);
+}
+
+.lucky-cat-coin::after {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 12px;
+  height: 3px;
+  content: "";
+  background: rgba(146, 64, 14, 0.72);
+  border-radius: 99px;
+  transform: translate(-50%, -50%);
+}
+
 .incense-sticks {
   position: absolute;
   bottom: 66px;
@@ -4145,6 +4285,36 @@ body[data-page="products"] .view.active {
 
   50% {
     transform: translateY(-2px);
+  }
+}
+
+@keyframes luckyCatFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+
+  50% {
+    transform: translateY(-3px) rotate(1deg);
+  }
+}
+
+@keyframes luckyCatWave {
+  0%, 100% {
+    transform: rotate(-14deg);
+  }
+
+  50% {
+    transform: rotate(18deg);
+  }
+}
+
+@keyframes luckyCatBlink {
+  0%, 88%, 100% {
+    transform: scaleY(1);
+  }
+
+  92%, 95% {
+    transform: scaleY(0.12);
   }
 }
 
@@ -4269,6 +4439,9 @@ body[data-page="products"] .view.active {
 @media (prefers-reduced-motion: reduce) {
   .incense-aura,
   .incense-bowl,
+  .lucky-cat,
+  .lucky-cat-paw,
+  .lucky-cat-face .eye,
   .incense-sticks i,
   .incense-smoke,
   .incense-spark,
@@ -5924,6 +6097,43 @@ body[data-page="orderCreate"] .summary-total strong {
 
   .incense-sticks i {
     height: 70px;
+  }
+
+  .lucky-cat {
+    right: 16px;
+    bottom: 42px;
+    width: 62px;
+    height: 80px;
+  }
+
+  .lucky-cat-face {
+    inset: 14px 8px 12px;
+  }
+
+  .lucky-cat-ear {
+    top: 7px;
+    width: 18px;
+    height: 22px;
+  }
+
+  .lucky-cat-ear.left {
+    left: 14px;
+  }
+
+  .lucky-cat-ear.right {
+    right: 14px;
+  }
+
+  .lucky-cat-paw {
+    right: 2px;
+    top: 26px;
+    width: 19px;
+    height: 36px;
+  }
+
+  .lucky-cat-coin {
+    width: 24px;
+    height: 19px;
   }
 
   .incense-smoke {
