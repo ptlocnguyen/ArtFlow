@@ -4004,25 +4004,38 @@ body[data-page="products"] .view.active {
   position: relative;
   display: grid;
   place-items: end center;
-  min-height: 190px;
+  min-height: 206px;
   padding: 24px;
   isolation: isolate;
   background:
-    radial-gradient(circle at 50% 58%, rgba(251, 146, 60, 0.22), transparent 26%),
+    radial-gradient(circle at 50% 64%, rgba(251, 146, 60, 0.22), transparent 24%),
     radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08), transparent 42%),
     linear-gradient(180deg, #fff7ed 0%, #f8fafc 100%);
   border-bottom: 1px solid var(--line);
   overflow: hidden;
 }
 
+.incense-altar {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  z-index: 0;
+  width: min(300px, 70%);
+  height: auto;
+  opacity: 0.9;
+  border-radius: 18px;
+  filter: drop-shadow(0 18px 26px rgba(127, 29, 29, 0.16));
+  transform: translateX(-50%);
+}
+
 .incense-aura {
   position: absolute;
-  bottom: 42px;
+  bottom: 36px;
   left: 50%;
-  z-index: -1;
-  width: 210px;
-  height: 112px;
-  background: radial-gradient(circle, rgba(251, 191, 36, 0.26), rgba(239, 68, 68, 0.08) 48%, transparent 72%);
+  z-index: 1;
+  width: 174px;
+  height: 92px;
+  background: radial-gradient(circle, rgba(251, 191, 36, 0.34), rgba(239, 68, 68, 0.1) 48%, transparent 72%);
   border-radius: 999px;
   filter: blur(4px);
   transform: translateX(-50%);
@@ -4030,12 +4043,14 @@ body[data-page="products"] .view.active {
 }
 
 .incense-bowl {
-  width: 132px;
-  height: 54px;
+  position: relative;
+  z-index: 5;
+  width: 94px;
+  height: 38px;
   background: linear-gradient(180deg, #ef4444, #991b1b);
   border: 1px solid rgba(127, 29, 29, 0.32);
-  border-radius: 18px 18px 48px 48px;
-  box-shadow: inset 0 12px 20px rgba(255, 255, 255, 0.18), 0 16px 30px rgba(127, 29, 29, 0.14);
+  border-radius: 14px 14px 38px 38px;
+  box-shadow: inset 0 10px 16px rgba(255, 255, 255, 0.18), 0 12px 24px rgba(127, 29, 29, 0.16);
   animation: incenseBowl 3.6s ease-in-out infinite;
 }
 
@@ -4048,57 +4063,59 @@ body[data-page="products"] .view.active {
 .monkey {
   position: absolute;
   display: block;
-  width: 86px;
+  z-index: 4;
+  width: 74px;
   height: auto;
   object-fit: contain;
-  filter: drop-shadow(0 12px 18px rgba(92, 64, 43, 0.18));
-  transform-origin: 52% 8%;
+  filter: drop-shadow(0 10px 16px rgba(92, 64, 43, 0.18));
+  transform-origin: 42% 7%;
   will-change: transform;
 }
 
 .monkey-swing {
-  left: 18%;
-  top: 2px;
+  left: 12%;
+  top: 18px;
   animation: monkeySwing 3.6s ease-in-out infinite;
 }
 
 .monkey-climb {
-  right: 15%;
-  top: 0;
-  width: 82px;
+  right: 12%;
+  top: 18px;
+  width: 70px;
   animation: monkeyClimb 3s ease-in-out infinite;
 }
 
 .monkey-peek {
-  left: 8%;
-  bottom: 100px;
+  left: 6%;
+  bottom: 74px;
   z-index: 5;
-  width: 64px;
+  width: 54px;
   animation: monkeyPeek 4.2s ease-in-out infinite;
 }
 
 .monkey-hop {
   right: 6%;
-  bottom: 100px;
+  bottom: 74px;
   z-index: 5;
-  width: 64px;
+  width: 54px;
   animation: monkeyHop 2.4s cubic-bezier(.4, 0, .2, 1) infinite;
 }
 
 .incense-sticks {
   position: absolute;
-  bottom: 66px;
+  z-index: 4;
+  bottom: 50px;
   left: 50%;
   display: flex;
-  gap: 6px;
+  gap: 5px;
   transform: translateX(-50%);
 }
 
 .incense-sticks i {
   display: block;
-  width: 4px;
-  height: 98px;
-  background: linear-gradient(180deg, #f59e0b 0 14px, #7c2d12 14px);
+  width: 3px;
+  height: 78px;
+  background: linear-gradient(180deg, #facc15 0 12px, #7c2d12 12px);
   border-radius: 99px;
   box-shadow: 0 0 0 rgba(251, 191, 36, 0);
   transform-origin: bottom;
@@ -4115,30 +4132,45 @@ body[data-page="products"] .view.active {
 
 .incense-smoke {
   position: absolute;
-  bottom: 156px;
+  z-index: 3;
+  bottom: 120px;
   left: 50%;
-  width: 50px;
-  height: 100px;
-  border-left: 3px solid rgba(100, 116, 139, 0.2);
+  width: 62px;
+  height: 118px;
+  border-left: 5px solid rgba(71, 85, 105, 0.3);
   border-radius: 50%;
+  filter: blur(0.2px);
   animation: incenseSmoke 4s ease-in-out infinite;
 }
 
 .incense-smoke.smoke-two {
-  margin-left: 18px;
-  animation-delay: 1.4s;
-  transform: scale(0.82) rotate(12deg);
+  margin-left: 16px;
+  animation-delay: 1.1s;
+  transform: scale(0.9) rotate(12deg);
 }
 
 .incense-smoke.smoke-three {
-  margin-left: -22px;
-  animation-delay: 2.2s;
-  transform: scale(0.72) rotate(-16deg);
+  margin-left: -24px;
+  animation-delay: 2s;
+  transform: scale(0.82) rotate(-16deg);
+}
+
+.incense-smoke.smoke-four {
+  margin-left: -6px;
+  animation-delay: 0.55s;
+  transform: scale(0.72) rotate(4deg);
+}
+
+.incense-smoke.smoke-five {
+  margin-left: 30px;
+  animation-delay: 2.65s;
+  transform: scale(0.66) rotate(18deg);
 }
 
 .incense-spark {
   position: absolute;
-  bottom: 156px;
+  z-index: 6;
+  bottom: 120px;
   left: 50%;
   width: 7px;
   height: 7px;
@@ -5981,49 +6013,57 @@ body[data-page="orderCreate"] .summary-total strong {
   }
 
   .incense-scene {
-    min-height: 170px;
+    min-height: 190px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
 
+  .incense-altar {
+    top: 12px;
+    width: min(250px, 78%);
+  }
+
   .incense-sticks {
-    bottom: 54px;
+    bottom: 46px;
   }
 
   .incense-sticks i {
-    height: 70px;
+    height: 62px;
   }
 
   .monkey {
-    width: 82px;
+    width: 64px;
     height: auto;
   }
 
   .monkey-peek {
     left: 2%;
-    bottom: 66px;
-    width: 64px;
+    bottom: 58px;
+    width: 48px;
   }
 
   .monkey-hop {
     right: 1%;
-    bottom: 66px;
-    width: 64px;
+    bottom: 58px;
+    width: 48px;
   }
 
   .monkey-swing {
-    left: 8%;
-    top: 18px;
+    left: 3%;
+    top: 26px;
   }
 
   .monkey-climb {
-    right: 6%;
-    top: 18px;
-    width: 76px;
+    right: 3%;
+    top: 26px;
+    width: 60px;
   }
 
   .incense-smoke {
-    bottom: 116px;
+    bottom: 102px;
+    width: 54px;
+    height: 100px;
+    border-left-width: 4px;
   }
 
   .incense-kind-grid {
