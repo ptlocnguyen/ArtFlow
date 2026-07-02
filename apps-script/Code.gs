@@ -2186,7 +2186,7 @@ function normalizeIncenseKind(kind) {
 }
 
 function normalizeIncenseOfferings(value) {
-  const allowed = ["banana", "fruit", "cake", "tea", "water", "flower"];
+  const allowed = ["banana", "fruit", "cake", "tea", "water", "flower", "orange", "apple", "watermelon", "sticky_rice", "coconut", "sweet_soup"];
   let items = value || [];
   if (typeof items === "string") {
     try {

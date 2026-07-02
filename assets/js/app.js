@@ -3405,12 +3405,18 @@
   };
 
   const incenseOfferings = {
-    banana: "Chuối",
-    fruit: "Trái cây",
-    cake: "Bánh chay",
-    tea: "Trà",
-    water: "Nước",
-    flower: "Hoa"
+    banana: { label: "Chuối", image: "banana-bunch.png" },
+    fruit: { label: "Trái cây", image: "fruit-plate.png" },
+    cake: { label: "Bánh chay", image: "vegan-cake.png" },
+    tea: { label: "Trà", image: "tea-cup.png" },
+    water: { label: "Nước", image: "water-glass.png" },
+    flower: { label: "Hoa sen", image: "lotus-flowers.png" },
+    orange: { label: "Cam", image: "orange.png" },
+    apple: { label: "Táo", image: "apple.png" },
+    watermelon: { label: "Dưa hấu", image: "watermelon.png" },
+    sticky_rice: { label: "Xôi chay", image: "sticky-rice.png" },
+    coconut: { label: "Dừa", image: "coconut.png" },
+    sweet_soup: { label: "Chè chay", image: "sweet-soup.png" }
   };
 
   function selectedIncenseOfferings() {
@@ -3428,8 +3434,11 @@
 
   function renderOfferingTray(items) {
     if (!els.offeringTray) return;
-    const selected = (items && items.length ? items : selectedIncenseOfferings()).slice(0, 4);
-    els.offeringTray.innerHTML = selected.map(key => `<span class="offering-item offering-${escapeAttribute(key)}">${escapeHtml(incenseOfferings[key] || key)}</span>`).join("");
+    const selected = (items && items.length ? items : selectedIncenseOfferings()).slice(0, 6);
+    els.offeringTray.innerHTML = selected.map(key => {
+      const offering = incenseOfferings[key] || incenseOfferings.banana;
+      return `<span class="offering-item offering-${escapeAttribute(key)}"><img src="../assets/images/offerings/${escapeAttribute(offering.image)}" alt="" /><small>${escapeHtml(offering.label)}</small></span>`;
+    }).join("");
     els.offeringTray.classList.remove("is-offered");
     window.requestAnimationFrame(() => els.offeringTray.classList.add("is-offered"));
   }

@@ -4282,11 +4282,12 @@ body[data-page="products"] .view.active {
   bottom: 10px;
   z-index: 6;
   display: flex;
+  flex-wrap: wrap;
   align-items: end;
   justify-content: center;
   gap: 5px;
-  width: min(220px, 68%);
-  min-height: 42px;
+  width: min(250px, 70%);
+  min-height: 46px;
   pointer-events: none;
   opacity: 0;
   transform: translate(-50%, 18px) scale(0.92);
@@ -4300,19 +4301,27 @@ body[data-page="products"] .view.active {
 .offering-item {
   display: grid;
   place-items: center;
-  min-width: 42px;
-  min-height: 28px;
-  padding: 4px 7px;
-  color: #7c2d12;
-  font-size: 10px;
-  font-weight: 900;
-  line-height: 1.05;
-  text-align: center;
-  background: linear-gradient(180deg, #fff7ed, #fed7aa);
-  border: 1px solid rgba(180, 83, 9, 0.24);
-  border-radius: 999px 999px 12px 12px;
-  box-shadow: 0 8px 16px rgba(127, 29, 29, 0.14);
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  background: transparent;
+  filter: drop-shadow(0 8px 12px rgba(127, 29, 29, 0.18));
   animation: offeringItemFloat 2.8s ease-in-out infinite;
+}
+
+.offering-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.offering-item small {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
 }
 
 .offering-item:nth-child(2) {
@@ -4475,24 +4484,41 @@ body[data-page="products"] .view.active {
 }
 
 .incense-offerings {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
   gap: 8px;
   padding-bottom: 2px;
 }
 
 .incense-offerings button {
-  flex: 1 1 70px;
-  min-height: 36px;
-  padding: 0 10px;
+  display: grid;
+  place-items: center;
+  min-height: 68px;
+  padding: 6px;
   color: var(--muted);
   font: inherit;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 900;
   background: #f8fafc;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 14px;
   cursor: pointer;
   transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.incense-offerings button img {
+  display: block;
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  transition: transform 160ms ease;
+}
+
+.incense-offerings button span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .incense-offerings button:hover {
@@ -4500,10 +4526,15 @@ body[data-page="products"] .view.active {
   border-color: #fed7aa;
 }
 
+.incense-offerings button:hover img {
+  transform: scale(1.05);
+}
+
 .incense-offerings button.active {
   color: #9a3412;
   background: #fff7ed;
   border-color: #fdba74;
+  box-shadow: inset 0 0 0 1px #fed7aa;
 }
 
 @keyframes incenseChoice {
@@ -6225,13 +6256,12 @@ body[data-page="orderCreate"] .summary-total strong {
 
   .offering-tray {
     bottom: 8px;
-    width: min(210px, 76%);
+    width: min(230px, 78%);
   }
 
   .offering-item {
-    min-width: 38px;
-    min-height: 26px;
-    font-size: 9px;
+    width: 38px;
+    height: 38px;
   }
 
   .incense-kind-grid {
@@ -6243,9 +6273,14 @@ body[data-page="orderCreate"] .summary-total strong {
   }
 
   .incense-offerings button {
-    flex-basis: 92px;
-    min-height: 34px;
-    padding-inline: 10px;
+    min-height: 62px;
+    padding: 5px;
+    font-size: 10px;
+  }
+
+  .incense-offerings button img {
+    width: 38px;
+    height: 38px;
   }
 
   .incense-input-row {
