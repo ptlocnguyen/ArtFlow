@@ -138,6 +138,63 @@
   };
 
   const qs = selector => document.querySelector(selector);
+  const moneyFieldNames = new Set([
+    "amount", "refundAmount", "openingBalance", "actualBalance", "costPrice", "salePrice", "unitPrice", "unitCost",
+    "shippingFee", "discount", "paidAmount", "cashReceived", "baseCost"
+  ]);
+
+  function cleanMoneyText(value) {
+    const text = String(value || "").replace(/[^\d-]/g, "");
+    if (!text || text === "-") return "";
+    return text.indexOf("-") === 0 ? "-" + text.slice(1).replace(/-/g, "") : text.replace(/-/g, "");
+  }
+
+  function formatMoneyText(value) {
+    const raw = cleanMoneyText(value);
+    if (!raw) return "";
+    const sign = raw.indexOf("-") === 0 ? "-" : "";
+    const digits = sign ? raw.slice(1) : raw;
+    return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  }
+
+  function isMoneyInput(input) {
+    if (!input || input.tagName !== "INPUT") return false;
+    if (input.dataset.moneyInput === "true") return true;
+    if (input.dataset.moneyInput === "false") return false;
+    const key = input.name || input.id || "";
+    if (!key || /percent|quantity|stock|weight|margin|points|roundingstep/i.test(key)) return false;
+    if (input.matches("[data-order-price], [data-purchase-cost], [data-reconciliation-actual]")) return true;
+    if (input.matches("[data-order-money], [data-purchase-money]") && !/percent/i.test(key)) return true;
+    return moneyFieldNames.has(key) || /(Price|Cost|Fee|Amount|Balance)$/i.test(key);
+  }
+
+  function unformatMoneyInput(input) {
+    if (!isMoneyInput(input)) return;
+    const raw = cleanMoneyText(input.value);
+    if (input.value !== raw) input.value = raw;
+  }
+
+  function formatMoneyInput(input) {
+    if (!isMoneyInput(input) || document.activeElement === input) return;
+    const formatted = formatMoneyText(input.value);
+    if (input.value !== formatted) input.value = formatted;
+  }
+
+  function normalizeMoneyInputs(rootNode) {
+    (rootNode || document).querySelectorAll("input").forEach(unformatMoneyInput);
+  }
+
+  function enhanceMoneyInputs(rootNode) {
+    (rootNode || document).querySelectorAll("input").forEach(input => {
+      if (!isMoneyInput(input)) return;
+      input.dataset.moneyInput = "true";
+      if (input.type === "number") input.type = "text";
+      input.inputMode = "numeric";
+      input.autocomplete = input.autocomplete || "off";
+      formatMoneyInput(input);
+    });
+  }
+
   const els = {
     authScreen: qs("[data-auth-screen]"),
     appShell: qs("[data-app-shell]"),
@@ -4655,6 +4712,7 @@
     renderOrderCreatePage();
     renderPurchaseCreatePage();
     enhanceResponsiveTables();
+    enhanceMoneyInputs();
   }
 
   function closeModal() {
@@ -7090,6 +7148,7 @@
     if (type === "orderReturn") updateOrderReturnPreview(els.modalForm);
     if (type === "product") updateProductPricingPreview(els.modalForm);
     if (type === "teamPricing") updateTeamPricingPreview(els.modalForm);
+    enhanceMoneyInputs(els.modalForm);
     const firstInput = els.modalForm.querySelector("input, select");
     if (firstInput) firstInput.focus();
   }
@@ -7191,6 +7250,69 @@
   }
 
   function bindEvents() {
+    document.addEventListener("focusin", event => {
+      if (isMoneyInput(event.target)) {
+        window.clearTimeout(Number(event.target.dataset.moneyFormatTimer || 0));
+        unformatMoneyInput(event.target);
+        event.target.dataset.moneyFocusValue = cleanMoneyText(event.target.value);
+        event.target.dataset.moneyFreshFocus = "true";
+        window.setTimeout(() => {
+          try {
+            event.target.select();
+          } catch (error) {
+            // Some input types do not support selection.
+          }
+        }, 0);
+      }
+    }, true);
+
+    document.addEventListener("focusout", event => {
+      if (isMoneyInput(event.target)) formatMoneyInput(event.target);
+    }, true);
+
+    document.addEventListener("input", event => {
+      const form = event.target.closest && event.target.closest("form");
+      if (form) normalizeMoneyInputs(form);
+      if (isMoneyInput(event.target)) {
+        const input = event.target;
+        const raw = cleanMoneyText(input.value);
+        const focusValue = input.dataset.moneyFocusValue || "";
+        if (input.dataset.moneyFreshFocus === "true" && focusValue && raw.indexOf(focusValue) === 0 && raw.length > focusValue.length) {
+          input.value = raw.slice(focusValue.length);
+        }
+        input.dataset.moneyFreshFocus = "false";
+        window.clearTimeout(Number(input.dataset.moneyFormatTimer || 0));
+        input.dataset.moneyFormatTimer = String(window.setTimeout(() => {
+          const formatted = formatMoneyText(input.value);
+          if (input.value !== formatted) {
+            input.value = formatted;
+            try {
+              input.setSelectionRange(input.value.length, input.value.length);
+            } catch (error) {
+              // Some input types do not support cursor placement.
+            }
+          }
+        }, 280));
+      }
+    }, true);
+
+    document.addEventListener("change", event => {
+      const form = event.target.closest && event.target.closest("form");
+      if (form) normalizeMoneyInputs(form);
+    }, true);
+
+    document.addEventListener("submit", event => {
+      normalizeMoneyInputs(event.target);
+    }, true);
+
+    document.addEventListener("click", event => {
+      const form = event.target.closest && event.target.closest("form");
+      if (form) {
+        normalizeMoneyInputs(form);
+        window.setTimeout(() => enhanceMoneyInputs(form), 0);
+      }
+    }, true);
+
     if (els.loginForm) {
       els.loginForm.addEventListener("submit", event => {
         event.preventDefault();
