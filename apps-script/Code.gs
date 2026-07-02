@@ -5167,6 +5167,37 @@ function normalizeAccountingType(type) {
   return String(type || "") === "expense" ? "expense" : "income";
 }
 
+function findOrCreateAccountingCategory(type, name) {
+  const normalizedType = normalizeAccountingType(type);
+  const normalizedName = String(name || "").trim();
+  const categories = readRows("accounting_categories");
+  const existing = categories.find(function (category) {
+    return category.status !== "deleted" &&
+      category.type === normalizedType &&
+      String(category.name || "").trim().toLowerCase() === normalizedName.toLowerCase();
+  });
+  if (existing) {
+    if (existing.status !== "active") {
+      const patch = { status: "active", updated_at: nowIso() };
+      updateRow("accounting_categories", existing._row, patch);
+      return Object.assign({}, existing, patch);
+    }
+    return existing;
+  }
+
+  const now = nowIso();
+  const category = {
+    id: Utilities.getUuid(),
+    name: normalizedName,
+    type: normalizedType,
+    status: "active",
+    created_at: now,
+    updated_at: now
+  };
+  appendRow("accounting_categories", category);
+  return category;
+}
+
 function publicAccountingAccount(account, balance) {
   return {
     id: account.id,
@@ -5400,12 +5431,13 @@ function createAccountingReconciliation(body) {
   });
   const systemBalance = calculateAccountBalances([account], transactions)[accountId] || 0;
   const now = nowIso();
+  const difference = actualBalance - systemBalance;
   const reconciliation = {
     id: Utilities.getUuid(),
     account_id: accountId,
     system_balance: systemBalance,
     actual_balance: actualBalance,
-    difference: actualBalance - systemBalance,
+    difference: difference,
     note: note,
     reconciled_by: user.id,
     reconciled_at: reconciledAt,
@@ -5413,7 +5445,34 @@ function createAccountingReconciliation(body) {
   };
   appendRow("accounting_reconciliations", reconciliation);
 
-  return { ok: true, reconciliation: publicAccountingReconciliation(reconciliation) };
+  let adjustmentTransaction = null;
+  const shouldAdjust = body.adjustBalance === true || String(body.adjustBalance || body.adjust_balance || "") === "true" || String(body.adjustBalance || body.adjust_balance || "") === "on";
+  if (shouldAdjust && difference !== 0) {
+    const type = difference > 0 ? "income" : "expense";
+    const category = findOrCreateAccountingCategory(type, "Điều chỉnh đối soát");
+    adjustmentTransaction = {
+      id: Utilities.getUuid(),
+      type: type,
+      account_id: accountId,
+      category_id: category.id,
+      amount: Math.abs(difference),
+      transaction_date: reconciledAt,
+      description: (difference > 0 ? "Thu điều chỉnh đối soát " : "Chi điều chỉnh đối soát ") + account.name,
+      reference_type: "reconciliation",
+      reference_id: reconciliation.id,
+      created_by: user.id,
+      status: "active",
+      created_at: now,
+      updated_at: now
+    };
+    appendRow("cash_transactions", adjustmentTransaction);
+  }
+
+  return {
+    ok: true,
+    reconciliation: publicAccountingReconciliation(reconciliation),
+    transaction: adjustmentTransaction ? publicCashTransaction(adjustmentTransaction) : null
+  };
 }
 
 function createAccountingCategory(body) {

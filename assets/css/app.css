@@ -1856,6 +1856,11 @@ body[data-page="accounting"] .kpi-note {
   border-color: #fed7aa;
 }
 
+.reconciliation-preview.will-adjust {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
 .reconciliation-preview small,
 .reconciliation-preview b {
   display: block;
@@ -1869,6 +1874,46 @@ body[data-page="accounting"] .kpi-note {
 
 .reconciliation-preview b {
   margin-top: 4px;
+}
+
+.reconciliation-help {
+  background: #f8fafc;
+  border-color: var(--line);
+}
+
+.toggle-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.toggle-card input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--primary);
+}
+
+.toggle-card strong,
+.toggle-card small {
+  display: block;
+}
+
+.toggle-card small {
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.reconciliation-adjust-toggle:has(input:checked) {
+  background: #eff6ff;
+  border-color: #bfdbfe;
 }
 
 .todo-item {

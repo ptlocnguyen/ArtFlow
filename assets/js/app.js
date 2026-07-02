@@ -5317,6 +5317,7 @@
     const selectedAccount = account || activeAccounts[0];
     const today = localDateValue();
     return `
+      <div class="modal-summary full reconciliation-help"><strong>Đối soát không tự đổi số dư nếu chỉ lưu biên bản.</strong><span>Bật cân bằng số dư khi bạn muốn hệ thống tạo thu/chi điều chỉnh đúng bằng phần chênh lệch.</span></div>
       <div class="field full"><label for="accountId">Tài khoản đối soát</label><select id="accountId" name="accountId" required data-reconciliation-account>${activeAccounts.map(item => `<option value="${item.id}" ${selectedAccount && item.id === selectedAccount.id ? "selected" : ""}>${item.name} · ${money.format(item.currentBalance)}</option>`).join("")}</select></div>
       <div class="field"><label for="reconciledAt">Ngày đối soát</label><input id="reconciledAt" name="reconciledAt" type="date" value="${today}" required /></div>
       <div class="field"><label for="actualBalance">Số dư thực tế</label><input id="actualBalance" name="actualBalance" type="number" step="1000" value="${selectedAccount ? selectedAccount.currentBalance : 0}" required data-reconciliation-actual /></div>
@@ -5324,7 +5325,12 @@
         <span><small>Số dư sổ</small><b data-reconciliation-system>${money.format(selectedAccount ? selectedAccount.currentBalance : 0)}</b></span>
         <span><small>Số dư thực tế</small><b data-reconciliation-actual-output>${money.format(selectedAccount ? selectedAccount.currentBalance : 0)}</b></span>
         <span><small>Chênh lệch</small><b data-reconciliation-difference>${money.format(0)}</b></span>
+        <span><small>Sau khi lưu</small><b data-reconciliation-action>Chỉ ghi nhận</b></span>
       </div>
+      <label class="toggle-card full reconciliation-adjust-toggle">
+        <input type="checkbox" name="adjustBalance" data-reconciliation-adjust />
+        <span><strong>Tạo giao dịch điều chỉnh để cân bằng số dư</strong><small>Nếu thực tế cao hơn sẽ tạo phiếu thu; nếu thấp hơn sẽ tạo phiếu chi. Có thể bỏ trống để chỉ lưu lịch sử đối soát.</small></span>
+      </label>
       <div class="field full"><label for="note">Ghi chú</label><input id="note" name="note" type="text" placeholder="Nguyên nhân chênh lệch, mã sao kê, người kiểm tra..." /></div>
     `;
   }
@@ -5341,11 +5347,22 @@
     const systemOutput = form.querySelector("[data-reconciliation-system]");
     const actualOutput = form.querySelector("[data-reconciliation-actual-output]");
     const differenceOutput = form.querySelector("[data-reconciliation-difference]");
+    const actionOutput = form.querySelector("[data-reconciliation-action]");
     const preview = form.querySelector("[data-reconciliation-preview]");
+    const adjustInput = form.querySelector("[data-reconciliation-adjust]");
+    const shouldAdjust = Boolean(adjustInput && adjustInput.checked && difference !== 0);
     if (systemOutput) systemOutput.textContent = money.format(systemBalance);
     if (actualOutput) actualOutput.textContent = money.format(actualBalance);
     if (differenceOutput) differenceOutput.textContent = `${difference > 0 ? "+" : ""}${money.format(difference)}`;
+    if (actionOutput) {
+      actionOutput.textContent = difference === 0
+        ? "Đã khớp"
+        : shouldAdjust
+          ? (difference > 0 ? `Tạo thu ${money.format(difference)}` : `Tạo chi ${money.format(Math.abs(difference))}`)
+          : "Chỉ ghi nhận";
+    }
     if (preview) preview.classList.toggle("has-difference", difference !== 0);
+    if (preview) preview.classList.toggle("will-adjust", shouldAdjust);
   }
 
   function renderAccountingCategoryForm(category) {
@@ -6891,13 +6908,18 @@
               accountId: data.accountId,
               actualBalance,
               reconciledAt: data.reconciledAt,
+              adjustBalance: data.adjustBalance === "on",
               note: data.note || ""
             })
           });
           state.accountingReconciliations.unshift(normalizeAccountingReconciliation(dataFromApi.reconciliation));
           await loadAccountingData({ quiet: true });
           renderPage();
-          showToast(dataFromApi.reconciliation.difference === 0 ? "Đối soát hoàn tất, số dư đã khớp." : "Đã lưu đối soát và ghi nhận chênh lệch.");
+          showToast(dataFromApi.transaction
+            ? "Đã đối soát và tạo giao dịch điều chỉnh số dư."
+            : dataFromApi.reconciliation.difference === 0
+              ? "Đối soát hoàn tất, số dư đã khớp."
+              : "Đã lưu đối soát. Số dư chưa đổi vì chưa bật cân bằng.");
         }
       },
       accountingCategory: {
@@ -7959,6 +7981,9 @@
         const actualInput = form && form.querySelector("[data-reconciliation-actual]");
         if (actualInput && account) actualInput.value = account.currentBalance;
         updateReconciliationPreview(form);
+      }
+      if (event.target.matches("[data-reconciliation-adjust]")) {
+        updateReconciliationPreview(event.target.closest("form") || els.modalForm);
       }
       if (event.target.matches("[data-order-inline]")) {
         const field = event.target.dataset.orderInline;

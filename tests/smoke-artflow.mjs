@@ -248,6 +248,8 @@ function handleAction(state, payload) {
       return { ok: true, movements: state.stockMovements };
     case "getAccountingData":
       return accountingData(state);
+    case "createAccountingReconciliation":
+      return createAccountingReconciliation(state, payload);
     case "getPurchasingData":
       return purchasingData(state);
     default:
@@ -289,6 +291,46 @@ function accountingData(state) {
     transactions: state.cashTransactions,
     reconciliations: state.accountingReconciliations
   };
+}
+
+function createAccountingReconciliation(state, payload) {
+  const account = state.accountingAccounts.find(item => item.id === payload.accountId) || state.accountingAccounts[0];
+  const systemBalance = Number(account?.currentBalance || 0);
+  const actualBalance = Number(payload.actualBalance || 0);
+  const difference = actualBalance - systemBalance;
+  const reconciliation = {
+    id: `qa-reconciliation-${Date.now()}`,
+    accountId: account.id,
+    systemBalance,
+    actualBalance,
+    difference,
+    note: payload.note || "",
+    reconciledBy: state.user.id,
+    reconciledAt: payload.reconciledAt || "2026-06-29",
+    createdAt: "2026-06-29T10:30:00+07:00"
+  };
+  let transaction = null;
+  if (payload.adjustBalance && difference !== 0) {
+    transaction = {
+      id: `qa-adjustment-${Date.now()}`,
+      type: difference > 0 ? "income" : "expense",
+      accountId: account.id,
+      categoryId: state.accountingCategories[0]?.id || "qa-category",
+      amount: Math.abs(difference),
+      transactionDate: reconciliation.reconciledAt,
+      description: "Điều chỉnh đối soát",
+      referenceType: "reconciliation",
+      referenceId: reconciliation.id,
+      createdBy: state.user.id,
+      status: "active",
+      createdAt: reconciliation.createdAt,
+      updatedAt: reconciliation.createdAt
+    };
+    state.cashTransactions.unshift(transaction);
+    account.currentBalance = actualBalance;
+  }
+  state.accountingReconciliations.unshift(reconciliation);
+  return { ok: true, reconciliation, transaction };
 }
 
 function purchasingData(state) {
