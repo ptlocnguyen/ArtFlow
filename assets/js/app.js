@@ -26,6 +26,7 @@
   const inventoryFilters = { category: "all", stock: "all", sort: "risk" };
   const contentFilters = { status: "all", type: "all", owner: "all", channel: "all", product: "all", schedule: "all" };
   const teamFilters = { view: "meetings", status: "all", owner: "all", range: "30" };
+  const omniFilters = { channel: "all", stock: "all", issue: "all" };
 
   const channels = {
     pos: "POS",
@@ -120,6 +121,7 @@
   }
 
   const pages = {
+    channels: { title: "Kênh bán", href: "./channels.html", icon: "truck" },
     dashboard: { title: "Tổng quan", href: "./dashboard.html", icon: "dashboard" },
     orders: { title: "Đơn hàng", href: "./orders.html", icon: "clipboard" },
     orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "shoppingCart", hidden: true },
@@ -377,6 +379,15 @@
       "/team/create": "createTeamItem",
       "/team/update": "updateTeamItem",
       "/team/archive": "archiveTeamItem",
+      "/omni": "getOmniWorkspaceData",
+      "/omni/channels/upsert": "upsertSalesChannel",
+      "/omni/channels/archive": "archiveSalesChannel",
+      "/omni/mappings/upsert": "upsertChannelProduct",
+      "/omni/mappings/archive": "archiveChannelProduct",
+      "/omni/campaigns/upsert": "upsertCampaign",
+      "/omni/campaigns/archive": "archiveCampaign",
+      "/omni/tasks/upsert": "upsertWorkspaceTask",
+      "/omni/tasks/archive": "archiveWorkspaceTask",
       "/incense": "getIncenseData",
       "/incense/create": "createIncenseWish",
       "/products/import": "importProducts",
@@ -1100,6 +1111,95 @@
     };
   }
 
+  function normalizeSalesChannel(channel) {
+    return {
+      id: channel.id || makeLocalId("channel"),
+      code: channel.code || "",
+      name: channel.name || "",
+      type: channel.type || "marketplace",
+      status: channel.status || "active",
+      syncMode: channel.syncMode || "manual",
+      defaultPricePolicy: channel.defaultPricePolicy || "same",
+      note: channel.note || "",
+      createdAt: channel.createdAt || "",
+      updatedAt: channel.updatedAt || ""
+    };
+  }
+
+  function normalizeChannelProduct(item) {
+    return {
+      id: item.id || makeLocalId("channel_product"),
+      channelId: item.channelId || "",
+      productId: item.productId || "",
+      channelSku: item.channelSku || "",
+      channelName: item.channelName || "",
+      channelPrice: Number(item.channelPrice || 0),
+      channelStock: Number(item.channelStock || 0),
+      syncStock: item.syncStock !== false,
+      syncPrice: item.syncPrice === true,
+      status: item.status || "active",
+      lastSyncAt: item.lastSyncAt || "",
+      note: item.note || "",
+      createdAt: item.createdAt || "",
+      updatedAt: item.updatedAt || ""
+    };
+  }
+
+  function normalizeInventoryReservation(item) {
+    return {
+      id: item.id || makeLocalId("reservation"),
+      productId: item.productId || "",
+      orderId: item.orderId || "",
+      channelId: item.channelId || "",
+      quantity: Number(item.quantity || 0),
+      status: item.status || "active",
+      reason: item.reason || "",
+      createdBy: item.createdBy || "",
+      createdAt: item.createdAt || "",
+      releasedAt: item.releasedAt || ""
+    };
+  }
+
+  function normalizeCampaign(item) {
+    return {
+      id: item.id || makeLocalId("campaign"),
+      name: item.name || "",
+      status: item.status || "idea",
+      owner: item.owner || "",
+      channels: item.channels || "",
+      startDate: item.startDate || "",
+      endDate: item.endDate || "",
+      goal: item.goal || "",
+      budget: Number(item.budget || 0),
+      targetRevenue: Number(item.targetRevenue || 0),
+      targetProfit: Number(item.targetProfit || 0),
+      note: item.note || "",
+      createdBy: item.createdBy || "",
+      createdAt: item.createdAt || "",
+      updatedAt: item.updatedAt || ""
+    };
+  }
+
+  function normalizeWorkspaceTask(item) {
+    return {
+      id: item.id || makeLocalId("task"),
+      title: item.title || "",
+      status: item.status || "todo",
+      priority: item.priority || "normal",
+      owner: item.owner || "",
+      sourceType: item.sourceType || "",
+      sourceId: item.sourceId || "",
+      productId: item.productId || "",
+      channelId: item.channelId || "",
+      campaignId: item.campaignId || "",
+      dueDate: item.dueDate || "",
+      description: item.description || "",
+      createdBy: item.createdBy || "",
+      createdAt: item.createdAt || "",
+      updatedAt: item.updatedAt || ""
+    };
+  }
+
   async function loadProducts(options = {}) {
     try {
       const data = await apiRequest("/products");
@@ -1492,10 +1592,11 @@
 
   function dataScopesForPage() {
     const scopesByPage = {
-      dashboard: ["products", "customers", "orders", "accounting"],
+      dashboard: ["products", "customers", "orders", "accounting", "content", "team", "omni"],
       orders: ["customers", "orders", "accounting", "settings"],
       orderCreate: ["products", "customers", "settings"],
       products: ["products"],
+      channels: ["omni"],
       content: ["content"],
       team: ["team"],
       meetingMinutes: ["team"],
@@ -1530,8 +1631,20 @@
       state.teamPlans = (data.teamPlans || []).map(normalizeTeamPlan);
       state.teamPricingModels = (data.teamPricingModels || []).map(normalizePricingModel);
       state.teamDecisions = (data.teamDecisions || []).map(normalizeTeamDecision);
+      state.workspaceTasks = (data.workspaceTasks || state.workspaceTasks || []).map(normalizeWorkspaceTask);
+      state.campaigns = (data.campaigns || state.campaigns || []).map(normalizeCampaign);
       state.products = (data.products || state.products || []).map(normalizeProduct);
       state.contentOwners = data.contentOwners || state.contentOwners || [];
+      if (Array.isArray(data.users)) state.users = data.users;
+    }
+    if (scopes.includes("omni")) {
+      state.salesChannels = (data.salesChannels || []).map(normalizeSalesChannel);
+      state.channelProducts = (data.channelProducts || []).map(normalizeChannelProduct);
+      state.inventoryReservations = (data.inventoryReservations || []).map(normalizeInventoryReservation);
+      state.campaigns = (data.campaigns || []).map(normalizeCampaign);
+      state.workspaceTasks = (data.workspaceTasks || []).map(normalizeWorkspaceTask);
+      state.products = (data.products || state.products || []).map(normalizeProduct);
+      state.orders = (data.orders || state.orders || []).map(normalizeOrder);
       if (Array.isArray(data.users)) state.users = data.users;
     }
     if (scopes.includes("incense")) {
@@ -2243,6 +2356,28 @@
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - QUYẾT ĐỊNH", `${decisions.length} quyết định`, ["Quyết định", "Trạng thái", "Phụ trách", "Ngày chốt", "Tag", "Nội dung", "Ngày xem lại"], decisions.map(item => [item.title, teamStatuses[item.status] || item.status, item.owner, item.decidedAt, item.tags, item.detail, item.nextReviewAt]), { widths: [38, 16, 22, 14, 28, 56, 14], wrapColumn: 5 }), "Quyết định");
     saveExcelWorkbook(workbook, `artflow-team-hub-${reportDayKey(new Date())}.xlsx`);
     showToast("Đã xuất báo cáo Team Hub.");
+  }
+
+  function exportOmniReport() {
+    const XLSX = requireXlsx();
+    const workbook = XLSX.utils.book_new();
+    const rows = channelProductRows().map(row => [
+      row.product.sku,
+      row.product.name,
+      row.product.category,
+      row.product.stock,
+      row.reserved,
+      row.available,
+      row.mappedCount,
+      row.mismatch ? "Lệch tồn" : row.mappedCount ? "Đã map" : "Chưa map",
+      row.mappings.map(item => {
+        const channel = channelByIdOrCode(item.channelId);
+        return `${channel ? channel.name : item.channelId}: ${item.channelSku || row.product.sku} / tồn ${item.channelStock} / giá ${item.channelPrice}`;
+      }).join("\n")
+    ]);
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("ĐỐI SOÁT KÊNH BÁN", `Xuất lúc ${new Date().toLocaleString("vi-VN")} · ${rows.length} SKU`, ["SKU", "Sản phẩm", "Danh mục", "Tồn nội bộ", "Đang giữ", "Khả dụng", "Số kênh map", "Tình trạng", "Chi tiết kênh"], rows, { widths: [16, 34, 18, 14, 14, 14, 14, 18, 56], numberColumns: [3, 4, 5, 6], wrapColumn: 8 }), "Đối soát SKU");
+    saveExcelWorkbook(workbook, `artflow-kenh-ban-${reportDayKey(new Date())}.xlsx`);
+    showToast("Đã xuất báo cáo kênh bán.");
   }
 
   function customerRowsFromCsv(text) {
@@ -3336,6 +3471,7 @@
   }
 
   const teamViews = {
+    tasks: { title: "Việc cần làm", note: "Tập trung các việc phát sinh từ họp, kênh bán, content và kho.", action: "Việc" },
     meetings: { title: "Biên bản họp", note: "Agenda, quyết định và việc cần làm sau mỗi cuộc họp.", action: "Cuộc họp" },
     plans: { title: "Kế hoạch kinh doanh", note: "Mục tiêu, ngân sách, kênh triển khai và milestone theo kỳ.", action: "Kế hoạch" },
     pricing: { title: "Pricing Lab", note: "Cân đối giá vốn, chi phí, biên lãi và kịch bản giá bán.", action: "Bảng giá" },
@@ -3363,7 +3499,8 @@
       ...(state.teamMeetings || []),
       ...(state.teamPlans || []),
       ...(state.teamPricingModels || []),
-      ...(state.teamDecisions || [])
+      ...(state.teamDecisions || []),
+      ...(state.workspaceTasks || [])
     ].forEach(item => {
       if (item.owner) values.add(item.owner);
       (item.actions || []).forEach(action => { if (action.owner) values.add(action.owner); });
@@ -3392,6 +3529,7 @@
   function currentTeamItems() {
     const map = {
       meetings: (state.teamMeetings || []).map(normalizeTeamMeeting),
+      tasks: (state.workspaceTasks || []).map(normalizeWorkspaceTask),
       plans: (state.teamPlans || []).map(normalizeTeamPlan),
       pricing: (state.teamPricingModels || []).map(normalizePricingModel),
       decisions: (state.teamDecisions || []).map(normalizeTeamDecision)
@@ -3415,6 +3553,7 @@
   function renderTeamFilters() {
     const items = {
       meetings: state.teamMeetings || [],
+      tasks: state.workspaceTasks || [],
       plans: state.teamPlans || [],
       pricing: state.teamPricingModels || [],
       decisions: state.teamDecisions || []
@@ -3431,6 +3570,7 @@
     const plans = (state.teamPlans || []).map(normalizeTeamPlan);
     const pricing = (state.teamPricingModels || []).map(normalizePricingModel);
     const decisions = (state.teamDecisions || []).map(normalizeTeamDecision);
+    const tasks = (state.workspaceTasks || []).map(normalizeWorkspaceTask);
     const openActions = meetings.flatMap(item => item.actions || []).filter(action => action.status !== "done").length;
     return [
       ["Cuộc họp", meetings.length, "Biên bản và action items"],
@@ -3460,6 +3600,7 @@
     }
     const renderers = {
       meetings: renderTeamMeetings,
+      tasks: renderTeamTasks,
       plans: renderTeamPlans,
       pricing: renderTeamPricing,
       decisions: renderTeamDecisions
@@ -3565,6 +3706,33 @@
 
   function teamStatusBadge(status) {
     return `<span class="badge team-status-${escapeAttribute(status)}">${escapeHtml(teamStatuses[status] || status || "—")}</span>`;
+  }
+
+  function renderTeamTasks() {
+    const tasks = currentTeamItems().map(normalizeWorkspaceTask);
+    return `
+      <div class="team-task-board">
+        ${tasks.length ? tasks.map(task => {
+          const product = task.productId ? byId("products", task.productId) : null;
+          const channel = task.channelId ? channelByIdOrCode(task.channelId) : null;
+          const campaign = task.campaignId ? (state.campaigns || []).find(item => item.id === task.campaignId) : null;
+          return `<article class="team-task-card ${task.priority}">
+            <div class="task-card-main">
+              <span class="status-chip ${task.status === "done" ? "success" : task.status === "blocked" ? "danger" : task.status === "doing" ? "info" : "warning"}">${teamStatuses[task.status] || task.status}</span>
+              <h3>${escapeHtml(task.title)}</h3>
+              <p>${escapeHtml(task.description || "Chưa có mô tả.")}</p>
+            </div>
+            <div class="task-card-meta">
+              <span>${icon("users")} ${escapeHtml(task.owner ? ownerName(task.owner) : "Chưa giao")}</span>
+              <span>${icon("history")} ${task.dueDate ? formatDate(task.dueDate) : "Chưa có hạn"}</span>
+              ${product ? `<span>${icon("package")} ${escapeHtml(product.sku)}</span>` : ""}
+              ${channel ? `<span>${icon("truck")} ${escapeHtml(channel.name)}</span>` : ""}
+              ${campaign ? `<span>${icon("sparkles")} ${escapeHtml(campaign.name)}</span>` : ""}
+            </div>
+          </article>`;
+        }).join("") : `<div class="empty">Chưa có việc cần làm phù hợp.</div>`}
+      </div>
+    `;
   }
 
   function renderTeamMeetings() {
@@ -4935,6 +5103,221 @@
     });
   }
 
+  function activeSalesChannels() {
+    const list = (state.salesChannels || []).map(normalizeSalesChannel).filter(channel => channel.status !== "deleted");
+    if (list.length) return list;
+    return Object.entries(channels).map(([code, name]) => normalizeSalesChannel({
+      id: `channel-${code}`,
+      code,
+      name,
+      type: code === "pos" ? "pos" : (code === "facebook" ? "social" : "marketplace"),
+      status: "active",
+      syncMode: "manual"
+    }));
+  }
+
+  function channelByIdOrCode(value) {
+    const key = String(value || "");
+    return activeSalesChannels().find(channel => channel.id === key || channel.code === key) || null;
+  }
+
+  function ownerName(ownerId) {
+    const id = String(ownerId || "");
+    const user = [...(state.users || []), ...(state.contentOwners || []), currentUser || {}].find(item => item && item.id === id);
+    return user ? user.name : id;
+  }
+
+  function reservedStockForProduct(productId) {
+    return (state.inventoryReservations || [])
+      .map(normalizeInventoryReservation)
+      .filter(item => item.productId === productId && item.status === "active")
+      .reduce((sum, item) => sum + item.quantity, 0);
+  }
+
+  function channelProductRows() {
+    const mappings = (state.channelProducts || []).map(normalizeChannelProduct).filter(item => item.status !== "deleted");
+    const products = (state.products || []).map(normalizeProduct).filter(product => product.status !== "deleted");
+    return products.map(product => {
+      const productMappings = mappings.filter(item => item.productId === product.id);
+      const channelStocks = productMappings.map(item => item.channelStock);
+      const mismatch = productMappings.some(item => Number(item.channelStock || 0) !== Number(product.stock || 0));
+      return {
+        product,
+        mappings: productMappings,
+        mappedCount: productMappings.length,
+        reserved: reservedStockForProduct(product.id),
+        available: Math.max(0, Number(product.stock || 0) - reservedStockForProduct(product.id)),
+        mismatch,
+        minChannelStock: channelStocks.length ? Math.min(...channelStocks) : null
+      };
+    });
+  }
+
+  function renderOmniWorkspace() {
+    const rootNode = qs("[data-omni-workspace]");
+    if (!rootNode) return;
+    const channelsList = activeSalesChannels();
+    const rows = channelProductRows();
+    const filteredRows = rows
+      .filter(row => omniFilters.channel === "all" || row.mappings.some(item => item.channelId === omniFilters.channel || (channelByIdOrCode(item.channelId) || {}).code === omniFilters.channel))
+      .filter(row => {
+        if (omniFilters.stock === "all") return true;
+        if (omniFilters.stock === "low") return row.product.stock <= row.product.lowStock;
+        if (omniFilters.stock === "out") return row.product.stock <= 0;
+        if (omniFilters.stock === "reserved") return row.reserved > 0;
+        return true;
+      })
+      .filter(row => {
+        if (omniFilters.issue === "all") return true;
+        if (omniFilters.issue === "missing") return row.mappedCount === 0;
+        if (omniFilters.issue === "mismatch") return row.mismatch;
+        return true;
+      });
+    const mismatches = rows.filter(row => row.mismatch).length;
+    const unmapped = rows.filter(row => row.mappedCount === 0).length;
+    const reserved = rows.reduce((sum, row) => sum + row.reserved, 0);
+    rootNode.innerHTML = `
+      <section class="omni-hero panel">
+        <div>
+          <p class="eyebrow">Omnichannel workspace</p>
+          <h2>Một nơi theo dõi kênh bán, SKU và tồn kho</h2>
+          <p>Ưu tiên kiểm soát tồn trước: map SKU nội bộ với từng kênh, phát hiện lệch tồn và giữ hàng cho đơn đang xử lý.</p>
+        </div>
+        <div class="omni-actions">
+          <button class="button primary" type="button" data-open-channel-form><span data-icon="plus"></span> Kênh</button>
+          <button class="button ghost" type="button" data-open-channel-product-form><span data-icon="package"></span> Map SKU</button>
+        </div>
+      </section>
+      <section class="omni-kpis">
+        <article><span>Kênh đang quản lý</span><strong>${channelsList.filter(item => item.status === "active").length}</strong><small>POS, sàn, social, website</small></article>
+        <article><span>SKU chưa map</span><strong>${unmapped}</strong><small>Cần map trước khi đồng bộ tồn</small></article>
+        <article><span>Lệch tồn</span><strong>${mismatches}</strong><small>So tồn nội bộ với tồn kênh</small></article>
+        <article><span>Đang giữ hàng</span><strong>${reserved}</strong><small>Từ đơn chờ xử lý</small></article>
+      </section>
+      <section class="panel omni-control-panel">
+        <div class="omni-filter-bar">
+          <label><span>Kênh</span><select data-omni-filter="channel"><option value="all">Tất cả kênh</option>${channelsList.map(channel => `<option value="${channel.id}" ${omniFilters.channel === channel.id ? "selected" : ""}>${escapeHtml(channel.name)}</option>`).join("")}</select></label>
+          <label><span>Tồn kho</span><select data-omni-filter="stock"><option value="all">Tất cả</option><option value="low" ${omniFilters.stock === "low" ? "selected" : ""}>Sắp hết</option><option value="out" ${omniFilters.stock === "out" ? "selected" : ""}>Hết hàng</option><option value="reserved" ${omniFilters.stock === "reserved" ? "selected" : ""}>Đang giữ hàng</option></select></label>
+          <label><span>Cần xử lý</span><select data-omni-filter="issue"><option value="all">Tất cả</option><option value="missing" ${omniFilters.issue === "missing" ? "selected" : ""}>Chưa map SKU</option><option value="mismatch" ${omniFilters.issue === "mismatch" ? "selected" : ""}>Lệch tồn</option></select></label>
+        </div>
+      </section>
+      <section class="omni-layout">
+        <section class="panel">
+          <div class="panel-header split"><div><h2>Đối soát SKU và tồn</h2><p>${filteredRows.length} sản phẩm phù hợp.</p></div><button class="button ghost icon-only" type="button" data-export-omni title="Xuất Excel"><span data-icon="download"></span></button></div>
+          <div class="table-wrap omni-table-wrap">
+            <table class="omni-table"><thead><tr><th>Sản phẩm</th><th>Tồn nội bộ</th><th>Khả dụng</th><th>Kênh đã map</th><th>Vấn đề</th><th>Thao tác</th></tr></thead><tbody>
+              ${filteredRows.length ? filteredRows.map(row => {
+                const issue = row.mappedCount === 0 ? "Chưa map" : row.mismatch ? "Lệch tồn" : row.product.stock <= row.product.lowStock ? "Sắp hết" : "Ổn";
+                const issueClass = row.mappedCount === 0 || row.mismatch ? "danger" : row.product.stock <= row.product.lowStock ? "warning" : "success";
+                return `<tr>
+                  <td><strong>${escapeHtml(row.product.name)}</strong><small>${escapeHtml(row.product.sku)} · ${escapeHtml(row.product.category || "")}</small></td>
+                  <td><strong>${row.product.stock}</strong><small>Ngưỡng ${row.product.lowStock}</small></td>
+                  <td><strong>${row.available}</strong><small>Giữ ${row.reserved}</small></td>
+                  <td>${row.mappings.length ? row.mappings.map(item => {
+                    const channel = channelByIdOrCode(item.channelId);
+                    return `<span class="omni-channel-pill">${escapeHtml(channel ? channel.name : item.channelId)} · ${item.channelStock}</span>`;
+                  }).join("") : `<span class="muted">Chưa map kênh</span>`}</td>
+                  <td><span class="status-chip ${issueClass}">${issue}</span></td>
+                  <td><button class="button ghost icon-only" type="button" data-open-channel-product-form data-product-id="${row.product.id}" title="Map SKU"><span data-icon="edit"></span></button></td>
+                </tr>`;
+              }).join("") : `<tr><td colspan="6" class="empty">Không có sản phẩm phù hợp.</td></tr>`}
+            </tbody></table>
+          </div>
+        </section>
+        <aside class="panel omni-side-panel">
+          <div class="panel-header"><div><h2>Kênh bán</h2><p>Thiết lập nhẹ, ưu tiên đồng bộ tồn.</p></div></div>
+          <div class="omni-channel-list">
+            ${channelsList.map(channel => `<article>
+              <div><strong>${escapeHtml(channel.name)}</strong><small>${escapeHtml(channel.code)} · ${escapeHtml(channel.syncMode || "manual")}</small></div>
+              <span class="status-chip ${channel.status === "active" ? "success" : "warning"}">${channel.status === "active" ? "Đang dùng" : "Tạm ẩn"}</span>
+            </article>`).join("")}
+          </div>
+        </aside>
+      </section>
+    `;
+    hydrateIcons(rootNode);
+    enhanceResponsiveTables();
+  }
+
+  function dashboardCommandItems() {
+    const pendingOrders = (state.orders || [])
+      .map(normalizeOrder)
+      .filter(order => order.status !== "cancelled" && (order.status === "pending" || order.shippingStatus === "preparing" || order.paymentStatus === "unpaid"))
+      .slice(0, 5)
+      .map(order => ({
+        type: "Đơn",
+        title: order.code,
+        note: `${channelLabel(order.channel)} · ${paymentLabel(order.paymentStatus)} · ${shippingLabel(order.shippingStatus)}`,
+        href: "./orders.html",
+        priority: order.paymentStatus === "unpaid" ? "warning" : "info"
+      }));
+    const stockItems = (state.products || [])
+      .map(normalizeProduct)
+      .filter(product => product.status === "active" && product.stock <= product.lowStock)
+      .sort((a, b) => (a.stock - a.lowStock) - (b.stock - b.lowStock))
+      .slice(0, 5)
+      .map(product => ({
+        type: "Kho",
+        title: product.name,
+        note: `${product.sku} · còn ${product.stock}, ngưỡng ${product.lowStock}`,
+        href: "./inventory.html",
+        priority: product.stock <= 0 ? "danger" : "warning"
+      }));
+    const contentItems = (state.contentItems || [])
+      .map(normalizeContentItem)
+      .filter(item => ["idea", "brief", "drafting", "review", "ready"].includes(item.status))
+      .sort((a, b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")))
+      .slice(0, 5)
+      .map(item => ({
+        type: "Content",
+        title: item.title,
+        note: `${contentChannels[item.channel] || item.channel} · ${contentItemStatuses[item.status] || item.status}${item.dueDate ? " · " + formatDate(item.dueDate) : ""}`,
+        href: "./content.html",
+        priority: item.status === "ready" ? "success" : item.status === "review" ? "info" : "warning"
+      }));
+    const tasks = (state.workspaceTasks || [])
+      .map(normalizeWorkspaceTask)
+      .filter(task => task.status !== "done" && task.status !== "deleted")
+      .sort((a, b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")))
+      .slice(0, 5)
+      .map(task => ({
+        type: "Task",
+        title: task.title,
+        note: `${task.owner ? ownerName(task.owner) : "Chưa giao"}${task.dueDate ? " · " + formatDate(task.dueDate) : ""}`,
+        href: "./team.html",
+        priority: task.priority === "urgent" || task.priority === "high" ? "danger" : "info"
+      }));
+    return { pendingOrders, stockItems, contentItems, tasks };
+  }
+
+  function renderDashboardCommandCenter() {
+    const target = qs("[data-dashboard-command]");
+    if (!target) return;
+    const groups = dashboardCommandItems();
+    const cards = [
+      ["Bán hàng", "Đơn cần xác nhận, thu tiền hoặc giao", groups.pendingOrders, "./orders.html"],
+      ["Kho", "SKU sắp hết, hết hàng hoặc cần nhập", groups.stockItems, "./inventory.html"],
+      ["Content", "Chủ đề cần brief, review hoặc đăng", groups.contentItems, "./content.html"],
+      ["Team", "Việc phát sinh từ họp/kênh/chiến dịch", groups.tasks, "./team.html"]
+    ];
+    target.innerHTML = `
+      <section class="panel dashboard-command-panel">
+        <div class="panel-header split"><div><h2>Việc cần xử lý hôm nay</h2><p>Một màn hình gom bán hàng, kho, content và team task.</p></div><a class="text-link" href="./channels.html">Kiểm tra kênh bán</a></div>
+        <div class="dashboard-command-grid">
+          ${cards.map(([title, note, items, href]) => `
+            <article class="dashboard-command-card">
+              <div class="command-card-head"><div><strong>${title}</strong><small>${note}</small></div><a href="${href}" aria-label="${title}">${icon("external")}</a></div>
+              <div class="command-card-list">
+                ${items.length ? items.map(item => `<a class="command-item ${item.priority}" href="${item.href}"><span>${item.type}</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.note)}</small></a>`).join("") : `<div class="empty compact-empty">Không có việc gấp.</div>`}
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    `;
+    hydrateIcons(target);
+  }
+
   function renderPage() {
     const sortedOrders = [...state.orders].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     const orderMatches = order => {
@@ -4969,6 +5352,8 @@
     renderOrdersRows(els.recentOrders, recentOrders, 5);
     renderOrdersRows(els.ordersTable, orders);
     renderProducts();
+    renderOmniWorkspace();
+    renderDashboardCommandCenter();
     renderContentWorkspace();
     renderTeamHub();
     renderMeetingMinutesPage();
@@ -6548,6 +6933,54 @@
     `;
   }
 
+  function renderSalesChannelForm(channel) {
+    const item = normalizeSalesChannel(channel || {});
+    return `
+      <div class="field"><label for="channelName">Tên kênh</label><input id="channelName" name="name" value="${escapeAttribute(item.name)}" placeholder="Shopee, TikTok Shop, POS cửa hàng..." required /></div>
+      <div class="field"><label for="channelCode">Mã kênh</label><input id="channelCode" name="code" value="${escapeAttribute(item.code)}" placeholder="shopee, tiktok, pos..." required /></div>
+      <div class="field"><label for="channelType">Loại kênh</label><select id="channelType" name="type"><option value="pos" ${item.type === "pos" ? "selected" : ""}>POS offline</option><option value="marketplace" ${item.type === "marketplace" ? "selected" : ""}>Sàn TMĐT</option><option value="social" ${item.type === "social" ? "selected" : ""}>Social / Inbox</option><option value="website" ${item.type === "website" ? "selected" : ""}>Website</option><option value="other" ${item.type === "other" ? "selected" : ""}>Khác</option></select></div>
+      <div class="field"><label for="syncMode">Cách đồng bộ</label><select id="syncMode" name="syncMode"><option value="manual" ${item.syncMode === "manual" ? "selected" : ""}>Thủ công</option><option value="file" ${item.syncMode === "file" ? "selected" : ""}>Import/Export file</option><option value="api" ${item.syncMode === "api" ? "selected" : ""}>API sau này</option></select></div>
+      <div class="field full"><label for="channelNote">Ghi chú</label><input id="channelNote" name="note" value="${escapeAttribute(item.note)}" placeholder="Tên shop, người phụ trách, quy ước xử lý..." /></div>
+    `;
+  }
+
+  function renderChannelProductForm(productId = "") {
+    const products = (state.products || []).map(normalizeProduct).filter(product => product.status === "active");
+    const channelsList = activeSalesChannels().filter(channel => channel.status === "active");
+    const selectedProduct = byId("products", productId) || products[0] || {};
+    return `
+      <div class="field"><label for="channelId">Kênh bán</label><select id="channelId" name="channelId" required>${channelsList.map(channel => `<option value="${channel.id}">${escapeHtml(channel.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="productId">Sản phẩm nội bộ</label><select id="productId" name="productId" required>${products.map(product => `<option value="${product.id}" ${selectedProduct.id === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="channelSku">SKU trên kênh</label><input id="channelSku" name="channelSku" placeholder="SKU Shopee/TikTok/Lazada" value="${escapeAttribute(selectedProduct.sku || "")}" /></div>
+      <div class="field"><label for="channelName">Tên trên kênh</label><input id="channelName" name="channelName" placeholder="Tên sản phẩm trên sàn" value="${escapeAttribute(selectedProduct.name || "")}" /></div>
+      <div class="field"><label for="channelPrice">Giá trên kênh</label><input id="channelPrice" name="channelPrice" type="text" data-money-input="true" value="${selectedProduct.salePrice || 0}" /></div>
+      <div class="field"><label for="channelStock">Tồn trên kênh</label><input id="channelStock" name="channelStock" type="number" min="0" step="1" value="${selectedProduct.stock || 0}" /></div>
+      <label class="checkbox-row full"><input type="checkbox" name="syncStock" checked /> Đồng bộ/cảnh báo tồn kho cho SKU này</label>
+      <label class="checkbox-row full"><input type="checkbox" name="syncPrice" /> Đồng bộ/cảnh báo giá bán</label>
+      <div class="field full"><label for="mappingNote">Ghi chú</label><input id="mappingNote" name="note" placeholder="Link sản phẩm, tên shop, lưu ý flash sale..." /></div>
+    `;
+  }
+
+  function renderWorkspaceTaskForm(task) {
+    const item = normalizeWorkspaceTask(task || {});
+    const users = (state.users || state.contentOwners || []).map(user => `<option value="${escapeAttribute(user.id || user.name)}" ${item.owner === (user.id || user.name) ? "selected" : ""}>${escapeHtml(user.name || user.email || user.id)}</option>`).join("");
+    const products = (state.products || []).map(normalizeProduct).filter(product => product.status !== "deleted");
+    const channelsList = activeSalesChannels();
+    const campaigns = (state.campaigns || []).map(normalizeCampaign);
+    return `
+      <div class="field full"><label for="taskTitle">Việc cần làm</label><input id="taskTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="VD: Map SKU Shopee cho sản phẩm bán chạy" required /></div>
+      <div class="field"><label for="taskOwner">Phụ trách</label><select id="taskOwner" name="owner"><option value="">Chưa giao</option>${users}</select></div>
+      <div class="field"><label for="taskStatus">Trạng thái</label><select id="taskStatus" name="status"><option value="todo" ${item.status === "todo" ? "selected" : ""}>Cần làm</option><option value="doing" ${item.status === "doing" ? "selected" : ""}>Đang làm</option><option value="blocked" ${item.status === "blocked" ? "selected" : ""}>Đang vướng</option><option value="done" ${item.status === "done" ? "selected" : ""}>Xong</option></select></div>
+      <div class="field"><label for="taskPriority">Ưu tiên</label><select id="taskPriority" name="priority"><option value="normal" ${item.priority === "normal" ? "selected" : ""}>Bình thường</option><option value="high" ${item.priority === "high" ? "selected" : ""}>Cao</option><option value="urgent" ${item.priority === "urgent" ? "selected" : ""}>Gấp</option><option value="low" ${item.priority === "low" ? "selected" : ""}>Thấp</option></select></div>
+      <div class="field"><label for="taskDueDate">Deadline</label><input id="taskDueDate" name="dueDate" type="date" value="${escapeAttribute(item.dueDate)}" /></div>
+      <div class="field"><label for="taskProductId">Sản phẩm</label><select id="taskProductId" name="productId"><option value="">Không gắn</option>${products.map(product => `<option value="${product.id}" ${item.productId === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="taskChannelId">Kênh bán</label><select id="taskChannelId" name="channelId"><option value="">Không gắn</option>${channelsList.map(channel => `<option value="${channel.id}" ${item.channelId === channel.id ? "selected" : ""}>${escapeHtml(channel.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="taskCampaignId">Chiến dịch</label><select id="taskCampaignId" name="campaignId"><option value="">Không gắn</option>${campaigns.map(campaign => `<option value="${campaign.id}" ${item.campaignId === campaign.id ? "selected" : ""}>${escapeHtml(campaign.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="taskSourceType">Nguồn</label><select id="taskSourceType" name="sourceType"><option value="manual">Ghi chú riêng</option><option value="meeting">Biên bản họp</option><option value="content">Content</option><option value="channel">Kênh bán</option><option value="inventory">Kho</option><option value="order">Đơn hàng</option></select></div>
+      <div class="field full"><label for="taskDescription">Mô tả</label><textarea id="taskDescription" name="description" rows="4" placeholder="Bối cảnh, yêu cầu, link liên quan...">${escapeHtml(item.description)}</textarea></div>
+    `;
+  }
+
   function renderProfileForm() {
     return `
       <div class="modal-summary full profile-summary">
@@ -7372,6 +7805,60 @@
           showToast(savedOrder.creditAmount > 0 ? "Đã trả hàng và ghi nhận dư có nhà cung cấp." : "Đã trả hàng, giảm tồn kho và công nợ.");
         }
       },
+      workspaceTask: {
+        eyebrow: "Team Hub",
+        title: "Tạo việc cần làm",
+        body: renderWorkspaceTaskForm(options.task || null),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const response = await apiRequest("/omni/tasks/upsert", {
+            method: "POST",
+            body: JSON.stringify(data)
+          });
+          const saved = normalizeWorkspaceTask(response.task);
+          state.workspaceTasks = [saved, ...(state.workspaceTasks || []).filter(item => item.id !== saved.id)];
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          showToast("Đã lưu việc cần làm.");
+        }
+      },
+      salesChannel: {
+        eyebrow: "Kênh bán",
+        title: "Thêm kênh bán",
+        body: renderSalesChannelForm(options.channel || null),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const response = await apiRequest("/omni/channels/upsert", {
+            method: "POST",
+            body: JSON.stringify(data)
+          });
+          const saved = normalizeSalesChannel(response.salesChannel);
+          state.salesChannels = [saved, ...(state.salesChannels || []).filter(item => item.id !== saved.id)];
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          showToast("Đã lưu kênh bán.");
+        }
+      },
+      channelProduct: {
+        eyebrow: "Đồng bộ SKU",
+        title: "Map SKU với kênh bán",
+        body: renderChannelProductForm(options.productId || ""),
+        async submit(form) {
+          const formData = new FormData(form);
+          const data = Object.fromEntries(formData);
+          data.syncStock = formData.has("syncStock");
+          data.syncPrice = formData.has("syncPrice");
+          const response = await apiRequest("/omni/mappings/upsert", {
+            method: "POST",
+            body: JSON.stringify(data)
+          });
+          const saved = normalizeChannelProduct(response.channelProduct);
+          state.channelProducts = [saved, ...(state.channelProducts || []).filter(item => item.id !== saved.id)];
+          window.ArtFlowPosStore.save(state);
+          renderPage();
+          showToast("Đã lưu mapping SKU.");
+        }
+      },
       user: {
         eyebrow: "Phân quyền",
         title: "Thêm nhân viên",
@@ -7821,6 +8308,9 @@
       if (target.matches("[data-choose-customer-file]")) els.customerCsvFile?.click();
       if (target.matches("[data-open-product]")) openModal("product");
       if (target.matches("[data-open-content-item]")) openModal("contentItem");
+      if (target.matches("[data-open-channel-form]")) openModal("salesChannel");
+      if (target.matches("[data-open-channel-product-form]")) openModal("channelProduct", { productId: target.dataset.productId || "" });
+      if (target.matches("[data-export-omni]")) exportOmniReport();
       if (target.matches("[data-copy-content-prompt]")) {
         const prompt = target.closest("form")?.querySelector("[data-content-prompt]")?.value || "";
         if (prompt) {
@@ -7866,7 +8356,7 @@
           window.location.href = "./meeting-minutes.html";
           return;
         }
-        const modalByView = { meetings: "teamMeeting", plans: "teamPlan", pricing: "teamPricing", decisions: "teamDecision" };
+        const modalByView = { meetings: "teamMeeting", tasks: "workspaceTask", plans: "teamPlan", pricing: "teamPricing", decisions: "teamDecision" };
         openModal(modalByView[teamFilters.view] || "teamMeeting");
       }
       if (target.dataset.editTeamMeeting) {
@@ -8399,6 +8889,10 @@
       if (event.target.matches("[data-inventory-filter]")) {
         inventoryFilters[event.target.dataset.inventoryFilter] = event.target.value;
         renderInventory();
+      }
+      if (event.target.matches("[data-omni-filter]")) {
+        omniFilters[event.target.dataset.omniFilter] = event.target.value;
+        renderOmniWorkspace();
       }
       if (event.target.matches("[data-content-filter]")) {
         contentFilters[event.target.dataset.contentFilter] = event.target.value;

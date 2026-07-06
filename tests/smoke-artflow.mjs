@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+﻿import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
@@ -18,6 +18,7 @@ const pages = [
   ["orders", "pages/orders.html"],
   ["order-create", "pages/order-create.html"],
   ["products", "pages/products.html"],
+  ["channels", "pages/channels.html"],
   ["content", "pages/content.html"],
   ["team", "pages/team.html"],
   ["meeting-minutes", "pages/meeting-minutes.html"],
@@ -157,9 +158,12 @@ async function saveScreenshot(page, viewportName, pageName) {
 
 async function runPageInteractions(page, pageName) {
   if (pageName === "team") {
-    await page.getByRole("button", { name: /Tinh gia|Tính giá|giá/i }).click().catch(() => {});
+    await page.locator("[data-team-view='tasks']").click().catch(() => {});
+    await page.locator("[data-team-secondary-action]").click().catch(() => {});
+    await page.locator("#taskTitle").fill("QA kiem tra workflow task").catch(() => {});
+    await page.locator("[data-modal-form] button[type='submit']").click().catch(() => {});
+    await page.locator("[data-modal-backdrop][hidden], .modal-backdrop[hidden]").waitFor({ timeout: 1500 }).catch(() => {});
     await page.waitForTimeout(100);
-    await page.getByRole("button", { name: /Bien ban|Biên bản/i }).click().catch(() => {});
   }
   if (pageName === "meeting-minutes") {
     await page.locator("#minutesTitle").fill("QA bien ban hop nhanh");
@@ -168,6 +172,14 @@ async function runPageInteractions(page, pageName) {
     await page.locator("[data-minutes-parse-quick]").click().catch(() => {});
     await page.locator("[data-meeting-minutes-form] button[type='submit']").click().catch(() => {});
     await page.waitForTimeout(100);
+  }
+  if (pageName === "channels") {
+    await page.locator("[data-open-channel-product-form]").first().click().catch(() => {});
+    await page.waitForTimeout(80);
+    await page.locator("#channelSku").fill("QA-SKU-001").catch(() => {});
+    await page.locator("[data-modal-form] button[type='submit']").click().catch(() => {});
+    await page.locator("[data-modal-backdrop][hidden], .modal-backdrop[hidden]").waitFor({ timeout: 1500 }).catch(() => {});
+    await page.waitForTimeout(120);
   }
   if (pageName === "order-create") {
     await page.locator("[data-open-product-picker], [data-show-product-picker], [data-product-picker-open]").first().click({ timeout: 1200 }).catch(() => {});
@@ -232,6 +244,14 @@ function handleAction(state, payload) {
       return updateTeamItem(state, payload);
     case "archiveTeamItem":
       return archiveTeamItem(state, payload);
+    case "getOmniWorkspaceData":
+      return omniData(state);
+    case "upsertSalesChannel":
+      return upsertSalesChannel(state, payload);
+    case "upsertChannelProduct":
+      return upsertChannelProduct(state, payload);
+    case "upsertWorkspaceTask":
+      return upsertWorkspaceTask(state, payload);
     case "getIncenseData":
       return incenseData(state);
     case "createIncenseWish":
@@ -270,7 +290,7 @@ function pageData(state, scopes) {
   const requested = Array.isArray(scopes) ? scopes : [];
   return requested.reduce((payload, scope) => {
     Object.assign(payload, {
-      products: ["products", "orders", "stockMovements", "purchasing", "content", "team"].includes(scope) ? state.products : payload.products,
+      products: ["products", "orders", "stockMovements", "purchasing", "content", "team", "omni"].includes(scope) ? state.products : payload.products,
       customers: ["customers", "orders"].includes(scope) ? state.customers : payload.customers,
       orders: ["orders", "accounting", "reports"].includes(scope) ? state.orders : payload.orders
     });
@@ -282,6 +302,7 @@ function pageData(state, scopes) {
     if (scope === "purchasing") Object.assign(payload, purchasingData(state));
     if (scope === "content") Object.assign(payload, contentData(state));
     if (scope === "team") Object.assign(payload, teamData(state));
+    if (scope === "omni") Object.assign(payload, omniData(state));
     if (scope === "incense") Object.assign(payload, incenseData(state));
     if (scope === "settings") payload.settings = state.appSettings || {};
     return payload;
@@ -327,7 +348,7 @@ function createAccountingReconciliation(state, payload) {
       categoryId: state.accountingCategories[0]?.id || "qa-category",
       amount: Math.abs(difference),
       transactionDate: reconciliation.reconciledAt,
-      description: "Điều chỉnh đối soát",
+      description: "Äiá»u chá»‰nh Ä‘á»‘i soÃ¡t",
       referenceType: "reconciliation",
       referenceId: reconciliation.id,
       createdBy: state.user.id,
@@ -369,10 +390,88 @@ function teamData(state) {
     teamPlans: state.teamPlans,
     teamPricingModels: state.teamPricingModels,
     teamDecisions: state.teamDecisions,
+    workspaceTasks: state.workspaceTasks || [],
+    campaigns: state.campaigns || [],
     products: state.products,
     contentOwners: state.contentOwners,
     users: state.users
   };
+}
+
+function omniData(state) {
+  return {
+    ok: true,
+    salesChannels: state.salesChannels || [],
+    channelProducts: state.channelProducts || [],
+    inventoryReservations: state.inventoryReservations || [],
+    campaigns: state.campaigns || [],
+    workspaceTasks: state.workspaceTasks || [],
+    products: state.products,
+    orders: state.orders,
+    users: state.users
+  };
+}
+
+function upsertSalesChannel(state, payload) {
+  const item = {
+    id: payload.id || `qa-channel-${Date.now()}`,
+    code: payload.code || "qa",
+    name: payload.name || "QA Channel",
+    type: payload.type || "marketplace",
+    status: payload.status || "active",
+    syncMode: payload.syncMode || "manual",
+    defaultPricePolicy: payload.defaultPricePolicy || "same",
+    note: payload.note || "",
+    createdAt: "2026-06-29T10:30:00+07:00",
+    updatedAt: "2026-06-29T10:30:00+07:00"
+  };
+  state.salesChannels = [item, ...(state.salesChannels || []).filter(channel => channel.id !== item.id)];
+  return { ok: true, salesChannel: item };
+}
+
+function upsertChannelProduct(state, payload) {
+  const product = state.products.find(item => item.id === payload.productId) || state.products[0];
+  const channel = (state.salesChannels || [])[0] || { id: "channel-pos" };
+  const item = {
+    id: payload.id || `qa-channel-product-${Date.now()}`,
+    channelId: payload.channelId || channel.id,
+    productId: payload.productId || product.id,
+    channelSku: payload.channelSku || product.sku,
+    channelName: payload.channelName || product.name,
+    channelPrice: Number(payload.channelPrice || product.salePrice || 0),
+    channelStock: Number(payload.channelStock || product.stock || 0),
+    syncStock: payload.syncStock !== false,
+    syncPrice: payload.syncPrice === true,
+    status: "active",
+    lastSyncAt: "2026-06-29T10:30:00+07:00",
+    note: payload.note || "",
+    createdAt: "2026-06-29T10:30:00+07:00",
+    updatedAt: "2026-06-29T10:30:00+07:00"
+  };
+  state.channelProducts = [item, ...(state.channelProducts || []).filter(row => row.id !== item.id)];
+  return { ok: true, channelProduct: item };
+}
+
+function upsertWorkspaceTask(state, payload) {
+  const item = {
+    id: payload.id || `qa-task-${Date.now()}`,
+    title: payload.title || "QA task",
+    status: payload.status || "todo",
+    priority: payload.priority || "normal",
+    owner: payload.owner || state.user.id,
+    sourceType: payload.sourceType || "manual",
+    sourceId: payload.sourceId || "",
+    productId: payload.productId || "",
+    channelId: payload.channelId || "",
+    campaignId: payload.campaignId || "",
+    dueDate: payload.dueDate || "2026-07-10",
+    description: payload.description || "",
+    createdBy: state.user.id,
+    createdAt: "2026-06-29T10:30:00+07:00",
+    updatedAt: "2026-06-29T10:30:00+07:00"
+  };
+  state.workspaceTasks = [item, ...(state.workspaceTasks || []).filter(task => task.id !== item.id)];
+  return { ok: true, task: item };
 }
 
 function incenseData(state) {
@@ -503,3 +602,4 @@ function createReceipt(state, payload) {
   if (index !== -1) state.orders[index] = saved;
   return { ok: true, order: saved };
 }
+

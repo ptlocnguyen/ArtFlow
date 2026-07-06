@@ -80,6 +80,24 @@ export function createArtflowFixture() {
       updatedAt: now
     }
   ];
+  const salesChannels = [
+    { id: "channel-pos", code: "pos", name: "POS cửa hàng", type: "pos", status: "active", syncMode: "manual", defaultPricePolicy: "same", note: "" },
+    { id: "channel-shopee", code: "shopee", name: "Shopee ArtFlow", type: "marketplace", status: "active", syncMode: "file", defaultPricePolicy: "manual", note: "Đối soát tồn mỗi cuối ngày" },
+    { id: "channel-tiktok", code: "tiktok", name: "TikTok Shop", type: "marketplace", status: "active", syncMode: "file", defaultPricePolicy: "manual", note: "" }
+  ];
+  const channelProducts = [
+    { id: "cp-001", channelId: "channel-shopee", productId: "prod-001", channelSku: "SHP-ART001", channelName: "But chi 2B Faber Castell", channelPrice: 8500, channelStock: 40, syncStock: true, syncPrice: false, status: "active" },
+    { id: "cp-002", channelId: "channel-tiktok", productId: "prod-005", channelSku: "TTS-ART005", channelName: "Mau nuoc Giorgione 24 mau", channelPrice: 225000, channelStock: 9, syncStock: true, syncPrice: false, status: "active" }
+  ];
+  const inventoryReservations = [
+    { id: "res-001", productId: "prod-005", orderId: "ord-002", channelId: "channel-shopee", quantity: 1, status: "active", reason: "Don san cho xu ly", createdBy: user.id, createdAt: now }
+  ];
+  const campaigns = [
+    { id: "campaign-001", name: "Back to School 2026", status: "active", owner: "user-content", channels: "facebook,shopee,tiktok", startDate: "2026-07-01", endDate: "2026-07-31", goal: "Day combo but chi va mau ve", budget: 2500000, targetRevenue: 18000000, targetProfit: 6500000, note: "" }
+  ];
+  const workspaceTasks = [
+    { id: "task-001", title: "Map SKU Shopee cho cac san pham ban chay", status: "todo", priority: "high", owner: "user-inventory", sourceType: "channel", sourceId: "channel-shopee", productId: "", channelId: "channel-shopee", campaignId: "campaign-001", dueDate: "2026-07-02", description: "Uu tien but chi va mau ve." }
+  ];
   const teamMeetings = [
     {
       id: "team-meeting-001",
@@ -132,6 +150,11 @@ export function createArtflowFixture() {
     teamPlans,
     teamPricingModels,
     teamDecisions,
+    salesChannels,
+    channelProducts,
+    inventoryReservations,
+    campaigns,
+    workspaceTasks,
     incenseWishes,
     customers,
     orders,

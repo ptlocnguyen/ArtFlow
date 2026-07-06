@@ -2,7 +2,7 @@ const SPREADSHEET_ID = "1L6b0QGzti33SVadVMKG2AnlsIKHjg98mNhuU3gJSd18";
 const SESSION_DAYS = 14;
 const USER_CACHE_SECONDS = 300;
 const HASH_ROUNDS = 12000;
-const DATABASE_SCHEMA_VERSION = "2026-07-01-incense-2";
+const DATABASE_SCHEMA_VERSION = "2026-07-06-omni-1";
 const VIETNAM_TIMEZONE = "Asia/Ho_Chi_Minh";
 
 let databaseReady = false;
@@ -116,6 +116,80 @@ const SHEETS = {
     "reference_type",
     "reference_id",
     "detail_json",
+    "created_by",
+    "created_at",
+    "updated_at"
+  ],
+  sales_channels: [
+    "id",
+    "code",
+    "name",
+    "type",
+    "status",
+    "sync_mode",
+    "default_price_policy",
+    "note",
+    "created_at",
+    "updated_at"
+  ],
+  channel_products: [
+    "id",
+    "channel_id",
+    "product_id",
+    "channel_sku",
+    "channel_name",
+    "channel_price",
+    "channel_stock",
+    "sync_stock",
+    "sync_price",
+    "status",
+    "last_sync_at",
+    "note",
+    "created_at",
+    "updated_at"
+  ],
+  inventory_reservations: [
+    "id",
+    "product_id",
+    "order_id",
+    "channel_id",
+    "quantity",
+    "status",
+    "reason",
+    "created_by",
+    "created_at",
+    "released_at"
+  ],
+  campaigns: [
+    "id",
+    "name",
+    "status",
+    "owner",
+    "channels",
+    "start_date",
+    "end_date",
+    "goal",
+    "budget",
+    "target_revenue",
+    "target_profit",
+    "note",
+    "created_by",
+    "created_at",
+    "updated_at"
+  ],
+  workspace_tasks: [
+    "id",
+    "title",
+    "status",
+    "priority",
+    "owner",
+    "source_type",
+    "source_id",
+    "product_id",
+    "channel_id",
+    "campaign_id",
+    "due_date",
+    "description",
     "created_by",
     "created_at",
     "updated_at"
@@ -467,6 +541,24 @@ function handleRequest(e) {
         return json(updateTeamItem(body));
       case "archiveTeamItem":
         return json(archiveTeamItem(body));
+      case "getOmniWorkspaceData":
+        return json(getOmniWorkspaceData(body));
+      case "upsertSalesChannel":
+        return json(upsertSalesChannel(body));
+      case "archiveSalesChannel":
+        return json(archiveSalesChannel(body));
+      case "upsertChannelProduct":
+        return json(upsertChannelProduct(body));
+      case "archiveChannelProduct":
+        return json(archiveChannelProduct(body));
+      case "upsertCampaign":
+        return json(upsertCampaign(body));
+      case "archiveCampaign":
+        return json(archiveCampaign(body));
+      case "upsertWorkspaceTask":
+        return json(upsertWorkspaceTask(body));
+      case "archiveWorkspaceTask":
+        return json(archiveWorkspaceTask(body));
       case "getIncenseData":
         return json(getIncenseData(body));
       case "createIncenseWish":
@@ -845,6 +937,7 @@ function setupDatabase() {
 
     ensureAccountingDefaults();
     ensureProductOptionDefaults();
+    ensureOmniDefaults();
     properties.setProperty("database_schema_version", DATABASE_SCHEMA_VERSION);
     databaseReady = true;
   } finally {
@@ -2109,6 +2202,8 @@ function getTeamWorkspaceData(body) {
     teamPlans: grouped.plan,
     teamPricingModels: grouped.pricing,
     teamDecisions: grouped.decision,
+    workspaceTasks: readRows("workspace_tasks").filter(function (item) { return item.status !== "deleted"; }).map(publicWorkspaceTask),
+    campaigns: readRows("campaigns").filter(function (item) { return item.status !== "deleted"; }).map(publicCampaign),
     products: products,
     contentOwners: users.map(function (user) { return { id: user.id, name: user.name, email: user.email }; }),
     users: users
@@ -2177,6 +2272,325 @@ function archiveTeamItem(body) {
   detail.updatedAt = nowIso();
   const patch = { status: "deleted", detail_json: JSON.stringify(detail), updated_at: detail.updatedAt };
   updateRow("team_items", item._row, patch);
+  return { ok: true };
+}
+
+function normalizeSalesChannelType(type) {
+  const value = String(type || "marketplace").trim();
+  return ["pos", "website", "marketplace", "social", "other"].indexOf(value) === -1 ? "marketplace" : value;
+}
+
+function publicSalesChannel(channel) {
+  return {
+    id: channel.id,
+    code: channel.code || "",
+    name: channel.name || "",
+    type: channel.type || "marketplace",
+    status: channel.status || "active",
+    syncMode: channel.sync_mode || "manual",
+    defaultPricePolicy: channel.default_price_policy || "same",
+    note: channel.note || "",
+    createdAt: channel.created_at || "",
+    updatedAt: channel.updated_at || ""
+  };
+}
+
+function publicChannelProduct(item) {
+  return {
+    id: item.id,
+    channelId: item.channel_id || "",
+    productId: item.product_id || "",
+    channelSku: item.channel_sku || "",
+    channelName: item.channel_name || "",
+    channelPrice: Number(item.channel_price || 0),
+    channelStock: Number(item.channel_stock || 0),
+    syncStock: String(item.sync_stock || "true") !== "false",
+    syncPrice: String(item.sync_price || "false") === "true",
+    status: item.status || "active",
+    lastSyncAt: item.last_sync_at || "",
+    note: item.note || "",
+    createdAt: item.created_at || "",
+    updatedAt: item.updated_at || ""
+  };
+}
+
+function publicInventoryReservation(item) {
+  return {
+    id: item.id,
+    productId: item.product_id || "",
+    orderId: item.order_id || "",
+    channelId: item.channel_id || "",
+    quantity: Number(item.quantity || 0),
+    status: item.status || "active",
+    reason: item.reason || "",
+    createdBy: item.created_by || "",
+    createdAt: item.created_at || "",
+    releasedAt: item.released_at || ""
+  };
+}
+
+function publicCampaign(item) {
+  return {
+    id: item.id,
+    name: item.name || "",
+    status: item.status || "idea",
+    owner: item.owner || "",
+    channels: item.channels || "",
+    startDate: item.start_date || "",
+    endDate: item.end_date || "",
+    goal: item.goal || "",
+    budget: Number(item.budget || 0),
+    targetRevenue: Number(item.target_revenue || 0),
+    targetProfit: Number(item.target_profit || 0),
+    note: item.note || "",
+    createdBy: item.created_by || "",
+    createdAt: item.created_at || "",
+    updatedAt: item.updated_at || ""
+  };
+}
+
+function publicWorkspaceTask(item) {
+  return {
+    id: item.id,
+    title: item.title || "",
+    status: item.status || "todo",
+    priority: item.priority || "normal",
+    owner: item.owner || "",
+    sourceType: item.source_type || "",
+    sourceId: item.source_id || "",
+    productId: item.product_id || "",
+    channelId: item.channel_id || "",
+    campaignId: item.campaign_id || "",
+    dueDate: item.due_date || "",
+    description: item.description || "",
+    createdBy: item.created_by || "",
+    createdAt: item.created_at || "",
+    updatedAt: item.updated_at || ""
+  };
+}
+
+function ensureOmniDefaults() {
+  const channels = readRows("sales_channels");
+  if (channels.length) return;
+  const now = nowIso();
+  [
+    { code: "pos", name: "POS cửa hàng", type: "pos", syncMode: "manual" },
+    { code: "shopee", name: "Shopee", type: "marketplace", syncMode: "file" },
+    { code: "tiktok", name: "TikTok Shop", type: "marketplace", syncMode: "file" },
+    { code: "lazada", name: "Lazada", type: "marketplace", syncMode: "file" },
+    { code: "facebook", name: "Facebook", type: "social", syncMode: "manual" },
+    { code: "website", name: "Website", type: "website", syncMode: "manual" }
+  ].forEach(function (item) {
+    appendRow("sales_channels", {
+      id: Utilities.getUuid(),
+      code: item.code,
+      name: item.name,
+      type: item.type,
+      status: "active",
+      sync_mode: item.syncMode,
+      default_price_policy: "same",
+      note: "",
+      created_at: now,
+      updated_at: now
+    });
+  });
+}
+
+function getOmniWorkspaceData(body) {
+  requireUser(body.token);
+  const channels = readRows("sales_channels").filter(function (item) { return item.status !== "deleted"; });
+  const mappings = readRows("channel_products").filter(function (item) { return item.status !== "deleted"; });
+  const reservations = readRows("inventory_reservations").filter(function (item) { return item.status !== "deleted"; });
+  const campaigns = readRows("campaigns").filter(function (item) { return item.status !== "deleted"; });
+  const tasks = readRows("workspace_tasks").filter(function (item) { return item.status !== "deleted"; });
+  const products = readRows("products").filter(function (product) { return product.status !== "deleted"; }).map(publicProduct);
+  const orders = listOrders(body);
+  const users = readRows("users")
+    .filter(function (user) { return user.status === "active"; })
+    .map(function (user) { return { id: user.id, name: user.name, email: user.email, role: user.role }; });
+  return {
+    ok: true,
+    salesChannels: channels.map(publicSalesChannel),
+    channelProducts: mappings.map(publicChannelProduct),
+    inventoryReservations: reservations.map(publicInventoryReservation),
+    campaigns: campaigns.map(publicCampaign),
+    workspaceTasks: tasks.map(publicWorkspaceTask),
+    products: products,
+    orders: orders.orders || [],
+    users: users
+  };
+}
+
+function upsertSalesChannel(body) {
+  requireAdmin(body.token);
+  const id = String(body.id || "");
+  const code = String(body.code || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  const name = String(body.name || "").trim();
+  if (!code || !name) return { ok: false, error: "Sales channel is invalid" };
+  const rows = readRows("sales_channels");
+  if (rows.some(function (item) { return item.id !== id && item.status !== "deleted" && String(item.code || "").toLowerCase() === code; })) {
+    return { ok: false, error: "Sales channel code already exists" };
+  }
+  const now = nowIso();
+  const patch = {
+    code: code,
+    name: name,
+    type: normalizeSalesChannelType(body.type),
+    status: String(body.status || "active") === "archived" ? "archived" : "active",
+    sync_mode: ["manual", "file", "api"].indexOf(String(body.syncMode || body.sync_mode || "manual")) === -1 ? "manual" : String(body.syncMode || body.sync_mode || "manual"),
+    default_price_policy: ["same", "manual", "markup"].indexOf(String(body.defaultPricePolicy || body.default_price_policy || "same")) === -1 ? "same" : String(body.defaultPricePolicy || body.default_price_policy || "same"),
+    note: String(body.note || "").trim(),
+    updated_at: now
+  };
+  if (id) {
+    const row = rows.find(function (item) { return item.id === id && item.status !== "deleted"; });
+    if (!row) return { ok: false, error: "Sales channel not found" };
+    updateRow("sales_channels", row._row, patch);
+    return { ok: true, salesChannel: publicSalesChannel(Object.assign({}, row, patch)) };
+  }
+  const channel = Object.assign({ id: Utilities.getUuid(), created_at: now }, patch);
+  appendRow("sales_channels", channel);
+  return { ok: true, salesChannel: publicSalesChannel(channel) };
+}
+
+function archiveSalesChannel(body) {
+  requireAdmin(body.token);
+  const id = String(body.id || "");
+  const item = readRows("sales_channels").find(function (row) { return row.id === id && row.status !== "deleted"; });
+  if (!item) return { ok: false, error: "Sales channel not found" };
+  const patch = { status: "deleted", updated_at: nowIso() };
+  updateRow("sales_channels", item._row, patch);
+  return { ok: true };
+}
+
+function upsertChannelProduct(body) {
+  requireCatalogManager(body.token);
+  const id = String(body.id || "");
+  const channelId = String(body.channelId || body.channel_id || "");
+  const productId = String(body.productId || body.product_id || "");
+  if (!channelId || !productId) return { ok: false, error: "Channel product mapping is invalid" };
+  if (!readRows("sales_channels").some(function (item) { return item.id === channelId && item.status === "active"; })) {
+    return { ok: false, error: "Sales channel is inactive" };
+  }
+  if (!readRows("products").some(function (item) { return item.id === productId && item.status !== "deleted"; })) {
+    return { ok: false, error: "Product not found" };
+  }
+  const rows = readRows("channel_products");
+  const now = nowIso();
+  const patch = {
+    channel_id: channelId,
+    product_id: productId,
+    channel_sku: String(body.channelSku || body.channel_sku || "").trim(),
+    channel_name: String(body.channelName || body.channel_name || "").trim(),
+    channel_price: Number(body.channelPrice || body.channel_price || 0) || 0,
+    channel_stock: Number(body.channelStock || body.channel_stock || 0) || 0,
+    sync_stock: String(body.syncStock === false || body.sync_stock === false ? "false" : body.syncStock || body.sync_stock || "true"),
+    sync_price: String(body.syncPrice === true || body.sync_price === true ? "true" : body.syncPrice || body.sync_price || "false"),
+    status: String(body.status || "active") === "archived" ? "archived" : "active",
+    last_sync_at: body.lastSyncAt || body.last_sync_at || "",
+    note: String(body.note || "").trim(),
+    updated_at: now
+  };
+  if (id) {
+    const row = rows.find(function (item) { return item.id === id && item.status !== "deleted"; });
+    if (!row) return { ok: false, error: "Channel product not found" };
+    updateRow("channel_products", row._row, patch);
+    return { ok: true, channelProduct: publicChannelProduct(Object.assign({}, row, patch)) };
+  }
+  const row = Object.assign({ id: Utilities.getUuid(), created_at: now }, patch);
+  appendRow("channel_products", row);
+  return { ok: true, channelProduct: publicChannelProduct(row) };
+}
+
+function archiveChannelProduct(body) {
+  requireCatalogManager(body.token);
+  const id = String(body.id || "");
+  const item = readRows("channel_products").find(function (row) { return row.id === id && row.status !== "deleted"; });
+  if (!item) return { ok: false, error: "Channel product not found" };
+  const patch = { status: "deleted", updated_at: nowIso() };
+  updateRow("channel_products", item._row, patch);
+  return { ok: true };
+}
+
+function upsertCampaign(body) {
+  const user = requireUser(body.token);
+  const id = String(body.id || "");
+  const name = String(body.name || "").trim();
+  if (!name) return { ok: false, error: "Campaign name is required" };
+  const rows = readRows("campaigns");
+  const now = nowIso();
+  const patch = {
+    name: name,
+    status: ["idea", "active", "paused", "done"].indexOf(String(body.status || "idea")) === -1 ? "idea" : String(body.status || "idea"),
+    owner: String(body.owner || "").trim(),
+    channels: String(body.channels || "").trim(),
+    start_date: String(body.startDate || body.start_date || "").slice(0, 10),
+    end_date: String(body.endDate || body.end_date || "").slice(0, 10),
+    goal: String(body.goal || "").trim(),
+    budget: Number(body.budget || 0) || 0,
+    target_revenue: Number(body.targetRevenue || body.target_revenue || 0) || 0,
+    target_profit: Number(body.targetProfit || body.target_profit || 0) || 0,
+    note: String(body.note || "").trim(),
+    updated_at: now
+  };
+  if (id) {
+    const row = rows.find(function (item) { return item.id === id && item.status !== "deleted"; });
+    if (!row) return { ok: false, error: "Campaign not found" };
+    updateRow("campaigns", row._row, patch);
+    return { ok: true, campaign: publicCampaign(Object.assign({}, row, patch)) };
+  }
+  const row = Object.assign({ id: Utilities.getUuid(), created_by: user.id, created_at: now }, patch);
+  appendRow("campaigns", row);
+  return { ok: true, campaign: publicCampaign(row) };
+}
+
+function archiveCampaign(body) {
+  requireUser(body.token);
+  const id = String(body.id || "");
+  const item = readRows("campaigns").find(function (row) { return row.id === id && row.status !== "deleted"; });
+  if (!item) return { ok: false, error: "Campaign not found" };
+  updateRow("campaigns", item._row, { status: "deleted", updated_at: nowIso() });
+  return { ok: true };
+}
+
+function upsertWorkspaceTask(body) {
+  const user = requireUser(body.token);
+  const id = String(body.id || "");
+  const title = String(body.title || "").trim();
+  if (!title) return { ok: false, error: "Task title is required" };
+  const rows = readRows("workspace_tasks");
+  const now = nowIso();
+  const patch = {
+    title: title,
+    status: ["todo", "doing", "blocked", "done"].indexOf(String(body.status || "todo")) === -1 ? "todo" : String(body.status || "todo"),
+    priority: ["low", "normal", "high", "urgent"].indexOf(String(body.priority || "normal")) === -1 ? "normal" : String(body.priority || "normal"),
+    owner: String(body.owner || "").trim(),
+    source_type: String(body.sourceType || body.source_type || "").trim(),
+    source_id: String(body.sourceId || body.source_id || "").trim(),
+    product_id: String(body.productId || body.product_id || "").trim(),
+    channel_id: String(body.channelId || body.channel_id || "").trim(),
+    campaign_id: String(body.campaignId || body.campaign_id || "").trim(),
+    due_date: String(body.dueDate || body.due_date || "").slice(0, 10),
+    description: String(body.description || "").trim(),
+    updated_at: now
+  };
+  if (id) {
+    const row = rows.find(function (item) { return item.id === id && item.status !== "deleted"; });
+    if (!row) return { ok: false, error: "Task not found" };
+    updateRow("workspace_tasks", row._row, patch);
+    return { ok: true, task: publicWorkspaceTask(Object.assign({}, row, patch)) };
+  }
+  const row = Object.assign({ id: Utilities.getUuid(), created_by: user.id, created_at: now }, patch);
+  appendRow("workspace_tasks", row);
+  return { ok: true, task: publicWorkspaceTask(row) };
+}
+
+function archiveWorkspaceTask(body) {
+  requireUser(body.token);
+  const id = String(body.id || "");
+  const item = readRows("workspace_tasks").find(function (row) { return row.id === id && row.status !== "deleted"; });
+  if (!item) return { ok: false, error: "Task not found" };
+  updateRow("workspace_tasks", item._row, { status: "deleted", updated_at: nowIso() });
   return { ok: true };
 }
 
@@ -4599,7 +5013,7 @@ function getPageData(body) {
   }
   if (!Array.isArray(scopes)) scopes = [];
 
-  const allowedScopes = ["products", "customers", "orders", "stockMovements", "accounting", "purchasing", "content", "team", "incense", "settings"];
+  const allowedScopes = ["products", "customers", "orders", "stockMovements", "accounting", "purchasing", "content", "team", "omni", "incense", "settings"];
   const requested = {};
   scopes.forEach(function (scope) {
     const normalized = String(scope || "").trim();
@@ -4621,6 +5035,7 @@ function getPageData(body) {
   if (requested.purchasing) merge(getPurchasingData(body));
   if (requested.content) merge(getContentWorkspaceData(body));
   if (requested.team) merge(getTeamWorkspaceData(body));
+  if (requested.omni) merge(getOmniWorkspaceData(body));
   if (requested.incense) merge(getIncenseData(body));
   if (requested.settings) merge(getAppSettings(body));
 
