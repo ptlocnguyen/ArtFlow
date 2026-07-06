@@ -44,8 +44,8 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         with:
-          timeout: 1800000
-          reporting_interval: 15000
+          timeout: 600000
+          reporting_interval: 10000
           error_count: 120
