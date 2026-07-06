@@ -126,6 +126,7 @@
     products: { title: "Sản phẩm", href: "./products.html", icon: "package" },
     content: { title: "Content", href: "./content.html", icon: "sparkles" },
     team: { title: "Team Hub", href: "./team.html", icon: "briefcase" },
+    meetingMinutes: { title: "Biên bản họp", href: "./meeting-minutes.html", icon: "clipboard", hidden: true },
     incense: { title: "Xin vía", href: "./incense.html", icon: "sparkles" },
     customers: { title: "Khách hàng", href: "./customers.html", icon: "users" },
     purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "truck" },
@@ -236,6 +237,20 @@
     teamRangeFilter: qs("[data-team-range-filter]"),
     teamPanelTitle: qs("[data-team-panel-title]"),
     teamPanelNote: qs("[data-team-panel-note]"),
+    minutesList: qs("[data-minutes-list]"),
+    minutesForm: qs("[data-meeting-minutes-form]"),
+    minutesTitle: qs("[data-minutes-title]"),
+    minutesSubtitle: qs("[data-minutes-subtitle]"),
+    minutesAgendaList: qs("[data-minutes-agenda-list]"),
+    minutesDecisionsList: qs("[data-minutes-decisions-list]"),
+    minutesActionsList: qs("[data-minutes-actions-list]"),
+    minutesLinksList: qs("[data-minutes-links-list]"),
+    minutesQuickNote: qs("[data-minutes-quick-note]"),
+    minutesHiddenAgenda: qs("[data-minutes-hidden-agenda]"),
+    minutesHiddenDecisions: qs("[data-minutes-hidden-decisions]"),
+    minutesHiddenActions: qs("[data-minutes-hidden-actions]"),
+    minutesHiddenLinks: qs("[data-minutes-hidden-links]"),
+    minutesEmpty: qs("[data-minutes-empty]"),
     incenseForm: qs("[data-incense-form]"),
     incenseKind: qs("[data-incense-kind]"),
     incenseOfferings: qs("[data-incense-offerings]"),
@@ -1483,6 +1498,7 @@
       products: ["products"],
       content: ["content"],
       team: ["team"],
+      meetingMinutes: ["team"],
       incense: ["incense"],
       customers: ["customers"],
       inventory: ["products", "stockMovements"],
@@ -3677,6 +3693,260 @@
     return (actions || []).map(action => [action.title, action.owner, action.dueDate, action.status].filter(Boolean).join(" | ")).join("\n");
   }
 
+  function localDateTimeValue(value) {
+    const date = value ? new Date(value) : new Date();
+    if (!isFinite(date.getTime())) return "";
+    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  }
+
+  function meetingTypeOptions(selected) {
+    return [["weekly", "Họp tuần"], ["planning", "Kế hoạch"], ["product", "Sản phẩm"], ["finance", "Tài chính"], ["content", "Content"], ["other", "Khác"]]
+      .map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
+  }
+
+  function meetingStatusOptions(selected) {
+    return [["draft", "Nháp"], ["scheduled", "Đã lên lịch"], ["completed", "Hoàn tất"], ["cancelled", "Hủy"]]
+      .map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
+  }
+
+  function actionStatusOptions(selected) {
+    return [["todo", "Cần làm"], ["doing", "Đang làm"], ["done", "Xong"]]
+      .map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
+  }
+
+  function splitListText(text) {
+    return String(text || "")
+      .split(/\n+/)
+      .map(line => line.replace(/^\s*(?:[-*•]+|\d+[.)]|[a-z][.)])\s*/i, "").trim())
+      .filter(Boolean);
+  }
+
+  function meetingMinutesIdFromUrl() {
+    return new URLSearchParams(window.location.search).get("id") || "";
+  }
+
+  function setMeetingMinutesUrl(id) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("id", id);
+    else url.searchParams.delete("id");
+    window.history.replaceState({}, "", url);
+  }
+
+  function renderMinutesTextRows(container, items, type) {
+    if (!container) return;
+    container.innerHTML = (items.length ? items : [""]).map(item => `
+      <div class="minutes-row" data-minutes-${type}-row>
+        <input value="${escapeAttribute(item)}" placeholder="${type === "agenda" ? "Nội dung agenda" : type === "decision" ? "Quyết định đã chốt" : "Link hoặc ghi chú link"}" />
+        <button class="icon-button" type="button" data-minutes-remove-row title="Xóa">${icon("trash")}</button>
+      </div>
+    `).join("");
+    hydrateIcons(container);
+  }
+
+  function renderMinutesActions(container, actions) {
+    if (!container) return;
+    const rows = actions.length ? actions : [normalizeTeamAction({ title: "", owner: "", dueDate: "", status: "todo" })];
+    container.innerHTML = rows.map(action => `
+      <div class="minutes-action-row" data-minutes-action-row>
+        <input data-action-title value="${escapeAttribute(action.title)}" placeholder="Việc cần làm" />
+        <select data-action-owner>${teamOwnerOptions(action.owner)}</select>
+        <input data-action-due type="date" value="${escapeAttribute(action.dueDate)}" />
+        <select data-action-status>${actionStatusOptions(action.status || "todo")}</select>
+        <button class="icon-button" type="button" data-minutes-remove-row title="Xóa">${icon("trash")}</button>
+      </div>
+    `).join("");
+    hydrateIcons(container);
+  }
+
+  function renderMinutesAttendees(form, attendeesText) {
+    const host = form?.querySelector("[data-minutes-attendees]");
+    const hidden = form?.querySelector("[data-minutes-attendees-hidden]");
+    if (!host || !hidden) return;
+    const attendees = String(attendeesText || "")
+      .split(/[,;\n]+/)
+      .map(item => item.trim())
+      .filter(Boolean);
+    hidden.value = attendees.join(", ");
+    host.innerHTML = attendees.length ? attendees.map(name => `
+      <button class="minutes-chip" type="button" data-minutes-remove-attendee="${escapeAttribute(name)}">${escapeHtml(name)} ${icon("close")}</button>
+    `).join("") : `<span class="muted">Chưa thêm ai.</span>`;
+  }
+
+  function renderMeetingMinutesForm(meeting) {
+    const form = els.minutesForm;
+    if (!form) return;
+    const fields = form.elements;
+    const item = normalizeTeamMeeting(meeting || {});
+    const isNew = !item.id || item.id.indexOf("meeting_") === 0;
+    form.dataset.meetingId = isNew ? "" : item.id;
+    fields.title.value = item.title || "";
+    fields.type.innerHTML = meetingTypeOptions(item.type || "weekly");
+    fields.status.innerHTML = meetingStatusOptions(item.status || "draft");
+    fields.meetingAt.value = item.meetingAt ? localDateTimeValue(item.meetingAt) : localDateTimeValue();
+    fields.owner.innerHTML = teamOwnerOptions(item.owner || (currentUser ? currentUser.name : ""));
+    fields.notes.value = item.notes || "";
+    fields.sourceType.value = item.sourceType || "manual";
+    fields.sourceId.value = item.sourceId || "";
+    fields.newComment.value = "";
+    const attendeeSelect = form.querySelector("[data-minutes-attendee-select]");
+    if (attendeeSelect) attendeeSelect.innerHTML = `<option value="">Chọn nhân viên</option>${teamOwners().map(name => `<option value="${escapeAttribute(name)}">${escapeHtml(name)}</option>`).join("")}`;
+    renderMinutesAttendees(form, item.attendees || "");
+    renderMinutesTextRows(els.minutesAgendaList, splitListText(item.agenda), "agenda");
+    renderMinutesTextRows(els.minutesDecisionsList, item.decisions || [], "decision");
+    renderMinutesTextRows(els.minutesLinksList, splitListText(item.links), "link");
+    renderMinutesActions(els.minutesActionsList, item.actions || []);
+    syncMeetingMinutesForm();
+    if (els.minutesTitle) els.minutesTitle.textContent = isNew ? "Biên bản mới" : item.title || "Biên bản họp";
+    if (els.minutesSubtitle) {
+      els.minutesSubtitle.textContent = isNew
+        ? "Ghi nhanh, hệ thống sẽ tự chuẩn hóa agenda, quyết định và việc cần làm."
+        : `${teamStatuses[item.status] || item.status || "Nháp"} · ${item.meetingAt ? formatDateTimeShort(item.meetingAt) : "Chưa có lịch"}`;
+    }
+  }
+
+  function renderMeetingMinutesList(activeId) {
+    if (!els.minutesList) return;
+    const meetings = (state.teamMeetings || []).map(normalizeTeamMeeting)
+      .filter(item => item.status !== "deleted")
+      .sort((a, b) => String(b.meetingAt || b.updatedAt || b.createdAt || "").localeCompare(String(a.meetingAt || a.updatedAt || a.createdAt || "")));
+    els.minutesList.innerHTML = meetings.length ? meetings.map(item => {
+      const openActions = (item.actions || []).filter(action => action.status !== "done").length;
+      return `<button type="button" class="${item.id === activeId ? "active" : ""}" data-minutes-select="${escapeAttribute(item.id)}">
+        <strong>${escapeHtml(item.title || "Biên bản chưa đặt tên")}</strong>
+        <span>${item.meetingAt ? formatDateTimeShort(item.meetingAt) : "Chưa có lịch"} · ${escapeHtml(item.owner || "Chưa giao")}</span>
+        <small>${openActions} việc mở · ${(item.decisions || []).length} quyết định</small>
+      </button>`;
+    }).join("") : `<div class="empty">Chưa có biên bản.</div>`;
+  }
+
+  function renderMeetingMinutesPage() {
+    if (!els.minutesForm) return;
+    const id = meetingMinutesIdFromUrl();
+    const meeting = id ? (state.teamMeetings || []).find(item => item.id === id) : null;
+    renderMeetingMinutesList(id);
+    renderMeetingMinutesForm(meeting || {});
+  }
+
+  function valuesFromMinutesRows(selector) {
+    return [...document.querySelectorAll(selector)]
+      .map(row => row.querySelector("input")?.value.trim() || "")
+      .filter(Boolean);
+  }
+
+  function syncMeetingMinutesForm() {
+    if (!els.minutesForm) return;
+    if (els.minutesHiddenAgenda) els.minutesHiddenAgenda.value = valuesFromMinutesRows("[data-minutes-agenda-row]").join("\n");
+    if (els.minutesHiddenDecisions) els.minutesHiddenDecisions.value = valuesFromMinutesRows("[data-minutes-decision-row]").join("\n");
+    if (els.minutesHiddenLinks) els.minutesHiddenLinks.value = valuesFromMinutesRows("[data-minutes-link-row]").join("\n");
+    if (els.minutesHiddenActions) {
+      els.minutesHiddenActions.value = [...document.querySelectorAll("[data-minutes-action-row]")]
+        .map(row => [
+          row.querySelector("[data-action-title]")?.value.trim() || "",
+          row.querySelector("[data-action-owner]")?.value.trim() || "",
+          row.querySelector("[data-action-due]")?.value.trim() || "",
+          row.querySelector("[data-action-status]")?.value.trim() || "todo"
+        ])
+        .filter(parts => parts[0])
+        .map(parts => parts.join(" | "))
+        .join("\n");
+    }
+  }
+
+  function addMinutesTextRow(type, value = "") {
+    const container = {
+      agenda: els.minutesAgendaList,
+      decision: els.minutesDecisionsList,
+      link: els.minutesLinksList
+    }[type];
+    if (!container) return;
+    container.insertAdjacentHTML("beforeend", `
+      <div class="minutes-row" data-minutes-${type}-row>
+        <input value="${escapeAttribute(value)}" placeholder="${type === "agenda" ? "Nội dung agenda" : type === "decision" ? "Quyết định đã chốt" : "Link hoặc ghi chú link"}" />
+        <button class="icon-button" type="button" data-minutes-remove-row title="Xóa">${icon("trash")}</button>
+      </div>
+    `);
+    hydrateIcons(container);
+    container.querySelector(".minutes-row:last-child input")?.focus();
+  }
+
+  function addMinutesAction(action = {}) {
+    if (!els.minutesActionsList) return;
+    const item = normalizeTeamAction({ status: "todo", ...action });
+    els.minutesActionsList.insertAdjacentHTML("beforeend", `
+      <div class="minutes-action-row" data-minutes-action-row>
+        <input data-action-title value="${escapeAttribute(item.title)}" placeholder="Việc cần làm" />
+        <select data-action-owner>${teamOwnerOptions(item.owner)}</select>
+        <input data-action-due type="date" value="${escapeAttribute(item.dueDate)}" />
+        <select data-action-status>${actionStatusOptions(item.status || "todo")}</select>
+        <button class="icon-button" type="button" data-minutes-remove-row title="Xóa">${icon("trash")}</button>
+      </div>
+    `);
+    hydrateIcons(els.minutesActionsList);
+    els.minutesActionsList.querySelector(".minutes-action-row:last-child input")?.focus();
+  }
+
+  function applyMeetingTemplate(template) {
+    const templates = {
+      weekly: ["Kết quả tuần trước", "Vướng mắc cần gỡ", "Việc ưu tiên tuần này", "Người phụ trách và deadline"],
+      planning: ["Mục tiêu", "Nguồn lực/ngân sách", "Rủi ro", "Mốc triển khai", "Quyết định cần chốt"],
+      content: ["Ý tưởng/chủ đề", "Kênh đăng", "Asset cần chuẩn bị", "Deadline", "Số liệu cần theo dõi"],
+      finance: ["Số liệu hiện tại", "Khoản cần xử lý", "Chênh lệch/rủi ro", "Quyết định", "Người phụ trách"]
+    };
+    renderMinutesTextRows(els.minutesAgendaList, templates[template] || templates.weekly, "agenda");
+    syncMeetingMinutesForm();
+  }
+
+  function parseQuickMeetingNote() {
+    const text = els.minutesQuickNote?.value || "";
+    if (!text.trim()) return;
+    const noteLines = [];
+    splitListText(text).forEach(line => {
+      const clean = line.replace(/^(quyết định|quyet dinh|chốt|chot|decision|qd)\s*[:\-]\s*/i, "").trim();
+      if (/^(quyết định|quyet dinh|chốt|chot|decision|qd)\s*[:\-]/i.test(line)) {
+        addMinutesTextRow("decision", clean);
+      } else if (/^(việc|viec|todo|action|làm|lam)\s*[:\-]/i.test(line)) {
+        const actionText = line.replace(/^(việc|viec|todo|action|làm|lam)\s*[:\-]\s*/i, "").trim();
+        const dueMatch = actionText.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
+        addMinutesAction({
+          title: actionText.replace(/\s*(trước|truoc|deadline|hạn|han)?\s*20\d{2}-\d{2}-\d{2}\b/i, "").trim(),
+          dueDate: dueMatch ? dueMatch[1] : ""
+        });
+      } else if (/https?:\/\/|drive\.google|docs\.google|sheets\.google/i.test(line)) {
+        addMinutesTextRow("link", line);
+      } else {
+        noteLines.push(line);
+      }
+    });
+    if (noteLines.length && els.minutesForm?.notes) {
+      els.minutesForm.elements.notes.value = [els.minutesForm.elements.notes.value.trim(), noteLines.join("\n")].filter(Boolean).join("\n");
+    }
+    els.minutesQuickNote.value = "";
+    syncMeetingMinutesForm();
+  }
+
+  function cleanMeetingMinutesText() {
+    if (!els.minutesForm) return;
+    ["notes"].forEach(name => {
+      if (els.minutesForm.elements[name]) els.minutesForm.elements[name].value = splitListText(els.minutesForm.elements[name].value).join("\n");
+    });
+    ["agenda", "decision", "link"].forEach(type => {
+      document.querySelectorAll(`[data-minutes-${type}-row] input`).forEach(input => {
+        input.value = splitListText(input.value).join(" ");
+      });
+    });
+    syncMeetingMinutesForm();
+  }
+
+  async function submitMeetingMinutesForm(form) {
+    syncMeetingMinutesForm();
+    const id = form.dataset.meetingId || "";
+    const existing = id ? (state.teamMeetings || []).find(item => item.id === id) : null;
+    const saved = await saveTeamItem("meeting", form, existing || null);
+    if (saved?.id) setMeetingMinutesUrl(saved.id);
+    showToast("Đã lưu biên bản họp.");
+  }
+
   function renderMeetingForm(meeting) {
     const item = normalizeTeamMeeting(meeting || {});
     return `
@@ -3861,6 +4131,7 @@
     window.ArtFlowPosStore.save(state);
     renderPage();
     showToast("Đã lưu Team Hub.");
+    return saved;
   }
 
   function upsertLocalItem(items, saved) {
@@ -4700,6 +4971,7 @@
     renderProducts();
     renderContentWorkspace();
     renderTeamHub();
+    renderMeetingMinutesPage();
     renderIncense();
     renderCustomers();
     renderUsers();
@@ -7320,6 +7592,26 @@
       });
     }
 
+    if (els.minutesForm) {
+      els.minutesForm.addEventListener("input", event => {
+        if (event.target.closest("[data-minutes-agenda-list], [data-minutes-decisions-list], [data-minutes-actions-list], [data-minutes-links-list]")) {
+          syncMeetingMinutesForm();
+        }
+      });
+      els.minutesForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        const button = event.currentTarget.querySelector("button[type='submit']");
+        setBusy(button, true, "Đang lưu...");
+        try {
+          await withLoading("Đang lưu biên bản họp...", () => submitMeetingMinutesForm(event.currentTarget));
+        } catch (error) {
+          showToast(error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+    }
+
     const search = qs("[data-global-search]");
     if (search) {
       search.addEventListener("input", event => {
@@ -7570,16 +7862,60 @@
         renderPage();
       }
       if (target.matches("[data-team-primary-action], [data-team-secondary-action]")) {
+        if (teamFilters.view === "meetings") {
+          window.location.href = "./meeting-minutes.html";
+          return;
+        }
         const modalByView = { meetings: "teamMeeting", plans: "teamPlan", pricing: "teamPricing", decisions: "teamDecision" };
         openModal(modalByView[teamFilters.view] || "teamMeeting");
       }
       if (target.dataset.editTeamMeeting) {
-        const item = (state.teamMeetings || []).find(entry => entry.id === target.dataset.editTeamMeeting);
-        if (item) openModal("teamMeeting", { teamMeeting: item });
+        window.location.href = `./meeting-minutes.html?id=${encodeURIComponent(target.dataset.editTeamMeeting)}`;
+        return;
       }
       if (target.dataset.viewTeamMeeting) {
-        const item = (state.teamMeetings || []).find(entry => entry.id === target.dataset.viewTeamMeeting);
-        if (item) openModal("teamMeeting", { teamMeeting: item });
+        window.location.href = `./meeting-minutes.html?id=${encodeURIComponent(target.dataset.viewTeamMeeting)}`;
+        return;
+      }
+      if (target.matches("[data-minutes-new]")) {
+        setMeetingMinutesUrl("");
+        renderMeetingMinutesPage();
+      }
+      if (target.dataset.minutesSelect) {
+        setMeetingMinutesUrl(target.dataset.minutesSelect);
+        renderMeetingMinutesPage();
+      }
+      if (target.dataset.minutesTemplate) applyMeetingTemplate(target.dataset.minutesTemplate);
+      if (target.matches("[data-minutes-add-agenda]")) addMinutesTextRow("agenda");
+      if (target.matches("[data-minutes-add-decision]")) addMinutesTextRow("decision");
+      if (target.matches("[data-minutes-add-action]")) addMinutesAction();
+      if (target.matches("[data-minutes-add-link]")) addMinutesTextRow("link");
+      if (target.matches("[data-minutes-parse-quick]")) parseQuickMeetingNote();
+      if (target.matches("[data-minutes-clean]")) cleanMeetingMinutesText();
+      if (target.matches("[data-minutes-insert-time]") && els.minutesQuickNote) {
+        els.minutesQuickNote.value = [els.minutesQuickNote.value, `[${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}] `].join(els.minutesQuickNote.value ? "\n" : "");
+        els.minutesQuickNote.focus();
+      }
+      if (target.matches("[data-minutes-add-attendee]")) {
+        const form = target.closest("form");
+        const select = form?.querySelector("[data-minutes-attendee-select]");
+        const input = form?.querySelector("[data-minutes-attendee-input]");
+        const hidden = form?.querySelector("[data-minutes-attendees-hidden]");
+        const next = String(input?.value || select?.value || "").trim();
+        const names = String(hidden?.value || "").split(/,\s*/).filter(Boolean);
+        if (next && !names.includes(next)) names.push(next);
+        if (input) input.value = "";
+        renderMinutesAttendees(form, names.join(", "));
+      }
+      if (target.dataset.minutesRemoveAttendee) {
+        const form = target.closest("form");
+        const hidden = form?.querySelector("[data-minutes-attendees-hidden]");
+        const names = String(hidden?.value || "").split(/,\s*/).filter(Boolean).filter(name => name !== target.dataset.minutesRemoveAttendee);
+        renderMinutesAttendees(form, names.join(", "));
+      }
+      if (target.matches("[data-minutes-remove-row]")) {
+        target.closest("[data-minutes-agenda-row], [data-minutes-decision-row], [data-minutes-action-row], [data-minutes-link-row]")?.remove();
+        syncMeetingMinutesForm();
       }
       if (target.dataset.editTeamPlan) {
         const item = (state.teamPlans || []).find(entry => entry.id === target.dataset.editTeamPlan);

@@ -4838,6 +4838,244 @@ body[data-page="products"] .view.active {
   background: #f2f4f7;
 }
 
+body[data-page="meetingMinutes"] .view.active {
+  min-height: 0;
+}
+
+.meeting-minutes-workspace {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.minutes-sidebar,
+.minutes-editor {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.minutes-sidebar {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.minutes-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 0;
+  max-height: calc(100dvh - 230px);
+  padding: 0 14px 14px;
+  overflow: auto;
+  scrollbar-color: #b8c4d6 transparent;
+  scrollbar-width: thin;
+}
+
+.minutes-list button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.minutes-list button.active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.minutes-list strong {
+  overflow-wrap: anywhere;
+}
+
+.minutes-list span,
+.minutes-list small,
+.minutes-section p,
+.minutes-editor-head p {
+  color: var(--muted);
+}
+
+.minutes-list span,
+.minutes-list small {
+  font-size: 12px;
+}
+
+.minutes-editor {
+  display: grid;
+  gap: 14px;
+  max-height: calc(100dvh - 126px);
+  padding: 18px;
+  overflow: auto;
+  scrollbar-color: #b8c4d6 transparent;
+  scrollbar-width: thin;
+}
+
+.minutes-editor-head,
+.minutes-section-head,
+.minutes-attendee-control,
+.minutes-row,
+.minutes-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.minutes-editor-head,
+.minutes-section-head {
+  justify-content: space-between;
+}
+
+.minutes-editor-head h2,
+.minutes-section h3 {
+  margin: 0;
+}
+
+.minutes-editor-head p,
+.minutes-section p {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.minutes-meta-grid,
+.minutes-structured-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.minutes-meta-grid .full {
+  grid-column: 1 / -1;
+}
+
+.minutes-section,
+.minutes-capture {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.minutes-template-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.minutes-template-buttons button {
+  min-height: 34px;
+  padding: 0 10px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.minutes-attendee-control {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) minmax(180px, 1fr) auto;
+}
+
+.minutes-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.minutes-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 9px;
+  color: #075985;
+  background: #ecfeff;
+  border: 1px solid #bae6fd;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.minutes-chip .app-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.minutes-row-list,
+.minutes-action-list {
+  display: grid;
+  gap: 8px;
+}
+
+.minutes-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+}
+
+.minutes-action-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.55fr) minmax(130px, 0.45fr) minmax(110px, 0.4fr) 42px;
+}
+
+.minutes-capture textarea,
+.minutes-section textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.minutes-capture {
+  background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+}
+
+@media (max-width: 1180px) {
+  .meeting-minutes-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .minutes-list,
+  .minutes-editor {
+    max-height: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .minutes-editor {
+    padding: 14px;
+  }
+
+  .minutes-editor-head,
+  .minutes-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .minutes-meta-grid,
+  .minutes-structured-grid,
+  .minutes-attendee-control,
+  .minutes-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .minutes-template-buttons,
+  .minutes-editor-head .row-actions {
+    width: 100%;
+  }
+
+  .minutes-editor-head .row-actions .button,
+  .minutes-template-buttons button {
+    flex: 1 1 auto;
+  }
+}
+
 .priority-low {
   background: #eff8ff;
   color: #175cd3;

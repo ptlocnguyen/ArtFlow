@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Biên bản họp | ArtFlow POS</title>
+  <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+</head>
+<body data-page="meetingMinutes" data-root="..">
+  <div class="app-shell" data-app-shell hidden>
+    <aside class="sidebar">
+      <a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a>
+      <nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav>
+      <div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div>
+    </aside>
+    <main class="workspace">
+      <header class="topbar">
+        <button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu"><span data-icon="menu"></span></button>
+        <div><p class="eyebrow">Team Hub</p><h1 data-page-title>Biên bản họp</h1></div>
+        <div class="topbar-actions">
+          <a class="button ghost" href="./team.html"><span data-icon="briefcase"></span> Team Hub</a>
+          <button class="button primary" type="button" data-minutes-new><span data-icon="plus"></span> Biên bản mới</button>
+          <div class="user-chip" data-current-user></div>
+          <button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button>
+        </div>
+      </header>
+
+      <section class="view active meeting-minutes-workspace">
+        <aside class="panel minutes-sidebar">
+          <div class="panel-header split">
+            <div><h2>Cuộc họp</h2><p>Chọn biên bản cũ hoặc tạo mới.</p></div>
+            <button class="icon-button" type="button" data-minutes-new title="Tạo mới" aria-label="Tạo mới"><span data-icon="plus"></span></button>
+          </div>
+          <div class="minutes-list" data-minutes-list></div>
+        </aside>
+
+        <form class="panel minutes-editor" data-meeting-minutes-form>
+          <input type="hidden" name="attendees" data-minutes-attendees-hidden />
+          <textarea name="agenda" data-minutes-hidden-agenda hidden></textarea>
+          <textarea name="decisionsText" data-minutes-hidden-decisions hidden></textarea>
+          <textarea name="actionsText" data-minutes-hidden-actions hidden></textarea>
+          <textarea name="links" data-minutes-hidden-links hidden></textarea>
+
+          <section class="minutes-editor-head">
+            <div>
+              <p class="eyebrow">Biên bản thông minh</p>
+              <h2 data-minutes-title>Biên bản mới</h2>
+              <p data-minutes-subtitle>Ghi nhanh, hệ thống sẽ tự chuẩn hóa nội dung trước khi lưu.</p>
+            </div>
+            <div class="row-actions">
+              <button class="button ghost" type="button" data-minutes-clean><span data-icon="sparkles"></span> Dọn chữ</button>
+              <button class="button primary" type="submit"><span data-icon="check"></span> Lưu biên bản</button>
+            </div>
+          </section>
+
+          <section class="minutes-meta-grid">
+            <div class="field full"><label for="minutesTitle">Tên cuộc họp</label><input id="minutesTitle" name="title" placeholder="Họp kế hoạch tháng 7" required /></div>
+            <div class="field"><label for="minutesType">Loại họp</label><select id="minutesType" name="type"></select></div>
+            <div class="field"><label for="minutesAt">Thời gian</label><input id="minutesAt" name="meetingAt" type="datetime-local" /></div>
+            <div class="field"><label for="minutesStatus">Trạng thái</label><select id="minutesStatus" name="status"></select></div>
+            <div class="field"><label for="minutesOwner">Chủ trì</label><select id="minutesOwner" name="owner"></select></div>
+            <div class="field"><label for="minutesSourceType">Nguồn liên kết</label><select id="minutesSourceType" name="sourceType"><option value="manual">Ghi chú riêng</option><option value="product">Sản phẩm</option><option value="content">Content</option><option value="order">Đơn hàng</option><option value="pricing">Bảng tính giá</option><option value="plan">Kế hoạch</option></select></div>
+            <div class="field full"><label for="minutesSourceId">Mã/link nguồn</label><input id="minutesSourceId" name="sourceId" placeholder="SKU, mã đơn, link Docs/Drive..." /></div>
+          </section>
+
+          <section class="minutes-section">
+            <div class="minutes-section-head"><div><h3>Thành viên</h3><p>Chọn nhanh từ nhân viên hoặc nhập tên tự do.</p></div></div>
+            <div class="minutes-attendee-control">
+              <select data-minutes-attendee-select><option value="">Chọn nhân viên</option></select>
+              <input data-minutes-attendee-input placeholder="Hoặc nhập tên..." />
+              <button class="button ghost" type="button" data-minutes-add-attendee><span data-icon="plus"></span> Thêm</button>
+            </div>
+            <div class="minutes-chip-list" data-minutes-attendees></div>
+          </section>
+
+          <section class="minutes-section">
+            <div class="minutes-section-head">
+              <div><h3>Agenda</h3><p>Dùng mẫu để chuẩn bị nhanh khung họp.</p></div>
+              <div class="minutes-template-buttons">
+                <button type="button" data-minutes-template="weekly">Tuần</button>
+                <button type="button" data-minutes-template="planning">Kế hoạch</button>
+                <button type="button" data-minutes-template="content">Content</button>
+                <button type="button" data-minutes-template="finance">Tài chính</button>
+              </div>
+            </div>
+            <div class="minutes-row-list" data-minutes-agenda-list></div>
+            <button class="button ghost compact-button" type="button" data-minutes-add-agenda><span data-icon="plus"></span> Thêm agenda</button>
+          </section>
+
+          <section class="minutes-capture">
+            <div class="minutes-section-head">
+              <div><h3>Ghi nhanh trong lúc họp</h3><p>Gõ tự nhiên. Dòng bắt đầu bằng “chốt:”, “việc:”, hoặc chứa link sẽ được tự tách.</p></div>
+              <div class="row-actions">
+                <button class="button ghost compact-button" type="button" data-minutes-insert-time><span data-icon="history"></span> Giờ</button>
+                <button class="button primary compact-button" type="button" data-minutes-parse-quick><span data-icon="sparkles"></span> Tách nhanh</button>
+              </div>
+            </div>
+            <textarea data-minutes-quick-note rows="6" placeholder="VD:
+Chốt: mở shop TikTok trong tuần này
+Việc: Ngọc Hoa chuẩn bị logo trước 2026-07-12
+https://drive.google.com/..."></textarea>
+          </section>
+
+          <section class="minutes-structured-grid">
+            <div class="minutes-section">
+              <div class="minutes-section-head"><div><h3>Nội dung biên bản</h3><p>Diễn biến chính, số liệu, bối cảnh.</p></div></div>
+              <textarea name="notes" rows="9" placeholder="Các ý còn lại từ ghi nhanh sẽ tự đưa vào đây..."></textarea>
+            </div>
+            <div class="minutes-section">
+              <div class="minutes-section-head"><div><h3>Quyết định</h3><p>Mỗi dòng là một quyết định đã chốt.</p></div></div>
+              <div class="minutes-row-list" data-minutes-decisions-list></div>
+              <button class="button ghost compact-button" type="button" data-minutes-add-decision><span data-icon="plus"></span> Thêm quyết định</button>
+            </div>
+          </section>
+
+          <section class="minutes-section">
+            <div class="minutes-section-head"><div><h3>Việc cần làm</h3><p>Không cần nhớ cú pháp, chỉ cần điền từng ô.</p></div></div>
+            <div class="minutes-action-list" data-minutes-actions-list></div>
+            <button class="button ghost compact-button" type="button" data-minutes-add-action><span data-icon="plus"></span> Thêm việc</button>
+          </section>
+
+          <section class="minutes-structured-grid">
+            <div class="minutes-section">
+              <div class="minutes-section-head"><div><h3>Link liên quan</h3><p>Drive, Docs, Sheet, tài liệu, sản phẩm.</p></div></div>
+              <div class="minutes-row-list" data-minutes-links-list></div>
+              <button class="button ghost compact-button" type="button" data-minutes-add-link><span data-icon="plus"></span> Thêm link</button>
+            </div>
+            <div class="minutes-section">
+              <div class="minutes-section-head"><div><h3>Trao đổi nội bộ</h3><p>Ghi chú thêm khi cập nhật biên bản.</p></div></div>
+              <textarea name="newComment" rows="5" placeholder="Comment, cảnh báo, số liệu cần theo dõi..."></textarea>
+            </div>
+          </section>
+        </form>
+      </section>
+    </main>
+  </div>
+  <div data-shared-ui></div>
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/storage.js"></script>
+  <script src="../assets/vendor/xlsx.bundle.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

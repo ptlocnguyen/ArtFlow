@@ -20,6 +20,7 @@ const pages = [
   ["products", "pages/products.html"],
   ["content", "pages/content.html"],
   ["team", "pages/team.html"],
+  ["meeting-minutes", "pages/meeting-minutes.html"],
   ["incense", "pages/incense.html"],
   ["customers", "pages/customers.html"],
   ["inventory", "pages/inventory.html"],
@@ -159,6 +160,14 @@ async function runPageInteractions(page, pageName) {
     await page.getByRole("button", { name: /Tinh gia|Tính giá|giá/i }).click().catch(() => {});
     await page.waitForTimeout(100);
     await page.getByRole("button", { name: /Bien ban|Biên bản/i }).click().catch(() => {});
+  }
+  if (pageName === "meeting-minutes") {
+    await page.locator("#minutesTitle").fill("QA bien ban hop nhanh");
+    await page.locator("[data-minutes-template='planning']").click().catch(() => {});
+    await page.locator("[data-minutes-quick-note]").fill("Chot: mo shop TikTok trong tuan nay\nViec: Ngoc Hoa chuan bi logo truoc 2026-07-12\nhttps://drive.google.com/demo");
+    await page.locator("[data-minutes-parse-quick]").click().catch(() => {});
+    await page.locator("[data-meeting-minutes-form] button[type='submit']").click().catch(() => {});
+    await page.waitForTimeout(100);
   }
   if (pageName === "order-create") {
     await page.locator("[data-open-product-picker], [data-show-product-picker], [data-product-picker-open]").first().click({ timeout: 1200 }).catch(() => {});
