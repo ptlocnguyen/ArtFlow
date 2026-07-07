@@ -6,6 +6,9 @@
   const dateFormat = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
   const dateTimeFormat = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" });
   const tokenKey = `${config.storageKey}.authToken`;
+  const sessionUserKey = `${config.storageKey}.sessionUser`;
+  const API_TIMEOUT_MS = 22000;
+  const API_RETRY_DELAYS = [650, 1500, 3200];
   const purchaseEditId = new URLSearchParams(window.location.search).get("edit") || "";
   const receiptSettingsKey = `${config.storageKey}.receiptSettings`;
   const loyaltyRules = { earnPerVnd: 10000, pointValue: 1000, maxRedeemRate: 0.2 };
@@ -349,6 +352,72 @@
     else localStorage.removeItem(tokenKey);
   }
 
+  function getCachedSessionUser() {
+    try {
+      return JSON.parse(localStorage.getItem(sessionUserKey) || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  function setCachedSessionUser(user) {
+    if (user && user.id) localStorage.setItem(sessionUserKey, JSON.stringify(user));
+    else localStorage.removeItem(sessionUserKey);
+  }
+
+  class ApiError extends Error {
+    constructor(message, options = {}) {
+      super(message);
+      this.name = "ApiError";
+      this.code = options.code || "api_error";
+      this.status = options.status || 0;
+      this.transient = Boolean(options.transient);
+      this.auth = Boolean(options.auth);
+      this.requestId = options.requestId || "";
+    }
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+  }
+
+  function makeRequestId(action) {
+    return `${action || "api"}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function isAuthError(message, status) {
+    const text = String(message || "").toLowerCase();
+    return status === 401 ||
+      text.includes("unauthenticated") ||
+      text.includes("invalid session") ||
+      text.includes("session expired");
+  }
+
+  function isTransientStatus(status) {
+    return [0, 408, 425, 429, 500, 502, 503, 504].includes(Number(status || 0));
+  }
+
+  function userMessageForApiError(error) {
+    if (error.auth) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+    if (error.transient) return "Kết nối đang chập chờn. Web vẫn giữ dữ liệu hiện có và sẽ thử lại khi bạn thao tác tiếp.";
+    return error.message || "Yêu cầu API thất bại.";
+  }
+
+  function setConnectionStatus(status, title, message) {
+    document.querySelectorAll(".sidebar-card").forEach(card => {
+      card.dataset.connectionStatus = status || "online";
+      const strong = card.querySelector("strong");
+      const paragraph = card.querySelector("p");
+      if (strong) strong.textContent = title || "Đã kết nối";
+      if (paragraph) {
+        Array.from(paragraph.childNodes)
+          .filter(node => node.nodeType === Node.TEXT_NODE)
+          .forEach(node => node.remove());
+        paragraph.append(document.createTextNode(message || " Phiên làm việc được xác thực qua Worker."));
+      }
+    });
+  }
+
   function actionForPath(path) {
     return {
       "/auth/bootstrap-status": "bootstrapStatus",
@@ -438,28 +507,72 @@
   }
 
   async function apiRequest(path, options = {}) {
-    if (!config.apiUrl) throw new Error("Chưa cấu hình apiUrl trong assets/js/config.js.");
+    if (!config.apiUrl) throw new ApiError("Ch\u01b0a c\u1ea5u h\u00ecnh apiUrl trong assets/js/config.js.", { code: "missing_api_url" });
     const action = actionForPath(path);
-    if (!action) throw new Error("Action API không hợp lệ.");
+    if (!action) throw new ApiError("Action API kh\u00f4ng h\u1ee3p l\u1ec7.", { code: "invalid_action" });
 
     const payload = options.body ? JSON.parse(options.body) : {};
     const token = getToken();
     if (token) payload.token = token;
+    const requestBody = JSON.stringify({ ...payload, action });
+    const maxRetries = options.retries === undefined ? 2 : Math.max(0, Number(options.retries || 0));
+    let lastError = null;
 
-    let response;
-    try {
-      response = await fetch(config.apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ ...payload, action })
-      });
-    } catch {
-      throw new Error("Không thể kết nối máy chủ. Hãy kiểm tra mạng hoặc Worker.");
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      const requestId = makeRequestId(action);
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), options.timeoutMs || API_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(config.apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8",
+            "X-Client-Request-Id": requestId
+          },
+          body: requestBody,
+          signal: controller.signal
+        });
+        window.clearTimeout(timeoutId);
+
+        const data = await response.json().catch(() => ({}));
+        const message = data.error || data.message || "Y\u00eau c\u1ea7u API th\u1ea5t b\u1ea1i.";
+        if (!response.ok || data.ok === false) {
+          const status = response.status || Number(data.status || 0);
+          const auth = isAuthError(message, status);
+          throw new ApiError(message, {
+            code: auth ? "auth" : (data.code || "api_error"),
+            status,
+            auth,
+            transient: !auth && isTransientStatus(status),
+            requestId: data.requestId || response.headers.get("X-Request-Id") || requestId
+          });
+        }
+
+        setConnectionStatus("online", "\u0110\u00e3 k\u1ebft n\u1ed1i", " Phi\u00ean l\u00e0m vi\u1ec7c \u0111\u01b0\u1ee3c x\u00e1c th\u1ef1c qua Worker.");
+        return data;
+      } catch (error) {
+        window.clearTimeout(timeoutId);
+        if (error instanceof ApiError) {
+          lastError = error;
+        } else {
+          const aborted = error && error.name === "AbortError";
+          lastError = new ApiError(
+            aborted ? "K\u1ebft n\u1ed1i t\u1edbi m\u00e1y ch\u1ee7 qu\u00e1 l\u00e2u, web s\u1ebd th\u1eed l\u1ea1i." : "Kh\u00f4ng th\u1ec3 k\u1ebft n\u1ed1i m\u00e1y ch\u1ee7. H\u00e3y ki\u1ec3m tra m\u1ea1ng ho\u1eb7c Worker.",
+            { code: aborted ? "timeout" : "network", transient: true, requestId }
+          );
+        }
+
+        if (lastError.auth || !lastError.transient || attempt >= maxRetries) break;
+        setConnectionStatus("unstable", "K\u1ebft n\u1ed1i ch\u1eadp ch\u1eddn", " \u0110ang th\u1eed l\u1ea1i, d\u1eef li\u1ec7u tr\u00ean m\u00e0n h\u00ecnh v\u1eabn \u0111\u01b0\u1ee3c gi\u1eef.");
+        await sleep(API_RETRY_DELAYS[Math.min(attempt, API_RETRY_DELAYS.length - 1)]);
+      }
     }
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.error || "Yêu cầu API thất bại.");
-    return data;
+    if (lastError && lastError.transient) {
+      setConnectionStatus("offline", "M\u1ea5t k\u1ebft n\u1ed1i t\u1ea1m th\u1eddi", " Web \u0111ang d\u00f9ng d\u1eef li\u1ec7u \u0111\u00e3 l\u01b0u, kh\u00f4ng \u0111\u0103ng xu\u1ea5t b\u1ea1n.");
+    }
+    throw lastError || new ApiError("Y\u00eau c\u1ea7u API th\u1ea5t b\u1ea1i.", { code: "api_error" });
   }
 
   function showLoading(message = "Đang xử lý...") {
@@ -1713,17 +1826,28 @@
             if (Array.isArray(data.users)) state.users = data.users;
             window.ArtFlowPosStore.save(state);
           },
+          omni: async () => {
+            const data = await apiRequest("/omni");
+            applyPageData(data, ["omni"]);
+          },
           settings: async () => {
             const data = await apiRequest("/settings");
             state.appSettings = data.settings || {};
             window.ArtFlowPosStore.save(state);
           }
         };
-        await Promise.all(scopes.map(scope => legacyLoaders[scope]({ quiet: true })));
+        await Promise.all(scopes.filter(scope => legacyLoaders[scope]).map(scope => legacyLoaders[scope]({ quiet: true })));
         pageDataReady = true;
         return true;
       }
-      if (!options.quiet) showToast(error.message, "error");
+      if (error.auth) {
+        setToken("");
+        setCachedSessionUser(null);
+        showToast(userMessageForApiError(error), "error");
+        redirectToLogin();
+        return false;
+      }
+      if (!options.quiet) showToast(userMessageForApiError(error), error.transient ? "warning" : "error");
       return false;
     }
   }
@@ -1741,6 +1865,9 @@
         <p class="eyebrow">Cần cấu hình backend</p>
         <h2>Backend chưa sẵn sàng</h2>
         <p class="form-note">${message || "Hãy chạy Cloudflare Worker và điền Worker URL vào assets/js/config.js."}</p>
+        <div class="connection-actions">
+          <button class="button primary" type="button" data-retry-backend>${icon("refresh")} Thử kết nối lại</button>
+        </div>
       </div>
     `;
   }
@@ -1786,9 +1913,11 @@
       const path = mode === "setup" ? "/auth/setup-admin" : "/auth/login";
       const data = await withLoading(mode === "setup" ? "Đang khởi tạo admin..." : "Đang đăng nhập...", () => apiRequest(path, {
         method: "POST",
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        retries: 1
       }));
       setToken(data.token);
+      setCachedSessionUser(data.user);
       redirectToDashboard();
     } catch (error) {
       if (errorBox) {
@@ -1896,8 +2025,9 @@
     `;
   }
 
-  async function showApp(user) {
+  async function showApp(user, options = {}) {
     currentUser = user;
+    if (user && user.id !== "offline") setCachedSessionUser(user);
     if (["users", "activity"].includes(page) && !isAdmin()) {
       window.location.href = "./dashboard.html";
       return;
@@ -1915,6 +2045,12 @@
     applyPermissions();
     renderPage();
 
+    if (options.offline) {
+      setConnectionStatus("offline", "Mất kết nối tạm thời", " Đang dùng dữ liệu đã lưu, không đăng xuất bạn.");
+      showToast(options.message || "Không kết nối được backend, đang dùng dữ liệu đã lưu.", "warning");
+      return;
+    }
+
     await loadPageData(dataScopesForPage());
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
     if (page === "activity") await withLoading("Đang tải lịch sử hoạt động...", loadAuditLogs);
@@ -1928,17 +2064,23 @@
     }
     try {
       if (getToken()) {
-        await withLoading("Đang kiểm tra phiên đăng nhập...", () => apiRequest("/auth/me"));
+        await withLoading("Đang kiểm tra phiên đăng nhập...", () => apiRequest("/auth/me", { retries: 1 }));
         redirectToDashboard();
         return;
       }
-      const status = await withLoading("Đang kiểm tra thiết lập hệ thống...", () => apiRequest("/auth/bootstrap-status"));
+      const status = await withLoading("Đang kiểm tra thiết lập hệ thống...", () => apiRequest("/auth/bootstrap-status", { retries: 1 }));
       renderAuthForm(status.hasAdmin ? "login" : "setup");
       const email = els.loginForm && els.loginForm.email;
       if (email) email.focus();
     } catch (error) {
-      setToken("");
-      renderApiMissing(error.message);
+      if (error.auth) {
+        setToken("");
+        setCachedSessionUser(null);
+        renderAuthForm("login");
+        showToast(userMessageForApiError(error), "error");
+        return;
+      }
+      renderApiMissing(userMessageForApiError(error));
     }
   }
 
@@ -1948,11 +2090,17 @@
       return;
     }
     try {
-      const session = await withLoading("Đang tải không gian làm việc...", () => apiRequest("/auth/me"));
+      const session = await withLoading("Đang tải không gian làm việc...", () => apiRequest("/auth/me", { retries: 1 }));
       await showApp(session.user);
     } catch (error) {
-      setToken("");
-      redirectToLogin();
+      if (error.auth) {
+        setToken("");
+        setCachedSessionUser(null);
+        redirectToLogin();
+        return;
+      }
+      const cachedUser = getCachedSessionUser() || { id: "offline", name: "Đang kết nối", email: "", role: "viewer", status: "active" };
+      await showApp(cachedUser, { offline: true, message: userMessageForApiError(error) });
     }
   }
 
@@ -1964,6 +2112,7 @@
         // Vẫn xóa token local nếu mạng hoặc backend tạm lỗi.
       }
       setToken("");
+      setCachedSessionUser(null);
     });
     redirectToLogin();
   }
@@ -8065,6 +8214,11 @@
     }, true);
 
     document.addEventListener("click", event => {
+      const retryButton = event.target.closest && event.target.closest("[data-retry-backend]");
+      if (retryButton) {
+        window.location.reload();
+        return;
+      }
       const form = event.target.closest && event.target.closest("form");
       if (form) {
         normalizeMoneyInputs(form);
