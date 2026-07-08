@@ -509,6 +509,8 @@ function handleRequest(e) {
         return json(deleteUser(body));
       case "listAuditLogs":
         return json(listAuditLogs(body));
+      case "exportD1Snapshot":
+        return json(exportD1Snapshot(body));
       case "listProducts":
         return json(listProducts(body));
       case "createProduct":
@@ -901,6 +903,35 @@ function listAuditLogs(body) {
     .slice(0, limit)
     .map(publicAuditLog);
   return { ok: true, logs: logs };
+}
+
+function exportD1Snapshot(body) {
+  requireAdmin(body.token);
+  const requested = String(body.tables || "")
+    .split(",")
+    .map(function (name) { return name.trim(); })
+    .filter(function (name) { return Boolean(name); });
+  const allowed = requested.length ? requested : Object.keys(SHEETS);
+  const tables = {};
+
+  allowed.forEach(function (name) {
+    if (!SHEETS[name]) return;
+    tables[name] = readRows(name).map(function (row) {
+      const output = {};
+      SHEETS[name].forEach(function (key) {
+        output[key] = row[key] === undefined ? "" : row[key];
+      });
+      return output;
+    });
+  });
+
+  return {
+    ok: true,
+    schemaVersion: DATABASE_SCHEMA_VERSION,
+    exportedAt: nowIso(),
+    tableCount: Object.keys(tables).length,
+    tables: tables
+  };
 }
 
 function setupDatabase() {

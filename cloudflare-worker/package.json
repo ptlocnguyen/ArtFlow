@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "secret:apps-script": "wrangler secret put APPS_SCRIPT_URL"
+    "secret:apps-script": "wrangler secret put APPS_SCRIPT_URL",
+    "migrate:d1": "node scripts/migrate-appscript-to-d1.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
