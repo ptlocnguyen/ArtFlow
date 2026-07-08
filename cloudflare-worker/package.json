@@ -10,6 +10,6 @@
     "migrate:d1": "node scripts/migrate-appscript-to-d1.mjs"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.108.0"
   }
 }

@@ -1,3 +1,12 @@
+import {
+  isDirectReadAction,
+  markCoreReadsDirty,
+  recordSessionValidation,
+  readDirectD1,
+  refreshD1FromRead,
+  syncIdentityToD1
+} from "./d1-data.js";
+
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const DEFAULT_UPSTREAM_TIMEOUT_MS = 45000;
 const DEFAULT_D1_CACHE_TTL_SECONDS = 180;
@@ -16,6 +25,23 @@ const READ_CACHE_ACTIONS = new Set([
   "getIncenseData",
   "getAppSettings"
 ]);
+const CORE_READ_ONLY_ACTIONS = new Set([
+  "bootstrapStatus",
+  "login",
+  "logout",
+  "me",
+  "listUsers",
+  "listAuditLogs",
+  "exportD1Snapshot",
+  "testProductContentConfiguration"
+]);
+
+function changesCoreData(action) {
+  return !READ_CACHE_ACTIONS.has(action) &&
+    !CORE_READ_ONLY_ACTIONS.has(action) &&
+    !String(action).startsWith("get") &&
+    !String(action).startsWith("list");
+}
 
 function makeRequestId() {
   if (crypto.randomUUID) return crypto.randomUUID();
@@ -214,7 +240,33 @@ export default {
         return json({ ok: false, error: "Missing action", code: "missing_action" }, 400, allowedOrigin, requestId);
       }
 
+      const d1Response = await readDirectD1(env, payload).catch(error => {
+        console.error("D1 direct read failed", {
+          requestId,
+          action: payload.action,
+          message: error && error.message
+        });
+        return null;
+      });
+      if (d1Response) {
+        return json(d1Response, 200, allowedOrigin, requestId, {
+          "Server-Timing": "d1;dur=0",
+          "X-ArtFlow-Data-Source": "d1"
+        });
+      }
+
       if (!env.APPS_SCRIPT_URL) {
+        const d1Fallback = await readDirectD1(env, payload, { allowDirty: true }).catch(() => null);
+        if (d1Fallback) {
+          return json({
+            ...d1Fallback,
+            transient: true,
+            cacheMode: "d1-fallback",
+            warning: "Đang dùng dữ liệu D1 gần nhất vì Apps Script chưa được cấu hình."
+          }, 200, allowedOrigin, requestId, {
+            "X-ArtFlow-Data-Source": "d1-fallback"
+          });
+        }
         const cached = await readD1Cache(env, payload);
         if (cached) {
           return json({
@@ -247,6 +299,19 @@ export default {
       try {
         responseJson = responseBody ? JSON.parse(responseBody) : {};
       } catch {
+        const d1Fallback = await readDirectD1(env, payload, { allowDirty: true }).catch(() => null);
+        if (d1Fallback) {
+          return json({
+            ...d1Fallback,
+            transient: true,
+            cacheMode: "d1-fallback",
+            warning: "Apps Script phản hồi không hợp lệ, đang dùng dữ liệu D1 gần nhất."
+          }, 200, allowedOrigin, requestId, {
+            "Server-Timing": `apps-script;dur=${upstreamDurationMs}`,
+            "X-Upstream-Duration-Ms": String(upstreamDurationMs),
+            "X-ArtFlow-Data-Source": "d1-fallback"
+          });
+        }
         return json({
           ok: false,
           error: "Apps Script URL không trả JSON. Kiểm tra Web App URL và quyền truy cập Anyone.",
@@ -259,10 +324,41 @@ export default {
       }
 
       if (upstream.ok && responseJson && responseJson.ok !== false) {
+        await syncIdentityToD1(env, payload, responseJson).catch(error => {
+          console.error("D1 session sync failed", {
+            requestId,
+            action: payload.action,
+            message: error && error.message
+          });
+        });
         await writeD1Cache(env, payload, responseJson).catch(error => {
           console.error("D1 cache write failed", { requestId, action: payload.action, message: error && error.message });
         });
+        if (READ_CACHE_ACTIONS.has(payload.action)) {
+          await refreshD1FromRead(env, payload, responseJson).catch(error => {
+            console.error("D1 refresh failed", {
+              requestId,
+              action: payload.action,
+              message: error && error.message
+            });
+          });
+        } else if (!isDirectReadAction(payload.action) && changesCoreData(payload.action)) {
+          await markCoreReadsDirty(env).catch(error => {
+            console.error("D1 dirty marker failed", {
+              requestId,
+              action: payload.action,
+              message: error && error.message
+            });
+          });
+        }
       }
+      await recordSessionValidation(env, payload, responseJson).catch(error => {
+        console.error("D1 session validation update failed", {
+          requestId,
+          action: payload.action,
+          message: error && error.message
+        });
+      });
 
       return new Response(JSON.stringify({ requestId, ...responseJson }), {
         status: upstream.ok ? 200 : upstream.status,
@@ -277,6 +373,19 @@ export default {
     } catch (error) {
       const timeout = error && error.name === "TimeoutError";
       if (payload && payload.action) {
+        const d1Fallback = await readDirectD1(env, payload, { allowDirty: true }).catch(() => null);
+        if (d1Fallback) {
+          return json({
+            ...d1Fallback,
+            transient: true,
+            cacheMode: "d1-fallback",
+            warning: timeout
+              ? "Apps Script phản hồi chậm, đang dùng dữ liệu D1 gần nhất."
+              : "Backend tạm mất kết nối, đang dùng dữ liệu D1 gần nhất."
+          }, 200, allowedOrigin, requestId, {
+            "X-ArtFlow-Data-Source": "d1-fallback"
+          });
+        }
         const cached = await readD1Cache(env, payload).catch(cacheError => {
           console.error("D1 cache read failed", { requestId, action: payload.action, message: cacheError && cacheError.message });
           return null;
