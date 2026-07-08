@@ -1,5 +1,5 @@
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
-const DEFAULT_UPSTREAM_TIMEOUT_MS = 25000;
+const DEFAULT_UPSTREAM_TIMEOUT_MS = 45000;
 
 function makeRequestId() {
   if (crypto.randomUUID) return crypto.randomUUID();

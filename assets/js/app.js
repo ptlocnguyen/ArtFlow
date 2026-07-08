@@ -7,11 +7,29 @@
   const dateTimeFormat = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" });
   const tokenKey = `${config.storageKey}.authToken`;
   const sessionUserKey = `${config.storageKey}.sessionUser`;
-  const API_TIMEOUT_MS = 22000;
+  const API_TIMEOUT_MS = 40000;
   const API_RETRY_DELAYS = [650, 1500, 3200];
   const purchaseEditId = new URLSearchParams(window.location.search).get("edit") || "";
   const receiptSettingsKey = `${config.storageKey}.receiptSettings`;
   const loyaltyRules = { earnPerVnd: 10000, pointValue: 1000, maxRedeemRate: 0.2 };
+  const readOnlyActions = new Set([
+    "bootstrapStatus",
+    "me",
+    "listUsers",
+    "listAuditLogs",
+    "listProducts",
+    "getContentWorkspaceData",
+    "getTeamWorkspaceData",
+    "getOmniWorkspaceData",
+    "getIncenseData",
+    "listCustomers",
+    "listOrders",
+    "listStockMovements",
+    "getPageData",
+    "getAccountingData",
+    "getPurchasingData",
+    "getAppSettings"
+  ]);
 
   let state = window.ArtFlowPosStore.load();
   let currentUser = null;
@@ -515,7 +533,8 @@
     const token = getToken();
     if (token) payload.token = token;
     const requestBody = JSON.stringify({ ...payload, action });
-    const maxRetries = options.retries === undefined ? 2 : Math.max(0, Number(options.retries || 0));
+    const defaultRetries = readOnlyActions.has(action) ? 2 : 0;
+    const maxRetries = options.retries === undefined ? defaultRetries : Math.max(0, Number(options.retries || 0));
     let lastError = null;
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
@@ -2047,7 +2066,9 @@
 
     if (options.offline) {
       setConnectionStatus("offline", "Mất kết nối tạm thời", " Đang dùng dữ liệu đã lưu, không đăng xuất bạn.");
-      showToast(options.message || "Không kết nối được backend, đang dùng dữ liệu đã lưu.", "warning");
+      if (!options.quiet) {
+        showToast(options.message || "Không kết nối được backend, đang dùng dữ liệu đã lưu.", "warning");
+      }
       return;
     }
 
@@ -2089,8 +2110,13 @@
       redirectToLogin();
       return;
     }
+    const cachedUser = getCachedSessionUser();
+    if (cachedUser) {
+      await showApp(cachedUser, { offline: true, quiet: true });
+    }
     try {
-      const session = await withLoading("Đang tải không gian làm việc...", () => apiRequest("/auth/me", { retries: 1 }));
+      const loadingMessage = cachedUser ? "Đang đồng bộ dữ liệu mới..." : "Đang tải không gian làm việc...";
+      const session = await withLoading(loadingMessage, () => apiRequest("/auth/me", { retries: 1 }));
       await showApp(session.user);
     } catch (error) {
       if (error.auth) {
@@ -2099,8 +2125,8 @@
         redirectToLogin();
         return;
       }
-      const cachedUser = getCachedSessionUser() || { id: "offline", name: "Đang kết nối", email: "", role: "viewer", status: "active" };
-      await showApp(cachedUser, { offline: true, message: userMessageForApiError(error) });
+      const fallbackUser = cachedUser || { id: "offline", name: "Đang kết nối", email: "", role: "viewer", status: "active" };
+      await showApp(fallbackUser, { offline: true, message: userMessageForApiError(error) });
     }
   }
 
