@@ -19,7 +19,18 @@ function readDevVar(key) {
   const line = readFileSync(file, "utf8")
     .split(/\r?\n/)
     .find(item => item.trim().startsWith(`${key}=`));
-  return line ? line.slice(key.length + 1).trim() : "";
+  return line ? cleanEnvValue(line.slice(key.length + 1)) : "";
+}
+
+function cleanEnvValue(value) {
+  const trimmed = String(value || "").trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
 }
 
 function sqlString(value) {
@@ -37,8 +48,7 @@ function buildSql(snapshot, selectedTables) {
   const tables = snapshot.tables || {};
   const names = selectedTables.length ? selectedTables : Object.keys(tables);
   const chunks = [
-    "PRAGMA foreign_keys = OFF;",
-    "BEGIN TRANSACTION;"
+    "PRAGMA foreign_keys = OFF;"
   ];
 
   names.forEach(name => {
@@ -59,7 +69,6 @@ function buildSql(snapshot, selectedTables) {
       exportedAt: snapshot.exportedAt || "",
       importedAt: new Date().toISOString()
     }))}, datetime('now'));`,
-    "COMMIT;",
     "PRAGMA foreign_keys = ON;"
   );
   return `${chunks.join("\n")}\n`;
@@ -67,7 +76,7 @@ function buildSql(snapshot, selectedTables) {
 
 async function main() {
   const token = argValue("--token") || process.env.ARTFLOW_ADMIN_TOKEN || "";
-  const appsScriptUrl = argValue("--apps-script-url") || process.env.APPS_SCRIPT_URL || readDevVar("APPS_SCRIPT_URL");
+  const appsScriptUrl = cleanEnvValue(argValue("--apps-script-url") || process.env.APPS_SCRIPT_URL || readDevVar("APPS_SCRIPT_URL"));
   const database = argValue("--database") || "artflow-pos-db";
   const tables = (argValue("--tables") || "").split(",").map(item => item.trim()).filter(Boolean);
   const dryRun = process.argv.includes("--dry-run");
@@ -77,6 +86,11 @@ async function main() {
   }
   if (!appsScriptUrl) {
     throw new Error("Missing Apps Script URL. Set APPS_SCRIPT_URL or keep it in cloudflare-worker/.dev.vars.");
+  }
+  try {
+    new URL(appsScriptUrl);
+  } catch {
+    throw new Error("Apps Script URL is invalid. Check APPS_SCRIPT_URL in cloudflare-worker/.dev.vars or pass --apps-script-url.");
   }
 
   console.log("Fetching Apps Script snapshot...");
@@ -106,11 +120,15 @@ async function main() {
   }
 
   console.log(`Importing into D1 database ${database}...`);
+  const wranglerCli = resolve(workerRoot, "node_modules", "wrangler", "bin", "wrangler.js");
   const result = spawnSync(
-    process.platform === "win32" ? "npm.cmd" : "npm",
-    ["exec", "--", "wrangler", "d1", "execute", database, "--remote", "--file", outputFile],
+    process.execPath,
+    [wranglerCli, "d1", "execute", database, "--remote", "--file", outputFile],
     { cwd: workerRoot, stdio: "inherit" }
   );
+  if (result.error) {
+    throw result.error;
+  }
   if (result.status !== 0) {
     throw new Error(`D1 import failed with exit code ${result.status}`);
   }
