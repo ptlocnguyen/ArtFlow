@@ -2031,10 +2031,14 @@
   }
 
   function normalizeAuditLog(log) {
+    const action = log.action || "";
+    const rawDescription = log.description || "";
     return {
       id: log.id,
-      action: log.action || "",
-      description: log.description || log.action || "Hoạt động hệ thống",
+      action,
+      description: !rawDescription || rawDescription === action
+        ? auditActionLabel(action)
+        : rawDescription,
       entityType: log.entityType || "",
       entityId: log.entityId || "",
       actorId: log.actorId || "",
@@ -4621,8 +4625,27 @@
       order_refund: "Hoàn tiền", stock_movement: "Kho hàng", cash_transaction: "Thu chi",
       accounting_account: "Tài khoản tiền", accounting_category: "Danh mục thu chi", reconciliation: "Đối soát",
       supplier: "Nhà cung cấp", purchase_order: "Phiếu mua", supplier_payment: "Thanh toán NCC",
-      purchase_return: "Trả hàng NCC", supplier_credit: "Bù trừ NCC"
+      purchase_return: "Trả hàng NCC", supplier_credit: "Bù trừ NCC",
+      content_item: "Content", team_item: "Team Hub", incense_wish: "Xin vía",
+      app_setting: "Cài đặt", product_option: "Thuộc tính sản phẩm", d1_entity: "Dữ liệu hệ thống"
     }[type] || type || "Hệ thống";
+  }
+
+  function auditActionLabel(action) {
+    return {
+      createProduct: "Tạo sản phẩm", updateProduct: "Cập nhật sản phẩm",
+      archiveProduct: "Đổi trạng thái sản phẩm", createProductOption: "Tạo thuộc tính sản phẩm",
+      updateProductOption: "Cập nhật thuộc tính sản phẩm", toggleProductOption: "Đổi trạng thái thuộc tính sản phẩm",
+      createCustomer: "Tạo khách hàng", updateCustomer: "Cập nhật khách hàng",
+      archiveCustomer: "Đổi trạng thái khách hàng", createOrder: "Tạo đơn hàng",
+      updateOrderStatus: "Cập nhật trạng thái đơn hàng", updateOrderFulfillment: "Cập nhật giao hàng",
+      cancelOrder: "Hủy đơn hàng", returnOrder: "Ghi nhận khách trả hàng",
+      refundOrder: "Hoàn tiền đơn hàng", createContentItem: "Tạo chủ đề content",
+      updateContentItem: "Cập nhật chủ đề content", archiveContentItem: "Lưu trữ chủ đề content",
+      createTeamItem: "Tạo nội dung Team Hub", updateTeamItem: "Cập nhật nội dung Team Hub",
+      archiveTeamItem: "Lưu trữ nội dung Team Hub", createIncenseWish: "Thắp hương xin vía",
+      saveAppSettings: "Cập nhật cài đặt hệ thống"
+    }[action] || action || "Hoạt động hệ thống";
   }
 
   function renderAuditLogs() {
