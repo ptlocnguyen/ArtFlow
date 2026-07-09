@@ -108,17 +108,14 @@
               <div class="accounting-profit-summary" data-accounting-profit-summary></div>
               <div class="profit-chart compact-accounting-chart" data-accounting-profit-chart></div>
             </section>
-            <section class="panel accounting-profit-panel accounting-profit-insights">
-              <div class="panel-header"><div><p class="section-kicker">Điểm cần chú ý</p><h2>Nhận định nhanh</h2><p>Các tín hiệu đáng xem trước khi mở báo cáo chi tiết.</p></div></div>
-              <div class="accounting-insight-list" data-accounting-profit-insights></div>
-            </section>
-            <section class="panel accounting-profit-panel accounting-wide-panel">
+            <section class="panel accounting-profit-panel accounting-product-profit-panel">
               <div class="panel-header split"><div><h2>Lợi nhuận sản phẩm</h2><p>Xếp hạng theo lãi gộp thực tế của đơn đã thanh toán.</p></div><span class="pill" data-accounting-profit-count>0 sản phẩm</span></div>
-              <div class="table-wrap"><table><thead><tr><th>Sản phẩm</th><th>SL</th><th>Doanh thu</th><th>Giá vốn</th><th>Lãi gộp</th><th>Biên</th></tr></thead><tbody data-accounting-product-profit-table></tbody></table></div>
+              <div class="table-wrap"><table><thead><tr><th>Sản phẩm</th><th>Doanh thu</th><th>Lãi gộp</th><th>Biên</th></tr></thead><tbody data-accounting-product-profit-table></tbody></table></div>
             </section>
           </section>
 
-          <section class="panel accounting-workspace accounting-side-panel" data-accounting-section="accounts" hidden>
+          <section class="accounting-accounts-grid accounting-workspace" data-accounting-section="accounts" hidden>
+            <section class="panel accounting-side-panel">
               <div class="panel-header split">
                 <div><p class="section-kicker">Nơi giữ tiền</p><h2>Tài khoản tiền</h2><p>Tiền mặt, ngân hàng và ví bán hàng.</p></div>
                 <div class="panel-header-actions">
@@ -128,15 +125,22 @@
                 </div>
               </div>
               <div class="account-card-list" data-accounting-accounts></div>
-              <div class="accounting-subsection">
-                <div class="accounting-subsection-title"><h3>Đối soát gần đây</h3><span>So sánh số trên hệ thống và số thực tế</span></div>
-                <div class="reconciliation-list" data-accounting-reconciliations></div>
-              </div>
+            </section>
+            <section class="panel accounting-side-panel accounting-reconciliation-panel">
+              <div class="panel-header"><div><p class="section-kicker">Kiểm tra số dư</p><h2>Đối soát gần đây</h2><p>So sánh số hệ thống với tiền thực tế tại từng tài khoản.</p></div></div>
+              <div class="reconciliation-list" data-accounting-reconciliations></div>
+            </section>
           </section>
-          <section class="panel accounting-workspace accounting-side-panel" data-accounting-section="categories" hidden>
-              <div class="panel-header split"><div><p class="section-kicker">Phân loại giao dịch</p><h2>Danh mục thu chi</h2><p>Dùng để nhóm dòng tiền và xác định đúng chi phí trên báo cáo lãi lỗ.</p></div><div class="panel-header-actions"><button class="button export icon-only" type="button" data-open-accounting-export data-accounting-export-scope="categories" aria-label="Xuất danh mục" title="Xuất danh mục"><span data-icon="download"></span></button><button class="button primary" type="button" data-open-accounting-category><span data-icon="plus"></span> Thêm danh mục</button></div></div>
-              <div class="accounting-local-toolbar"><div class="segmented-control" role="group" aria-label="Lọc danh mục"><button class="active" type="button" data-accounting-category-filter="all">Tất cả</button><button type="button" data-accounting-category-filter="income">Khoản thu</button><button type="button" data-accounting-category-filter="expense">Khoản chi</button></div><small>Danh mục đang dùng không nên đổi loại nếu đã có giao dịch.</small></div>
-              <div class="category-chip-list" data-accounting-categories></div>
+          <section class="accounting-categories-grid accounting-workspace" data-accounting-section="categories" hidden>
+            <section class="panel accounting-category-column income">
+              <div class="panel-header split"><div><p class="section-kicker">Tiền vào</p><h2>Danh mục thu</h2><p>Doanh thu bán hàng và các khoản thu khác.</p></div><button class="button primary icon-only" type="button" data-open-accounting-category data-category-type="income" aria-label="Thêm danh mục thu" title="Thêm danh mục thu"><span data-icon="plus"></span></button></div>
+              <div class="category-chip-list" data-accounting-categories-income></div>
+            </section>
+            <section class="panel accounting-category-column expense">
+              <div class="panel-header split"><div><p class="section-kicker">Tiền ra</p><h2>Danh mục chi</h2><p>Chi phí vận hành, nhập hàng và các khoản chi khác.</p></div><div class="panel-header-actions"><button class="button export icon-only" type="button" data-open-accounting-export data-accounting-export-scope="categories" aria-label="Xuất danh mục" title="Xuất danh mục"><span data-icon="download"></span></button><button class="button primary icon-only" type="button" data-open-accounting-category data-category-type="expense" aria-label="Thêm danh mục chi" title="Thêm danh mục chi"><span data-icon="plus"></span></button></div></div>
+              <div class="category-chip-list" data-accounting-categories-expense></div>
+              <small class="accounting-column-note">Không nên đổi loại danh mục đã có giao dịch.</small>
+            </section>
           </section>
         </section>
       </section>

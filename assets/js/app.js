@@ -307,6 +307,8 @@
     accountingAccounts: qs("[data-accounting-accounts]"),
     accountingReconciliations: qs("[data-accounting-reconciliations]"),
     accountingCategories: qs("[data-accounting-categories]"),
+    accountingCategoriesIncome: qs("[data-accounting-categories-income]"),
+    accountingCategoriesExpense: qs("[data-accounting-categories-expense]"),
     accountingTransactionsTable: qs("[data-accounting-transactions-table]"),
     accountingLedgerSummary: qs("[data-accounting-ledger-summary]"),
     accountingReceivables: qs("[data-accounting-receivables]"),
@@ -5065,16 +5067,19 @@
       `).join("") : `<tr><td colspan="5" class="empty">Chưa có khoản lương phù hợp bộ lọc.</td></tr>`;
     }
 
-    if (els.accountingCategories) {
-      const categories = (state.accountingCategories || []).filter(category => {
-        return accountingFilters.categoryType === "all" || category.type === accountingFilters.categoryType;
-      });
+    if (els.accountingCategories || els.accountingCategoriesIncome || els.accountingCategoriesExpense) {
       const categoryTotalsByType = (state.cashTransactions || []).reduce((totals, transaction) => {
         if (transaction.status === "deleted") return totals;
         totals[transaction.type] = (totals[transaction.type] || 0) + transaction.amount;
         return totals;
       }, {});
-      els.accountingCategories.innerHTML = categories.length ? categories.map(category => {
+      const renderCategoryColumn = (target, type) => {
+        if (!target) return;
+        const categories = (state.accountingCategories || []).filter(category => {
+          if (type) return category.type === type;
+          return accountingFilters.categoryType === "all" || category.type === accountingFilters.categoryType;
+        });
+        target.innerHTML = categories.length ? categories.map(category => {
         const relatedTransactions = (state.cashTransactions || []).filter(transaction => transaction.categoryId === category.id && transaction.status !== "deleted");
         const totalAmount = relatedTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
         const categoryTotal = categoryTotalsByType[category.type] || 0;
@@ -5108,7 +5113,11 @@
             ` : ""}
           </article>
         `;
-      }).join("") : `<div class="empty">Chưa có danh mục thu/chi.</div>`;
+        }).join("") : `<div class="empty">Chưa có danh mục ${type === "income" ? "thu" : type === "expense" ? "chi" : "thu/chi"}.</div>`;
+      };
+      renderCategoryColumn(els.accountingCategories, "");
+      renderCategoryColumn(els.accountingCategoriesIncome, "income");
+      renderCategoryColumn(els.accountingCategoriesExpense, "expense");
     }
 
     if (els.accountingTransactionsTable) {
@@ -5345,8 +5354,8 @@
       els.accountingProductProfitTable.innerHTML = products.length ? products.slice(0, 12).map(row => {
         const profit = row.revenue - row.cost;
         const margin = row.revenue > 0 ? profit / row.revenue : 0;
-        return `<tr><td><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.sku)}</small></td><td>${row.quantity}</td><td>${money.format(row.revenue)}</td><td>${money.format(row.cost)}</td><td><strong>${money.format(profit)}</strong></td><td><span class="margin-value ${margin < 0 ? "negative" : ""}">${(margin * 100).toFixed(1)}%</span></td></tr>`;
-      }).join("") : `<tr><td colspan="6" class="empty">Chưa có dữ liệu sản phẩm trong kỳ.</td></tr>`;
+        return `<tr><td><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.sku)} · ${row.quantity} SP</small></td><td>${money.format(row.revenue)}</td><td><strong>${money.format(profit)}</strong></td><td><span class="margin-value ${margin < 0 ? "negative" : ""}">${(margin * 100).toFixed(1)}%</span></td></tr>`;
+      }).join("") : `<tr><td colspan="4" class="empty">Chưa có dữ liệu sản phẩm trong kỳ.</td></tr>`;
     }
     if (els.accountingProfitChart) {
       const dayMap = {};
@@ -6492,10 +6501,11 @@
     if (preview) preview.classList.toggle("will-adjust", shouldAdjust);
   }
 
-  function renderAccountingCategoryForm(category) {
+  function renderAccountingCategoryForm(category, defaultType = "expense") {
+    const selectedType = category ? category.type : defaultType;
     return `
       <div class="field"><label for="name">Tên danh mục</label><input id="name" name="name" type="text" placeholder="Phí sàn, văn phòng phẩm, thu hoàn COD..." value="${category ? category.name : ""}" required /></div>
-      <div class="field"><label for="type">Loại</label><select id="type" name="type" required><option value="expense" ${category && category.type === "expense" ? "selected" : ""}>Chi</option><option value="income" ${category && category.type === "income" ? "selected" : ""}>Thu</option></select></div>
+      <div class="field"><label for="type">Loại</label><select id="type" name="type" required><option value="expense" ${selectedType === "expense" ? "selected" : ""}>Chi</option><option value="income" ${selectedType === "income" ? "selected" : ""}>Thu</option></select></div>
     `;
   }
 
@@ -8120,7 +8130,7 @@
       accountingCategory: {
         eyebrow: "Danh mục kế toán",
         title: editingAccountingCategory ? "Sửa danh mục" : "Thêm danh mục",
-        body: renderAccountingCategoryForm(editingAccountingCategory),
+        body: renderAccountingCategoryForm(editingAccountingCategory, options.categoryType),
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           const name = String(data.name || "").trim();
@@ -8994,7 +9004,9 @@
       }
       if (target.matches("[data-open-accounting-account]")) openModal("accountingAccount");
       if (target.matches("[data-open-accounting-reconciliation]")) openModal("accountingReconciliation");
-      if (target.matches("[data-open-accounting-category]")) openModal("accountingCategory");
+      if (target.matches("[data-open-accounting-category]")) {
+        openModal("accountingCategory", { categoryType: target.dataset.categoryType || "expense" });
+      }
       if (target.dataset.editAccountingAccount) {
         const account = byId("accountingAccounts", target.dataset.editAccountingAccount);
         if (account) openModal("accountingAccount", { account });
