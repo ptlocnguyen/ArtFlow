@@ -46,6 +46,8 @@ function number(value, fallback = 0) {
 }
 
 function normalizeProduct(body) {
+  const rawSalePrice = body.salePrice ?? body.sale_price;
+  const hasSalePrice = rawSalePrice !== undefined && String(rawSalePrice).trim() !== "";
   const input = {
     sku: clean(body.sku).toUpperCase(),
     name: clean(body.name),
@@ -58,7 +60,7 @@ function normalizeProduct(body) {
     origin: clean(body.origin),
     material: clean(body.material),
     cost_price: number(body.costPrice ?? body.cost_price, NaN),
-    sale_price: number(body.salePrice ?? body.sale_price, NaN),
+    sale_price: hasSalePrice ? number(rawSalePrice, NaN) : 0,
     stock: number(body.stock, NaN),
     low_stock: number(body.lowStock ?? body.low_stock, NaN),
     image_url: clean(body.imageUrl ?? body.image_url),
@@ -82,7 +84,7 @@ function normalizeProduct(body) {
   if ([input.cost_price, input.sale_price, input.stock, input.low_stock].some(value => !Number.isFinite(value) || value < 0)) {
     throw new Error("Product numeric fields are invalid");
   }
-  if (input.sale_price < input.cost_price) throw new Error("Sale price must be greater than or equal to cost price");
+  if (input.sale_price > 0 && input.sale_price < input.cost_price) throw new Error("Sale price must be greater than or equal to cost price");
   return input;
 }
 

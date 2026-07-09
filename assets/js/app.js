@@ -7,6 +7,8 @@
   const dateTimeFormat = new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" });
   const tokenKey = `${config.storageKey}.authToken`;
   const sessionUserKey = `${config.storageKey}.sessionUser`;
+  const UX_MODE = ["simple", "standard", "advanced"].includes(config.uxMode) ? config.uxMode : "standard";
+  const navStateKey = `${config.storageKey}.navGroups`;
   const API_TIMEOUT_MS = 40000;
   const API_RETRY_DELAYS = [650, 1500, 3200];
   const purchaseEditId = new URLSearchParams(window.location.search).get("edit") || "";
@@ -99,6 +101,7 @@
     calculator: '<rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01"/>',
     chart: '<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>',
     check: '<path d="M20 6 9 17l-5-5"/>',
+    chevronDown: '<path d="m6 9 6 6 6-6"/>',
     clipboard: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8M8 16h5"/>',
     close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     dashboard: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
@@ -153,24 +156,34 @@
   }
 
   const pages = {
-    channels: { title: "Kênh bán", href: "./channels.html", icon: "truck" },
-    dashboard: { title: "Tổng quan", href: "./dashboard.html", icon: "dashboard" },
-    orders: { title: "Đơn hàng", href: "./orders.html", icon: "clipboard" },
-    orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "shoppingCart", hidden: true },
-    products: { title: "Sản phẩm", href: "./products.html", icon: "package" },
-    content: { title: "Content", href: "./content.html", icon: "sparkles" },
-    team: { title: "Team Hub", href: "./team.html", icon: "briefcase" },
-    meetingMinutes: { title: "Biên bản họp", href: "./meeting-minutes.html", icon: "clipboard", hidden: true },
-    incense: { title: "Xin vía", href: "./incense.html", icon: "sparkles" },
-    customers: { title: "Khách hàng", href: "./customers.html", icon: "users" },
-    purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "truck" },
-    purchaseCreate: { title: "Tạo phiếu mua", href: "./purchase-create.html", icon: "plus", hidden: true },
-    inventory: { title: "Kho hàng", href: "./inventory.html", icon: "warehouse" },
-    accounting: { title: "Kế toán", href: "./accounting.html", icon: "calculator" },
-    reports: { title: "Báo cáo", href: "./reports.html", icon: "chart" },
-    users: { title: "Nhân viên", href: "./users.html", icon: "userPlus", adminOnly: true },
-    activity: { title: "Lịch sử hoạt động", href: "./activity.html", icon: "history", adminOnly: true }
+    dashboard: { title: "Tổng quan", href: "./dashboard.html", icon: "dashboard", roles: ["admin", "sales", "inventory", "viewer"], modes: ["simple", "standard", "advanced"] },
+    orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "shoppingCart", roles: ["admin", "sales"], modes: ["simple", "standard", "advanced"] },
+    orders: { title: "Đơn hàng", href: "./orders.html", icon: "clipboard", roles: ["admin", "sales", "viewer"], modes: ["simple", "standard", "advanced"] },
+    customers: { title: "Khách hàng", href: "./customers.html", icon: "users", roles: ["admin", "sales", "viewer"], modes: ["simple", "standard", "advanced"] },
+    products: { title: "Sản phẩm", href: "./products.html", icon: "package", roles: ["admin", "sales", "inventory", "viewer"], modes: ["simple", "standard", "advanced"] },
+    inventory: { title: "Kho hàng", href: "./inventory.html", icon: "warehouse", roles: ["admin", "inventory", "viewer"], modes: ["simple", "standard", "advanced"] },
+    purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "truck", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
+    purchaseCreate: { title: "Tạo phiếu mua", href: "./purchase-create.html", icon: "plus", roles: ["admin", "inventory"], modes: ["standard", "advanced"], hidden: true },
+    accounting: { title: "Kế toán", href: "./accounting.html", icon: "calculator", roles: ["admin"], modes: ["standard", "advanced"] },
+    reports: { title: "Báo cáo", href: "./reports.html", icon: "chart", roles: ["admin", "sales", "inventory", "viewer"], modes: ["simple", "standard", "advanced"] },
+    content: { title: "Content", href: "./content.html", icon: "sparkles", roles: ["admin"], modes: ["advanced"] },
+    channels: { title: "Kênh bán", href: "./channels.html", icon: "truck", roles: ["admin"], modes: ["advanced"] },
+    team: { title: "Team Hub", href: "./team.html", icon: "briefcase", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
+    meetingMinutes: { title: "Biên bản họp", href: "./meeting-minutes.html", icon: "clipboard", roles: ["admin"], modes: ["advanced"], hidden: true },
+    incense: { title: "Xin vía", href: "./incense.html", icon: "sparkles", roles: ["admin", "sales", "inventory"], modes: ["advanced"] },
+    users: { title: "Nhân viên", href: "./users.html", icon: "userPlus", roles: ["admin"], modes: ["standard", "advanced"], adminOnly: true },
+    activity: { title: "Lịch sử hoạt động", href: "./activity.html", icon: "history", roles: ["admin"], modes: ["advanced"], adminOnly: true }
   };
+
+  const navGroups = [
+    { id: "overview", title: "Tổng quan", defaultOpen: true, items: ["dashboard"] },
+    { id: "sales", title: "Bán hàng", defaultOpen: true, items: ["orderCreate", "orders", "customers"] },
+    { id: "catalog", title: "Hàng hóa", defaultOpen: true, items: ["products", "inventory", "purchasing"] },
+    { id: "finance", title: "Tài chính", defaultOpen: false, items: ["accounting", "reports"] },
+    { id: "growth", title: "Tăng trưởng", defaultOpen: false, items: ["content", "channels"] },
+    { id: "internal", title: "Nội bộ", defaultOpen: false, items: ["team", "meetingMinutes", "incense"] },
+    { id: "admin", title: "Quản trị", defaultOpen: false, items: ["users", "activity"] }
+  ];
 
   const qs = selector => document.querySelector(selector);
   const moneyFieldNames = new Set([
@@ -641,11 +654,11 @@
       button.dataset.originalAriaLabel = button.getAttribute("aria-label") || "";
       button.setAttribute("aria-busy", "true");
       if (button.classList.contains("icon-only")) {
-        const busyLabel = label || "?ang x? l?...";
+        const busyLabel = label || "Đang xử lý...";
         button.setAttribute("title", busyLabel);
         button.setAttribute("aria-label", busyLabel);
       } else {
-        button.textContent = label || "?ang x? l?...";
+        button.textContent = label || "Đang xử lý...";
       }
       button.disabled = true;
       return;
@@ -1210,7 +1223,9 @@
       id: line.id || makeLocalId("price_line"),
       label: line.label || "",
       type: line.type || "fixed",
-      value: Number(line.value || 0)
+      value: Number(line.value || 0),
+      note: line.note || "",
+      included: line.included !== false
     };
   }
 
@@ -1218,8 +1233,12 @@
     return {
       id: scenario.id || makeLocalId("price_scenario"),
       label: scenario.label || "",
+      channelId: scenario.channelId || scenario.channelCode || "",
       targetMargin: Number(scenario.targetMargin || 35),
-      salePrice: Number(scenario.salePrice || 0)
+      targetProfitAmount: Number(scenario.targetProfitAmount || 0),
+      salePrice: Number(scenario.salePrice || scenario.overridePrice || 0),
+      roundingMode: scenario.roundingMode || "step",
+      roundingStep: Number(scenario.roundingStep || 1000)
     };
   }
 
@@ -1228,6 +1247,18 @@
       id: model.id || makeLocalId("pricing"),
       title: model.title || "",
       productId: model.productId || "",
+      channelId: model.channelId || model.channelCode || "",
+      channelCode: model.channelCode || "",
+      priceTarget: model.priceTarget || "offline",
+      appliedPrice: Number(model.appliedPrice || 0),
+      appliedAt: model.appliedAt || "",
+      appliedToProduct: Boolean(model.appliedToProduct),
+      appliedToChannelProduct: Boolean(model.appliedToChannelProduct),
+      roundingMode: model.roundingMode || "step",
+      roundingStep: Number(model.roundingStep || 1000),
+      targetProfitAmount: Number(model.targetProfitAmount || 0),
+      targetMargin: Number(model.targetMargin || 35),
+      selectedScenarioId: model.selectedScenarioId || "",
       status: model.status || "draft",
       owner: model.owner || "",
       baseCost: Number(model.baseCost || 0),
@@ -1972,14 +2003,44 @@
 
   function renderNav() {
     if (!els.navList) return;
-    els.navList.innerHTML = Object.entries(pages).map(([key, item]) => {
-      if (item.hidden) return "";
-      if (item.adminOnly && !isAdmin()) return "";
+    let stored = {};
+    try {
+      stored = JSON.parse(localStorage.getItem(navStateKey) || "{}");
+    } catch (error) {
+      stored = {};
+    }
+    const role = currentUser?.role || "viewer";
+    const canShow = ([key, item]) => {
+      if (!item || item.hidden) return false;
+      if (item.adminOnly && !isAdmin()) return false;
+      if (item.modes && item.modes.indexOf(UX_MODE) === -1) return false;
+      if (item.roles && item.roles.indexOf(role) === -1) return false;
+      return true;
+    };
+    els.navList.innerHTML = navGroups.map(group => {
+      const items = group.items
+        .map(key => [key, pages[key]])
+        .filter(canShow);
+      if (!items.length) return "";
+      const hasActive = items.some(([key]) => key === page);
+      const isOpen = Object.prototype.hasOwnProperty.call(stored, group.id)
+        ? Boolean(stored[group.id])
+        : (group.defaultOpen || hasActive);
       return `
-        <a class="nav-link ${key === page ? "active" : ""}" href="${item.href}" data-nav-page="${key}" ${key === page ? "aria-current=\"page\"" : ""}>
-          <span class="nav-icon">${icon(item.icon)}</span>
-          <span>${item.title}</span>
-        </a>
+        <section class="nav-group ${isOpen ? "open" : ""} ${hasActive ? "active" : ""}" data-nav-group="${group.id}">
+          <button class="nav-group-toggle" type="button" data-toggle-nav-group="${group.id}" aria-expanded="${String(isOpen)}">
+            <span>${escapeHtml(group.title)}</span>
+            <span class="nav-group-chevron">${icon("chevronDown")}</span>
+          </button>
+          <div class="nav-group-items" ${isOpen ? "" : "hidden"}>
+            ${items.map(([key, item]) => `
+              <a class="nav-link ${key === page ? "active" : ""}" href="${item.href}" data-nav-page="${key}" ${key === page ? "aria-current=\"page\"" : ""}>
+                <span class="nav-icon">${icon(item.icon)}</span>
+                <span>${escapeHtml(item.title)}</span>
+              </a>
+            `).join("")}
+          </div>
+        </section>
       `;
     }).join("");
   }
@@ -2309,7 +2370,7 @@
     XLSX.utils.book_append_sheet(workbook, createInstructionSheet("HƯỚNG DẪN NHẬP SẢN PHẨM", [
       ["Cách dùng", "Điền dữ liệu tại sheet Sản phẩm, giữ nguyên tên cột ở dòng 4, sau đó bấm Nhập Excel trong ArtFlow."],
       ["SKU", "Bắt buộc, duy nhất. SKU đã tồn tại sẽ được cập nhật; SKU mới sẽ tạo sản phẩm mới."],
-      ["Giá", "cost_price và sale_price là số không âm; sale_price không được thấp hơn cost_price."],
+      ["Giá", "cost_price là bắt buộc; sale_price là giá shop/offline và có thể để trống hoặc bằng 0 để tính sau. Nếu nhập sale_price thì không được thấp hơn cost_price."],
       ["Tồn kho", "stock và low_stock là số không âm. Thay đổi stock khi nhập sẽ được ghi lịch sử kho."],
       ["Trạng thái", "Chỉ dùng active hoặc archived. Để trống sẽ mặc định active."],
       ["Giới hạn", "Tối đa 500 dòng và 5 MB mỗi lần nhập. Không xóa sheet hoặc đổi tên cột."]
@@ -2383,7 +2444,7 @@
     ]);
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, createExcelSheet("DANH MỤC SẢN PHẨM", `Xuất lúc ${formatDateTime(new Date().toISOString())} · ${products.length} sản phẩm`, ["SKU", "Tên sản phẩm", "Danh mục", "Thương hiệu", "Barcode", "Đơn vị", "Giá vốn", "Giá bán", "Tồn kho", "Ngưỡng thấp", "Trạng thái content", "Người phụ trách", "Mô tả ngắn", "Từ khóa", "Google Docs", "Folder media", "Website", "Shopee", "TikTok Shop", "Facebook", "Bài đăng / video", "Ngày tạo", "Cập nhật lần cuối", "Trạng thái bán"], rows, { widths: [16, 32, 22, 18, 18, 12, 18, 18, 14, 16, 20, 24, 40, 32, 38, 38, 36, 36, 36, 36, 48, 22, 22, 16], moneyColumns: [6, 7], numberColumns: [8, 9], textColumns: [0, 4], wrapColumn: 20 }), "Sản phẩm");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("DANH MỤC SẢN PHẨM", `Xuất lúc ${formatDateTime(new Date().toISOString())} · ${products.length} sản phẩm`, ["SKU", "Tên sản phẩm", "Danh mục", "Thương hiệu", "Barcode", "Đơn vị", "Giá vốn", "Giá shop/offline", "Tồn kho", "Ngưỡng thấp", "Trạng thái content", "Người phụ trách", "Mô tả ngắn", "Từ khóa", "Google Docs", "Folder media", "Website", "Shopee", "TikTok Shop", "Facebook", "Bài đăng / video", "Ngày tạo", "Cập nhật lần cuối", "Trạng thái bán"], rows, { widths: [16, 32, 22, 18, 18, 12, 18, 18, 14, 16, 20, 24, 40, 32, 38, 38, 36, 36, 36, 36, 48, 22, 22, 16], moneyColumns: [6, 7], numberColumns: [8, 9], textColumns: [0, 4], wrapColumn: 20 }), "Sản phẩm");
     saveExcelWorkbook(workbook, `artflow-san-pham-${reportDayKey(new Date())}.xlsx`);
     showToast(`Đã xuất ${products.length} sản phẩm.`);
   }
@@ -2447,7 +2508,7 @@
     const headerIndex = rows.findIndex(row => row.some(cell => String(cell || "").replace(/^\uFEFF/, "").trim().toLowerCase() === "sku"));
     if (headerIndex === -1) throw new Error("Không tìm thấy dòng tiêu đề có cột sku.");
     const headers = rows[headerIndex].map(header => aliases[String(header || "").replace(/^\uFEFF/, "").trim().toLowerCase()] || "");
-    const required = ["sku", "name", "category", "costPrice", "salePrice", "stock", "lowStock"];
+    const required = ["sku", "name", "category", "costPrice", "stock", "lowStock"];
     const missing = required.filter(field => !headers.includes(field));
     if (missing.length) throw new Error(`Thiếu cột bắt buộc: ${missing.join(", ")}.`);
     const dataRows = rows.slice(headerIndex + 1).filter(row => row.some(cell => String(cell || "").trim() !== ""));
@@ -2459,10 +2520,10 @@
       ["costPrice", "salePrice", "stock", "lowStock", "weightGrams"].forEach(field => { product[field] = Number(product[field] || 0); });
       product.contentStatus = productContentStatuses[product.contentStatus] ? product.contentStatus : "not_started";
       product.status = product.status === "archived" ? "archived" : "active";
-      if (!product.sku || !product.name || !product.category || [product.costPrice, product.salePrice, product.stock, product.lowStock].some(value => !Number.isFinite(value) || value < 0)) {
+      if (!product.sku || !product.name || !product.category || [product.costPrice, product.stock, product.lowStock].some(value => !Number.isFinite(value) || value < 0) || !Number.isFinite(product.salePrice) || product.salePrice < 0) {
         throw new Error(`Dòng ${headerIndex + rowIndex + 2} có dữ liệu không hợp lệ.`);
       }
-      if (product.salePrice < product.costPrice) throw new Error(`Dòng ${headerIndex + rowIndex + 2}: giá bán thấp hơn giá vốn.`);
+      if (product.salePrice > 0 && product.salePrice < product.costPrice) throw new Error(`Dòng ${headerIndex + rowIndex + 2}: giá shop/offline thấp hơn giá vốn.`);
       return product;
     });
   }
@@ -3155,6 +3216,7 @@
   }
 
   function productGrossProfit(product) {
+    if (!Number(product.salePrice || 0)) return 0;
     return Number(product.salePrice || 0) - Number(product.costPrice || 0);
   }
 
@@ -3162,11 +3224,31 @@
     return Number(product.salePrice || 0) > 0 ? productGrossProfit(product) / Number(product.salePrice) * 100 : 0;
   }
 
+  function productHasShopPrice(product) {
+    return Number(product && product.salePrice || 0) > 0;
+  }
+
+  function productChannelPrices(productId) {
+    return (state.channelProducts || [])
+      .map(normalizeChannelProduct)
+      .filter(item => item.productId === productId && item.status !== "deleted" && Number(item.channelPrice || 0) > 0);
+  }
+
+  function productPriceStatus(product) {
+    const hasShop = productHasShopPrice(product);
+    const channelCount = productChannelPrices(product.id).length;
+    if (hasShop && channelCount) return { key: "complete", label: "Đủ giá" };
+    if (channelCount) return { key: "channel", label: "Có giá kênh" };
+    if (hasShop) return { key: "shop", label: "Có giá shop" };
+    return { key: "missing", label: "Chưa có giá" };
+  }
+
   function productAssetsComplete(product) {
     return Boolean(product.contentDocUrl && product.mediaFolderUrl && product.imageFolderUrl && product.videoFolderUrl);
   }
 
   function productMarginTone(product) {
+    if (!productHasShopPrice(product)) return "missing";
     const margin = productMarginRate(product);
     if (productGrossProfit(product) <= 0) return "loss";
     if (margin < 20) return "low";
@@ -3204,7 +3286,7 @@
     const inventoryValue = products.reduce((sum, product) => sum + Number(product.stock || 0) * Number(product.costPrice || 0), 0);
     const retailValue = products.reduce((sum, product) => sum + Number(product.stock || 0) * Number(product.salePrice || 0), 0);
     const potentialProfit = products.reduce((sum, product) => sum + Number(product.stock || 0) * productGrossProfit(product), 0);
-    const attentionProducts = products.filter(product => product.status === "active" && (product.stock <= product.lowStock || productGrossProfit(product) <= 0 || !productAssetsComplete(product)));
+    const attentionProducts = products.filter(product => product.status === "active" && (product.stock <= product.lowStock || !productHasShopPrice(product) || (productHasShopPrice(product) && productGrossProfit(product) <= 0) || !productAssetsComplete(product)));
     const kpiValues = {
       "[data-product-kpi-total]": products.length,
       "[data-product-kpi-value]": money.format(inventoryValue),
@@ -3225,17 +3307,17 @@
         (productFilters.stock === "low" && product.stock > 0 && product.stock <= product.lowStock) ||
         (productFilters.stock === "healthy" && product.stock > product.lowStock);
       const marginMatch = productFilters.margin === "all" ||
-        (productFilters.margin === "loss" && grossProfit <= 0) ||
+        (productFilters.margin === "loss" && productHasShopPrice(product) && grossProfit <= 0) ||
         (productFilters.margin === "low" && grossProfit > 0 && margin < 20) ||
         (productFilters.margin === "good" && margin >= 20 && margin < 40) ||
         (productFilters.margin === "high" && margin >= 40);
       const assetsComplete = productAssetsComplete(product);
       const activeForPreset = product.status === "active";
       const presetMatch = productFilters.preset === "all" ||
-        (productFilters.preset === "attention" && activeForPreset && (product.stock <= product.lowStock || grossProfit <= 0 || !assetsComplete)) ||
+        (productFilters.preset === "attention" && activeForPreset && (product.stock <= product.lowStock || !productHasShopPrice(product) || (productHasShopPrice(product) && grossProfit <= 0) || !assetsComplete)) ||
         (productFilters.preset === "out" && activeForPreset && product.stock <= 0) ||
         (productFilters.preset === "missing" && activeForPreset && !assetsComplete) ||
-        (productFilters.preset === "low_margin" && activeForPreset && (grossProfit <= 0 || margin < 20));
+        (productFilters.preset === "low_margin" && activeForPreset && productHasShopPrice(product) && (grossProfit <= 0 || margin < 20));
       return presetMatch && (productFilters.category === "all" || product.category === productFilters.category) &&
         (productFilters.status === "all" || product.status === productFilters.status) && stockMatch && marginMatch &&
         (productFilters.content === "all" || product.contentStatus === productFilters.content) &&
@@ -3252,23 +3334,27 @@
     document.querySelectorAll("[data-product-preset]").forEach(button => {
       button.classList.toggle("active", button.dataset.productPreset === productFilters.preset);
     });
-    els.productsTable.innerHTML = rows.length ? rows.map(product => `
+    els.productsTable.innerHTML = rows.length ? rows.map(product => {
+      const priceStatus = productPriceStatus(product);
+      const channelCount = productChannelPrices(product.id).length;
+      return `
       <tr class="${product.status === "archived" ? "product-row-archived" : ""}">
         <td>${product.imageUrl ? `<img class="product-table-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="" loading="lazy" />` : `<span class="product-table-image placeholder">${icon("image")}</span>`}</td>
         <td><strong>${product.sku}</strong><br><span class="product-sale-status ${product.status}">${statusLabel(product.status)}</span></td>
         <td><strong>${escapeHtml(product.name)}</strong><br><small>${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small></td>
-        <td><strong>${money.format(product.salePrice)}</strong><br><small>Vốn ${money.format(product.costPrice)}</small></td>
-        <td><div class="product-margin-cell"><strong class="margin-${productMarginTone(product)}">${money.format(productGrossProfit(product))}</strong><span class="badge margin-${productMarginTone(product)}">${productMarginRate(product).toFixed(1)}%</span></div></td>
+        <td><strong>${productHasShopPrice(product) ? money.format(product.salePrice) : "Chưa có giá"}</strong><br><small>Vốn ${money.format(product.costPrice)}${channelCount ? ` · ${channelCount} kênh` : ""}</small><span class="price-status ${priceStatus.key}">${priceStatus.label}</span></td>
+        <td><div class="product-margin-cell">${productHasShopPrice(product) ? `<strong class="margin-${productMarginTone(product)}">${money.format(productGrossProfit(product))}</strong><span class="badge margin-${productMarginTone(product)}">${productMarginRate(product).toFixed(1)}%</span>` : `<strong class="margin-missing">—</strong><span class="badge margin-missing">Chờ tính giá</span>`}</div></td>
         <td><span class="badge ${product.stock <= 0 ? "margin-loss" : product.stock <= product.lowStock ? "low" : "active"}">${product.stock}</span></td>
         <td><div class="product-content-cell"><span class="badge content-${product.contentStatus}">${productContentStatuses[product.contentStatus]}</span><small class="${productAssetsComplete(product) ? "assets-complete" : "assets-missing"}">${productAssetsComplete(product) ? "Đủ tài nguyên" : "Thiếu tài nguyên"}</small></div></td>
         <td>
           <div class="row-actions">
             <button class="link-button action-view icon-only" data-view-product="${product.id}" aria-label="Chi tiết" title="Chi tiết">${icon("eye")}</button>
-            ${canManageProducts() ? `<button class="link-button action-edit icon-only" data-edit-product="${product.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button><button class="link-button icon-only ${product.status === "active" ? "action-archive" : "action-activate"}" data-archive-product="${product.id}" data-next-status="${product.status === "active" ? "archived" : "active"}" aria-label="${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}" title="${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}">${icon(product.status === "active" ? "archive" : "check")}</button>` : ""}
+            ${canManageProducts() ? `<button class="link-button action-edit icon-only" data-open-pricing-for-product="${product.id}" aria-label="Tính giá" title="Tính giá">${icon("calculator")}</button><button class="link-button action-edit icon-only" data-edit-product="${product.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button><button class="link-button icon-only ${product.status === "active" ? "action-archive" : "action-activate"}" data-archive-product="${product.id}" data-next-status="${product.status === "active" ? "archived" : "active"}" aria-label="${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}" title="${product.status === "active" ? "Ngừng bán" : "Kích hoạt"}">${icon(product.status === "active" ? "archive" : "check")}</button>` : ""}
           </div>
         </td>
       </tr>
-    `).join("") : `<tr><td colspan="8" class="empty">${products.length ? "Không có sản phẩm phù hợp bộ lọc." : "Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên."}</td></tr>`;
+    `;
+    }).join("") : `<tr><td colspan="8" class="empty">${products.length ? "Không có sản phẩm phù hợp bộ lọc." : "Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên."}</td></tr>`;
   }
 
   function getContentProduct(item) {
@@ -4015,23 +4101,35 @@
   }
 
   function pricingLineAmount(line, baseCost, salePrice) {
+    if (line.included === false || line.type === "note") return 0;
     if (line.type === "cost_percent") return baseCost * line.value / 100;
     if (line.type === "price_percent") return salePrice * line.value / 100;
     return line.value;
+  }
+
+  function roundedPricingValue(value, scenario = {}) {
+    const mode = scenario.roundingMode || "step";
+    const step = Math.max(1, Number(scenario.roundingStep || 1000));
+    if (mode === "none") return Math.max(0, Math.round(value));
+    if (mode === "tail9") return Math.max(0, Math.ceil(value / 10000) * 10000 - 1000);
+    return Math.ceil(Math.max(0, value) / step) * step;
   }
 
   function pricingTotals(model, scenario) {
     const targetMargin = Math.max(0, Number(scenario?.targetMargin || 0));
     const baseCost = Number(model.baseCost || 0);
     const fixedExtra = (model.lines || []).filter(line => line.type !== "price_percent").reduce((sum, line) => sum + pricingLineAmount(line, baseCost, 0), 0);
-    const pricePercent = (model.lines || []).filter(line => line.type === "price_percent").reduce((sum, line) => sum + Number(line.value || 0), 0);
+    const pricePercent = (model.lines || []).filter(line => line.included !== false && line.type === "price_percent").reduce((sum, line) => sum + Number(line.value || 0), 0);
     const divisor = Math.max(0.01, 1 - (targetMargin + pricePercent) / 100);
-    const suggested = Math.ceil((baseCost + fixedExtra) / divisor / 1000) * 1000;
+    const targetProfitAmount = Number(scenario?.targetProfitAmount || model.targetProfitAmount || 0);
+    const rawSuggested = targetProfitAmount > 0 ? (baseCost + fixedExtra + targetProfitAmount) / Math.max(0.01, 1 - pricePercent / 100) : (baseCost + fixedExtra) / divisor;
+    const suggested = roundedPricingValue(rawSuggested, scenario);
     const salePrice = Number(scenario?.salePrice || 0) || suggested;
     const extra = (model.lines || []).reduce((sum, line) => sum + pricingLineAmount(line, baseCost, salePrice), 0);
     const totalCost = baseCost + extra;
     const grossProfit = salePrice - totalCost;
-    return { salePrice, totalCost, grossProfit, margin: salePrice > 0 ? grossProfit / salePrice * 100 : 0, suggested };
+    const priceLinkedCost = (model.lines || []).filter(line => line.included !== false && line.type === "price_percent").reduce((sum, line) => sum + pricingLineAmount(line, baseCost, salePrice), 0);
+    return { salePrice, totalCost, grossProfit, margin: salePrice > 0 ? grossProfit / salePrice * 100 : 0, suggested, fixedExtra, priceLinkedCost };
   }
 
   function renderTeamPricing() {
@@ -4068,6 +4166,20 @@
   function teamProductOptions(selected) {
     const products = [...(state.products || [])].filter(product => product.status !== "deleted").sort((a, b) => a.name.localeCompare(b.name, "vi"));
     return `<option value="">Không gắn sản phẩm</option>${products.map(product => `<option value="${product.id}" ${selected === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}`;
+  }
+
+  function teamChannelOptions(selected = "") {
+    const channels = [...(state.salesChannels || [])].filter(channel => channel.status !== "deleted");
+    const fallback = [
+      ["", "Shop/POS offline"],
+      ["website", "Website"],
+      ["shopee", "Shopee"],
+      ["tiktok", "TikTok Shop"],
+      ["lazada", "Lazada"],
+      ["facebook", "Facebook"]
+    ];
+    const options = channels.length ? [["", "Shop/POS offline"], ...channels.map(channel => [channel.id, channel.name || channel.code])] : fallback;
+    return options.map(([value, label]) => `<option value="${escapeAttribute(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
   }
 
   function renderTeamSourceAndComments(item) {
@@ -4413,29 +4525,46 @@
     const lines = item.lines.length ? item.lines : [
       { label: "Bao bì", type: "fixed", value: 1000 },
       { label: "Phí sàn / thanh toán", type: "price_percent", value: 3 },
-      { label: "Marketing dự kiến", type: "price_percent", value: 5 }
+      { label: "Marketing dự kiến", type: "price_percent", value: 5 },
+      { label: "Voucher/khuyến mãi", type: "price_percent", value: 5 },
+      { label: "Dự phòng rủi ro", type: "price_percent", value: 2 }
     ].map(normalizePricingLine);
     const scenarios = item.scenarios.length ? item.scenarios : [
-      { label: "Giá bán lẻ", targetMargin: 35, salePrice: 0 },
-      { label: "Giá sale", targetMargin: 25, salePrice: 0 }
+      { label: "Giá shop", targetMargin: 35, salePrice: 0, roundingStep: 1000 },
+      { label: "Giá sàn", targetMargin: 28, salePrice: 0, roundingMode: "tail9", roundingStep: 10000 }
     ].map(normalizePricingScenario);
     return `
-      <div class="field"><label for="teamPricingTitle">Tên bảng tính</label><input id="teamPricingTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Tính giá bộ màu nước 24 màu" required /></div>
-      <div class="field"><label for="teamPricingProduct">Sản phẩm</label><select id="teamPricingProduct" name="productId" data-team-pricing-product>${teamProductOptions(item.productId)}</select></div>
-      <div class="field"><label for="teamPricingStatus">Trạng thái</label><select id="teamPricingStatus" name="status">${[["draft", "Nháp"], ["active", "Đang dùng"], ["approved", "Đã duyệt"], ["archived", "Lưu trữ"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-      <div class="field"><label for="teamPricingOwner">Phụ trách</label><select id="teamPricingOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
-      <div class="field"><label for="teamPricingBaseCost">Giá vốn gốc</label><input id="teamPricingBaseCost" name="baseCost" type="number" min="0" step="1000" value="${item.baseCost}" data-team-pricing-input /></div>
-      <div class="field"><label for="teamPricingQuantity">Số lượng tính</label><input id="teamPricingQuantity" name="quantity" type="number" min="1" step="1" value="${item.quantity}" /></div>
-      <div class="team-pricing-editor full">
-        <div class="team-editor-head"><strong>Dòng chi phí</strong><button class="button ghost compact-button" type="button" data-add-pricing-line>Thêm dòng</button></div>
-        <div data-pricing-lines>${lines.map((line, index) => renderPricingLineInput(line, index)).join("")}</div>
+      <div class="pricing-workbench full">
+        <section class="pricing-block pricing-header-block">
+          <div class="field"><label for="teamPricingTitle">Tên bảng tính</label><input id="teamPricingTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Tính giá bộ màu nước 24 màu" required /></div>
+          <div class="field"><label for="teamPricingStatus">Trạng thái</label><select id="teamPricingStatus" name="status">${[["draft", "Nháp"], ["active", "Đang dùng"], ["approved", "Đã duyệt"], ["archived", "Lưu trữ"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
+          <div class="field"><label for="teamPricingOwner">Phụ trách</label><select id="teamPricingOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
+          <div class="field full"><label for="teamPricingNote">Ghi chú</label><textarea id="teamPricingNote" name="note" rows="2">${escapeHtml(item.note)}</textarea></div>
+        </section>
+        <section class="pricing-block pricing-product-block">
+          <div class="team-editor-head"><strong>Sản phẩm và phạm vi giá</strong><small>Tìm theo SKU/tên trong ô chọn sản phẩm, chọn kênh nếu muốn áp dụng giá sàn.</small></div>
+          <div class="pricing-grid-3">
+            <div class="field"><label for="teamPricingProduct">Sản phẩm</label><select id="teamPricingProduct" name="productId" data-team-pricing-product>${teamProductOptions(item.productId)}</select></div>
+            <div class="field"><label for="teamPricingBaseCost">Giá vốn</label><input id="teamPricingBaseCost" name="baseCost" type="number" min="0" step="1000" value="${item.baseCost}" data-team-pricing-input /></div>
+            <div class="field"><label for="teamPricingQuantity">Số lượng tính</label><input id="teamPricingQuantity" name="quantity" type="number" min="1" step="1" value="${item.quantity}" /></div>
+            <div class="field"><label for="teamPricingTarget">Phạm vi áp dụng</label><select id="teamPricingTarget" name="priceTarget" data-team-pricing-input><option value="offline" ${item.priceTarget !== "channel" ? "selected" : ""}>Shop/POS offline</option><option value="channel" ${item.priceTarget === "channel" ? "selected" : ""}>Kênh/sàn bán hàng</option></select></div>
+            <div class="field"><label for="teamPricingChannel">Kênh/sàn</label><select id="teamPricingChannel" name="channelId">${teamChannelOptions(item.channelId || item.channelCode || "")}</select></div>
+          </div>
+        </section>
+        <section class="pricing-block">
+          <div class="team-editor-head"><strong>Dòng chi phí</strong><button class="button ghost compact-button" type="button" data-add-pricing-line>Thêm dòng</button></div>
+          <div data-pricing-lines>${lines.map((line, index) => renderPricingLineInput(line, index)).join("")}</div>
+        </section>
+        <section class="pricing-block">
+          <div class="team-editor-head"><strong>Kịch bản giá</strong><button class="button ghost compact-button" type="button" data-add-pricing-scenario>Thêm kịch bản</button></div>
+          <div data-pricing-scenarios>${scenarios.map((scenario, index) => renderPricingScenarioInput(scenario, index)).join("")}</div>
+        </section>
+        <section class="pricing-block pricing-result-block">
+          <div class="team-editor-head"><strong>Kết quả realtime</strong><small>Dùng kịch bản đầu tiên để áp dụng nhanh.</small></div>
+          <div class="team-pricing-preview" data-team-pricing-preview></div>
+          <div class="team-pricing-apply"><button class="button primary" type="button" data-apply-pricing-model="offline">${icon("check")} Áp dụng giá shop/offline</button><button class="button ghost" type="button" data-apply-pricing-model="channel">${icon("truck")} Áp dụng cho kênh đã chọn</button></div>
+        </section>
       </div>
-      <div class="team-pricing-editor full">
-        <div class="team-editor-head"><strong>Kịch bản giá</strong><button class="button ghost compact-button" type="button" data-add-pricing-scenario>Thêm kịch bản</button></div>
-        <div data-pricing-scenarios>${scenarios.map((scenario, index) => renderPricingScenarioInput(scenario, index)).join("")}</div>
-      </div>
-      <div class="team-pricing-preview full" data-team-pricing-preview></div>
-      <div class="field full"><label for="teamPricingNote">Ghi chú</label><textarea id="teamPricingNote" name="note" rows="3">${escapeHtml(item.note)}</textarea></div>
       ${renderTeamSourceAndComments(item)}
     `;
   }
@@ -4556,6 +4685,66 @@
     renderPage();
     showToast("Đã lưu Team Hub.");
     return saved;
+  }
+
+  function pricingModelFromForm(form) {
+    return normalizePricingModel({
+      title: form.title?.value || "",
+      productId: form.productId?.value || "",
+      status: form.status?.value || "draft",
+      owner: form.owner?.value || "",
+      baseCost: form.baseCost?.value || 0,
+      quantity: form.quantity?.value || 1,
+      priceTarget: form.priceTarget?.value || "offline",
+      channelId: form.channelId?.value || "",
+      note: form.note?.value || "",
+      lines: collectPricingLines(form),
+      scenarios: collectPricingScenarios(form)
+    });
+  }
+
+  async function applyPricingFromForm(form, target) {
+    const model = pricingModelFromForm(form);
+    const product = byId("products", model.productId);
+    if (!product) throw new Error("Chọn sản phẩm trước khi áp dụng giá.");
+    const scenario = model.scenarios[0];
+    if (!scenario) throw new Error("Cần có ít nhất một kịch bản giá.");
+    const totals = pricingTotals(model, scenario);
+    const appliedPrice = Math.max(0, Number(totals.salePrice || totals.suggested || 0));
+    if (!appliedPrice) throw new Error("Giá áp dụng chưa hợp lệ.");
+    if (target === "channel") {
+      const channelId = model.channelId;
+      if (!channelId) throw new Error("Chọn kênh/sàn trước khi áp dụng giá kênh.");
+      const existing = (state.channelProducts || []).find(item => item.productId === product.id && item.channelId === channelId && item.status !== "deleted");
+      const response = await apiRequest("/omni/mappings/upsert", {
+        method: "POST",
+        body: JSON.stringify({
+          id: existing ? existing.id : "",
+          productId: product.id,
+          channelId,
+          channelSku: existing?.channelSku || product.sku,
+          channelName: existing?.channelName || product.name,
+          channelPrice: appliedPrice,
+          channelStock: existing?.channelStock ?? product.stock,
+          syncStock: existing?.syncStock ?? true,
+          syncPrice: true,
+          status: "active",
+          note: `Áp dụng từ pricing: ${model.title || scenario.label || product.sku}`
+        })
+      });
+      const saved = normalizeChannelProduct(response.channelProduct);
+      state.channelProducts = upsertLocalItem(state.channelProducts || [], saved);
+      showToast(`Đã áp dụng giá kênh ${money.format(appliedPrice)}.`);
+    } else {
+      const payload = { ...product, salePrice: appliedPrice };
+      const response = await apiRequest("/products/update", { method: "POST", body: JSON.stringify(payload) });
+      const saved = normalizeProduct(response.product);
+      state.products = upsertLocalItem(state.products || [], saved);
+      showToast(`Đã áp dụng giá shop/offline ${money.format(appliedPrice)}.`);
+    }
+    window.ArtFlowPosStore.save(state);
+    renderPage();
+    updateTeamPricingPreview(form);
   }
 
   function upsertLocalItem(items, saved) {
@@ -5789,6 +5978,7 @@
     const modal = els.modalBackdrop.querySelector(".modal");
     if (modal) delete modal.dataset.modalType;
     els.modalForm.classList.remove("modal-form-wide");
+    els.modalForm.classList.remove("modal-form-fullscreen");
     els.modalBackdrop.hidden = true;
     els.modalForm.innerHTML = "";
   }
@@ -5989,7 +6179,7 @@
       <div class="field"><label for="barcode">Barcode / Mã vạch</label><input id="barcode" name="barcode" value="${value("barcode")}" placeholder="893..." /></div>
       <div class="field"><label for="unit">Đơn vị tính</label><select id="unit" name="unit" required>${renderManagedProductSelect("unit", product ? product.unit : "cái")}</select></div>
       <div class="field"><label for="costPrice">Giá vốn</label><input id="costPrice" name="costPrice" type="number" min="0" step="1000" value="${value("costPrice")}" required /></div>
-      <div class="field"><label for="salePrice">Giá bán</label><input id="salePrice" name="salePrice" type="number" min="0" step="1000" value="${value("salePrice")}" required /></div>
+      <div class="field"><label for="salePrice">Giá shop/offline hiện tại</label><input id="salePrice" name="salePrice" type="number" min="0" step="1000" value="${value("salePrice")}" placeholder="Có thể để trống và tính sau" /><small>Không bắt buộc khi tạo mới. Dùng Team Hub Pricing để tính và áp dụng giá chuẩn.</small></div>
       <div class="product-pricing-preview full" data-product-pricing-preview></div>
       <div class="field"><label for="stock">Tồn kho</label><input id="stock" name="stock" type="number" min="0" step="1" value="${value("stock")}" required /></div>
       <div class="field"><label for="lowStock">Ngưỡng cảnh báo</label><input id="lowStock" name="lowStock" type="number" min="0" step="1" value="${value("lowStock")}" required /></div>
@@ -6044,16 +6234,24 @@
       : `<div class="product-detail-image placeholder">Không có ảnh</div>`;
     const info = (label, value) => `<div><span>${label}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
     const postLinks = parseProductContentLinks(product.contentPostLinks);
+    const hasShopPrice = productHasShopPrice(product);
+    const priceStatus = productPriceStatus(product);
+    const channelPrices = productChannelPrices(product.id);
+    const shopPriceLabel = hasShopPrice ? money.format(product.salePrice) : "Chưa có giá shop/offline";
     const grossProfit = productGrossProfit(product);
     const margin = productMarginRate(product);
-    const markup = Number(product.costPrice || 0) > 0 ? grossProfit / Number(product.costPrice) * 100 : 0;
+    const markup = hasShopPrice && Number(product.costPrice || 0) > 0 ? grossProfit / Number(product.costPrice) * 100 : 0;
+    const channelPriceBlock = channelPrices.length
+      ? `<div class="price-channel-list full">${channelPrices.map(entry => `<span class="price-channel-chip"><b>${escapeHtml(entry.channelName || entry.channelCode || "Kênh bán")}</b>${money.format(entry.channelPrice || entry.price || 0)}</span>`).join("")}</div>`
+      : `<p class="resource-empty-copy full">Chưa có giá riêng theo kênh bán.</p>`;
     return `
-      <div class="product-detail-hero full">${image}<div><span class="badge ${product.status}">${statusLabel(product.status)}</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</p><b>${money.format(product.salePrice)}</b>${canManageProducts() ? `<div class="product-detail-actions"><button class="button info" type="button" data-edit-product-from-detail="${escapeAttribute(product.id)}">Sửa sản phẩm</button></div>` : ""}</div></div>
+      <div class="product-detail-hero full">${image}<div><span class="badge ${product.status}">${statusLabel(product.status)}</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</p><b>${shopPriceLabel}</b><span class="price-status ${priceStatus.key}">${priceStatus.label}</span>${canManageProducts() ? `<div class="product-detail-actions"><button class="button info" type="button" data-edit-product-from-detail="${escapeAttribute(product.id)}">Sửa sản phẩm</button><button class="button ghost" type="button" data-open-pricing-for-product="${escapeAttribute(product.id)}">Tính giá</button></div>` : ""}</div></div>
       <section class="product-detail-section full"><h3>Thông tin sản phẩm</h3><div class="product-detail-grid">
-        ${info("Barcode", product.barcode)}${info("Đơn vị", product.unit)}${info("Giá vốn", money.format(product.costPrice))}${info("Giá bán", money.format(product.salePrice))}
-        ${info("Lãi gộp / sản phẩm", money.format(grossProfit))}${info("Biên lãi", `${margin.toFixed(1)}%`)}${info("Tỷ lệ cộng trên vốn", `${markup.toFixed(1)}%`)}${info("Tồn kho", `${product.stock} / cảnh báo ${product.lowStock}`)}
+        ${info("Barcode", product.barcode)}${info("Đơn vị", product.unit)}${info("Giá vốn", money.format(product.costPrice))}${info("Giá shop/offline", shopPriceLabel)}
+        ${info("Lãi gộp / sản phẩm", hasShopPrice ? money.format(grossProfit) : "Chờ tính giá")}${info("Biên lãi", hasShopPrice ? `${margin.toFixed(1)}%` : "—")}${info("Tỷ lệ cộng trên vốn", hasShopPrice ? `${markup.toFixed(1)}%` : "—")}${info("Tồn kho", `${product.stock} / cảnh báo ${product.lowStock}`)}
         ${info("Khối lượng", product.weightGrams ? `${product.weightGrams} g` : "")}${info("Kích thước", product.dimensions)}${info("Xuất xứ", product.origin)}${info("Chất liệu", product.material)}
         ${info("Tạo lúc", formatDateTime(product.createdAt))}${info("Cập nhật lúc", formatDateTime(product.updatedAt))}
+        ${channelPriceBlock}
       </div></section>
       <section class="product-detail-section full"><h3>Content</h3><div class="product-detail-grid">${info("Trạng thái", productContentStatuses[product.contentStatus])}${info("Phụ trách", product.contentOwner)}${info("Đối tượng", product.targetAudience)}${info("Từ khóa", product.seoKeywords)}</div>
         <div class="product-copy-block"><span>Mô tả ngắn</span><p>${escapeHtml(product.shortDescription || "Chưa có mô tả.")}</p></div>
@@ -6131,7 +6329,7 @@
           <small>${product.sku} · ${product.category}</small>
         </span>
         <span>
-          <strong>${money.format(product.salePrice)}</strong>
+          <strong>${productHasShopPrice(product) ? money.format(product.salePrice) : "Chưa có giá"}</strong>
           <small class="badge ${stockClass}">${product.stock} còn</small>
         </span>
       </button>
@@ -6146,7 +6344,7 @@
       <div class="order-item-row" data-order-item-row>
         <div class="cart-product-summary">
           <strong>${product.name}</strong>
-          <small>${product.sku} · ${money.format(product.salePrice)} · tồn ${product.stock}</small>
+          <small>${product.sku} · ${productHasShopPrice(product) ? money.format(product.salePrice) : "Chưa có giá"} · tồn ${product.stock}</small>
           <input type="hidden" name="productId" value="${product.id}" data-order-product required />
         </div>
         <div class="field compact-field">
@@ -6169,7 +6367,7 @@
         <span class="product-card-main">
           <strong>${escapeHtml(product.name)}</strong>
           <small>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small>
-          <span class="product-card-tags"><em>${money.format(product.salePrice)}</em><small>Biên ${margin}%</small></span>
+          <span class="product-card-tags"><em>${productHasShopPrice(product) ? money.format(product.salePrice) : "Chưa có giá"}</em><small>${productHasShopPrice(product) ? `Biên ${margin}%` : "Nhập giá khi bán"}</small></span>
         </span>
         <span class="product-card-side">
           <small class="badge ${stockClass}">${product.stock} còn</small>
@@ -6192,7 +6390,7 @@
         ${renderProductThumb(product, "cart-product-thumb")}
         <div class="cart-product-summary">
           <strong>${escapeHtml(product.name)}</strong>
-          <small>${escapeHtml(product.sku)} · Giá gốc ${money.format(product.salePrice)} · tồn ${product.stock}</small>
+          <small>${escapeHtml(product.sku)} · Giá gốc ${productHasShopPrice(product) ? money.format(product.salePrice) : "chưa có"} · tồn ${product.stock}</small>
           <input type="hidden" name="productId" value="${product.id}" data-order-product required />
         </div>
         <div class="field compact-field">
@@ -6260,6 +6458,9 @@
     const product = byId("products", productId);
     const list = form && form.querySelector("[data-order-items]");
     if (!product || !list) return;
+    if (!productHasShopPrice(product)) {
+      showToast("Sản phẩm chưa có giá bán. Hãy nhập giá bán trực tiếp trong giỏ trước khi lưu đơn.", "warning");
+    }
 
     const existing = [...list.querySelectorAll("[data-order-item-row]")].find(row => row.querySelector("[data-order-product]").value === product.id);
     if (existing) {
@@ -7460,7 +7661,7 @@
   function renderSpreadsheetImportGuide(kind) {
     const product = kind === "product";
     const columns = product
-      ? [["sku / name / category", "Bắt buộc"], ["cost_price / sale_price", "Số không âm, giá bán không thấp hơn giá vốn"], ["stock / low_stock", "Số không âm"], ["brand / barcode / unit", "Thông tin nhận diện, không bắt buộc"], ["weight_grams / dimensions / origin / material", "Thông số sản phẩm"], ["image_url", "Link ảnh người dùng có quyền xem"], ["short_description / key_features", "Nội dung brief"], ["target_audience / seo_keywords", "Thông tin marketing"], ["content_status", "not_started / drafting / review / ready / published"], ["content_owner / content_note", "Người phụ trách và ghi chú"], ["website / shopee / tiktok / facebook", "Các cột *_product_url, không bắt buộc"], ["content_post_links", "Mỗi dòng: Tên bài | URL"], ["status", "active / archived"]]
+      ? [["sku / name / category", "Bắt buộc"], ["cost_price", "Giá vốn bắt buộc, số không âm"], ["sale_price", "Giá shop/offline, có thể để trống hoặc bằng 0 để tính sau"], ["stock / low_stock", "Số không âm"], ["brand / barcode / unit", "Thông tin nhận diện, không bắt buộc"], ["weight_grams / dimensions / origin / material", "Thông số sản phẩm"], ["image_url", "Link ảnh người dùng có quyền xem"], ["short_description / key_features", "Nội dung brief"], ["target_audience / seo_keywords", "Thông tin marketing"], ["content_status", "not_started / drafting / review / ready / published"], ["content_owner / content_note", "Người phụ trách và ghi chú"], ["website / shopee / tiktok / facebook", "Các cột *_product_url, không bắt buộc"], ["content_post_links", "Mỗi dòng: Tên bài | URL"], ["status", "active / archived"]]
       : [["name", "Bắt buộc"], ["phone", "Bắt buộc, duy nhất"], ["email", "Không bắt buộc, không trùng"], ["group", "Mặc định Bán lẻ"], ["status", "active / archived"], ["note", "Không bắt buộc"]];
     return `
       <div class="spreadsheet-guide">
@@ -7773,7 +7974,7 @@
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           const costPrice = Number(data.costPrice);
-          const salePrice = Number(data.salePrice);
+          const salePrice = String(data.salePrice || "").trim() === "" ? 0 : Number(data.salePrice);
           const stock = Number(data.stock);
           const lowStock = Number(data.lowStock);
           const sku = String(data.sku || "").trim();
@@ -7781,7 +7982,7 @@
           const category = String(data.category || "").trim();
           if (!sku || !name || !category) throw new Error("Vui lòng nhập đầy đủ SKU, tên và danh mục.");
           if (state.products.some(product => product.id !== (editingProduct && editingProduct.id) && product.sku.toLowerCase() === sku.toLowerCase())) throw new Error("SKU này đã tồn tại.");
-          if (salePrice < costPrice) throw new Error("Giá bán nên lớn hơn hoặc bằng giá vốn.");
+          if (salePrice > 0 && salePrice < costPrice) throw new Error("Giá shop/offline nên lớn hơn hoặc bằng giá vốn.");
           if (stock < 0 || lowStock < 0) throw new Error("Tồn kho và ngưỡng cảnh báo không được âm.");
           const payload = {
             ...data,
@@ -8310,7 +8511,8 @@
     if (!definition) return;
     const modal = els.modalBackdrop.querySelector(".modal");
     if (modal) modal.dataset.modalType = type;
-    els.modalForm.classList.toggle("modal-form-wide", type === "orderDetail");
+    els.modalForm.classList.toggle("modal-form-wide", type === "orderDetail" || type === "teamPricing");
+    els.modalForm.classList.toggle("modal-form-fullscreen", type === "teamPricing");
     els.modalEyebrow.textContent = definition.eyebrow;
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
@@ -8685,6 +8887,23 @@
       if (target.matches("[data-menu-toggle]")) document.body.classList.toggle("menu-open");
       if (target.matches("[data-menu-close]")) document.body.classList.remove("menu-open");
       if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
+      if (target.matches("[data-toggle-nav-group]")) {
+        const groupId = target.dataset.toggleNavGroup;
+        const group = target.closest("[data-nav-group]");
+        const items = group?.querySelector(".nav-group-items");
+        const nextOpen = !(group?.classList.contains("open"));
+        group?.classList.toggle("open", nextOpen);
+        if (items) items.hidden = !nextOpen;
+        target.setAttribute("aria-expanded", String(nextOpen));
+        let stored = {};
+        try {
+          stored = JSON.parse(localStorage.getItem(navStateKey) || "{}");
+        } catch (error) {
+          stored = {};
+        }
+        stored[groupId] = nextOpen;
+        localStorage.setItem(navStateKey, JSON.stringify(stored));
+      }
       if (target.matches("[data-close-modal]")) closeModal();
       if (target.matches("[data-open-profile]")) openModal("profile");
       if (target.matches("[data-incense-kind-choice]")) {
@@ -8867,6 +9086,20 @@
         const item = (state.teamPricingModels || []).find(entry => entry.id === target.dataset.editTeamPricing);
         if (item) openModal("teamPricing", { teamPricing: item });
       }
+      if (target.dataset.openPricingForProduct) {
+        const product = byId("products", target.dataset.openPricingForProduct);
+        if (product) {
+          openModal("teamPricing", {
+            teamPricing: normalizePricingModel({
+              title: `Tính giá ${product.name}`,
+              productId: product.id,
+              baseCost: product.costPrice,
+              priceTarget: "offline",
+              status: "draft"
+            })
+          });
+        }
+      }
       if (target.dataset.editTeamDecision) {
         const item = (state.teamDecisions || []).find(entry => entry.id === target.dataset.editTeamDecision);
         if (item) openModal("teamDecision", { teamDecision: item });
@@ -8894,6 +9127,17 @@
           container.insertAdjacentHTML("beforeend", renderPricingScenarioInput({ label: "Kịch bản mới", targetMargin: 35, salePrice: 0 }, index));
           hydrateIcons(container);
           updateTeamPricingPreview(target.closest("form"));
+        }
+      }
+      if (target.matches("[data-apply-pricing-model]")) {
+        const form = target.closest("form");
+        try {
+          setBusy(target, true);
+          await applyPricingFromForm(form, target.dataset.applyPricingModel || "offline");
+        } catch (error) {
+          showToast(error.message || String(error), "error");
+        } finally {
+          setBusy(target, false);
         }
       }
       if (target.matches("[data-remove-pricing-row]")) {

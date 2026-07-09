@@ -1602,7 +1602,10 @@ function normalizeProductInput(body) {
   const name = String(body.name || "").trim();
   const category = String(body.category || "").trim();
   const costPrice = Number(body.costPrice);
-  const salePrice = Number(body.salePrice);
+  const hasSalePrice = body.salePrice !== undefined || body.sale_price !== undefined;
+  const salePrice = hasSalePrice && String(body.salePrice !== undefined ? body.salePrice : body.sale_price).trim() !== ""
+    ? Number(body.salePrice !== undefined ? body.salePrice : body.sale_price)
+    : 0;
   const stock = Number(body.stock);
   const lowStock = Number(body.lowStock);
   const allowedStatuses = ["active", "archived"];
@@ -1618,7 +1621,7 @@ function normalizeProductInput(body) {
     throw new Error("Product numeric fields are invalid");
   }
 
-  if (salePrice < costPrice) {
+  if (salePrice > 0 && salePrice < costPrice) {
     throw new Error("Sale price must be greater than or equal to cost price");
   }
 
@@ -2070,7 +2073,7 @@ function createContentDocBase(document, item, product) {
       "Tên: " + product.name,
       "Danh mục: " + (product.category || ""),
       "Thương hiệu: " + (product.brand || ""),
-      "Giá bán: " + Number(product.sale_price || 0),
+      "Giá shop/offline: " + (Number(product.sale_price || 0) > 0 ? Number(product.sale_price || 0) : "Chưa có"),
       "Mô tả ngắn: " + (product.short_description || ""),
       "Điểm nổi bật: " + (product.key_features || ""),
       "Khách hàng mục tiêu: " + (product.target_audience || "")
@@ -4051,6 +4054,12 @@ function createOrder(body) {
       }
 
       const unitPrice = item.hasCustomPrice ? Number(item.unitPrice || 0) : Number(product.sale_price || 0);
+      if (!item.hasCustomPrice && unitPrice <= 0) {
+        throw new Error("Product has no shop price. Enter a custom price before saving the order: " + product.name);
+      }
+      if (item.hasCustomPrice && unitPrice <= 0) {
+        throw new Error("Order item price must be greater than 0: " + product.name);
+      }
       const costPrice = Number(product.cost_price || 0);
       const gross = unitPrice * item.quantity;
       const lineTotal = Math.max(0, gross - Math.round(gross * Number(item.discountPercent || 0) / 100));

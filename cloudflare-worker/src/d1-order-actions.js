@@ -152,6 +152,12 @@ async function createOrder(env, body, user) {
     if (!product) throw new Error("Product not found or inactive");
     if (number(product.stock) < item.quantity) throw new Error(`Not enough stock for ${product.name}`);
     const unitPrice = item.custom ? item.unitPrice : number(product.sale_price);
+    if (!item.custom && unitPrice <= 0) {
+      throw new Error(`Product ${product.name} has no shop price. Enter a custom price before saving the order.`);
+    }
+    if (item.custom && unitPrice <= 0) {
+      throw new Error(`Order item price must be greater than 0 for ${product.name}`);
+    }
     const gross = unitPrice * item.quantity;
     prepared.push({
       ...item, product, unitPrice, costPrice: number(product.cost_price),
