@@ -29,6 +29,13 @@ if (!worker.includes('"listAuditLogs"') || !worker.includes("audit_events")) {
 if (/auditD1Mutation[\s\S]{0,120}\.catch\(\(\) => \{\}\)/.test(worker)) {
   throw new Error("Audit write failures must not be swallowed.");
 }
+const readOnlyBlock = worker.slice(
+  worker.indexOf("const CORE_READ_ONLY_ACTIONS"),
+  worker.indexOf("function changesCoreData")
+);
+if (readOnlyBlock.includes('"login"') || readOnlyBlock.includes('"logout"')) {
+  throw new Error("Login and logout activity must be recorded in D1 audit history.");
+}
 if (!worker.includes('"audit_logs", "audit_events"')) {
   throw new Error("D1 backups must include audit logs and durable audit events.");
 }

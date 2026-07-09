@@ -4627,7 +4627,10 @@
       supplier: "Nhà cung cấp", purchase_order: "Phiếu mua", supplier_payment: "Thanh toán NCC",
       purchase_return: "Trả hàng NCC", supplier_credit: "Bù trừ NCC",
       content_item: "Content", team_item: "Team Hub", incense_wish: "Xin vía",
-      app_setting: "Cài đặt", product_option: "Thuộc tính sản phẩm", d1_entity: "Dữ liệu hệ thống"
+      app_setting: "Cài đặt", product_option: "Thuộc tính sản phẩm",
+      product_content_batch: "Tài nguyên sản phẩm", sales_channel: "Kênh bán",
+      channel_product: "Sản phẩm theo kênh", campaign: "Chiến dịch",
+      workspace_task: "Công việc liên kênh", d1_entity: "Dữ liệu hệ thống"
     }[type] || type || "Hệ thống";
   }
 
@@ -4644,7 +4647,9 @@
       updateContentItem: "Cập nhật chủ đề content", archiveContentItem: "Lưu trữ chủ đề content",
       createTeamItem: "Tạo nội dung Team Hub", updateTeamItem: "Cập nhật nội dung Team Hub",
       archiveTeamItem: "Lưu trữ nội dung Team Hub", createIncenseWish: "Thắp hương xin vía",
-      saveAppSettings: "Cập nhật cài đặt hệ thống"
+      updateAppSettings: "Cập nhật cài đặt hệ thống", updateMyProfile: "Cập nhật hồ sơ cá nhân",
+      changeMyPassword: "Đổi mật khẩu", createOrderReceiptPdf: "Tạo PDF hóa đơn",
+      provisionContentItemAssets: "Tạo tài nguyên Drive cho content"
     }[action] || action || "Hoạt động hệ thống";
   }
 

@@ -60,8 +60,6 @@ const READ_CACHE_ACTIONS = new Set([
 ]);
 const CORE_READ_ONLY_ACTIONS = new Set([
   "bootstrapStatus",
-  "login",
-  "logout",
   "me",
   "listUsers",
   "listAuditLogs",
@@ -77,21 +75,36 @@ function changesCoreData(action) {
 }
 
 const AUDIT_METADATA = {
+  setupAdmin: ["Thiết lập tài khoản quản trị", "user"],
+  login: ["Đăng nhập hệ thống", "session"],
+  logout: ["Đăng xuất hệ thống", "session"],
+  updateMyProfile: ["Cập nhật hồ sơ cá nhân", "user"],
+  changeMyPassword: ["Đổi mật khẩu", "user"],
+  createUser: ["Tạo tài khoản nhân viên", "user"],
+  toggleUser: ["Đổi trạng thái tài khoản nhân viên", "user"],
+  deleteUser: ["Xóa tài khoản nhân viên", "user"],
   createProduct: ["Tạo sản phẩm", "product"],
   updateProduct: ["Cập nhật sản phẩm", "product"],
   archiveProduct: ["Đổi trạng thái sản phẩm", "product"],
   createProductOption: ["Tạo thuộc tính sản phẩm", "product_option"],
   updateProductOption: ["Cập nhật thuộc tính sản phẩm", "product_option"],
   toggleProductOption: ["Đổi trạng thái thuộc tính sản phẩm", "product_option"],
+  importProducts: ["Nhập sản phẩm từ file", "product_import"],
+  provisionProductContent: ["Tạo tài nguyên content sản phẩm", "product"],
+  provisionMissingProductContent: ["Tạo hàng loạt tài nguyên content sản phẩm", "product_content_batch"],
   createCustomer: ["Tạo khách hàng", "customer"],
   updateCustomer: ["Cập nhật khách hàng", "customer"],
   archiveCustomer: ["Đổi trạng thái khách hàng", "customer"],
+  importCustomers: ["Nhập khách hàng từ file", "customer_import"],
   createOrder: ["Tạo đơn hàng", "order"],
   updateOrderStatus: ["Cập nhật trạng thái đơn hàng", "order"],
   updateOrderFulfillment: ["Cập nhật giao hàng", "order"],
   cancelOrder: ["Hủy đơn hàng", "order"],
   returnOrder: ["Ghi nhận khách trả hàng", "sales_return"],
   refundOrder: ["Hoàn tiền đơn hàng", "order_refund"],
+  createOrderReceiptPdf: ["Tạo PDF hóa đơn", "order"],
+  receiveStock: ["Nhập kho thủ công", "stock_movement"],
+  adjustStock: ["Điều chỉnh tồn kho", "stock_movement"],
   createCashTransaction: ["Ghi giao dịch thu chi", "cash_transaction"],
   archiveCashTransaction: ["Xóa giao dịch thu chi", "cash_transaction"],
   createAccountingAccount: ["Tạo tài khoản tiền", "accounting_account"],
@@ -107,8 +120,27 @@ const AUDIT_METADATA = {
   createTeamItem: ["Tạo nội dung Team Hub", "team_item"],
   updateTeamItem: ["Cập nhật nội dung Team Hub", "team_item"],
   archiveTeamItem: ["Lưu trữ nội dung Team Hub", "team_item"],
+  provisionContentItemAssets: ["Tạo tài nguyên Drive cho content", "content_item"],
   createIncenseWish: ["Thắp hương xin vía", "incense_wish"],
-  saveAppSettings: ["Cập nhật cài đặt hệ thống", "app_setting"]
+  updateAppSettings: ["Cập nhật cài đặt hệ thống", "app_setting"],
+  createSupplier: ["Tạo nhà cung cấp", "supplier"],
+  updateSupplier: ["Cập nhật nhà cung cấp", "supplier"],
+  archiveSupplier: ["Đổi trạng thái nhà cung cấp", "supplier"],
+  createPurchaseOrder: ["Tạo phiếu mua hàng", "purchase_order"],
+  updatePurchaseOrder: ["Cập nhật phiếu mua hàng", "purchase_order"],
+  receivePurchaseOrder: ["Nhận hàng phiếu mua", "purchase_order"],
+  payPurchaseOrder: ["Thanh toán phiếu mua", "supplier_payment"],
+  cancelPurchaseOrder: ["Hủy phiếu mua hàng", "purchase_order"],
+  returnPurchaseOrder: ["Trả hàng nhà cung cấp", "purchase_return"],
+  applySupplierCredit: ["Bù trừ dư có nhà cung cấp", "supplier_credit"],
+  upsertSalesChannel: ["Cập nhật kênh bán", "sales_channel"],
+  archiveSalesChannel: ["Lưu trữ kênh bán", "sales_channel"],
+  upsertChannelProduct: ["Cập nhật liên kết sản phẩm kênh", "channel_product"],
+  archiveChannelProduct: ["Lưu trữ liên kết sản phẩm kênh", "channel_product"],
+  upsertCampaign: ["Cập nhật chiến dịch", "campaign"],
+  archiveCampaign: ["Lưu trữ chiến dịch", "campaign"],
+  upsertWorkspaceTask: ["Cập nhật công việc liên kênh", "workspace_task"],
+  archiveWorkspaceTask: ["Lưu trữ công việc liên kênh", "workspace_task"]
 };
 
 function sanitizedAuditJson(value, fallback) {
@@ -151,6 +183,7 @@ async function completeAuditEvent(env, payload, response, event) {
     response.incenseWish || response.salesReturn || response.refund || response.purchaseReturn ||
     response.payment || response.creditApplication || {};
   const completedAt = new Date().toISOString();
+  const actor = event.actor || response.user || null;
   const resultJson = sanitizedAuditJson(response, { ok: true });
   const detailJson = sanitizedAuditJson({ request: { ...payload, action }, result: response }, { action });
   await env.DB.batch([
@@ -164,7 +197,7 @@ async function completeAuditEvent(env, payload, response, event) {
        VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(
       crypto.randomUUID(), event.requestId, action, metadata[0], metadata[1], entity.id || "",
-      event.actor?.id || "", event.actor?.name || "System", event.actor?.email || "",
+      actor?.id || "", actor?.name || "System", actor?.email || "",
       detailJson, completedAt, "Asia/Ho_Chi_Minh"
     )
   ]);
