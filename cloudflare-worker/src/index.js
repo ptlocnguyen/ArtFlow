@@ -76,26 +76,121 @@ function changesCoreData(action) {
     !String(action).startsWith("list");
 }
 
-async function auditD1Mutation(env, payload, response) {
-  if (!env.DB || !response?.ok || !changesCoreData(payload.action)) return;
+const AUDIT_METADATA = {
+  createProduct: ["Tạo sản phẩm", "product"],
+  updateProduct: ["Cập nhật sản phẩm", "product"],
+  archiveProduct: ["Đổi trạng thái sản phẩm", "product"],
+  createProductOption: ["Tạo thuộc tính sản phẩm", "product_option"],
+  updateProductOption: ["Cập nhật thuộc tính sản phẩm", "product_option"],
+  toggleProductOption: ["Đổi trạng thái thuộc tính sản phẩm", "product_option"],
+  createCustomer: ["Tạo khách hàng", "customer"],
+  updateCustomer: ["Cập nhật khách hàng", "customer"],
+  archiveCustomer: ["Đổi trạng thái khách hàng", "customer"],
+  createOrder: ["Tạo đơn hàng", "order"],
+  updateOrderStatus: ["Cập nhật trạng thái đơn hàng", "order"],
+  updateOrderFulfillment: ["Cập nhật giao hàng", "order"],
+  cancelOrder: ["Hủy đơn hàng", "order"],
+  returnOrder: ["Ghi nhận khách trả hàng", "sales_return"],
+  refundOrder: ["Hoàn tiền đơn hàng", "order_refund"],
+  createCashTransaction: ["Ghi giao dịch thu chi", "cash_transaction"],
+  archiveCashTransaction: ["Xóa giao dịch thu chi", "cash_transaction"],
+  createAccountingAccount: ["Tạo tài khoản tiền", "accounting_account"],
+  updateAccountingAccount: ["Cập nhật tài khoản tiền", "accounting_account"],
+  archiveAccountingAccount: ["Đổi trạng thái tài khoản tiền", "accounting_account"],
+  createAccountingReconciliation: ["Đối soát tài khoản tiền", "reconciliation"],
+  createAccountingCategory: ["Tạo danh mục thu chi", "accounting_category"],
+  updateAccountingCategory: ["Cập nhật danh mục thu chi", "accounting_category"],
+  archiveAccountingCategory: ["Đổi trạng thái danh mục thu chi", "accounting_category"],
+  createContentItem: ["Tạo chủ đề content", "content_item"],
+  updateContentItem: ["Cập nhật chủ đề content", "content_item"],
+  archiveContentItem: ["Lưu trữ chủ đề content", "content_item"],
+  createTeamItem: ["Tạo nội dung Team Hub", "team_item"],
+  updateTeamItem: ["Cập nhật nội dung Team Hub", "team_item"],
+  archiveTeamItem: ["Lưu trữ nội dung Team Hub", "team_item"],
+  createIncenseWish: ["Thắp hương xin vía", "incense_wish"],
+  saveAppSettings: ["Cập nhật cài đặt hệ thống", "app_setting"]
+};
+
+function sanitizedAuditJson(value, fallback) {
+  try {
+    const text = JSON.stringify(value, (key, item) => {
+      if (/token|password|hash|salt|session/i.test(key)) return undefined;
+      return item;
+    });
+    return text.length > 45000 ? JSON.stringify({ truncated: true }) : text;
+  } catch {
+    return JSON.stringify(fallback || {});
+  }
+}
+
+async function beginAuditEvent(env, payload, requestId) {
+  if (!env.DB || !changesCoreData(payload.action)) return null;
   const actor = payload.token
     ? await env.DB.prepare("SELECT id,name,email FROM users WHERE session_token=?").bind(String(payload.token)).first()
     : null;
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO audit_events
+       (request_id,action,status,actor_id,actor_name,actor_email,request_json,created_at)
+     VALUES(?,?,?,?,?,?,?,?)`
+  ).bind(
+    requestId, payload.action, "pending", actor?.id || "", actor?.name || "System",
+    actor?.email || "", sanitizedAuditJson(payload, { action: payload.action }),
+    new Date().toISOString()
+  ).run();
+  return { requestId, actor, action: payload.action };
+}
+
+async function completeAuditEvent(env, payload, response, event) {
+  if (!event || !env.DB) return;
+  const action = event.action || payload.action;
+  const metadata = AUDIT_METADATA[action] || [action, "d1_entity"];
   const entity = response.product || response.customer || response.order || response.option ||
     response.contentItem || response.teamItem || response.transaction || response.account ||
     response.category || response.reconciliation || response.supplier || response.purchaseOrder ||
     response.salesChannel || response.channelProduct || response.campaign || response.workspaceTask ||
-    response.incenseWish || {};
-  const detail = JSON.stringify({ request: { ...payload, token: undefined, password: undefined }, result: response });
+    response.incenseWish || response.salesReturn || response.refund || response.purchaseReturn ||
+    response.payment || response.creditApplication || {};
+  const completedAt = new Date().toISOString();
+  const resultJson = sanitizedAuditJson(response, { ok: true });
+  const detailJson = sanitizedAuditJson({ request: { ...payload, action }, result: response }, { action });
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE audit_events SET status='completed',result_json=?,entity_type=?,entity_id=?,
+       error_text='',completed_at=? WHERE request_id=?`
+    ).bind(resultJson, metadata[1], entity.id || "", completedAt, event.requestId),
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO audit_logs
+       (id,request_id,action,description,entity_type,entity_id,actor_id,actor_name,actor_email,detail_json,created_at,timezone)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).bind(
+      crypto.randomUUID(), event.requestId, action, metadata[0], metadata[1], entity.id || "",
+      event.actor?.id || "", event.actor?.name || "System", event.actor?.email || "",
+      detailJson, completedAt, "Asia/Ho_Chi_Minh"
+    )
+  ]);
+}
+
+async function failAuditEvent(env, event, error, response = null, status = "failed") {
+  if (!event || !env.DB) return;
   await env.DB.prepare(
-    `INSERT INTO audit_logs(id,action,description,entity_type,entity_id,actor_id,actor_name,actor_email,detail_json,created_at,timezone)
-     VALUES(?,?,?,?,?,?,?,?,?,datetime('now'),?)`
+    `UPDATE audit_events SET status=?,result_json=?,error_text=?,completed_at=?
+     WHERE request_id=?`
   ).bind(
-    crypto.randomUUID(), payload.action, payload.action, "d1_entity", entity.id || "",
-    actor?.id || "", actor?.name || "System", actor?.email || "",
-    detail.length > 45000 ? JSON.stringify({ truncated: true, action: payload.action }) : detail,
-    "Asia/Ho_Chi_Minh"
+    status,
+    sanitizedAuditJson(response, {}),
+    String(error?.message || error || response?.error || "Mutation failed").slice(0, 2000),
+    new Date().toISOString(),
+    event.requestId
   ).run();
+}
+
+async function settleAuditEvent(env, payload, response, event) {
+  if (!event) return;
+  if (response?.ok) {
+    await completeAuditEvent(env, payload, response, event);
+    return;
+  }
+  await failAuditEvent(env, event, response?.error || "Mutation rejected", response, "rejected");
 }
 
 function makeRequestId() {
@@ -227,6 +322,7 @@ export default {
   async fetch(request, env) {
     const requestId = request.headers.get("X-Client-Request-Id") || makeRequestId();
     const allowedOrigin = getAllowedOrigin(request, env);
+    let auditEvent = null;
 
     if (!allowedOrigin) {
       return new Response(JSON.stringify({
@@ -295,6 +391,8 @@ export default {
         return json({ ok: false, error: "Missing action", code: "missing_action" }, 400, allowedOrigin, requestId);
       }
 
+      auditEvent = await beginAuditEvent(env, payload, requestId);
+
       const pageDataResponse = await handleD1PageData(env, payload).catch(error => {
         console.error("D1 page data failed", { requestId, message: error?.message || String(error) });
         return null;
@@ -308,7 +406,7 @@ export default {
 
       const catalogResponse = await handleCatalogAction(env, payload);
       if (catalogResponse) {
-        await auditD1Mutation(env, payload, catalogResponse).catch(() => {});
+        await settleAuditEvent(env, payload, catalogResponse, auditEvent);
         return json(catalogResponse, 200, allowedOrigin, requestId, {
           "Server-Timing": "d1;dur=0",
           "X-ArtFlow-Data-Source": "d1"
@@ -316,7 +414,7 @@ export default {
       }
       const orderResponse = await handleOrderAction(env, payload);
       if (orderResponse) {
-        await auditD1Mutation(env, payload, orderResponse).catch(() => {});
+        await settleAuditEvent(env, payload, orderResponse, auditEvent);
         return json(orderResponse, 200, allowedOrigin, requestId, {
           "Server-Timing": "d1;dur=0",
           "X-ArtFlow-Data-Source": "d1"
@@ -324,7 +422,7 @@ export default {
       }
       const workspaceResponse = await handleWorkspaceAction(env, payload);
       if (workspaceResponse) {
-        await auditD1Mutation(env, payload, workspaceResponse).catch(() => {});
+        await settleAuditEvent(env, payload, workspaceResponse, auditEvent);
         return json(workspaceResponse, 200, allowedOrigin, requestId, {
           "Server-Timing": "d1;dur=0",
           "X-ArtFlow-Data-Source": "d1"
@@ -332,7 +430,7 @@ export default {
       }
       const accountingResponse = await handleAccountingAction(env, payload);
       if (accountingResponse) {
-        await auditD1Mutation(env, payload, accountingResponse).catch(() => {});
+        await settleAuditEvent(env, payload, accountingResponse, auditEvent);
         return json(accountingResponse, 200, allowedOrigin, requestId, {
           "Server-Timing": "d1;dur=0",
           "X-ArtFlow-Data-Source": "d1"
@@ -340,7 +438,7 @@ export default {
       }
       const purchasingResponse = await handlePurchasingAction(env, payload);
       if (purchasingResponse) {
-        await auditD1Mutation(env, payload, purchasingResponse).catch(() => {});
+        await settleAuditEvent(env, payload, purchasingResponse, auditEvent);
         return json(purchasingResponse, 200, allowedOrigin, requestId, {
           "Server-Timing": "d1;dur=0",
           "X-ArtFlow-Data-Source": "d1"
@@ -348,7 +446,7 @@ export default {
       }
       const omniResponse = await handleOmniAction(env, payload);
       if (omniResponse) {
-        await auditD1Mutation(env, payload, omniResponse).catch(() => {});
+        await settleAuditEvent(env, payload, omniResponse, auditEvent);
         return json(omniResponse, 200, allowedOrigin, requestId, {
           "Server-Timing": "d1;dur=0",
           "X-ArtFlow-Data-Source": "d1"
@@ -389,6 +487,7 @@ export default {
       }
 
       if (!env.APPS_SCRIPT_URL) {
+        await failAuditEvent(env, auditEvent, "Apps Script proxy is not configured");
         const d1Fallback = await readDirectD1(env, payload, { allowDirty: true }).catch(() => null);
         if (d1Fallback) {
           return json({
@@ -432,6 +531,7 @@ export default {
       try {
         responseJson = responseBody ? JSON.parse(responseBody) : {};
       } catch {
+        await failAuditEvent(env, auditEvent, "Apps Script returned invalid JSON");
         const d1Fallback = await readDirectD1(env, payload, { allowDirty: true }).catch(() => null);
         if (d1Fallback) {
           return json({
@@ -480,6 +580,7 @@ export default {
           message: error && error.message
         });
       });
+      await settleAuditEvent(env, payload, responseJson, auditEvent);
 
       return new Response(JSON.stringify({ requestId, ...responseJson }), {
         status: upstream.ok ? 200 : upstream.status,
@@ -493,6 +594,14 @@ export default {
       });
     } catch (error) {
       const timeout = error && error.name === "TimeoutError";
+      await failAuditEvent(env, auditEvent, error).catch(auditError => {
+        console.error({
+          event: "audit_event_failure",
+          requestId,
+          action: payload?.action || "",
+          message: auditError?.message || String(auditError)
+        });
+      });
       if (payload && payload.action) {
         const d1Fallback = await readDirectD1(env, payload, { allowDirty: true }).catch(() => null);
         if (d1Fallback) {

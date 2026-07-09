@@ -4514,6 +4514,25 @@ body[data-page="products"] .view.active {
   overflow: hidden;
 }
 
+.audit-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #067647;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.audit-health svg {
+  width: 15px;
+  height: 15px;
+}
+
+.audit-health.has-warning {
+  color: #b42318;
+}
+
 @media (max-width: 820px) {
   body[data-page="accounting"] .accounting-view {
     display: block;

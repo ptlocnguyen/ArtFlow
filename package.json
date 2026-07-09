@@ -8,6 +8,7 @@
     "qa:smoke:headed": "node tests/smoke-artflow.mjs --headed",
     "qa:seed": "node tests/artflow-test-data.mjs --write",
     "qa:connection": "node tests/connection-resilience.mjs",
+    "qa:data-integrity": "node tests/data-integrity.mjs",
     "qa:reset": "node tests/artflow-test-data.mjs --reset"
   },
   "devDependencies": {

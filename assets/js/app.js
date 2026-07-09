@@ -35,6 +35,7 @@
   let currentUser = null;
   let staffUsers = [];
   let auditLogs = [];
+  let auditHealth = { pending: 0, failed: 0, lastCompletedAt: "" };
   let lastCreatedOrder = null;
   let searchTerm = "";
   let pageDataReady = false;
@@ -296,6 +297,7 @@
     usersTable: qs("[data-users-table]"),
     auditKpis: qs("[data-audit-kpis]"),
     auditTable: qs("[data-audit-table]"),
+    auditHealth: qs("[data-audit-health]"),
     auditEntityFilter: qs("[data-audit-entity-filter]"),
     auditRangeFilter: qs("[data-audit-range-filter]"),
     inventoryCards: qs("[data-inventory-cards]"),
@@ -788,7 +790,7 @@
       state.appSettings = response.settings || { ...(state.appSettings || {}), receiptSettings: saved };
       window.ArtFlowPosStore.save(state);
     } catch (error) {
-      showToast(`Chưa lưu được cài đặt lên Sheet: ${error.message}`, "error");
+      showToast(`Chưa lưu được cài đặt lên hệ thống: ${error.message}`, "error");
       throw error;
     }
     localStorage.setItem(receiptSettingsKey, JSON.stringify(saved));
@@ -2048,6 +2050,7 @@
     if (!isAdmin()) return;
     const data = await apiRequest("/audit-logs", { method: "POST", body: JSON.stringify({ limit: 1000 }) });
     auditLogs = (data.logs || []).map(normalizeAuditLog);
+    auditHealth = data.auditHealth || auditHealth;
   }
 
   function renderCurrentUserChip() {
@@ -4646,6 +4649,14 @@
       ].map(([label, value, note]) => `<article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>`).join("");
     }
 
+    if (els.auditHealth) {
+      const healthy = !Number(auditHealth.pending || 0) && !Number(auditHealth.failed || 0);
+      els.auditHealth.classList.toggle("has-warning", !healthy);
+      els.auditHealth.innerHTML = healthy
+        ? `${icon("check")} Nhật ký D1 đang đồng bộ`
+        : `${icon("alertTriangle")} ${Number(auditHealth.pending || 0)} đang chờ · ${Number(auditHealth.failed || 0)} lỗi`;
+    }
+
     els.auditTable.innerHTML = rows.length ? rows.map(log => `
       <tr>
         <td><strong>${escapeHtml(formatDateTime(log.createdAt))}</strong><small>Giờ Việt Nam</small></td>
@@ -4899,7 +4910,6 @@
         </article>
       `).join("");
     }
-
     if (els.accountingKpis) {
       const cards = [
         ["Số dư quỹ", money.format(totalBalance), "Tổng số dư các tài khoản tiền."],
@@ -9386,5 +9396,18 @@
   hydrateIcons(document);
   bindEvents();
   if (page === "auth") bootstrapAuthPage();
-  else bootstrapAppPage();
+  else {
+    bootstrapAppPage();
+    if (page === "activity") {
+      window.setInterval(async () => {
+        if (document.hidden || !currentUser || !isAdmin()) return;
+        try {
+          await loadAuditLogs();
+          renderAuditLogs();
+        } catch {
+          // Connection status is handled centrally; keep the visible history intact.
+        }
+      }, 30000);
+    }
+  }
 })();

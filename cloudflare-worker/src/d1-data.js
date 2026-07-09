@@ -126,8 +126,6 @@ export async function requireSession(db, token) {
      WHERE session_token = ? AND status = 'active'
        AND session_expires_at IS NOT NULL
        AND datetime(session_expires_at) >= datetime('now')
-       AND d1_verified_at IS NOT NULL
-       AND datetime(d1_verified_at) >= datetime('now', '-12 hours')
      LIMIT 1`
   ).bind(String(token)).first();
 }
@@ -213,8 +211,48 @@ async function listUsers(db, user) {
 async function listAuditLogs(db, user, payload) {
   if (user.role !== "admin") return { ok: false, error: "Admin access required" };
   const limit = Math.min(1000, Math.max(1, Number(payload.limit || 500)));
-  const rows = (await db.prepare("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?").bind(limit).all()).results;
-  return { ok: true, logs: rows.map(row => ({
+  const [logResult, health, unresolvedResult] = await db.batch([
+    db.prepare("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?").bind(limit),
+    db.prepare(
+      `SELECT
+         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+         MAX(completed_at) AS last_completed_at
+       FROM audit_events`
+    ),
+    db.prepare(
+      `SELECT * FROM audit_events
+       WHERE status IN ('pending','failed')
+       ORDER BY created_at DESC LIMIT 100`
+    )
+  ]);
+  const unresolved = unresolvedResult.results.map(row => ({
+    id: row.request_id,
+    action: row.action,
+    description: row.status === "pending" ? `${row.action} (đang xác minh)` : `${row.action} (cần kiểm tra)`,
+    entity_type: row.entity_type || "system",
+    entity_id: row.entity_id || "",
+    actor_id: row.actor_id || "",
+    actor_name: row.actor_name || "System",
+    actor_email: row.actor_email || "",
+    detail_json: JSON.stringify({
+      auditStatus: row.status,
+      request: parseJson(row.request_json, {}),
+      result: parseJson(row.result_json, {}),
+      error: row.error_text || ""
+    }),
+    created_at: row.created_at,
+    timezone: "Asia/Ho_Chi_Minh"
+  }));
+  const rows = [...logResult.results, ...unresolved]
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    .slice(0, limit);
+  const status = health.results[0] || {};
+  return { ok: true, auditHealth: {
+    pending: number(status.pending),
+    failed: number(status.failed),
+    lastCompletedAt: status.last_completed_at || ""
+  }, logs: rows.map(row => ({
     id: row.id, action: row.action, description: row.description || row.action,
     entityType: row.entity_type || "", entityId: row.entity_id || "",
     actorId: row.actor_id || "", actorName: row.actor_name || "System",
@@ -232,7 +270,7 @@ const SNAPSHOT_TABLES = [
   "accounting_reconciliations", "suppliers", "purchase_orders",
   "purchase_order_items", "supplier_payments", "purchase_returns",
   "purchase_return_items", "supplier_credit_applications", "cash_transactions",
-  "audit_logs"
+  "audit_logs", "audit_events"
 ];
 
 async function exportSnapshot(db, user) {
@@ -254,7 +292,7 @@ async function exportSnapshot(db, user) {
   return {
     ok: true,
     snapshot: {
-      schemaVersion: "2026-07-08-d1-3",
+      schemaVersion: "2026-07-09-d1-4",
       exportedAt: new Date().toISOString(),
       tables
     }
