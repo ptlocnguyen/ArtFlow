@@ -1453,6 +1453,95 @@ body[data-page="purchasing"] .view.active {
   overflow: hidden;
 }
 
+body[data-page="accounting"] .accounting-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.accounting-workspace {
+  min-height: 0;
+}
+
+.accounting-receivables-workspace,
+.accounting-ledger {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.accounting-receivables-workspace .accounting-todo-list,
+.accounting-ledger .table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.section-kicker {
+  margin: 0 0 4px;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.accounting-context-summary {
+  margin: 0 16px 10px;
+}
+
+.accounting-local-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.accounting-local-toolbar small {
+  color: var(--muted);
+}
+
+.accounting-ledger-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 16px 10px;
+}
+
+.accounting-ledger-summary article {
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.accounting-ledger-summary span,
+.accounting-ledger-summary small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.accounting-ledger-summary strong {
+  display: block;
+  margin: 3px 0;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.accounting-ledger-summary article[data-tone="1"] strong {
+  color: #087a4b;
+}
+
+.accounting-ledger-summary article[data-tone="2"] strong,
+.accounting-ledger-summary article[data-tone="3"] strong {
+  color: #b42318;
+}
+
 .accounting-kpi-grid {
   gap: 10px;
 }
@@ -1491,8 +1580,16 @@ body[data-page="accounting"] .kpi-note {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 48px;
-  padding: 4px 0;
+  min-height: 42px;
+  padding: 0;
+}
+
+.accounting-tabbar .accounting-view-switch {
+  width: min(100%, 520px);
+}
+
+.accounting-tabbar .accounting-view-switch button {
+  flex: 1 1 0;
 }
 
 .accounting-tab-actions {
@@ -1547,7 +1644,7 @@ body[data-page="accounting"] .kpi-note {
 .accounting-profit-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
-  grid-template-rows: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-rows: minmax(300px, 1.05fr) minmax(260px, 0.95fr);
   gap: 14px;
   min-height: 0;
   overflow: hidden;
@@ -1584,6 +1681,11 @@ body[data-page="accounting"] .kpi-note {
   min-width: 820px;
 }
 
+.accounting-wide-panel td:first-child small {
+  display: block;
+  margin-top: 2px;
+}
+
 .accounting-profit-summary {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1614,9 +1716,9 @@ body[data-page="accounting"] .kpi-note {
   line-height: 1.15;
 }
 
-.compact-accounting-chart {
+.profit-chart.compact-accounting-chart {
   flex: 1 1 auto;
-  min-height: 165px;
+  min-height: 128px;
   margin: 0 16px 14px;
   padding: 10px;
   background: #f8fafc;
@@ -1625,7 +1727,7 @@ body[data-page="accounting"] .kpi-note {
 }
 
 .compact-accounting-chart .profit-chart-day {
-  grid-template-rows: minmax(96px, 1fr) auto;
+  grid-template-rows: minmax(70px, 1fr) auto;
 }
 
 .accounting-expense-row {
@@ -1871,6 +1973,11 @@ body[data-page="accounting"] .kpi-note {
 .reconciliation-preview.has-difference {
   background: #fff7ed;
   border-color: #fed7aa;
+}
+
+.accounting-setup-grid > .panel,
+.accounting-profit-grid > .panel {
+  min-height: 0;
 }
 
 .omni-workspace {
@@ -4405,6 +4512,110 @@ body[data-page="products"] .view.active {
   grid-template-rows: auto auto;
   min-height: 0;
   overflow: hidden;
+}
+
+@media (max-width: 820px) {
+  body[data-page="accounting"] .accounting-view {
+    display: block;
+    overflow: visible;
+  }
+
+  body[data-page="accounting"] .accounting-tabbar {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    padding: 6px 0 10px;
+    background: var(--background);
+  }
+
+  .accounting-tabbar .accounting-view-switch {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .accounting-view-switch button {
+    min-width: 0;
+    padding-inline: 8px;
+  }
+
+  .accounting-layout {
+    overflow: visible;
+  }
+
+  .accounting-workspace,
+  .accounting-receivables-workspace,
+  .accounting-ledger,
+  .accounting-profit-panel {
+    overflow: visible;
+  }
+
+  .accounting-receivables-workspace .accounting-todo-list,
+  .accounting-ledger .table-wrap {
+    flex: none;
+    max-height: none;
+  }
+
+  .accounting-ledger-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline: 14px;
+  }
+
+  .accounting-local-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    padding-inline: 14px;
+  }
+
+  .accounting-context-summary {
+    margin-inline: 14px;
+  }
+
+  .accounting-profit-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    overflow: visible;
+  }
+
+  .accounting-profit-grid .accounting-wide-panel {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  body[data-page="accounting"] .panel-header.split {
+    align-items: stretch;
+  }
+
+  body[data-page="accounting"] .panel-header-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    width: 100%;
+  }
+
+  body[data-page="accounting"] .panel-header-actions .button:not(.icon-only) {
+    min-width: 0;
+  }
+
+  .accounting-ledger-summary strong {
+    font-size: 15px;
+  }
+
+  .accounting-toolbar {
+    grid-template-columns: 1fr;
+    padding-inline: 14px;
+  }
+
+  .accounting-toolbar .segmented-control {
+    grid-column: auto;
+  }
+
+  .accounting-local-toolbar .segmented-control {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
 }
 
 .incense-scene {
@@ -7213,7 +7424,7 @@ body[data-page="orderCreate"] .summary-total strong {
     padding-inline: 14px;
   }
 
-  .compact-accounting-chart {
+  .profit-chart.compact-accounting-chart {
     margin-inline: 14px;
     min-height: 160px;
   }
@@ -7586,5 +7797,22 @@ body[data-page="orderCreate"] .summary-total strong {
 
   body[data-page="inventory"] .panel-header {
     align-items: stretch;
+  }
+}
+
+/* Accounting workspaces keep controls local to each business task. */
+@media (max-width: 820px) {
+  body[data-page="accounting"] .accounting-layout {
+    overflow: visible;
+  }
+
+  body[data-page="accounting"] .accounting-profit-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    overflow: visible;
+  }
+
+  body[data-page="accounting"] .accounting-workspace {
+    max-height: none;
   }
 }

@@ -296,6 +296,7 @@
     accountingReconciliations: qs("[data-accounting-reconciliations]"),
     accountingCategories: qs("[data-accounting-categories]"),
     accountingTransactionsTable: qs("[data-accounting-transactions-table]"),
+    accountingLedgerSummary: qs("[data-accounting-ledger-summary]"),
     accountingReceivables: qs("[data-accounting-receivables]"),
     accountingDebtSummary: qs("[data-accounting-debt-summary]"),
     accountingAccountFilter: qs("[data-accounting-account-filter]"),
@@ -4748,7 +4749,9 @@
 
   function syncAccountingView() {
     document.querySelectorAll("[data-accounting-view-filter]").forEach(button => {
-      button.classList.toggle("active", button.dataset.accountingViewFilter === accountingFilters.view);
+      const active = button.dataset.accountingViewFilter === accountingFilters.view;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
     });
     document.querySelectorAll("[data-accounting-section]").forEach(section => {
       section.hidden = section.dataset.accountingSection !== accountingFilters.view;
@@ -4805,6 +4808,26 @@
     const overdueReceivable = receivableOrders.filter(item => item.ageDays > 7).reduce((sum, item) => sum + item.outstanding, 0);
     const dueSoonReceivable = receivableOrders.filter(item => item.ageDays > 3 && item.ageDays <= 7).reduce((sum, item) => sum + item.outstanding, 0);
     const netCash = income - expense;
+
+    if (els.accountingLedgerSummary) {
+      const activeAccount = accountingFilters.accountId === "all"
+        ? null
+        : (state.accountingAccounts || []).find(account => account.id === accountingFilters.accountId);
+      const filteredBalance = activeAccount ? activeAccount.currentBalance : totalBalance;
+      const cards = [
+        ["Số dư", money.format(filteredBalance), activeAccount ? activeAccount.name : "Tất cả tài khoản"],
+        ["Thu", money.format(income), accountingRangeLabel(accountingFilters.range)],
+        ["Chi", money.format(expense), accountingRangeLabel(accountingFilters.range)],
+        ["Ròng", money.format(netCash), netCash >= 0 ? "Dòng tiền dương" : "Dòng tiền âm"]
+      ];
+      els.accountingLedgerSummary.innerHTML = cards.map(([label, value, note], index) => `
+        <article data-tone="${index}">
+          <span>${label}</span>
+          <strong>${value}</strong>
+          <small>${note}</small>
+        </article>
+      `).join("");
+    }
 
     if (els.accountingKpis) {
       const cards = [

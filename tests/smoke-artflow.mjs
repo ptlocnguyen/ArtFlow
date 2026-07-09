@@ -82,7 +82,7 @@ for (const viewport of viewports) {
       await page.goto(url, { waitUntil: "domcontentloaded" });
       await page.waitForSelector("[data-app-shell]:not([hidden])", { timeout: 8000 });
       await page.waitForTimeout(250);
-      await runPageInteractions(page, name);
+      await runPageInteractions(page, name, viewport.name);
       const metrics = await page.evaluate(() => {
         const doc = document.documentElement;
         const body = document.body;
@@ -156,7 +156,7 @@ async function saveScreenshot(page, viewportName, pageName) {
   return path.relative(root, target).replace(/\\/g, "/");
 }
 
-async function runPageInteractions(page, pageName) {
+async function runPageInteractions(page, pageName, viewportName) {
   if (pageName === "team") {
     await page.locator("[data-team-view='tasks']").click().catch(() => {});
     await page.locator("[data-team-secondary-action]").click().catch(() => {});
@@ -186,8 +186,15 @@ async function runPageInteractions(page, pageName) {
     await page.waitForTimeout(100);
   }
   if (pageName === "accounting") {
-    await page.locator("[data-accounting-view-filter='profit']").click().catch(() => {});
-    await page.waitForTimeout(100);
+    const dir = path.join(screenshotRoot, viewportName);
+    await mkdir(dir, { recursive: true });
+    for (const view of ["receivables", "ledger", "setup", "profit"]) {
+      await page.locator(`[data-accounting-view-filter='${view}']`).click().catch(() => {});
+      await page.waitForTimeout(80);
+      if (keepScreenshots) {
+        await page.screenshot({ path: path.join(dir, `accounting-${view}.png`), fullPage: false });
+      }
+    }
   }
   if (pageName === "incense") {
     await page.locator("[data-incense-kind-choice='team']").click().catch(() => {});
