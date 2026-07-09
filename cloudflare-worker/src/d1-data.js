@@ -2,7 +2,11 @@ const DIRECT_ACTIONS = new Set([
   "listProducts",
   "listCustomers",
   "listOrders",
-  "listStockMovements"
+  "listStockMovements",
+  "listUsers",
+  "listAuditLogs",
+  "me",
+  "exportD1Snapshot"
 ]);
 const CORE_ACTIONS = [...DIRECT_ACTIONS];
 
@@ -25,7 +29,7 @@ function number(value) {
   return Number(value || 0);
 }
 
-function publicProduct(row) {
+export function publicProduct(row) {
   return {
     id: row.id, sku: row.sku, name: row.name, category: row.category,
     brand: row.brand || "", barcode: row.barcode || "", unit: row.unit || "cái",
@@ -48,7 +52,7 @@ function publicProduct(row) {
   };
 }
 
-function publicCustomer(row) {
+export function publicCustomer(row) {
   const totalSpent = number(row.total_spent);
   return {
     id: row.id, name: row.name, phone: row.phone, email: row.email || "",
@@ -103,7 +107,7 @@ function publicSalesReturnItem(row) {
   };
 }
 
-function publicStockMovement(row) {
+export function publicStockMovement(row) {
   return {
     id: row.id, productId: row.product_id, sku: row.sku,
     productName: row.product_name, type: row.type,
@@ -114,7 +118,7 @@ function publicStockMovement(row) {
   };
 }
 
-async function requireSession(db, token) {
+export async function requireSession(db, token) {
   if (!token) return null;
   return db.prepare(
     `SELECT id, name, email, role, status, session_expires_at
@@ -161,7 +165,7 @@ async function listCustomers(db) {
   return { ok: true, customers: result.results.map(publicCustomer) };
 }
 
-async function listOrders(db) {
+export async function listOrders(db) {
   const [orders, items, returns, returnItems, refunds] = await Promise.all([
     db.prepare("SELECT * FROM orders WHERE status <> 'deleted' ORDER BY created_at DESC").all(),
     db.prepare("SELECT * FROM order_items ORDER BY created_at").all(),
@@ -195,6 +199,72 @@ async function listStockMovements(db) {
   return { ok: true, movements: result.results.map(publicStockMovement) };
 }
 
+async function listUsers(db, user) {
+  if (user.role !== "admin") return { ok: false, error: "Admin access required" };
+  const rows = (await db.prepare(
+    "SELECT id,name,email,role,status,last_login_at FROM users WHERE status<>'deleted' ORDER BY name COLLATE NOCASE"
+  ).all()).results;
+  return { ok: true, users: rows.map(row => ({
+    id: row.id, name: row.name, email: row.email, role: row.role,
+    status: row.status, lastLoginAt: row.last_login_at || ""
+  })) };
+}
+
+async function listAuditLogs(db, user, payload) {
+  if (user.role !== "admin") return { ok: false, error: "Admin access required" };
+  const limit = Math.min(1000, Math.max(1, Number(payload.limit || 500)));
+  const rows = (await db.prepare("SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?").bind(limit).all()).results;
+  return { ok: true, logs: rows.map(row => ({
+    id: row.id, action: row.action, description: row.description || row.action,
+    entityType: row.entity_type || "", entityId: row.entity_id || "",
+    actorId: row.actor_id || "", actorName: row.actor_name || "System",
+    actorEmail: row.actor_email || "", detail: parseJson(row.detail_json, {}),
+    createdAt: row.created_at || "", timezone: row.timezone || "Asia/Ho_Chi_Minh"
+  })) };
+}
+
+const SNAPSHOT_TABLES = [
+  "users", "products", "product_options", "content_items", "team_items",
+  "sales_channels", "channel_products", "inventory_reservations", "campaigns",
+  "workspace_tasks", "app_settings", "incense_wishes", "customers", "orders",
+  "order_items", "sales_returns", "sales_return_items", "order_refunds",
+  "stock_movements", "accounting_accounts", "accounting_categories",
+  "accounting_reconciliations", "suppliers", "purchase_orders",
+  "purchase_order_items", "supplier_payments", "purchase_returns",
+  "purchase_return_items", "supplier_credit_applications", "cash_transactions",
+  "audit_logs"
+];
+
+async function exportSnapshot(db, user) {
+  if (user.role !== "admin") return { ok: false, error: "Admin access required" };
+  const tables = {};
+  for (const table of SNAPSHOT_TABLES) {
+    const rows = (await db.prepare(`SELECT * FROM ${table}`).all()).results;
+    if (table === "users") {
+      rows.forEach(row => {
+        delete row.password_hash;
+        delete row.salt;
+        delete row.session_token;
+        delete row.session_expires_at;
+        delete row.d1_verified_at;
+      });
+    }
+    tables[table] = rows;
+  }
+  return {
+    ok: true,
+    snapshot: {
+      schemaVersion: "2026-07-08-d1-3",
+      exportedAt: new Date().toISOString(),
+      tables
+    }
+  };
+}
+
+function parseJson(value, fallback) {
+  try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
+}
+
 function groupBy(values, keyForValue) {
   return values.reduce((groups, value) => {
     const key = keyForValue(value);
@@ -208,7 +278,16 @@ export async function readDirectD1(env, payload, options = {}) {
   if (!env.DB) return null;
   const user = await requireSession(env.DB, payload.token);
   if (!user) return null;
-  const handlers = { listProducts, listCustomers, listOrders, listStockMovements };
+  const handlers = {
+    listProducts, listCustomers, listOrders, listStockMovements,
+    listUsers: (db, current) => listUsers(db, current),
+    listAuditLogs: (db, current) => listAuditLogs(db, current, payload),
+    exportD1Snapshot: (db, current) => exportSnapshot(db, current),
+    me: async (db, current) => ({ ok: true, user: {
+      id: current.id, name: current.name, email: current.email,
+      role: current.role, status: current.status
+    } })
+  };
   if (payload.action === "getPageData") {
     let rawScopes = payload.scopes || [];
     if (!Array.isArray(rawScopes)) {
@@ -227,14 +306,11 @@ export async function readDirectD1(env, payload, options = {}) {
     const requested = rawScopes.map(value => String(value).trim()).filter(Boolean);
     if (!requested.length || requested.some(scope => !scopeActions[scope])) return null;
     const actions = requested.map(scope => scopeActions[scope]);
-    const dirty = await Promise.all(actions.map(action => readIsDirty(env.DB, action)));
-    if (!options.allowDirty && dirty.some(Boolean)) return null;
     const results = await Promise.all(actions.map(action => handlers[action](env.DB)));
     return results.reduce((output, result) => Object.assign(output, result), { ok: true });
   }
   if (!DIRECT_ACTIONS.has(payload.action)) return null;
-  if (!options.allowDirty && await readIsDirty(env.DB, payload.action)) return null;
-  return handlers[payload.action](env.DB);
+  return handlers[payload.action](env.DB, user);
 }
 
 export async function markCoreReadsDirty(env) {

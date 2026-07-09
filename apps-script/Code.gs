@@ -511,6 +511,8 @@ function handleRequest(e) {
         return json(listAuditLogs(body));
       case "exportD1Snapshot":
         return json(exportD1Snapshot(body));
+      case "storeD1Backup":
+        return json(storeD1Backup(body));
       case "listProducts":
         return json(listProducts(body));
       case "createProduct":
@@ -535,6 +537,8 @@ function handleRequest(e) {
         return json(archiveContentItem(body));
       case "provisionContentItemAssets":
         return json(provisionContentItemAssets(body));
+      case "provisionContentItemAssetsBridge":
+        return json(provisionContentItemAssetsBridge(body));
       case "getTeamWorkspaceData":
         return json(getTeamWorkspaceData(body));
       case "createTeamItem":
@@ -573,6 +577,8 @@ function handleRequest(e) {
         return json(importProducts(body));
       case "provisionProductContent":
         return json(provisionProductContent(body));
+      case "provisionProductContentBridge":
+        return json(provisionProductContentBridge(body));
       case "provisionMissingProductContent":
         return json(provisionMissingProductContent(body));
       case "testProductContentConfiguration":
@@ -592,6 +598,8 @@ function handleRequest(e) {
       case "createOrder":
         return json(createOrder(body));
       case "createOrderReceiptPdf":
+        return json(createOrderReceiptPdf(body));
+      case "createOrderReceiptPdfBridge":
         return json(createOrderReceiptPdf(body));
       case "updateOrderStatus":
         return json(updateOrderStatus(body));
@@ -931,6 +939,34 @@ function exportD1Snapshot(body) {
     exportedAt: nowIso(),
     tableCount: Object.keys(tables).length,
     tables: tables
+  };
+}
+
+function storeD1Backup(body) {
+  requireAdmin(body.token);
+  const snapshot = body.snapshot;
+  if (!snapshot || !snapshot.tables || !snapshot.exportedAt) {
+    return { ok: false, error: "D1 backup snapshot is invalid" };
+  }
+  const jsonText = JSON.stringify(snapshot);
+  if (jsonText.length > 8000000) {
+    return { ok: false, error: "D1 backup is too large for Apps Script" };
+  }
+  const properties = PropertiesService.getScriptProperties();
+  const folderId = properties.getProperty("D1_BACKUP_FOLDER_ID");
+  const folder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
+  const stamp = Utilities.formatDate(new Date(), VIETNAM_TIMEZONE, "yyyyMMdd-HHmmss");
+  const blob = Utilities.newBlob(jsonText, "application/json", "artflow-d1-" + stamp + ".json");
+  const compressed = Utilities.gzip(blob);
+  compressed.setName("artflow-d1-" + stamp + ".json.gz");
+  const file = folder.createFile(compressed);
+  return {
+    ok: true,
+    backupFileId: file.getId(),
+    backupFileUrl: file.getUrl(),
+    backupFileName: file.getName(),
+    bytes: compressed.getBytes().length,
+    exportedAt: snapshot.exportedAt
   };
 }
 
@@ -2306,6 +2342,16 @@ function archiveTeamItem(body) {
   return { ok: true };
 }
 
+function provisionContentItemAssetsBridge(body) {
+  requireContentManager(body.token);
+  const item = body.bridgeItem || null;
+  if (!item || !item.id || !item.title) {
+    return { ok: false, error: "Missing D1 content snapshot" };
+  }
+  const product = body.bridgeProduct && body.bridgeProduct.id ? body.bridgeProduct : null;
+  return { ok: true, assetPatch: createContentItemAssets(item, product) };
+}
+
 function normalizeSalesChannelType(type) {
   const value = String(type || "marketplace").trim();
   return ["pos", "website", "marketplace", "social", "other"].indexOf(value) === -1 ? "marketplace" : value;
@@ -3105,6 +3151,15 @@ function provisionProductContent(body) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function provisionProductContentBridge(body) {
+  requireCatalogManager(body.token);
+  const product = body.bridgeProduct || null;
+  if (!product || !product.id || !product.sku || !product.name) {
+    return { ok: false, error: "Missing D1 product snapshot" };
+  }
+  return { ok: true, assetPatch: createProductContentAssets(product) };
 }
 
 function provisionMissingProductContent(body) {
@@ -4242,8 +4297,7 @@ function appendReceiptTotalRow(table, label, value, bold, profile) {
 function createOrderReceiptPdf(body) {
   requireOrderManager(body.token);
   const id = String(body.orderId || body.order_id || body.id || "");
-  const orders = readRows("orders");
-  const order = orders.find(function (item) {
+  const order = body.bridgeOrder || readRows("orders").find(function (item) {
     return item.id === id && item.status !== "deleted";
   });
   if (!order) return { ok: false, error: "Order not found" };
@@ -4257,10 +4311,10 @@ function createOrderReceiptPdf(body) {
     }
   }
 
-  const items = readRows("order_items").filter(function (item) {
+  const items = Array.isArray(body.bridgeItems) ? body.bridgeItems : readRows("order_items").filter(function (item) {
     return item.order_id === order.id;
   });
-  const customer = readRows("customers").find(function (item) {
+  const customer = body.bridgeCustomer || readRows("customers").find(function (item) {
     return item.id === order.customer_id;
   });
   const profile = receiptPaperProfile(settings, items.length);
@@ -4384,7 +4438,9 @@ function createOrderReceiptPdf(body) {
   }
   sourceFile.setTrashed(true);
   const patch = { receipt_pdf_url: pdfFile.getUrl(), updated_at: nowIso() };
-  updateRow("orders", order._row, patch);
+  if (order._row) {
+    updateRow("orders", order._row, patch);
+  }
   return { ok: true, order: publicOrder(Object.assign({}, order, patch), items), receiptPdfUrl: pdfFile.getUrl() };
 }
 

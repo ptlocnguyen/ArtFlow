@@ -1,11 +1,44 @@
 import {
-  isDirectReadAction,
-  markCoreReadsDirty,
   recordSessionValidation,
   readDirectD1,
-  refreshD1FromRead,
   syncIdentityToD1
 } from "./d1-data.js";
+import { handleCatalogAction } from "./d1-catalog-actions.js";
+import { handleOrderAction } from "./d1-order-actions.js";
+import { handleWorkspaceAction } from "./d1-workspace-actions.js";
+import { handleAccountingAction } from "./d1-accounting-actions.js";
+import { handlePurchasingAction } from "./d1-purchasing-actions.js";
+import { handleOmniAction } from "./d1-omni-actions.js";
+
+async function handleD1PageData(env, payload) {
+  if (payload.action !== "getPageData" || !env.DB) return null;
+  let scopes = payload.scopes || [];
+  if (!Array.isArray(scopes)) {
+    try { scopes = JSON.parse(String(scopes)); } catch { scopes = String(scopes).split(","); }
+  }
+  const handlers = {
+    products: value => readDirectD1(env, { ...value, action: "listProducts" }, { allowDirty: true }),
+    customers: value => readDirectD1(env, { ...value, action: "listCustomers" }, { allowDirty: true }),
+    orders: value => readDirectD1(env, { ...value, action: "listOrders" }, { allowDirty: true }),
+    stockMovements: value => readDirectD1(env, { ...value, action: "listStockMovements" }, { allowDirty: true }),
+    accounting: value => handleAccountingAction(env, { ...value, action: "getAccountingData" }),
+    purchasing: value => handlePurchasingAction(env, { ...value, action: "getPurchasingData" }),
+    content: value => handleWorkspaceAction(env, { ...value, action: "getContentWorkspaceData" }),
+    team: value => handleWorkspaceAction(env, { ...value, action: "getTeamWorkspaceData" }),
+    omni: value => handleOmniAction(env, { ...value, action: "getOmniWorkspaceData" }),
+    incense: value => handleWorkspaceAction(env, { ...value, action: "getIncenseData" }),
+    settings: value => handleWorkspaceAction(env, { ...value, action: "getAppSettings" })
+  };
+  const requested = scopes.map(scope => String(scope).trim()).filter(scope => handlers[scope]);
+  if (!requested.length) return null;
+  const results = [];
+  for (const scope of requested) {
+    const result = await handlers[scope](payload);
+    if (!result || result.ok === false) return null;
+    results.push(result);
+  }
+  return results.reduce((output, result) => Object.assign(output, result), { ok: true });
+}
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const DEFAULT_UPSTREAM_TIMEOUT_MS = 45000;
@@ -41,6 +74,28 @@ function changesCoreData(action) {
     !CORE_READ_ONLY_ACTIONS.has(action) &&
     !String(action).startsWith("get") &&
     !String(action).startsWith("list");
+}
+
+async function auditD1Mutation(env, payload, response) {
+  if (!env.DB || !response?.ok || !changesCoreData(payload.action)) return;
+  const actor = payload.token
+    ? await env.DB.prepare("SELECT id,name,email FROM users WHERE session_token=?").bind(String(payload.token)).first()
+    : null;
+  const entity = response.product || response.customer || response.order || response.option ||
+    response.contentItem || response.teamItem || response.transaction || response.account ||
+    response.category || response.reconciliation || response.supplier || response.purchaseOrder ||
+    response.salesChannel || response.channelProduct || response.campaign || response.workspaceTask ||
+    response.incenseWish || {};
+  const detail = JSON.stringify({ request: { ...payload, token: undefined, password: undefined }, result: response });
+  await env.DB.prepare(
+    `INSERT INTO audit_logs(id,action,description,entity_type,entity_id,actor_id,actor_name,actor_email,detail_json,created_at,timezone)
+     VALUES(?,?,?,?,?,?,?,?,?,datetime('now'),?)`
+  ).bind(
+    crypto.randomUUID(), payload.action, payload.action, "d1_entity", entity.id || "",
+    actor?.id || "", actor?.name || "System", actor?.email || "",
+    detail.length > 45000 ? JSON.stringify({ truncated: true, action: payload.action }) : detail,
+    "Asia/Ho_Chi_Minh"
+  ).run();
 }
 
 function makeRequestId() {
@@ -240,6 +295,84 @@ export default {
         return json({ ok: false, error: "Missing action", code: "missing_action" }, 400, allowedOrigin, requestId);
       }
 
+      const pageDataResponse = await handleD1PageData(env, payload).catch(error => {
+        console.error("D1 page data failed", { requestId, message: error?.message || String(error) });
+        return null;
+      });
+      if (pageDataResponse) {
+        return json(pageDataResponse, 200, allowedOrigin, requestId, {
+          "Server-Timing": "d1;dur=0",
+          "X-ArtFlow-Data-Source": "d1"
+        });
+      }
+
+      const catalogResponse = await handleCatalogAction(env, payload);
+      if (catalogResponse) {
+        await auditD1Mutation(env, payload, catalogResponse).catch(() => {});
+        return json(catalogResponse, 200, allowedOrigin, requestId, {
+          "Server-Timing": "d1;dur=0",
+          "X-ArtFlow-Data-Source": "d1"
+        });
+      }
+      const orderResponse = await handleOrderAction(env, payload);
+      if (orderResponse) {
+        await auditD1Mutation(env, payload, orderResponse).catch(() => {});
+        return json(orderResponse, 200, allowedOrigin, requestId, {
+          "Server-Timing": "d1;dur=0",
+          "X-ArtFlow-Data-Source": "d1"
+        });
+      }
+      const workspaceResponse = await handleWorkspaceAction(env, payload);
+      if (workspaceResponse) {
+        await auditD1Mutation(env, payload, workspaceResponse).catch(() => {});
+        return json(workspaceResponse, 200, allowedOrigin, requestId, {
+          "Server-Timing": "d1;dur=0",
+          "X-ArtFlow-Data-Source": "d1"
+        });
+      }
+      const accountingResponse = await handleAccountingAction(env, payload);
+      if (accountingResponse) {
+        await auditD1Mutation(env, payload, accountingResponse).catch(() => {});
+        return json(accountingResponse, 200, allowedOrigin, requestId, {
+          "Server-Timing": "d1;dur=0",
+          "X-ArtFlow-Data-Source": "d1"
+        });
+      }
+      const purchasingResponse = await handlePurchasingAction(env, payload);
+      if (purchasingResponse) {
+        await auditD1Mutation(env, payload, purchasingResponse).catch(() => {});
+        return json(purchasingResponse, 200, allowedOrigin, requestId, {
+          "Server-Timing": "d1;dur=0",
+          "X-ArtFlow-Data-Source": "d1"
+        });
+      }
+      const omniResponse = await handleOmniAction(env, payload);
+      if (omniResponse) {
+        await auditD1Mutation(env, payload, omniResponse).catch(() => {});
+        return json(omniResponse, 200, allowedOrigin, requestId, {
+          "Server-Timing": "d1;dur=0",
+          "X-ArtFlow-Data-Source": "d1"
+        });
+      }
+
+      if (payload.action === "createOrderReceiptPdf" && env.DB) {
+        const orderId = String(payload.orderId || payload.order_id || payload.id || "");
+        const bridgeOrder = await env.DB.prepare(
+          "SELECT * FROM orders WHERE id = ? AND status <> 'deleted'"
+        ).bind(orderId).first();
+        if (bridgeOrder) {
+          const [bridgeItems, bridgeCustomer] = await Promise.all([
+            env.DB.prepare("SELECT * FROM order_items WHERE order_id = ?").bind(orderId).all(),
+            env.DB.prepare("SELECT * FROM customers WHERE id = ?").bind(bridgeOrder.customer_id).first()
+          ]);
+          payload.action = "createOrderReceiptPdfBridge";
+          payload.bridgeOrder = bridgeOrder;
+          payload.bridgeItems = bridgeItems.results;
+          payload.bridgeCustomer = bridgeCustomer || {};
+          body = JSON.stringify(payload);
+        }
+      }
+
       const d1Response = await readDirectD1(env, payload).catch(error => {
         console.error("D1 direct read failed", {
           requestId,
@@ -324,6 +457,11 @@ export default {
       }
 
       if (upstream.ok && responseJson && responseJson.ok !== false) {
+        if (payload.action === "createOrderReceiptPdfBridge" && responseJson.receiptPdfUrl && payload.bridgeOrder) {
+          await env.DB.prepare(
+            "UPDATE orders SET receipt_pdf_url = ?, updated_at = ? WHERE id = ?"
+          ).bind(responseJson.receiptPdfUrl, new Date().toISOString(), payload.bridgeOrder.id).run();
+        }
         await syncIdentityToD1(env, payload, responseJson).catch(error => {
           console.error("D1 session sync failed", {
             requestId,
@@ -334,23 +472,6 @@ export default {
         await writeD1Cache(env, payload, responseJson).catch(error => {
           console.error("D1 cache write failed", { requestId, action: payload.action, message: error && error.message });
         });
-        if (READ_CACHE_ACTIONS.has(payload.action)) {
-          await refreshD1FromRead(env, payload, responseJson).catch(error => {
-            console.error("D1 refresh failed", {
-              requestId,
-              action: payload.action,
-              message: error && error.message
-            });
-          });
-        } else if (!isDirectReadAction(payload.action) && changesCoreData(payload.action)) {
-          await markCoreReadsDirty(env).catch(error => {
-            console.error("D1 dirty marker failed", {
-              requestId,
-              action: payload.action,
-              message: error && error.message
-            });
-          });
-        }
       }
       await recordSessionValidation(env, payload, responseJson).catch(error => {
         console.error("D1 session validation update failed", {
