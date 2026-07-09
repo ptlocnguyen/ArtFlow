@@ -188,13 +188,28 @@ async function runPageInteractions(page, pageName, viewportName) {
   if (pageName === "accounting") {
     const dir = path.join(screenshotRoot, viewportName);
     await mkdir(dir, { recursive: true });
-    for (const view of ["receivables", "ledger", "setup", "profit"]) {
+    for (const view of ["receivables", "ledger", "payroll", "accounts", "categories", "profit"]) {
       await page.locator(`[data-accounting-view-filter='${view}']`).click().catch(() => {});
       await page.waitForTimeout(80);
+      const exportButton = page.locator(`[data-accounting-section='${view}'] [data-open-accounting-export]`).first();
+      if (await exportButton.count()) {
+        await exportButton.click().catch(() => {});
+        await page.waitForTimeout(50);
+        if (keepScreenshots && view === "profit") {
+          await page.screenshot({ path: path.join(dir, "accounting-profit-export.png"), fullPage: false });
+        }
+        await page.locator("[data-close-modal]").first().click().catch(() => {});
+      }
       if (keepScreenshots) {
         await page.screenshot({ path: path.join(dir, `accounting-${view}.png`), fullPage: false });
       }
     }
+    await page.locator("[data-open-accounting-profit-details]").click().catch(() => {});
+    await page.waitForTimeout(50);
+    if (keepScreenshots) {
+      await page.screenshot({ path: path.join(dir, "accounting-profit-details.png"), fullPage: false });
+    }
+    await page.locator("[data-close-modal]").first().click().catch(() => {});
   }
   if (pageName === "incense") {
     await page.locator("[data-incense-kind-choice='team']").click().catch(() => {});

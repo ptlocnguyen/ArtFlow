@@ -31,8 +31,10 @@
           <div class="segmented-control accounting-view-switch" role="tablist">
             <button class="active" type="button" role="tab" data-accounting-view-filter="receivables">Công nợ</button>
             <button type="button" role="tab" data-accounting-view-filter="ledger">Sổ quỹ</button>
+            <button type="button" role="tab" data-accounting-view-filter="payroll">Lương</button>
             <button type="button" role="tab" data-accounting-view-filter="profit">Lãi lỗ</button>
-            <button type="button" role="tab" data-accounting-view-filter="setup">Thiết lập</button>
+            <button type="button" role="tab" data-accounting-view-filter="accounts">Tài khoản tiền</button>
+            <button type="button" role="tab" data-accounting-view-filter="categories">Danh mục thu chi</button>
           </div>
         </nav>
 
@@ -40,16 +42,18 @@
           <section class="panel accounting-workspace accounting-receivables-workspace" data-accounting-section="receivables">
             <div class="panel-header split">
               <div><p class="section-kicker">Phải thu khách hàng</p><h2>Công nợ bán hàng</h2><p>Theo dõi đơn còn thiếu tiền và ưu tiên khoản quá hạn.</p></div>
-              <button class="button export" type="button" data-open-accounting-export><span data-icon="download"></span> Xuất công nợ</button>
+              <button class="button export" type="button" data-open-accounting-export data-accounting-export-scope="receivables"><span data-icon="download"></span> Xuất công nợ</button>
             </div>
             <div class="debt-summary accounting-context-summary" data-accounting-debt-summary></div>
             <div class="accounting-local-toolbar">
               <div class="segmented-control debt-filter" role="group" aria-label="Lọc công nợ">
                 <button class="active" type="button" data-accounting-receivable-filter="all">Tất cả</button>
-                <button type="button" data-accounting-receivable-filter="watch">Cần chú ý</button>
+                <button type="button" data-accounting-receivable-filter="new">Mới</button>
+                <button type="button" data-accounting-receivable-filter="watch">Cần nhắc</button>
                 <button type="button" data-accounting-receivable-filter="overdue">Quá hạn</button>
+                <button type="button" data-accounting-receivable-filter="high">Giá trị lớn</button>
               </div>
-              <small>Khoản quá 7 ngày được ưu tiên trước.</small>
+              <small data-accounting-receivable-help>Mới: 0-3 ngày · Cần nhắc: 4-7 ngày · Quá hạn: trên 7 ngày · Giá trị lớn: từ 1.000.000 ₫.</small>
             </div>
             <div class="accounting-todo-list" data-accounting-receivables></div>
           </section>
@@ -58,9 +62,8 @@
             <div class="panel-header split">
               <div><p class="section-kicker">Tiền vào và tiền ra</p><h2>Sổ quỹ</h2><p>Kiểm tra dòng tiền theo kỳ, tài khoản và danh mục.</p></div>
               <div class="panel-header-actions">
-                <button class="button ghost" type="button" data-open-payroll-expense><span data-icon="users"></span> Ghi lương</button>
                 <button class="button primary" type="button" data-open-cash-transaction><span data-icon="plus"></span> Thu/chi</button>
-                <button class="button export icon-only" type="button" data-open-accounting-export aria-label="Xuất sổ quỹ" title="Xuất sổ quỹ"><span data-icon="download"></span></button>
+                <button class="button export icon-only" type="button" data-open-accounting-export data-accounting-export-scope="ledger" aria-label="Xuất sổ quỹ" title="Xuất sổ quỹ"><span data-icon="download"></span></button>
               </div>
             </div>
             <div class="accounting-ledger-summary" data-accounting-ledger-summary></div>
@@ -76,21 +79,38 @@
             <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Loại</th><th>Danh mục / tài khoản</th><th>Nội dung</th><th>Số tiền</th><th>Thao tác</th></tr></thead><tbody data-accounting-transactions-table></tbody></table></div>
           </section>
 
+          <section class="panel accounting-workspace accounting-payroll-workspace" data-accounting-section="payroll" hidden>
+            <div class="panel-header split">
+              <div><p class="section-kicker">Chi phí nhân sự</p><h2>Theo dõi tiền lương</h2><p>Ghi nhận các lần trả lương và kiểm tra tổng chi nhân sự theo kỳ.</p></div>
+              <div class="panel-header-actions">
+                <button class="button primary" type="button" data-open-payroll-expense><span data-icon="plus"></span> Ghi lương</button>
+                <button class="button export icon-only" type="button" data-open-accounting-export data-accounting-export-scope="payroll" aria-label="Xuất báo cáo lương" title="Xuất báo cáo lương"><span data-icon="download"></span></button>
+              </div>
+            </div>
+            <div class="accounting-ledger-summary" data-accounting-payroll-summary></div>
+            <div class="accounting-toolbar accounting-payroll-toolbar">
+              <select aria-label="Lọc kỳ lương" data-accounting-payroll-range><option value="30">30 ngày</option><option value="90">90 ngày</option><option value="all">Toàn bộ thời gian</option></select>
+              <label class="search-box compact"><span data-icon="search"></span><input type="search" data-accounting-payroll-search placeholder="Tìm người nhận, nội dung..." /></label>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Ngày trả</th><th>Người nhận / nội dung</th><th>Tài khoản chi</th><th>Tham chiếu</th><th>Số tiền</th></tr></thead><tbody data-accounting-payroll-table></tbody></table></div>
+          </section>
+
           <section class="accounting-profit-grid accounting-workspace" data-accounting-section="profit" hidden>
             <section class="panel accounting-profit-panel accounting-profit-overview">
               <div class="panel-header split">
                 <div><p class="section-kicker">Kết quả kinh doanh</p><h2>Lãi lỗ vận hành</h2><p>Doanh thu, giá vốn, chi phí và lợi nhuận trong kỳ.</p></div>
                 <div class="panel-header-actions">
                   <select aria-label="Kỳ lãi lỗ" data-accounting-profit-range><option value="30">30 ngày</option><option value="7">7 ngày</option><option value="90">90 ngày</option><option value="all">Toàn bộ</option></select>
-                  <button class="button export icon-only" type="button" data-open-accounting-export aria-label="Xuất lãi lỗ" title="Xuất lãi lỗ"><span data-icon="download"></span></button>
+                  <button class="button ghost" type="button" data-open-accounting-profit-details><span data-icon="chart"></span> Phân tích</button>
+                  <button class="button export icon-only" type="button" data-open-accounting-export data-accounting-export-scope="profit" aria-label="Xuất lãi lỗ" title="Xuất lãi lỗ"><span data-icon="download"></span></button>
                 </div>
               </div>
               <div class="accounting-profit-summary" data-accounting-profit-summary></div>
               <div class="profit-chart compact-accounting-chart" data-accounting-profit-chart></div>
             </section>
-            <section class="panel accounting-profit-panel">
-              <div class="panel-header split"><div><h2>Chi phí vận hành</h2><p>Các khoản chi ngoài nhập hàng và hoàn tiền.</p></div><button class="button ghost" type="button" data-open-payroll-expense><span data-icon="users"></span> Ghi lương</button></div>
-              <div class="expense-breakdown" data-accounting-expense-breakdown></div>
+            <section class="panel accounting-profit-panel accounting-profit-insights">
+              <div class="panel-header"><div><p class="section-kicker">Điểm cần chú ý</p><h2>Nhận định nhanh</h2><p>Các tín hiệu đáng xem trước khi mở báo cáo chi tiết.</p></div></div>
+              <div class="accounting-insight-list" data-accounting-profit-insights></div>
             </section>
             <section class="panel accounting-profit-panel accounting-wide-panel">
               <div class="panel-header split"><div><h2>Lợi nhuận sản phẩm</h2><p>Xếp hạng theo lãi gộp thực tế của đơn đã thanh toán.</p></div><span class="pill" data-accounting-profit-count>0 sản phẩm</span></div>
@@ -98,11 +118,11 @@
             </section>
           </section>
 
-          <section class="accounting-setup-grid accounting-workspace" data-accounting-section="setup" hidden>
-            <section class="panel accounting-side-panel">
+          <section class="panel accounting-workspace accounting-side-panel" data-accounting-section="accounts" hidden>
               <div class="panel-header split">
                 <div><p class="section-kicker">Nơi giữ tiền</p><h2>Tài khoản tiền</h2><p>Tiền mặt, ngân hàng và ví bán hàng.</p></div>
                 <div class="panel-header-actions">
+                  <button class="button export icon-only" type="button" data-open-accounting-export data-accounting-export-scope="accounts" aria-label="Xuất tài khoản tiền" title="Xuất tài khoản tiền"><span data-icon="download"></span></button>
                   <button class="button ghost" type="button" data-open-accounting-reconciliation><span data-icon="calculator"></span> Đối soát</button>
                   <button class="button primary icon-only" type="button" data-open-accounting-account title="Thêm tài khoản" aria-label="Thêm tài khoản"><span data-icon="plus"></span></button>
                 </div>
@@ -112,11 +132,11 @@
                 <div class="accounting-subsection-title"><h3>Đối soát gần đây</h3><span>So sánh số trên hệ thống và số thực tế</span></div>
                 <div class="reconciliation-list" data-accounting-reconciliations></div>
               </div>
-            </section>
-            <section class="panel accounting-side-panel">
-              <div class="panel-header split"><div><p class="section-kicker">Phân loại giao dịch</p><h2>Danh mục thu chi</h2><p>Dùng cho báo cáo dòng tiền và lãi lỗ.</p></div><button class="button primary icon-only" type="button" data-open-accounting-category title="Thêm danh mục" aria-label="Thêm danh mục"><span data-icon="plus"></span></button></div>
+          </section>
+          <section class="panel accounting-workspace accounting-side-panel" data-accounting-section="categories" hidden>
+              <div class="panel-header split"><div><p class="section-kicker">Phân loại giao dịch</p><h2>Danh mục thu chi</h2><p>Dùng để nhóm dòng tiền và xác định đúng chi phí trên báo cáo lãi lỗ.</p></div><div class="panel-header-actions"><button class="button export icon-only" type="button" data-open-accounting-export data-accounting-export-scope="categories" aria-label="Xuất danh mục" title="Xuất danh mục"><span data-icon="download"></span></button><button class="button primary" type="button" data-open-accounting-category><span data-icon="plus"></span> Thêm danh mục</button></div></div>
+              <div class="accounting-local-toolbar"><div class="segmented-control" role="group" aria-label="Lọc danh mục"><button class="active" type="button" data-accounting-category-filter="all">Tất cả</button><button type="button" data-accounting-category-filter="income">Khoản thu</button><button type="button" data-accounting-category-filter="expense">Khoản chi</button></div><small>Danh mục đang dùng không nên đổi loại nếu đã có giao dịch.</small></div>
               <div class="category-chip-list" data-accounting-categories></div>
-            </section>
           </section>
         </section>
       </section>

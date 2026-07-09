@@ -31,10 +31,13 @@ export function createArtflowFixture() {
     order("ord-002", "SHP-20260625-0002", "cust-002", "completed", "unpaid", "shopee", "shipping", 145000, 0, "2026-06-25T15:30:00+07:00", [
       orderItem("oi-003", "ord-002", products[0], 3, 8000),
       orderItem("oi-004", "ord-002", products[3], 2, 15000)
+    ]),
+    order("ord-003", "POS-20260618-0003", "cust-002", "confirmed", "unpaid", "pos", "none", 1250000, 0, "2026-06-18T10:15:00+07:00", [
+      orderItem("oi-005", "ord-003", products[4], 5, 223000)
     ])
   ];
   const accountingAccounts = [
-    { id: "acc-cash", name: "Tien mat", type: "cash", openingBalance: 25000000, currentBalance: 24923000, status: "active", createdAt: now, updatedAt: now },
+    { id: "acc-cash", name: "Tien mat", type: "cash", openingBalance: 25000000, currentBalance: 23423000, status: "active", createdAt: now, updatedAt: now },
     { id: "acc-bank", name: "Ngan hang", type: "bank", openingBalance: 0, currentBalance: 236000, status: "active", createdAt: now, updatedAt: now }
   ];
   const accountingCategories = [
@@ -46,7 +49,8 @@ export function createArtflowFixture() {
   const cashTransactions = [
     tx("tx-001", "income", "acc-bank", "cat-sales", 236000, "2026-06-27", "Thu don POS-20260627-0001", "order", "POS-20260627-0001"),
     tx("tx-002", "expense", "acc-cash", "cat-stock", 1000000, "2026-06-24", "Nhap hang ve", "purchase_order", "PO-20260624-0001"),
-    tx("tx-003", "expense", "acc-cash", "cat-marketing", 100000, "2026-06-20", "Chay quang cao", "manual", "")
+    tx("tx-003", "expense", "acc-cash", "cat-marketing", 100000, "2026-06-20", "Chay quang cao", "manual", ""),
+    tx("tx-004", "expense", "acc-cash", "cat-payroll", 1500000, "2026-06-26", "Luong thang 6 - Minh Anh", "payroll", "PAY-202606")
   ];
   const suppliers = [
     { id: "sup-001", code: "NCC-0001", name: "Art Supplies VN", phone: "090000001", email: "sales@supplier.local", taxCode: "", address: "HCM", status: "active", totalPurchased: 1800000, outstanding: 800000, creditBalance: 0, lastPurchaseAt: "2026-06-24T09:00:00+07:00", note: "" }
