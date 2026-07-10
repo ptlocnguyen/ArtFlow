@@ -196,6 +196,17 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("[data-purchase-create-form] button[type='submit']").click();
     await page.waitForTimeout(150);
   }
+  if (pageName === "purchasing") {
+    const hasXlsx = await page.evaluate(() => Boolean(window.XLSX));
+    if (!hasXlsx) throw new Error("Purchasing page must load XLSX before enabling purchase order Excel export.");
+    const exportButton = page.locator("[data-export-purchase-order]").first();
+    if (!(await exportButton.count())) throw new Error("Purchasing page must render per-order Excel export actions.");
+    const receiveButton = page.locator("[data-receive-purchase]").first();
+    if (await receiveButton.count()) {
+      const hasReceiveColor = await receiveButton.evaluate(button => button.classList.contains("action-receive"));
+      if (!hasReceiveColor) throw new Error("Receive purchase action must have a distinct visual style.");
+    }
+  }
   if (pageName === "accounting") {
     const dir = path.join(screenshotRoot, viewportName);
     await mkdir(dir, { recursive: true });

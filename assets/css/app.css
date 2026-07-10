@@ -3796,6 +3796,42 @@ body[data-page="products"] .view.active {
   border-color: #a5f3fc;
 }
 
+.action-export {
+  color: #027a48;
+  background: #ecfdf3;
+  border-color: #abefc6;
+}
+
+.action-print {
+  color: #175cd3;
+  background: #eff8ff;
+  border-color: #b2ddff;
+}
+
+.action-receive {
+  color: #9a3412;
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.action-pay {
+  color: #5925dc;
+  background: #f4f3ff;
+  border-color: #d9d6fe;
+}
+
+.action-credit {
+  color: #0e7490;
+  background: #ecfeff;
+  border-color: #a5f3fc;
+}
+
+.action-return {
+  color: #b42318;
+  background: #fef3f2;
+  border-color: #fecdca;
+}
+
 .action-archive {
   color: #b54708;
   background: #fff7ed;
