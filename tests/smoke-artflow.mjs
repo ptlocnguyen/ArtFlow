@@ -21,6 +21,7 @@ const pages = [
   ["channels", "pages/channels.html"],
   ["content", "pages/content.html"],
   ["team", "pages/team.html"],
+  ["team-pricing", "pages/team-pricing.html"],
   ["meeting-minutes", "pages/meeting-minutes.html"],
   ["incense", "pages/incense.html"],
   ["customers", "pages/customers.html"],

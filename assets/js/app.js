@@ -169,6 +169,7 @@
     content: { title: "Content", href: "./content.html", icon: "sparkles", roles: ["admin"], modes: ["advanced"] },
     channels: { title: "Kênh bán", href: "./channels.html", icon: "truck", roles: ["admin"], modes: ["advanced"] },
     team: { title: "Team Hub", href: "./team.html", icon: "briefcase", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
+    teamPricing: { title: "Tính giá", href: "./team-pricing.html", icon: "calculator", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
     meetingMinutes: { title: "Biên bản họp", href: "./meeting-minutes.html", icon: "clipboard", roles: ["admin"], modes: ["advanced"], hidden: true },
     incense: { title: "Xin vía", href: "./incense.html", icon: "sparkles", roles: ["admin", "sales", "inventory"], modes: ["advanced"] },
     users: { title: "Nhân viên", href: "./users.html", icon: "userPlus", roles: ["admin"], modes: ["standard", "advanced"], adminOnly: true },
@@ -181,7 +182,7 @@
     { id: "catalog", title: "Hàng hóa", defaultOpen: true, items: ["products", "inventory", "purchasing"] },
     { id: "finance", title: "Tài chính", defaultOpen: false, items: ["accounting", "reports"] },
     { id: "growth", title: "Tăng trưởng", defaultOpen: false, items: ["content", "channels"] },
-    { id: "internal", title: "Nội bộ", defaultOpen: false, items: ["team", "meetingMinutes", "incense"] },
+    { id: "internal", title: "Nội bộ", defaultOpen: false, items: ["team", "teamPricing", "meetingMinutes", "incense"] },
     { id: "admin", title: "Quản trị", defaultOpen: false, items: ["users", "activity"] }
   ];
 
@@ -1782,6 +1783,7 @@
       channels: ["omni"],
       content: ["content"],
       team: ["team"],
+      teamPricing: ["products", "team", "omni"],
       meetingMinutes: ["team"],
       incense: ["incense"],
       customers: ["customers"],
@@ -4142,9 +4144,59 @@
         <div class="team-card-head"><div><strong>${escapeHtml(model.title || (product ? "Tính giá " + product.name : "Bảng tính giá"))}</strong><small>${product ? `${escapeHtml(product.sku)} · ${escapeHtml(product.name)}` : "Không gắn sản phẩm"} · ${escapeHtml(model.owner || "Chưa giao")}</small></div>${teamStatusBadge(model.status)}</div>
         <div class="team-money-grid"><span><small>Tổng chi phí</small><b>${money.format(totals.totalCost)}</b></span><span><small>Giá gợi ý</small><b>${money.format(totals.suggested)}</b></span><span><small>Biên lãi</small><b class="${totals.margin < 20 ? "negative-text" : "positive-text"}">${totals.margin.toFixed(1)}%</b></span></div>
         <div class="team-cost-lines">${(model.lines || []).slice(0, 4).map(line => `<span>${escapeHtml(line.label)} <b>${line.type === "fixed" ? money.format(line.value) : line.value + "%"}</b></span>`).join("") || "<span>Chưa có chi phí thêm</span>"}</div>
-        <div class="row-actions"><button class="link-button icon-only action-edit" type="button" data-edit-team-pricing="${model.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="pricing:${model.id}" title="Lưu trữ">${icon("archive")}</button></div>
+        <div class="row-actions"><a class="link-button icon-only action-edit" href="./team-pricing.html?id=${encodeURIComponent(model.id)}" title="Sửa" aria-label="Sửa">${icon("edit")}</a><button class="link-button danger-link icon-only" type="button" data-archive-team-item="pricing:${model.id}" title="Lưu trữ">${icon("archive")}</button></div>
       </article>`;
     }).join("") : `<div class="empty">Chưa có bảng tính giá phù hợp.</div>`}</div>`;
+  }
+
+  function teamPricingPageContext() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id") || "";
+    const productId = params.get("productId") || "";
+    const existing = id ? (state.teamPricingModels || []).map(normalizePricingModel).find(item => item.id === id) : null;
+    if (existing) return { existing, model: existing };
+    const product = productId ? byId("products", productId) : null;
+    return {
+      existing: null,
+      model: normalizePricingModel({
+        title: product ? `Tính giá ${product.name}` : "",
+        productId: product ? product.id : "",
+        baseCost: product ? product.costPrice : 0,
+        priceTarget: "offline",
+        status: "draft",
+        owner: currentUser ? currentUser.name : ""
+      })
+    };
+  }
+
+  function renderTeamPricingPage() {
+    const container = qs("[data-team-pricing-page]");
+    if (!container) return;
+    const { existing, model } = teamPricingPageContext();
+    if (els.title) els.title.textContent = existing ? "Cập nhật bảng tính giá" : "Tạo bảng tính giá";
+    container.innerHTML = `
+      <form class="team-pricing-page-form" data-team-pricing-page-form data-pricing-existing-id="${escapeAttribute(existing ? existing.id : "")}">
+        ${renderPricingForm(model)}
+        <footer class="team-pricing-page-actions">
+          <a class="button ghost" href="./team.html">${icon("close")} Quay lại Team Hub</a>
+          <button class="button primary" type="submit">${icon("check")} Lưu bảng tính giá</button>
+        </footer>
+      </form>
+    `;
+    hydrateIcons(container);
+    updateTeamPricingPreview(container.querySelector("[data-team-pricing-page-form]"));
+    enhanceMoneyInputs(container);
+  }
+
+  async function submitTeamPricingPageForm(form) {
+    const existingId = form.dataset.pricingExistingId || "";
+    const existing = existingId ? (state.teamPricingModels || []).find(item => item.id === existingId) : null;
+    const saved = await saveTeamItem("pricing", form, existing || null);
+    const nextUrl = `./team-pricing.html?id=${encodeURIComponent(saved.id)}`;
+    if (!existingId) window.history.replaceState(null, "", nextUrl);
+    form.dataset.pricingExistingId = saved.id;
+    renderTeamPricingPage();
+    return saved;
   }
 
   function renderTeamDecisions() {
@@ -5957,6 +6009,7 @@
     renderDashboardCommandCenter();
     renderContentWorkspace();
     renderTeamHub();
+    renderTeamPricingPage();
     renderMeetingMinutesPage();
     renderIncense();
     renderCustomers();
@@ -8699,6 +8752,21 @@
       normalizeMoneyInputs(event.target);
     }, true);
 
+    document.addEventListener("submit", async event => {
+      const form = event.target.closest && event.target.closest("[data-team-pricing-page-form]");
+      if (!form) return;
+      event.preventDefault();
+      const button = form.querySelector("button[type='submit']");
+      setBusy(button, true, "Đang lưu...");
+      try {
+        await withLoading("Đang lưu bảng tính giá...", () => submitTeamPricingPageForm(form));
+      } catch (error) {
+        showToast(error.message || String(error), "error");
+      } finally {
+        setBusy(button, false);
+      }
+    });
+
     document.addEventListener("click", event => {
       const retryButton = event.target.closest && event.target.closest("[data-retry-backend]");
       if (retryButton) {
@@ -9027,6 +9095,10 @@
           window.location.href = "./meeting-minutes.html";
           return;
         }
+        if (teamFilters.view === "pricing") {
+          window.location.href = "./team-pricing.html";
+          return;
+        }
         const modalByView = { meetings: "teamMeeting", tasks: "workspaceTask", plans: "teamPlan", pricing: "teamPricing", decisions: "teamDecision" };
         openModal(modalByView[teamFilters.view] || "teamMeeting");
       }
@@ -9083,21 +9155,14 @@
         if (item) openModal("teamPlan", { teamPlan: item });
       }
       if (target.dataset.editTeamPricing) {
-        const item = (state.teamPricingModels || []).find(entry => entry.id === target.dataset.editTeamPricing);
-        if (item) openModal("teamPricing", { teamPricing: item });
+        window.location.href = `./team-pricing.html?id=${encodeURIComponent(target.dataset.editTeamPricing)}`;
+        return;
       }
       if (target.dataset.openPricingForProduct) {
         const product = byId("products", target.dataset.openPricingForProduct);
         if (product) {
-          openModal("teamPricing", {
-            teamPricing: normalizePricingModel({
-              title: `Tính giá ${product.name}`,
-              productId: product.id,
-              baseCost: product.costPrice,
-              priceTarget: "offline",
-              status: "draft"
-            })
-          });
+          window.location.href = `./team-pricing.html?productId=${encodeURIComponent(product.id)}`;
+          return;
         }
       }
       if (target.dataset.editTeamDecision) {

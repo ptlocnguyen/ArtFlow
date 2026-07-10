@@ -8182,6 +8182,61 @@ body[data-page="accounting"] [data-accounting-section][hidden] {
   max-height: calc(100vh - 28px);
 }
 
+.team-pricing-page {
+  display: grid;
+  gap: 16px;
+}
+
+.pricing-page-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pricing-page-intro h2 {
+  margin: 0 0 6px;
+}
+
+.pricing-page-intro p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.team-pricing-page-form {
+  display: grid;
+  gap: 16px;
+}
+
+.team-pricing-page-form .pricing-workbench {
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, .92fr);
+  align-items: start;
+}
+
+.team-pricing-page-form .pricing-header-block,
+.team-pricing-page-form .pricing-product-block,
+.team-pricing-page-form .pricing-result-block {
+  grid-column: 1 / -1;
+}
+
+.team-pricing-page-form .team-extra-details {
+  grid-column: 1 / -1;
+}
+
+.team-pricing-page-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(245, 248, 252, .92);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  backdrop-filter: blur(12px);
+}
+
 .pricing-workbench {
   display: grid;
   gap: 14px;
@@ -8227,6 +8282,17 @@ body[data-page="accounting"] [data-accounting-section][hidden] {
   .modal-form-fullscreen {
     width: calc(100vw - 16px);
     max-height: calc(100vh - 16px);
+  }
+
+  .pricing-page-intro,
+  .team-pricing-page-actions {
+    align-items: stretch;
+    flex-direction: column;
+    position: static;
+  }
+
+  .team-pricing-page-form .pricing-workbench {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
