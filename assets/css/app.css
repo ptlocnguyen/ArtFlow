@@ -8185,6 +8185,23 @@ body[data-page="accounting"] [data-accounting-section][hidden] {
 .team-pricing-page {
   display: grid;
   gap: 16px;
+  padding-bottom: 24px;
+}
+
+body[data-page="teamPricing"] .workspace {
+  min-height: 100vh;
+  overflow: visible;
+}
+
+body[data-page="teamPricing"] .app-shell {
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+}
+
+body[data-page="teamPricing"] .view.active {
+  min-height: auto;
+  overflow: visible;
 }
 
 .pricing-page-intro {
