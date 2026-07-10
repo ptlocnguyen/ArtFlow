@@ -2367,6 +2367,15 @@
     requireXlsx().writeFile(workbook, filename, { compression: true });
   }
 
+  function safeFilePart(value) {
+    return String(value || "artflow")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "artflow";
+  }
+
   function downloadProductTemplate() {
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
@@ -5430,6 +5439,8 @@
         const supplier = getSupplier(order);
         const isOverdue = order.outstanding > 0 && order.dueDate && order.dueDate < today;
         const actions = [];
+        actions.push(`<button class="link-button icon-only" type="button" data-export-purchase-order="${order.id}" aria-label="Xuất Excel phiếu mua" title="Xuất Excel phiếu mua">${icon("download")}</button>`);
+        actions.push(`<button class="link-button icon-only" type="button" data-print-purchase-order="${order.id}" aria-label="In/PDF phiếu mua" title="In/PDF phiếu mua">${icon("printer")}</button>`);
         if (canManagePurchasing() && order.status === "draft") actions.push(`<a class="link-button icon-only" href="./purchase-create.html?edit=${order.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</a><button class="link-button icon-only" type="button" data-receive-purchase="${order.id}" aria-label="Nhận hàng" title="Nhận hàng">${icon("download")}</button>`);
         if (canReturnPurchaseOrder(order)) actions.push(`<button class="link-button icon-only" type="button" data-return-purchase="${order.id}" aria-label="Trả hàng" title="Trả hàng">${icon("rotateCcw")}</button>`);
         if (canPayPurchases() && order.status === "received" && order.outstanding > 0) actions.push(`<button class="link-button icon-only" type="button" data-pay-purchase="${order.id}" aria-label="Thanh toán" title="Thanh toán">${icon("receipt")}</button>`);
@@ -7119,6 +7130,153 @@
         ${settings.showPoints ? `<div><span>Điểm dùng/cộng</span><b>${Number(order.loyaltyPointsUsed || 0)} / ${Math.floor(Number(order.total || 0) / loyaltyRules.earnPerVnd)}</b></div>` : ""}
       </div><div class="line"></div><p class="footer">${escapeHtml(settings.footer)}</p><p class="center muted">Khổ ${escapeHtml(settings.paperSize || settings.paperWidth || "80")}</p><script>window.onload=()=>{setTimeout(()=>window.print(),150)};</script>
     </body></html>`;
+  }
+
+  function purchaseOrderRows(order) {
+    return (order.items || []).map((item, index) => ({
+      index: index + 1,
+      sku: item.sku || "",
+      name: item.name || "",
+      quantity: Number(item.quantity || 0),
+      unitCost: Number(item.unitCost || 0),
+      lineTotal: Number(item.lineTotal || 0)
+    }));
+  }
+
+  function purchaseOrderPrintHtml(order) {
+    const supplier = getSupplier(order);
+    const rows = purchaseOrderRows(order);
+    const issuedAt = formatDateTime(order.createdAt || new Date().toISOString());
+    const receivedAt = order.receivedAt ? formatDateTime(order.receivedAt) : "";
+    const rowHtml = rows.map(item => `
+      <tr>
+        <td>${item.index}</td>
+        <td><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.sku)}</small></td>
+        <td>${item.quantity}</td>
+        <td>${money.format(item.unitCost)}</td>
+        <td>${money.format(item.lineTotal)}</td>
+      </tr>
+    `).join("");
+    return `<!doctype html>
+      <html lang="vi">
+        <head>
+          <meta charset="utf-8">
+          <title>${escapeHtml(order.code)} - Phiếu mua hàng</title>
+          <style>
+            @page { size: A4; margin: 14mm; }
+            * { box-sizing: border-box; }
+            body { margin: 0; color: #0f172a; font: 12px/1.45 Arial, sans-serif; background: #fff; }
+            h1, h2, h3, p { margin: 0; }
+            .sheet { width: 100%; }
+            .top { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; align-items: start; padding-bottom: 14px; border-bottom: 2px solid #0f172a; }
+            .brand h1 { font-size: 22px; letter-spacing: .04em; text-transform: uppercase; }
+            .brand p { margin-top: 4px; color: #475569; }
+            .doc-title { text-align: right; }
+            .doc-title h2 { font-size: 24px; text-transform: uppercase; }
+            .doc-title strong { display: inline-block; margin-top: 6px; padding: 5px 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; font-size: 15px; }
+            .info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+            .box { border: 1px solid #dbe3ef; border-radius: 10px; padding: 10px 12px; min-height: 84px; background: #fbfdff; }
+            .box span { display: block; color: #64748b; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+            .box strong { display: block; margin-top: 5px; font-size: 14px; }
+            .box p { margin-top: 3px; color: #334155; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            th { background: #eaf2ff; color: #1e3a8a; font-size: 11px; text-transform: uppercase; }
+            th, td { padding: 8px 7px; border: 1px solid #dbe3ef; vertical-align: top; text-align: right; }
+            th:nth-child(1), td:nth-child(1) { width: 42px; text-align: center; }
+            th:nth-child(2), td:nth-child(2) { width: auto; text-align: left; }
+            th:nth-child(3), td:nth-child(3) { width: 72px; text-align: center; }
+            th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) { width: 120px; }
+            td small { display: block; margin-top: 3px; color: #64748b; }
+            .summary { width: 45%; margin-left: auto; margin-top: 14px; border: 1px solid #dbe3ef; border-radius: 10px; overflow: hidden; }
+            .summary div { display: flex; justify-content: space-between; gap: 16px; padding: 8px 10px; border-bottom: 1px solid #e5edf7; }
+            .summary div:last-child { border-bottom: 0; }
+            .summary .total { background: #0f172a; color: #fff; font-size: 15px; font-weight: 800; }
+            .note { margin-top: 14px; padding: 10px 12px; border: 1px dashed #94a3b8; border-radius: 10px; min-height: 46px; color: #334155; }
+            .signatures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; margin-top: 26px; page-break-inside: avoid; }
+            .signature { min-height: 112px; text-align: center; border-top: 1px solid #cbd5e1; padding-top: 10px; }
+            .signature strong { display: block; font-size: 14px; text-transform: uppercase; }
+            .signature small { display: block; margin-top: 4px; color: #64748b; }
+            .signature em { display: block; margin-top: 58px; color: #475569; font-style: normal; }
+            .print-meta { margin-top: 18px; color: #64748b; text-align: center; font-size: 10px; }
+          </style>
+        </head>
+        <body>
+          <main class="sheet">
+            <section class="top">
+              <div class="brand"><h1>ArtFlow POS</h1><p>Phiếu mua hàng nội bộ dùng để đối chiếu nhập hàng, công nợ và chứng từ nhà cung cấp.</p></div>
+              <div class="doc-title"><h2>Phiếu mua hàng</h2><strong>${escapeHtml(order.code)}</strong></div>
+            </section>
+            <section class="info-grid">
+              <div class="box"><span>Bên bán / nhà cung cấp</span><strong>${escapeHtml(supplier.name || "Chưa chọn")}</strong><p>${escapeHtml([supplier.code, supplier.phone, supplier.email].filter(Boolean).join(" · "))}</p><p>${escapeHtml(supplier.address || "")}</p></div>
+              <div class="box"><span>Bên mua</span><strong>ArtFlow POS</strong><p>Người lập: ${escapeHtml(currentUser ? currentUser.name : order.createdBy || "")}</p><p>Ngày lập: ${escapeHtml(issuedAt)}</p></div>
+              <div class="box"><span>Thông tin chứng từ</span><strong>${escapeHtml(order.invoiceNumber || "Chưa có số hóa đơn")}</strong><p>Trạng thái: ${escapeHtml(statusLabel(order.status))} · ${escapeHtml(statusLabel(order.paymentStatus))}</p><p>${receivedAt ? `Ngày nhận: ${escapeHtml(receivedAt)}` : "Chưa nhận hàng"}</p></div>
+              <div class="box"><span>Thanh toán</span><strong>${escapeHtml(order.dueDate ? `Hạn ${formatDate(order.dueDate)}` : "Chưa đặt hạn")}</strong><p>Đã trả: ${money.format(order.paidAmount)} · Bù trừ: ${money.format(order.creditAppliedAmount)}</p><p>Còn phải trả: ${money.format(order.outstanding)}</p></div>
+            </section>
+            <table>
+              <thead><tr><th>STT</th><th>Hàng hóa</th><th>SL</th><th>Đơn giá nhập</th><th>Thành tiền</th></tr></thead>
+              <tbody>${rowHtml || `<tr><td colspan="5">Chưa có hàng hóa.</td></tr>`}</tbody>
+            </table>
+            <section class="summary">
+              <div><span>Tạm tính</span><strong>${money.format(order.subtotal)}</strong></div>
+              <div><span>Chiết khấu</span><strong>${money.format(order.discount)}</strong></div>
+              <div><span>Phí vận chuyển</span><strong>${money.format(order.shippingFee)}</strong></div>
+              <div><span>Đã trả / bù trừ</span><strong>${money.format(Number(order.paidAmount || 0) + Number(order.creditAppliedAmount || 0))}</strong></div>
+              <div class="total"><span>Tổng phiếu</span><strong>${money.format(order.total)}</strong></div>
+            </section>
+            <section class="note"><strong>Ghi chú:</strong> ${escapeHtml(order.note || "Không có ghi chú.")}</section>
+            <section class="signatures">
+              <div class="signature"><strong>Bên bán</strong><small>Ký, ghi rõ họ tên và đóng dấu nếu có</small><em>....................................</em></div>
+              <div class="signature"><strong>Bên mua</strong><small>Ký, ghi rõ họ tên</small><em>....................................</em></div>
+            </section>
+            <p class="print-meta">In từ ArtFlow POS lúc ${escapeHtml(formatDateTime(new Date().toISOString()))}</p>
+          </main>
+          <script>window.onload=()=>{setTimeout(()=>window.print(),180)};</script>
+        </body>
+      </html>`;
+  }
+
+  function printPurchaseOrderPdf(order) {
+    const win = window.open("", "_blank", "width=960,height=780");
+    if (!win) {
+      showToast("Trình duyệt đã chặn cửa sổ in phiếu mua. Hãy cho phép popup cho ArtFlow POS.", "error");
+      return;
+    }
+    win.document.open();
+    win.document.write(purchaseOrderPrintHtml(order));
+    win.document.close();
+  }
+
+  function exportPurchaseOrderExcel(order) {
+    const XLSX = requireXlsx();
+    const supplier = getSupplier(order);
+    const workbook = XLSX.utils.book_new();
+    const summaryRows = [
+      ["Mã phiếu", order.code],
+      ["Nhà cung cấp", supplier.name || ""],
+      ["Mã NCC", supplier.code || ""],
+      ["Điện thoại", supplier.phone || ""],
+      ["Email", supplier.email || ""],
+      ["Số hóa đơn", order.invoiceNumber || ""],
+      ["Trạng thái", statusLabel(order.status)],
+      ["Thanh toán", statusLabel(order.paymentStatus)],
+      ["Ngày tạo", formatDateTime(order.createdAt)],
+      ["Ngày nhận", order.receivedAt ? formatDateTime(order.receivedAt) : ""],
+      ["Hạn thanh toán", order.dueDate || ""],
+      ["Tạm tính", order.subtotal],
+      ["Chiết khấu", order.discount],
+      ["Phí vận chuyển", order.shippingFee],
+      ["Tổng phiếu", order.total],
+      ["Đã trả", order.paidAmount],
+      ["Bù trừ", order.creditAppliedAmount],
+      ["Còn phải trả", order.outstanding],
+      ["Ghi chú", order.note || ""]
+    ];
+    const summary = createExcelSheet("PHIẾU MUA HÀNG", `Xuất lúc ${formatDateTime(new Date().toISOString())}`, ["Thông tin", "Giá trị"], summaryRows, { widths: [24, 48], moneyColumns: [1], wrapColumn: 1 });
+    XLSX.utils.book_append_sheet(workbook, summary, "Phiếu mua");
+    const itemRows = purchaseOrderRows(order).map(item => [item.index, item.sku, item.name, item.quantity, item.unitCost, item.lineTotal]);
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("CHI TIẾT HÀNG MUA", `${order.code} · ${supplier.name || "Nhà cung cấp"}`, ["STT", "SKU", "Hàng hóa", "Số lượng", "Đơn giá nhập", "Thành tiền"], itemRows, { widths: [8, 18, 42, 12, 18, 18], numberColumns: [0, 3], moneyColumns: [4, 5], textColumns: [1], wrapColumn: 2 }), "Hàng hóa");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("KÝ NHẬN", "Dùng khi cần in kèm file Excel hoặc lưu chứng từ đối chiếu.", ["Bên", "Người ký", "Ngày ký", "Ghi chú"], [["Bên bán", "", "", ""], ["Bên mua", "", "", ""]], { widths: [18, 28, 18, 42], wrapColumn: 3 }), "Ký nhận");
+    saveExcelWorkbook(workbook, `artflow-phieu-mua-${safeFilePart(order.code)}.xlsx`);
   }
 
   function openReceiptPrintWindow() {
@@ -9397,6 +9555,17 @@
         });
         renderPage();
         showToast("Đã nhận hàng, cập nhật tồn kho và công nợ.");
+      }
+      if (target.dataset.exportPurchaseOrder) {
+        const purchaseOrder = byId("purchaseOrders", target.dataset.exportPurchaseOrder);
+        if (purchaseOrder) {
+          exportPurchaseOrderExcel(purchaseOrder);
+          showToast("Đã xuất Excel phiếu mua.");
+        }
+      }
+      if (target.dataset.printPurchaseOrder) {
+        const purchaseOrder = byId("purchaseOrders", target.dataset.printPurchaseOrder);
+        if (purchaseOrder) printPurchaseOrderPdf(purchaseOrder);
       }
       if (target.dataset.payPurchase) {
         const purchaseOrder = byId("purchaseOrders", target.dataset.payPurchase);
