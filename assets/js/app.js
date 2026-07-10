@@ -173,6 +173,7 @@
     meetingMinutes: { title: "Biên bản họp", href: "./meeting-minutes.html", icon: "clipboard", roles: ["admin"], modes: ["advanced"], hidden: true },
     incense: { title: "Xin vía", href: "./incense.html", icon: "sparkles", roles: ["admin", "sales", "inventory"], modes: ["advanced"] },
     users: { title: "Nhân viên", href: "./users.html", icon: "userPlus", roles: ["admin"], modes: ["standard", "advanced"], adminOnly: true },
+    settings: { title: "Cài đặt", href: "./settings.html", icon: "settings", roles: ["admin"], modes: ["standard", "advanced"], adminOnly: true },
     activity: { title: "Lịch sử hoạt động", href: "./activity.html", icon: "history", roles: ["admin"], modes: ["advanced"], adminOnly: true }
   };
 
@@ -183,7 +184,7 @@
     { id: "finance", title: "Tài chính", defaultOpen: false, items: ["accounting", "reports"] },
     { id: "growth", title: "Tăng trưởng", defaultOpen: false, items: ["content", "channels"] },
     { id: "internal", title: "Nội bộ", defaultOpen: false, items: ["team", "teamPricing", "meetingMinutes", "incense"] },
-    { id: "admin", title: "Quản trị", defaultOpen: false, items: ["users", "activity"] }
+    { id: "admin", title: "Quản trị", defaultOpen: false, items: ["users", "settings", "activity"] }
   ];
 
   const qs = selector => document.querySelector(selector);
@@ -309,6 +310,8 @@
     customersTable: qs("[data-customers-table]"),
     customerCsvFile: qs("[data-customer-csv-file]"),
     usersTable: qs("[data-users-table]"),
+    settingsForm: qs("[data-settings-form]"),
+    settingsPreview: qs("[data-settings-preview]"),
     auditKpis: qs("[data-audit-kpis]"),
     auditTable: qs("[data-audit-table]"),
     auditHealth: qs("[data-audit-health]"),
@@ -771,10 +774,21 @@
   function getReceiptSettings() {
     const defaults = {
       storeName: "ArtFlow",
-      storeInfo: "Hoa cu va phu kien my thuat",
+      legalName: "",
+      storeInfo: "Họa cụ và phụ kiện mỹ thuật",
       phone: "",
+      email: "",
+      website: "",
       address: "",
-      footer: "Cam on quy khach. Hang da mua vui long doi tra theo chinh sach cua cua hang.",
+      bankName: "",
+      bankAccount: "",
+      bankOwner: "",
+      representative: "",
+      businessRegistration: "",
+      invoiceSeries: "",
+      invoiceTemplate: "",
+      invoiceLegalNotice: "Phiếu bán hàng nội bộ/POS. Không thay thế hóa đơn điện tử hợp lệ nếu người mua yêu cầu hóa đơn theo quy định.",
+      footer: "Cảm ơn quý khách. Hàng đã mua vui lòng đổi trả theo chính sách của cửa hàng.",
       taxCode: "",
       paperSize: "thermal80",
       paperWidth: "80",
@@ -789,6 +803,7 @@
       const localSettings = JSON.parse(localStorage.getItem(receiptSettingsKey) || "{}");
       const saved = stateSettings && typeof stateSettings === "object" ? stateSettings : localSettings;
       const merged = { ...defaults, ...saved };
+      if (!merged.legalName) merged.legalName = merged.storeName;
       if (saved.paperWidth && !saved.paperSize) merged.paperSize = `thermal${saved.paperWidth}`;
       return merged;
     } catch (error) {
@@ -1793,6 +1808,7 @@
       purchasing: ["purchasing"],
       purchaseCreate: ["products", "purchasing"],
       reports: ["products", "customers", "orders", "accounting"],
+      settings: ["settings"],
       users: [],
       activity: []
     };
@@ -6034,6 +6050,7 @@
     renderReports();
     renderOrderCreatePage();
     renderPurchaseCreatePage();
+    renderSettingsPage();
     enhanceResponsiveTables();
     enhanceMoneyInputs();
   }
@@ -7058,7 +7075,8 @@
   function renderReceiptSettingsForm() {
     const settings = getReceiptSettings();
     return `
-      <div class="field"><label for="storeName">Tên cửa hàng</label><input id="storeName" name="storeName" value="${escapeAttribute(settings.storeName)}" required /></div>
+      <div class="field"><label for="storeName">Tên hiển thị trên phiếu</label><input id="storeName" name="storeName" value="${escapeAttribute(settings.storeName)}" required /></div>
+      <div class="field"><label for="legalName">Tên pháp lý / hộ kinh doanh</label><input id="legalName" name="legalName" value="${escapeAttribute(settings.legalName)}" placeholder="Tên đăng ký kinh doanh hoặc tên hộ kinh doanh" /></div>
       <div class="field"><label for="paperSize">Khổ giấy</label><select id="paperSize" name="paperSize">
         <option value="thermal80" ${settings.paperSize === "thermal80" ? "selected" : ""}>Nhiệt 80mm - phổ biến POS</option>
         <option value="thermal58" ${settings.paperSize === "thermal58" || settings.paperWidth === "58" ? "selected" : ""}>Nhiệt 58mm - máy mini</option>
@@ -7069,9 +7087,18 @@
       </select></div>
       <div class="field"><label for="phone">Điện thoại</label><input id="phone" name="phone" value="${escapeAttribute(settings.phone)}" /></div>
       <div class="field"><label for="taxCode">Mã số thuế</label><input id="taxCode" name="taxCode" value="${escapeAttribute(settings.taxCode)}" /></div>
+      <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" value="${escapeAttribute(settings.email)}" /></div>
+      <div class="field"><label for="website">Website / fanpage</label><input id="website" name="website" value="${escapeAttribute(settings.website)}" /></div>
+      <div class="field"><label for="representative">Người đại diện</label><input id="representative" name="representative" value="${escapeAttribute(settings.representative)}" /></div>
+      <div class="field"><label for="businessRegistration">Số ĐKKD / mã hộ KD</label><input id="businessRegistration" name="businessRegistration" value="${escapeAttribute(settings.businessRegistration)}" /></div>
       <div class="field full"><label for="storeInfo">Dòng mô tả</label><input id="storeInfo" name="storeInfo" value="${escapeAttribute(settings.storeInfo)}" /></div>
       <div class="field full"><label for="address">Địa chỉ</label><input id="address" name="address" value="${escapeAttribute(settings.address)}" /></div>
+      <div class="field"><label for="bankName">Ngân hàng</label><input id="bankName" name="bankName" value="${escapeAttribute(settings.bankName)}" placeholder="VD: Vietcombank" /></div>
+      <div class="field"><label for="bankAccount">Số tài khoản</label><input id="bankAccount" name="bankAccount" value="${escapeAttribute(settings.bankAccount)}" /></div>
+      <div class="field"><label for="bankOwner">Chủ tài khoản</label><input id="bankOwner" name="bankOwner" value="${escapeAttribute(settings.bankOwner)}" /></div>
+      <div class="field"><label for="invoiceSeries">Ký hiệu / mẫu hóa đơn</label><input id="invoiceSeries" name="invoiceSeries" value="${escapeAttribute(settings.invoiceSeries)}" placeholder="Nếu có hóa đơn điện tử" /></div>
       <div class="field full"><label for="footer">Lời cuối phiếu</label><input id="footer" name="footer" value="${escapeAttribute(settings.footer)}" /></div>
+      <div class="field full"><label for="invoiceLegalNotice">Ghi chú pháp lý trên phiếu</label><textarea id="invoiceLegalNotice" name="invoiceLegalNotice" rows="3">${escapeHtml(settings.invoiceLegalNotice)}</textarea></div>
       <div class="field checkbox-field full">
         <label><input type="checkbox" name="showSku" ${settings.showSku ? "checked" : ""} /> Hiện SKU</label>
         <label><input type="checkbox" name="showCustomer" ${settings.showCustomer ? "checked" : ""} /> Hiện khách hàng</label>
@@ -7079,9 +7106,63 @@
         <label><input type="checkbox" name="showUnitPrice" ${settings.showUnitPrice ? "checked" : ""} /> Hiện đơn giá</label>
       </div>
       <div class="receipt-setting-note full">
-        Khuyên dùng 80mm cho quầy POS cố định, 58mm cho máy in mini. PDF lưu trên Drive sẽ dùng đúng khổ giấy đã chọn.
+        Theo Nghị định 123/2020/NĐ-CP, khi bán hàng hóa/dịch vụ người bán phải lập hóa đơn nếu thuộc trường hợp phải xuất hóa đơn. Phiếu POS trong ArtFlow giúp in nhanh và lưu chứng từ nội bộ; nếu cần hóa đơn điện tử hợp pháp, hãy dùng thông tin này để lập hóa đơn qua hệ thống hóa đơn điện tử đã đăng ký với cơ quan thuế.
       </div>
     `;
+  }
+
+  function receiptSettingsPayloadFromForm(form) {
+    const data = Object.fromEntries(new FormData(form));
+    return {
+      storeName: String(data.storeName || "ArtFlow").trim(),
+      legalName: String(data.legalName || data.storeName || "ArtFlow").trim(),
+      storeInfo: String(data.storeInfo || "").trim(),
+      phone: String(data.phone || "").trim(),
+      email: String(data.email || "").trim(),
+      website: String(data.website || "").trim(),
+      taxCode: String(data.taxCode || "").trim(),
+      address: String(data.address || "").trim(),
+      bankName: String(data.bankName || "").trim(),
+      bankAccount: String(data.bankAccount || "").trim(),
+      bankOwner: String(data.bankOwner || "").trim(),
+      representative: String(data.representative || "").trim(),
+      businessRegistration: String(data.businessRegistration || "").trim(),
+      invoiceSeries: String(data.invoiceSeries || "").trim(),
+      invoiceLegalNotice: String(data.invoiceLegalNotice || "").trim(),
+      footer: String(data.footer || "").trim(),
+      paperSize: String(data.paperSize || "thermal80"),
+      paperWidth: String(data.paperSize || "thermal80").replace("thermal", ""),
+      showSku: Boolean(data.showSku),
+      showCustomer: Boolean(data.showCustomer),
+      showPoints: Boolean(data.showPoints),
+      showUnitPrice: Boolean(data.showUnitPrice)
+    };
+  }
+
+  function renderSettingsPreview(settings = getReceiptSettings()) {
+    if (!els.settingsPreview) return;
+    els.settingsPreview.innerHTML = `
+      <div class="settings-preview-card">
+        <span>Thông tin sẽ in trên chứng từ</span>
+        <h3>${escapeHtml(settings.storeName)}</h3>
+        <p>${escapeHtml(settings.legalName || settings.storeName)}</p>
+        <p>${settings.taxCode ? `MST: ${escapeHtml(settings.taxCode)} · ` : ""}${escapeHtml(settings.phone || "Chưa có SĐT")}</p>
+        <p>${escapeHtml(settings.address || "Chưa có địa chỉ")}</p>
+        ${settings.email || settings.website ? `<p>${escapeHtml([settings.email, settings.website].filter(Boolean).join(" · "))}</p>` : ""}
+        ${settings.bankAccount ? `<p>CK: ${escapeHtml(settings.bankAccount)} ${settings.bankName ? `- ${escapeHtml(settings.bankName)}` : ""}</p>` : ""}
+      </div>
+      <div class="settings-compliance-card">
+        <strong>Lưu ý pháp lý</strong>
+        <p>${escapeHtml(settings.invoiceLegalNotice)}</p>
+      </div>
+    `;
+  }
+
+  function renderSettingsPage() {
+    if (!els.settingsForm) return;
+    els.settingsForm.innerHTML = `${renderReceiptSettingsForm()}<div class="button-row"><button class="button primary" type="submit">${icon("check")} Lưu thông tin shop</button></div>`;
+    renderSettingsPreview();
+    enhanceMoneyInputs(els.settingsForm);
   }
 
   function receiptHtml(order) {
@@ -7115,10 +7196,10 @@
       .total { margin-top: 5px; padding: 6px; background: #eef2f7; font-weight: 800; font-size: ${profile.font + 2}px; }
       .footer { margin-top: 8px; text-align: center; color: #344054; }
     </style></head><body>
-      <h1>${escapeHtml(settings.storeName).toUpperCase()}</h1><p class="center muted">${escapeHtml(settings.storeInfo)}</p>
-      ${settings.address ? `<p class="center muted">${escapeHtml(settings.address)}</p>` : ""}${settings.phone ? `<p class="center muted">ĐT: ${escapeHtml(settings.phone)}</p>` : ""}${settings.taxCode ? `<p class="center muted">MST: ${escapeHtml(settings.taxCode)}</p>` : ""}
+      <h1>${escapeHtml(settings.storeName).toUpperCase()}</h1><p class="center muted">${escapeHtml(settings.legalName || settings.storeName)}</p><p class="center muted">${escapeHtml(settings.storeInfo)}</p>
+      ${settings.taxCode ? `<p class="center muted">MST: ${escapeHtml(settings.taxCode)}</p>` : ""}${settings.address ? `<p class="center muted">${escapeHtml(settings.address)}</p>` : ""}${settings.phone ? `<p class="center muted">ĐT: ${escapeHtml(settings.phone)}</p>` : ""}${settings.email ? `<p class="center muted">${escapeHtml(settings.email)}</p>` : ""}
       <div class="line"></div><div class="title">PHIẾU BÁN HÀNG</div>
-      <div class="info"><div><span>Mã đơn</span><b>${escapeHtml(order.code)}</b></div><div><span>Thời gian</span><b>${escapeHtml(formatDateTime(order.createdAt || new Date().toISOString()))}</b></div><div><span>Kênh</span><b>${escapeHtml(channelLabel(order.channel))}</b></div><div><span>Thanh toán</span><b>${escapeHtml(order.paymentMethod || "cash")}</b></div>${settings.showCustomer ? `<div><span>Khách</span><b>${escapeHtml(customer.name || "Khách lẻ")}</b></div>` : ""}</div>
+      <div class="info"><div><span>Mã đơn</span><b>${escapeHtml(order.code)}</b></div><div><span>Thời gian</span><b>${escapeHtml(formatDateTime(order.createdAt || new Date().toISOString()))}</b></div><div><span>Kênh</span><b>${escapeHtml(channelLabel(order.channel))}</b></div><div><span>Thanh toán</span><b>${escapeHtml(order.paymentMethod || "cash")}</b></div>${settings.showCustomer ? `<div><span>Khách</span><b>${escapeHtml(customer.name || "Khách lẻ")}</b></div>${customer.phone ? `<div><span>SĐT khách</span><b>${escapeHtml(customer.phone)}</b></div>` : ""}` : ""}</div>
       <div class="line"></div><table><thead><tr><th>Sản phẩm</th><th>SL</th>${profile.compact ? "" : "<th>Đơn giá</th>"}<th>Tiền</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="line"></div><div class="totals">
         <div><span>Tạm tính</span><b>${money.format(order.subtotal)}</b></div>
@@ -7128,7 +7209,7 @@
         <div class="total"><span>Tổng cộng</span><b>${money.format(order.total)}</b></div>
         ${order.cashReceived ? `<div><span>Tiền nhận</span><b>${money.format(order.cashReceived)}</b></div><div><span>Tiền thối</span><b>${money.format(order.changeAmount)}</b></div>` : ""}
         ${settings.showPoints ? `<div><span>Điểm dùng/cộng</span><b>${Number(order.loyaltyPointsUsed || 0)} / ${Math.floor(Number(order.total || 0) / loyaltyRules.earnPerVnd)}</b></div>` : ""}
-      </div><div class="line"></div><p class="footer">${escapeHtml(settings.footer)}</p><p class="center muted">Khổ ${escapeHtml(settings.paperSize || settings.paperWidth || "80")}</p><script>window.onload=()=>{setTimeout(()=>window.print(),150)};</script>
+      </div>${settings.bankAccount ? `<div class="line"></div><p class="center muted">CK: ${escapeHtml(settings.bankAccount)} ${settings.bankName ? `- ${escapeHtml(settings.bankName)}` : ""}${settings.bankOwner ? ` - ${escapeHtml(settings.bankOwner)}` : ""}</p>` : ""}<div class="line"></div><p class="footer">${escapeHtml(settings.footer)}</p><p class="center muted">${escapeHtml(settings.invoiceLegalNotice)}</p><p class="center muted">Khổ ${escapeHtml(settings.paperSize || settings.paperWidth || "80")}</p><script>window.onload=()=>{setTimeout(()=>window.print(),150)};</script>
     </body></html>`;
   }
 
@@ -7144,6 +7225,7 @@
   }
 
   function purchaseOrderPrintHtml(order) {
+    const settings = getReceiptSettings();
     const supplier = getSupplier(order);
     const rows = purchaseOrderRows(order);
     const issuedAt = formatDateTime(order.createdAt || new Date().toISOString());
@@ -7203,12 +7285,12 @@
         <body>
           <main class="sheet">
             <section class="top">
-              <div class="brand"><h1>ArtFlow POS</h1><p>Phiếu mua hàng nội bộ dùng để đối chiếu nhập hàng, công nợ và chứng từ nhà cung cấp.</p></div>
+              <div class="brand"><h1>${escapeHtml(settings.storeName || "ArtFlow POS")}</h1><p>${escapeHtml(settings.legalName || settings.storeName || "ArtFlow POS")}</p><p>${settings.taxCode ? `MST: ${escapeHtml(settings.taxCode)} · ` : ""}${escapeHtml(settings.phone || "")}</p><p>${escapeHtml(settings.address || "")}</p></div>
               <div class="doc-title"><h2>Phiếu mua hàng</h2><strong>${escapeHtml(order.code)}</strong></div>
             </section>
             <section class="info-grid">
               <div class="box"><span>Bên bán / nhà cung cấp</span><strong>${escapeHtml(supplier.name || "Chưa chọn")}</strong><p>${escapeHtml([supplier.code, supplier.phone, supplier.email].filter(Boolean).join(" · "))}</p><p>${escapeHtml(supplier.address || "")}</p></div>
-              <div class="box"><span>Bên mua</span><strong>ArtFlow POS</strong><p>Người lập: ${escapeHtml(currentUser ? currentUser.name : order.createdBy || "")}</p><p>Ngày lập: ${escapeHtml(issuedAt)}</p></div>
+              <div class="box"><span>Bên mua</span><strong>${escapeHtml(settings.legalName || settings.storeName || "ArtFlow POS")}</strong><p>${settings.taxCode ? `MST: ${escapeHtml(settings.taxCode)}` : "Chưa cấu hình MST"}</p><p>Người lập: ${escapeHtml(currentUser ? currentUser.name : order.createdBy || "")} · Ngày lập: ${escapeHtml(issuedAt)}</p></div>
               <div class="box"><span>Thông tin chứng từ</span><strong>${escapeHtml(order.invoiceNumber || "Chưa có số hóa đơn")}</strong><p>Trạng thái: ${escapeHtml(statusLabel(order.status))} · ${escapeHtml(statusLabel(order.paymentStatus))}</p><p>${receivedAt ? `Ngày nhận: ${escapeHtml(receivedAt)}` : "Chưa nhận hàng"}</p></div>
               <div class="box"><span>Thanh toán</span><strong>${escapeHtml(order.dueDate ? `Hạn ${formatDate(order.dueDate)}` : "Chưa đặt hạn")}</strong><p>Đã trả: ${money.format(order.paidAmount)} · Bù trừ: ${money.format(order.creditAppliedAmount)}</p><p>Còn phải trả: ${money.format(order.outstanding)}</p></div>
             </section>
@@ -7228,6 +7310,7 @@
               <div class="signature"><strong>Bên bán</strong><small>Ký, ghi rõ họ tên và đóng dấu nếu có</small><em>....................................</em></div>
               <div class="signature"><strong>Bên mua</strong><small>Ký, ghi rõ họ tên</small><em>....................................</em></div>
             </section>
+            <p class="print-meta">${escapeHtml(settings.invoiceLegalNotice || "")}</p>
             <p class="print-meta">In từ ArtFlow POS lúc ${escapeHtml(formatDateTime(new Date().toISOString()))}</p>
           </main>
           <script>window.onload=()=>{setTimeout(()=>window.print(),180)};</script>
@@ -7249,9 +7332,14 @@
   function exportPurchaseOrderExcel(order) {
     const XLSX = requireXlsx();
     const supplier = getSupplier(order);
+    const settings = getReceiptSettings();
     const workbook = XLSX.utils.book_new();
     const summaryRows = [
       ["Mã phiếu", order.code],
+      ["Bên mua", settings.legalName || settings.storeName || "ArtFlow POS"],
+      ["MST bên mua", settings.taxCode || ""],
+      ["Địa chỉ bên mua", settings.address || ""],
+      ["Điện thoại bên mua", settings.phone || ""],
       ["Nhà cung cấp", supplier.name || ""],
       ["Mã NCC", supplier.code || ""],
       ["Điện thoại", supplier.phone || ""],
@@ -8139,21 +8227,7 @@
         title: "Cài đặt phiếu in",
         body: renderReceiptSettingsForm(),
         async submit(form) {
-          const data = Object.fromEntries(new FormData(form));
-          await saveReceiptSettings({
-            storeName: String(data.storeName || "ArtFlow").trim(),
-            storeInfo: String(data.storeInfo || "").trim(),
-            phone: String(data.phone || "").trim(),
-            taxCode: String(data.taxCode || "").trim(),
-            address: String(data.address || "").trim(),
-            footer: String(data.footer || "").trim(),
-            paperSize: String(data.paperSize || "thermal80"),
-            paperWidth: String(data.paperSize || "thermal80").replace("thermal", ""),
-            showSku: Boolean(data.showSku),
-            showCustomer: Boolean(data.showCustomer),
-            showPoints: Boolean(data.showPoints),
-            showUnitPrice: Boolean(data.showUnitPrice)
-          });
+          await saveReceiptSettings(receiptSettingsPayloadFromForm(form));
           showToast("Đã lưu cài đặt phiếu in.");
         }
       },
@@ -9106,6 +9180,27 @@
         } finally {
           setBusy(button, false);
         }
+      });
+    }
+
+    if (els.settingsForm) {
+      els.settingsForm.addEventListener("submit", async event => {
+        event.preventDefault();
+        const button = event.currentTarget.querySelector("button[type='submit']");
+        setBusy(button, true, "Đang lưu...");
+        try {
+          await withLoading("Đang lưu thông tin shop...", () => saveReceiptSettings(receiptSettingsPayloadFromForm(event.currentTarget)));
+          renderSettingsPreview();
+          showToast("Đã lưu thông tin shop và chứng từ.");
+        } catch (error) {
+          showToast(error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+      els.settingsForm.addEventListener("input", () => {
+        const draft = receiptSettingsPayloadFromForm(els.settingsForm);
+        renderSettingsPreview({ ...getReceiptSettings(), ...draft });
       });
     }
 

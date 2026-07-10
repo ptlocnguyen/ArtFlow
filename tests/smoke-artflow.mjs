@@ -31,6 +31,7 @@ const pages = [
   ["purchase-create", "pages/purchase-create.html"],
   ["reports", "pages/reports.html"],
   ["users", "pages/users.html"],
+  ["settings", "pages/settings.html"],
   ["activity", "pages/activity.html"]
 ];
 
@@ -206,6 +207,15 @@ async function runPageInteractions(page, pageName, viewportName) {
       const hasReceiveColor = await receiveButton.evaluate(button => button.classList.contains("action-receive"));
       if (!hasReceiveColor) throw new Error("Receive purchase action must have a distinct visual style.");
     }
+  }
+  if (pageName === "settings") {
+    await page.locator("#storeName").fill("ArtFlow QA");
+    await page.locator("#legalName").fill("Hộ kinh doanh ArtFlow QA");
+    await page.locator("#taxCode").fill("0312345678");
+    await page.locator("[data-settings-form] button[type='submit']").click();
+    await page.waitForTimeout(150);
+    const previewText = await page.locator("[data-settings-preview]").innerText();
+    if (!previewText.includes("Hộ kinh doanh ArtFlow QA")) throw new Error("Settings preview must reflect saved shop legal information.");
   }
   if (pageName === "accounting") {
     const dir = path.join(screenshotRoot, viewportName);

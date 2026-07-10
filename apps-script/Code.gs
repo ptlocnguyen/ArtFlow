@@ -4329,10 +4329,16 @@ function createOrderReceiptPdf(body) {
   const profile = receiptPaperProfile(settings, items.length);
   const contentWidth = receiptMmToPt(profile.widthMm - profile.marginMm * 2);
   const storeName = receiptSettingValue(settings, "storeName", "ArtFlow");
+  const legalName = receiptSettingValue(settings, "legalName", storeName);
   const storeInfo = receiptSettingValue(settings, "storeInfo", "Họa cụ và phụ kiện mỹ thuật");
   const phone = receiptSettingValue(settings, "phone", "");
+  const email = receiptSettingValue(settings, "email", "");
   const address = receiptSettingValue(settings, "address", "");
   const taxCode = receiptSettingValue(settings, "taxCode", "");
+  const bankName = receiptSettingValue(settings, "bankName", "");
+  const bankAccount = receiptSettingValue(settings, "bankAccount", "");
+  const bankOwner = receiptSettingValue(settings, "bankOwner", "");
+  const legalNotice = receiptSettingValue(settings, "invoiceLegalNotice", "Phiếu bán hàng nội bộ/POS. Không thay thế hóa đơn điện tử hợp lệ nếu người mua yêu cầu hóa đơn theo quy định.");
   const footer = receiptSettingValue(settings, "footer", "Cảm ơn quý khách. Hẹn gặp lại!");
   const showSku = receiptSettingBoolean(settings, "showSku", true);
   const showCustomer = receiptSettingBoolean(settings, "showCustomer", true);
@@ -4355,9 +4361,11 @@ function createOrderReceiptPdf(body) {
     align: DocumentApp.HorizontalAlignment.CENTER,
     after: 3
   });
+  if (legalName && legalName !== storeName) receiptAppendParagraph(docBody, legalName, { fontSize: profile.fontSize, align: DocumentApp.HorizontalAlignment.CENTER });
   if (storeInfo) receiptAppendParagraph(docBody, storeInfo, { fontSize: profile.fontSize, align: DocumentApp.HorizontalAlignment.CENTER });
   if (address) receiptAppendParagraph(docBody, address, { fontSize: profile.fontSize, align: DocumentApp.HorizontalAlignment.CENTER });
   if (phone) receiptAppendParagraph(docBody, "ĐT: " + phone, { fontSize: profile.fontSize, align: DocumentApp.HorizontalAlignment.CENTER });
+  if (email) receiptAppendParagraph(docBody, "Email: " + email, { fontSize: profile.fontSize, align: DocumentApp.HorizontalAlignment.CENTER });
   if (taxCode) receiptAppendParagraph(docBody, "MST: " + taxCode, { fontSize: profile.fontSize, align: DocumentApp.HorizontalAlignment.CENTER });
   receiptAppendRule(docBody, profile);
   receiptAppendParagraph(docBody, "PHIẾU BÁN HÀNG", {
@@ -4423,8 +4431,16 @@ function createOrderReceiptPdf(body) {
     receiptAppendRule(docBody, profile);
     receiptAppendParagraph(docBody, "Ghi chú: " + order.note, { fontSize: profile.fontSize });
   }
+  if (bankAccount) {
+    receiptAppendRule(docBody, profile);
+    receiptAppendParagraph(docBody, "Chuyển khoản: " + bankAccount + (bankName ? " - " + bankName : "") + (bankOwner ? " - " + bankOwner : ""), {
+      fontSize: profile.fontSize,
+      align: DocumentApp.HorizontalAlignment.CENTER
+    });
+  }
   receiptAppendRule(docBody, profile);
   if (footer) receiptAppendParagraph(docBody, footer, { fontSize: profile.fontSize, align: DocumentApp.HorizontalAlignment.CENTER });
+  if (legalNotice) receiptAppendParagraph(docBody, legalNotice, { fontSize: Math.max(7, profile.fontSize - 1), align: DocumentApp.HorizontalAlignment.CENTER });
   receiptAppendParagraph(docBody, "PDF lưu lúc " + receiptFormatDateTime(nowIso()) + " - " + profile.label, {
     fontSize: Math.max(6, profile.fontSize - 1),
     color: "#64748b",
