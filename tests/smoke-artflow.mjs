@@ -199,12 +199,36 @@ async function runPageInteractions(page, pageName, viewportName) {
   }
   if (pageName === "team-pricing") {
     await page.locator("[data-open-pricing-product-picker]").click();
-    await page.locator("[data-product-picker-search]").fill("but").catch(() => {});
+    await page.locator("[data-product-picker-search]").fill("Bút chì").catch(() => {});
     await page.locator("[data-select-pricing-product]:visible").first().click();
     const costValue = Number(await page.locator("#teamPricingBaseCost").inputValue());
     if (!costValue) throw new Error("Pricing product picker must update base cost from the selected product.");
     const selectedText = await page.locator("[data-pricing-selected-product]").innerText();
     if (!selectedText.includes("Giá vốn")) throw new Error("Pricing page must show the selected product cost summary.");
+    await page.locator("#teamPricingBaseCost").fill("6361");
+    const validBaseCost = await page.locator("#teamPricingBaseCost").evaluate(input => input.validity.valid);
+    if (!validBaseCost) throw new Error("Pricing base cost must accept exact VND values, not only 1.000d steps.");
+    await page.locator("[name='scenarioPrice0']").fill("11200");
+    const validScenarioPrice = await page.locator("[name='scenarioPrice0']").evaluate(input => input.validity.valid);
+    if (!validScenarioPrice) throw new Error("Pricing scenario manual price must accept exact VND values.");
+    await page.locator("[data-add-pricing-line]").click();
+    await page.locator("[data-pricing-line-row]").last().locator("input").first().fill("QA phí đóng gói");
+    await page.locator("[data-add-pricing-scenario]").click();
+    await page.locator("[data-pricing-scenario-row]").last().locator("input").first().fill("QA giá thử");
+    await page.locator("[data-pricing-line-row]").last().locator("[data-remove-pricing-row]").click();
+    await page.locator("[data-pricing-scenario-row]").last().locator("[data-remove-pricing-row]").click();
+    await page.locator("[data-open-pricing-product-picker]").click();
+    await page.locator("[data-product-picker-search]").fill("khong-co-san-pham-nao");
+    const emptyVisible = await page.locator("[data-product-picker-empty]").isVisible();
+    if (!emptyVisible) throw new Error("Pricing product picker must show an empty state when filters return no product.");
+    await page.locator("[data-close-modal]").first().click();
+    await page.locator("[data-apply-pricing-model='offline']").click();
+    await page.waitForTimeout(180);
+    if (!(await page.locator("#teamPricingBaseCost").inputValue())) throw new Error("Applying product price must not reset the pricing form.");
+    await page.locator("[data-team-pricing-page-form] button[type='submit']").click();
+    await page.waitForTimeout(180);
+    const currentUrl = page.url();
+    if (!currentUrl.includes("id=")) throw new Error("Saving pricing page must keep the user on the saved pricing record.");
   }
   if (pageName === "purchasing") {
     const hasXlsx = await page.evaluate(() => Boolean(window.XLSX));

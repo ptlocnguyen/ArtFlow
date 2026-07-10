@@ -3485,6 +3485,14 @@ body[data-page="activity"] .view.active {
   max-height: min(880px, calc(100vh - 32px));
 }
 
+.modal[data-modal-type="pricingProductPicker"] {
+  width: min(980px, calc(100vw - 32px));
+}
+
+.modal[data-modal-type="pricingProductPicker"] .form-grid {
+  grid-template-columns: 1fr;
+}
+
 .modal[data-modal-type="orderDetail"] .modal-header,
 .modal[data-modal-type="orderDetail"] .form-grid {
   padding-inline: 26px;
@@ -8475,6 +8483,21 @@ body[data-page="teamPricing"] .view.active {
   color: var(--muted);
 }
 
+.product-picker-empty {
+  grid-column: 1 / -1;
+  padding: 28px 16px;
+  color: var(--muted);
+  text-align: center;
+  background: var(--surface-soft);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
+.pricing-product-picker .product-picker-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: min(540px, calc(100vh - 320px));
+}
+
 .pricing-row-labels {
   display: grid;
   grid-template-columns: minmax(180px, 1fr) minmax(140px, .62fr) minmax(112px, .45fr) 42px;
@@ -8491,6 +8514,18 @@ body[data-page="teamPricing"] .view.active {
 .pricing-scenario-row {
   grid-template-columns: minmax(180px, 1fr) minmax(140px, .62fr) minmax(112px, .45fr) 42px;
   gap: 10px;
+}
+
+.pricing-row-field {
+  display: grid;
+  gap: 5px;
+}
+
+.pricing-row-field span {
+  display: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .pricing-result-block .team-pricing-preview {
@@ -8527,6 +8562,15 @@ body[data-page="teamPricing"] .view.active {
   .pricing-line-row,
   .pricing-scenario-row {
     grid-template-columns: 1fr;
+  }
+
+  .pricing-product-picker .product-picker-list {
+    grid-template-columns: 1fr;
+    max-height: min(500px, calc(100vh - 330px));
+  }
+
+  .pricing-row-field span {
+    display: block;
   }
 
   .modal-form-fullscreen {
