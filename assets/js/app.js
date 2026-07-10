@@ -4600,6 +4600,7 @@
 
   function renderPricingForm(model) {
     const item = normalizePricingModel(model || {});
+    const selectedProduct = item.productId ? byId("products", item.productId) : null;
     const lines = item.lines.length ? item.lines : [
       { label: "Bao bì", type: "fixed", value: 1000 },
       { label: "Phí sàn / thanh toán", type: "price_percent", value: 3 },
@@ -4620,9 +4621,16 @@
           <div class="field full"><label for="teamPricingNote">Ghi chú</label><textarea id="teamPricingNote" name="note" rows="2">${escapeHtml(item.note)}</textarea></div>
         </section>
         <section class="pricing-block pricing-product-block">
-          <div class="team-editor-head"><strong>Sản phẩm và phạm vi giá</strong><small>Tìm theo SKU/tên trong ô chọn sản phẩm, chọn kênh nếu muốn áp dụng giá sàn.</small></div>
+          <div class="team-editor-head"><strong>Sản phẩm và phạm vi giá</strong><small>Chọn sản phẩm từ danh mục để tự lấy đúng giá vốn hiện tại.</small></div>
           <div class="pricing-grid-3">
-            <div class="field"><label for="teamPricingProduct">Sản phẩm</label><select id="teamPricingProduct" name="productId" data-team-pricing-product>${teamProductOptions(item.productId)}</select></div>
+            <div class="field pricing-product-field full">
+              <label>Sản phẩm</label>
+              <input type="hidden" name="productId" value="${escapeAttribute(item.productId)}" data-team-pricing-product />
+              <div class="pricing-selected-product" data-pricing-selected-product>
+                ${renderPricingSelectedProduct(selectedProduct)}
+              </div>
+              <button class="button ghost" type="button" data-open-pricing-product-picker>${icon("package")} ${selectedProduct ? "Đổi sản phẩm" : "Thêm sản phẩm"}</button>
+            </div>
             <div class="field"><label for="teamPricingBaseCost">Giá vốn</label><input id="teamPricingBaseCost" name="baseCost" type="number" min="0" step="1000" value="${item.baseCost}" data-team-pricing-input /></div>
             <div class="field"><label for="teamPricingQuantity">Số lượng tính</label><input id="teamPricingQuantity" name="quantity" type="number" min="1" step="1" value="${item.quantity}" /></div>
             <div class="field"><label for="teamPricingTarget">Phạm vi áp dụng</label><select id="teamPricingTarget" name="priceTarget" data-team-pricing-input><option value="offline" ${item.priceTarget !== "channel" ? "selected" : ""}>Shop/POS offline</option><option value="channel" ${item.priceTarget === "channel" ? "selected" : ""}>Kênh/sàn bán hàng</option></select></div>
@@ -4631,10 +4639,12 @@
         </section>
         <section class="pricing-block">
           <div class="team-editor-head"><strong>Dòng chi phí</strong><button class="button ghost compact-button" type="button" data-add-pricing-line>Thêm dòng</button></div>
+          <div class="pricing-row-labels pricing-line-labels"><span>Tên chi phí</span><span>Cách tính</span><span>Giá trị</span><span></span></div>
           <div data-pricing-lines>${lines.map((line, index) => renderPricingLineInput(line, index)).join("")}</div>
         </section>
         <section class="pricing-block">
           <div class="team-editor-head"><strong>Kịch bản giá</strong><button class="button ghost compact-button" type="button" data-add-pricing-scenario>Thêm kịch bản</button></div>
+          <div class="pricing-row-labels pricing-scenario-labels"><span>Tên kịch bản</span><span>Biên lãi mục tiêu</span><span>Giá tự nhập</span><span></span></div>
           <div data-pricing-scenarios>${scenarios.map((scenario, index) => renderPricingScenarioInput(scenario, index)).join("")}</div>
         </section>
         <section class="pricing-block pricing-result-block">
@@ -4647,20 +4657,100 @@
     `;
   }
 
+  function renderPricingSelectedProduct(product) {
+    if (!product) {
+      return `<div class="pricing-product-empty"><strong>Chưa chọn sản phẩm</strong><small>Bấm Thêm sản phẩm để chọn từ danh mục shop.</small></div>`;
+    }
+    return `
+      <div class="pricing-product-summary">
+        ${renderProductThumb(product, "cart-product-thumb")}
+        <div>
+          <strong>${escapeHtml(product.name)}</strong>
+          <small>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small>
+          <small>Giá vốn hiện tại: <b>${money.format(product.costPrice)}</b> · Giá shop: ${productHasShopPrice(product) ? money.format(product.salePrice) : "chưa có"}</small>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderPricingProductPicker() {
+    const products = [...(state.products || [])]
+      .filter(product => product.status !== "deleted")
+      .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+    const categories = Array.from(new Set(products.map(product => String(product.category || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "vi"));
+    const brands = Array.from(new Set(products.map(product => String(product.brand || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "vi"));
+    return `
+      <div class="product-picker pricing-product-picker">
+        <div class="product-picker-toolbar">
+          <label class="search-box product-picker-search">
+            ${icon("search")}
+            <input type="search" placeholder="Tìm SKU, tên, danh mục, hãng, mã vạch..." data-product-picker-search />
+          </label>
+          <span class="pill" data-product-picker-count>${products.length} sản phẩm</span>
+        </div>
+        <div class="product-picker-filters">
+          <select data-product-picker-filter="category"><option value="">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
+          <select data-product-picker-filter="brand"><option value="">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
+          <select data-product-picker-filter="stock"><option value="">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="low">Sắp hết</option><option value="out">Hết hàng</option></select>
+          <select data-product-picker-sort><option value="name">Tên A-Z</option><option value="stock">Tồn kho nhiều</option><option value="priceAsc">Giá thấp</option><option value="priceDesc">Giá cao</option><option value="margin">Biên lãi cao</option></select>
+          <button class="button ghost icon-only" type="button" data-reset-product-picker aria-label="Làm mới" title="Làm mới">${icon("refresh")}</button>
+        </div>
+        <div class="product-picker-list" data-product-picker-list>
+          ${products.map(renderPricingProductPickerCard).join("") || `<div class="empty">Chưa có sản phẩm trong danh mục.</div>`}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderPricingProductPickerCard(product) {
+    const stockClass = product.stock <= 0 ? "draft" : (product.stock <= product.lowStock ? "low" : "active");
+    const margin = product.salePrice > 0 ? Math.round(((product.salePrice - product.costPrice) / product.salePrice) * 100) : 0;
+    const stockState = product.stock <= 0 ? "out" : (product.stock <= product.lowStock ? "low" : "available");
+    return `
+      <button class="product-card product-card-rich" type="button" data-product-picker-card data-select-pricing-product="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-category="${escapeAttribute(product.category || "")}" data-brand="${escapeAttribute(product.brand || "")}" data-stock-state="${stockState}" data-name="${escapeAttribute(product.name || "")}" data-price="${Number(product.salePrice || 0)}" data-stock="${Number(product.stock || 0)}" data-margin="${margin}">
+        ${renderProductThumb(product)}
+        <span class="product-card-main">
+          <strong>${escapeHtml(product.name)}</strong>
+          <small>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small>
+          <span class="product-card-tags"><em>Vốn ${money.format(product.costPrice)}</em><small>${productHasShopPrice(product) ? `Giá shop ${money.format(product.salePrice)}` : "Chưa có giá shop"}</small></span>
+        </span>
+        <span class="product-card-side">
+          <small class="badge ${stockClass}">${product.stock} còn</small>
+          <small>${product.status === "active" ? "Đang bán" : "Ngừng bán"}</small>
+        </span>
+      </button>
+    `;
+  }
+
+  function selectPricingProduct(productId) {
+    const product = byId("products", productId);
+    const form = qs("[data-team-pricing-page-form]") || els.modalForm;
+    if (!product || !form) return;
+    const hidden = form.querySelector("[data-team-pricing-product]");
+    const selected = form.querySelector("[data-pricing-selected-product]");
+    if (hidden) hidden.value = product.id;
+    if (selected) selected.innerHTML = renderPricingSelectedProduct(product);
+    if (form.baseCost) form.baseCost.value = product.costPrice || 0;
+    if (form.title && !String(form.title.value || "").trim()) form.title.value = `Tính giá ${product.name}`;
+    updateTeamPricingPreview(form);
+    closeModal();
+    showToast(`Đã chọn ${product.name} và cập nhật giá vốn.`);
+  }
+
   function renderPricingLineInput(line, index) {
-    return `<div class="team-dynamic-row" data-pricing-line-row>
-      <input name="lineLabel${index}" value="${escapeAttribute(line.label)}" placeholder="Tên chi phí" />
-      <select name="lineType${index}" data-team-pricing-input><option value="fixed" ${line.type === "fixed" ? "selected" : ""}>Số tiền</option><option value="cost_percent" ${line.type === "cost_percent" ? "selected" : ""}>% giá vốn</option><option value="price_percent" ${line.type === "price_percent" ? "selected" : ""}>% giá bán</option></select>
-      <input name="lineValue${index}" type="number" step="0.1" value="${line.value}" data-team-pricing-input />
+    return `<div class="team-dynamic-row pricing-line-row" data-pricing-line-row>
+      <input name="lineLabel${index}" value="${escapeAttribute(line.label)}" placeholder="VD: Bao bì, phí sàn..." aria-label="Tên chi phí" />
+      <select name="lineType${index}" data-team-pricing-input aria-label="Cách tính chi phí"><option value="fixed" ${line.type === "fixed" ? "selected" : ""}>Số tiền</option><option value="cost_percent" ${line.type === "cost_percent" ? "selected" : ""}>% giá vốn</option><option value="price_percent" ${line.type === "price_percent" ? "selected" : ""}>% giá bán</option></select>
+      <input name="lineValue${index}" type="number" step="0.1" value="${line.value}" data-team-pricing-input placeholder="0" aria-label="Giá trị chi phí" />
       <button class="icon-button" type="button" data-remove-pricing-row title="Xóa">${icon("trash")}</button>
     </div>`;
   }
 
   function renderPricingScenarioInput(scenario, index) {
-    return `<div class="team-dynamic-row" data-pricing-scenario-row>
-      <input name="scenarioLabel${index}" value="${escapeAttribute(scenario.label)}" placeholder="Tên kịch bản" />
-      <input name="scenarioMargin${index}" type="number" step="0.1" value="${scenario.targetMargin}" data-team-pricing-input placeholder="Biên lãi %" />
-      <input name="scenarioPrice${index}" type="number" step="1000" value="${scenario.salePrice}" data-team-pricing-input placeholder="Giá tự nhập" />
+    return `<div class="team-dynamic-row pricing-scenario-row" data-pricing-scenario-row>
+      <input name="scenarioLabel${index}" value="${escapeAttribute(scenario.label)}" placeholder="VD: Giá shop, giá sàn..." aria-label="Tên kịch bản giá" />
+      <input name="scenarioMargin${index}" type="number" step="0.1" value="${scenario.targetMargin}" data-team-pricing-input placeholder="%" aria-label="Biên lãi mục tiêu phần trăm" />
+      <input name="scenarioPrice${index}" type="number" step="1000" value="${scenario.salePrice}" data-team-pricing-input placeholder="Để 0 để tự tính" aria-label="Giá tự nhập tùy chọn" />
       <button class="icon-button" type="button" data-remove-pricing-row title="Xóa">${icon("trash")}</button>
     </div>`;
   }
@@ -6444,7 +6534,7 @@
     const margin = product.salePrice > 0 ? Math.round(((product.salePrice - product.costPrice) / product.salePrice) * 100) : 0;
     const stockState = product.stock <= 0 ? "out" : (product.stock <= product.lowStock ? "low" : "available");
     return `
-      <button class="product-card product-card-rich" type="button" data-add-product-to-order="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-category="${escapeAttribute(product.category || "")}" data-brand="${escapeAttribute(product.brand || "")}" data-stock-state="${stockState}" data-name="${escapeAttribute(product.name || "")}" data-price="${Number(product.salePrice || 0)}" data-stock="${Number(product.stock || 0)}" data-margin="${margin}" ${disabled}>
+      <button class="product-card product-card-rich" type="button" data-product-picker-card data-add-product-to-order="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-category="${escapeAttribute(product.category || "")}" data-brand="${escapeAttribute(product.brand || "")}" data-stock-state="${stockState}" data-name="${escapeAttribute(product.name || "")}" data-price="${Number(product.salePrice || 0)}" data-stock="${Number(product.stock || 0)}" data-margin="${margin}" ${disabled}>
         ${renderProductThumb(product)}
         <span class="product-card-main">
           <strong>${escapeHtml(product.name)}</strong>
@@ -6502,7 +6592,7 @@
     const stock = String(panel.querySelector('[data-product-picker-filter="stock"]')?.value || "");
     const sort = String(panel.querySelector("[data-product-picker-sort]")?.value || "name");
     const list = panel.querySelector("[data-product-picker-list]");
-    const cards = [...panel.querySelectorAll("[data-add-product-to-order]")];
+    const cards = [...panel.querySelectorAll("[data-product-picker-card], [data-add-product-to-order]")];
     cards.sort(function (a, b) {
       if (sort === "stock") return Number(b.dataset.stock || 0) - Number(a.dataset.stock || 0);
       if (sort === "priceAsc") return Number(a.dataset.price || 0) - Number(b.dataset.price || 0);
@@ -8202,6 +8292,12 @@
           return saveTeamItem("pricing", form, editingTeamPricing);
         }
       },
+      pricingProductPicker: {
+        eyebrow: "Tính giá",
+        title: "Chọn sản phẩm",
+        body: renderPricingProductPicker(),
+        readOnly: true
+      },
       teamDecision: {
         eyebrow: "Team Hub",
         title: editingTeamDecision ? "Cập nhật quyết định" : "Ghi quyết định",
@@ -8799,7 +8895,7 @@
     if (!definition) return;
     const modal = els.modalBackdrop.querySelector(".modal");
     if (modal) modal.dataset.modalType = type;
-    els.modalForm.classList.toggle("modal-form-wide", type === "orderDetail" || type === "teamPricing");
+    els.modalForm.classList.toggle("modal-form-wide", type === "orderDetail" || type === "teamPricing" || type === "pricingProductPicker");
     els.modalForm.classList.toggle("modal-form-fullscreen", type === "teamPricing");
     els.modalEyebrow.textContent = definition.eyebrow;
     els.modalTitle.textContent = definition.title;
@@ -8830,6 +8926,7 @@
     if (type === "orderReturn") updateOrderReturnPreview(els.modalForm);
     if (type === "product") updateProductPricingPreview(els.modalForm);
     if (type === "teamPricing") updateTeamPricingPreview(els.modalForm);
+    if (type === "pricingProductPicker") filterProductPicker(els.modalForm);
     enhanceMoneyInputs(els.modalForm);
     const firstInput = els.modalForm.querySelector("input, select");
     if (firstInput) firstInput.focus();
@@ -9465,6 +9562,12 @@
         target.closest(".team-dynamic-row")?.remove();
         updateTeamPricingPreview(target.closest("form"));
       }
+      if (target.matches("[data-open-pricing-product-picker]")) {
+        openModal("pricingProductPicker");
+      }
+      if (target.dataset.selectPricingProduct) {
+        selectPricingProduct(target.dataset.selectPricingProduct);
+      }
       if (target.matches("[data-open-product-options]")) openModal("productOptions", { optionType: "category" });
       if (target.dataset.productOptionType) openModal("productOptions", { optionType: target.dataset.productOptionType });
       if (target.dataset.editProductOption) openModal("productOptions", { optionType: target.dataset.optionType, editOptionId: target.dataset.editProductOption });
@@ -9971,7 +10074,7 @@
       if (event.target.matches("[data-team-pricing-product]")) {
         const product = byId("products", event.target.value);
         const form = event.target.closest("form");
-        if (product && form?.baseCost && !Number(form.baseCost.value || 0)) {
+        if (product && form?.baseCost) {
           form.baseCost.value = product.costPrice || 0;
           updateTeamPricingPreview(form);
         }

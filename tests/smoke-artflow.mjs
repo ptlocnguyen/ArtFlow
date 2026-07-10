@@ -197,6 +197,15 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("[data-purchase-create-form] button[type='submit']").click();
     await page.waitForTimeout(150);
   }
+  if (pageName === "team-pricing") {
+    await page.locator("[data-open-pricing-product-picker]").click();
+    await page.locator("[data-product-picker-search]").fill("but").catch(() => {});
+    await page.locator("[data-select-pricing-product]:visible").first().click();
+    const costValue = Number(await page.locator("#teamPricingBaseCost").inputValue());
+    if (!costValue) throw new Error("Pricing product picker must update base cost from the selected product.");
+    const selectedText = await page.locator("[data-pricing-selected-product]").innerText();
+    if (!selectedText.includes("Giá vốn")) throw new Error("Pricing page must show the selected product cost summary.");
+  }
   if (pageName === "purchasing") {
     const hasXlsx = await page.evaluate(() => Boolean(window.XLSX));
     if (!hasXlsx) throw new Error("Purchasing page must load XLSX before enabling purchase order Excel export.");
