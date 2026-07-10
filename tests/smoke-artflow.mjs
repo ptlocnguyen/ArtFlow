@@ -28,6 +28,7 @@ const pages = [
   ["inventory", "pages/inventory.html"],
   ["accounting", "pages/accounting.html"],
   ["purchasing", "pages/purchasing.html"],
+  ["purchase-create", "pages/purchase-create.html"],
   ["reports", "pages/reports.html"],
   ["users", "pages/users.html"],
   ["activity", "pages/activity.html"]
@@ -186,6 +187,15 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("[data-open-product-picker], [data-show-product-picker], [data-product-picker-open]").first().click({ timeout: 1200 }).catch(() => {});
     await page.waitForTimeout(100);
   }
+  if (pageName === "purchase-create") {
+    await page.locator("[data-add-product-to-purchase]").first().click();
+    const unitCost = page.locator("[data-purchase-cost]").first();
+    await unitCost.fill("11200");
+    const isValidCost = await unitCost.evaluate(input => input.validity.valid);
+    if (!isValidCost) throw new Error("Purchase unit cost 11200 must be accepted as a valid VND value.");
+    await page.locator("[data-purchase-create-form] button[type='submit']").click();
+    await page.waitForTimeout(150);
+  }
   if (pageName === "accounting") {
     const dir = path.join(screenshotRoot, viewportName);
     await mkdir(dir, { recursive: true });
@@ -281,6 +291,8 @@ function handleAction(state, payload) {
       return createIncenseWish(state, payload);
     case "createOrder":
       return createOrder(state, payload);
+    case "createPurchaseOrder":
+      return createPurchaseOrder(state, payload);
     case "createOrderReceiptPdf":
       return createReceipt(state, payload);
     case "getAppSettings":
@@ -626,3 +638,54 @@ function createReceipt(state, payload) {
   return { ok: true, order: saved };
 }
 
+function createPurchaseOrder(state, payload) {
+  const supplier = state.suppliers.find(item => item.id === payload.supplierId) || state.suppliers[0];
+  const items = (payload.items || []).map((item, index) => {
+    const product = state.products.find(row => row.id === item.productId) || state.products[0];
+    const quantity = Number(item.quantity || 1);
+    const unitCost = Number(item.unitCost || product.costPrice || 0);
+    return {
+      id: `qa-po-item-${Date.now()}-${index}`,
+      purchaseOrderId: "",
+      productId: product.id,
+      sku: product.sku,
+      name: product.name,
+      quantity,
+      unitCost,
+      lineTotal: quantity * unitCost,
+      createdAt: "2026-06-29T10:30:00+07:00"
+    };
+  });
+  const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+  const discount = Number(payload.discount || 0);
+  const shippingFee = Number(payload.shippingFee || 0);
+  const id = `qa-po-${Date.now()}`;
+  const order = {
+    id,
+    code: `PO-QA-${state.purchaseOrders.length + 1}`,
+    supplierId: supplier.id,
+    status: "draft",
+    paymentStatus: "unpaid",
+    subtotal,
+    discount,
+    shippingFee,
+    total: Math.max(0, subtotal - discount + shippingFee),
+    paidAmount: 0,
+    creditAppliedAmount: 0,
+    settledAmount: 0,
+    returnedAmount: 0,
+    netTotal: Math.max(0, subtotal - discount + shippingFee),
+    outstanding: Math.max(0, subtotal - discount + shippingFee),
+    creditAmount: 0,
+    dueDate: payload.dueDate || "",
+    invoiceNumber: payload.invoiceNumber || "",
+    note: payload.note || "",
+    createdBy: state.user.id,
+    receivedAt: "",
+    createdAt: "2026-06-29T10:30:00+07:00",
+    updatedAt: "2026-06-29T10:30:00+07:00",
+    items: items.map(item => ({ ...item, purchaseOrderId: id }))
+  };
+  state.purchaseOrders = [order, ...(state.purchaseOrders || [])];
+  return { ok: true, purchaseOrder: order };
+}
