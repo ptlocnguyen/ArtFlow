@@ -494,7 +494,7 @@ function upsertWorkspaceTask(state, payload) {
     updatedAt: "2026-06-29T10:30:00+07:00"
   };
   state.workspaceTasks = [item, ...(state.workspaceTasks || []).filter(task => task.id !== item.id)];
-  return { ok: true, task: item };
+  return { ok: true, workspaceTask: item };
 }
 
 function incenseData(state) {

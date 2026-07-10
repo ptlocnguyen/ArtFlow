@@ -1365,6 +1365,7 @@
   }
 
   function normalizeWorkspaceTask(item) {
+    item = item || {};
     return {
       id: item.id || makeLocalId("task"),
       title: item.title || "",
@@ -7634,7 +7635,9 @@
     const products = (state.products || []).map(normalizeProduct).filter(product => product.status !== "deleted");
     const channelsList = activeSalesChannels();
     const campaigns = (state.campaigns || []).map(normalizeCampaign);
+    const hiddenId = `<input type="hidden" name="id" value="${escapeAttribute(item.id)}" />`;
     return `
+      ${hiddenId}
       <div class="field full"><label for="taskTitle">Việc cần làm</label><input id="taskTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="VD: Map SKU Shopee cho sản phẩm bán chạy" required /></div>
       <div class="field"><label for="taskOwner">Phụ trách</label><select id="taskOwner" name="owner"><option value="">Chưa giao</option>${users}</select></div>
       <div class="field"><label for="taskStatus">Trạng thái</label><select id="taskStatus" name="status"><option value="todo" ${item.status === "todo" ? "selected" : ""}>Cần làm</option><option value="doing" ${item.status === "doing" ? "selected" : ""}>Đang làm</option><option value="blocked" ${item.status === "blocked" ? "selected" : ""}>Đang vướng</option><option value="done" ${item.status === "done" ? "selected" : ""}>Xong</option></select></div>
@@ -8502,7 +8505,7 @@
             method: "POST",
             body: JSON.stringify(data)
           });
-          const saved = normalizeWorkspaceTask(response.task);
+          const saved = normalizeWorkspaceTask(response.workspaceTask || response.task);
           state.workspaceTasks = [saved, ...(state.workspaceTasks || []).filter(item => item.id !== saved.id)];
           window.ArtFlowPosStore.save(state);
           renderPage();
