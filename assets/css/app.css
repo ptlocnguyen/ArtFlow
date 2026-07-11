@@ -1545,6 +1545,41 @@ body[data-page="purchasing"] .view.active {
 .accounting-debt-row > span:first-child { display: grid; gap: 4px; }
 .accounting-debt-row small { color: var(--muted); }
 
+body[data-page="accounting"] [hidden] { display: none !important; }
+
+.accounting-expense-workspace .panel,
+.accounting-tax-workspace .panel,
+.accounting-operation-settings { overflow: hidden; }
+
+.accounting-expense-summary,
+.accounting-expense-groups,
+.accounting-expense-workspace .accounting-action-list { padding-inline: 20px; }
+
+.accounting-expense-workspace .accounting-action-list,
+.accounting-expense-groups { padding-bottom: 20px; }
+
+.accounting-document-item > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.accounting-document-item > span strong,
+.accounting-document-item > span small { overflow-wrap: anywhere; }
+
+.accounting-document-item > b { flex: 0 0 auto; white-space: nowrap; }
+
+.accounting-tax-summary { padding: 0 20px 16px; }
+.accounting-tax-workspace .accounting-overview-grid { margin: 0; padding: 0 20px 20px; }
+.accounting-tax-workspace .accounting-overview-grid > div { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft); }
+.accounting-tax-workspace h3 { margin: 0 0 12px; }
+
+.accounting-operation-settings .accounting-settings-form { padding: 0 20px 20px; }
+.accounting-settings-form .field { align-content: start; min-width: 0; }
+.accounting-settings-form .field label { position: static; margin: 0; }
+.accounting-settings-form .toggle-row { align-self: end; }
+.accounting-settings-form button[type="submit"] { justify-self: end; width: auto; min-width: 180px; }
+
 @media (max-width: 1180px) {
   .accounting-overview-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

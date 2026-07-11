@@ -5745,6 +5745,18 @@
     const channelRevenue = document.querySelector("[data-accounting-channel-revenue]"); if (channelRevenue) { const totals={}; (state.orders||[]).filter(order=>String(order.createdAt).slice(0,7)===currentMonth).forEach(order=>totals[order.channel]=(totals[order.channel]||0)+order.netTotal); channelRevenue.innerHTML=Object.entries(totals).map(([channel,total])=>`<article><span>${commerceChannelLabel(channel)}</span><b>${money.format(total)}</b></article>`).join("")||`<div class="empty compact">Chưa có doanh thu tháng này.</div>`; }
     const taxDocs = document.querySelector("[data-accounting-tax-documents]"); if (taxDocs) taxDocs.innerHTML = missingDocuments.slice(0,6).map(item=>`<article class="accounting-document-item"><span>${escapeHtml(item.description)}</span><b>${money.format(item.amount)}</b></article>`).join("")||`<div class="empty compact">Không còn chứng từ thiếu.</div>`;
     document.querySelectorAll("[data-accounting-debt-view]").forEach(button => button.classList.toggle("active", button.dataset.accountingDebtView === accountingFilters.debtView));
+    const debtSection = document.querySelector("[data-accounting-section='receivables']");
+    if (debtSection) {
+      const titles = {
+        platform: ["Công nợ sàn", "Các đơn sàn đã hoàn tất nhưng chưa nằm trong payout đã ghi sổ."],
+        customer: ["Công nợ khách hàng", "Theo dõi đơn còn thiếu tiền và ưu tiên khoản quá hạn."],
+        supplier: ["Công nợ nhà cung cấp", "Theo dõi số tiền còn phải trả theo từng nhà cung cấp."]
+      }[accountingFilters.debtView];
+      const heading = debtSection.querySelector(".panel-header h2");
+      const note = debtSection.querySelector(".panel-header h2 + p");
+      if (heading) heading.textContent = titles[0];
+      if (note) note.textContent = titles[1];
+    }
     const debtOps = document.querySelector("[data-accounting-debt-operations]");
     document.querySelectorAll("[data-accounting-debt-summary], .accounting-local-toolbar, [data-accounting-receivables]").forEach(node => { node.hidden = accountingFilters.debtView !== "customer"; });
     if (debtOps) {
