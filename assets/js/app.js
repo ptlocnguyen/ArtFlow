@@ -43,14 +43,20 @@
   let pageDataReady = false;
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
   const accountingFilters = {
-    view: "receivables",
+    view: "overview",
     type: "all",
     accountId: "all",
     range: "30",
     receivable: "all",
     payrollRange: "30",
     payrollSearch: "",
-    categoryType: "all"
+    categoryType: "all",
+    payoutChannel: "all",
+    payoutStatus: "all",
+    payoutRange: "90",
+    debtView: "platform",
+    profitView: "overview",
+    settingsView: "operations"
   };
   let accountingExportScope = "receivables";
   const purchasingFilters = { view: "orders", status: "all", paymentStatus: "all" };
@@ -547,6 +553,13 @@
       "/accounting/categories/create": "createAccountingCategory",
       "/accounting/categories/update": "updateAccountingCategory",
       "/accounting/categories/archive": "archiveAccountingCategory",
+      "/accounting/payouts/create": "createPlatformPayout",
+      "/accounting/payouts/update": "updatePlatformPayout",
+      "/accounting/payouts/items/create": "addPlatformPayoutItem",
+      "/accounting/payouts/match": "autoMatchPlatformPayout",
+      "/accounting/payouts/post": "postPlatformPayout",
+      "/accounting/payouts/resolve": "resolvePlatformPayoutMismatch",
+      "/accounting/settings/update": "updateAccountingSettings",
       "/purchasing": "getPurchasingData",
       "/suppliers/create": "createSupplier",
       "/suppliers/update": "updateSupplier",
@@ -1614,6 +1627,7 @@
       id: category.id,
       name: category.name || "",
       type: category.type || "expense",
+      group: category.group || "other",
       status: category.status || "active",
       createdAt: category.createdAt || "",
       updatedAt: category.updatedAt || ""
@@ -1645,10 +1659,25 @@
       description: transaction.description || "",
       referenceType: transaction.referenceType || "",
       referenceId: transaction.referenceId || "",
+      channelId: transaction.channelId || "",
+      documentUrl: transaction.documentUrl || "",
       createdBy: transaction.createdBy || "",
       status: transaction.status || "active",
       createdAt: transaction.createdAt || "",
       updatedAt: transaction.updatedAt || ""
+    };
+  }
+
+  function normalizePlatformPayout(payout) {
+    return {
+      id: payout.id, channelId: payout.channelId || "", channelCode: payout.channelCode || "", payoutCode: payout.payoutCode || "",
+      periodStart: payout.periodStart || "", periodEnd: payout.periodEnd || "", payoutDate: payout.payoutDate || "", accountId: payout.accountId || "",
+      grossAmount: Number(payout.grossAmount || 0), totalFees: Number(payout.totalFees || 0), totalRefunds: Number(payout.totalRefunds || 0),
+      expectedAmount: Number(payout.expectedAmount || 0), actualAmount: Number(payout.actualAmount || 0), difference: Number(payout.difference || 0),
+      status: payout.status || "draft", sourceFileName: payout.sourceFileName || "", sourceFileUrl: payout.sourceFileUrl || "",
+      sourceFileNote: payout.sourceFileNote || "", note: payout.note || "", postedTransactionId: payout.postedTransactionId || "",
+      createdBy: payout.createdBy || "", createdAt: payout.createdAt || "", updatedAt: payout.updatedAt || "",
+      items: Array.isArray(payout.items) ? payout.items.map(item => ({ ...item, productTotal: Number(item.productTotal || 0), expectedNetAmount: Number(item.expectedNetAmount || 0), platformNetAmount: Number(item.platformNetAmount || 0), difference: Number(item.difference || 0) })) : []
     };
   }
 
@@ -1659,6 +1688,8 @@
       state.accountingCategories = (data.categories || []).map(normalizeAccountingCategory);
       state.accountingReconciliations = (data.reconciliations || []).map(normalizeAccountingReconciliation);
       state.cashTransactions = (data.transactions || []).map(normalizeCashTransaction);
+      state.platformPayouts = (data.platformPayouts || []).map(normalizePlatformPayout);
+      state.accountingSettings = data.accountingSettings || {};
       window.ArtFlowPosStore.save(state);
       return true;
     } catch (error) {
@@ -1666,6 +1697,8 @@
       state.accountingCategories = state.accountingCategories || [];
       state.accountingReconciliations = state.accountingReconciliations || [];
       state.cashTransactions = state.cashTransactions || [];
+      state.platformPayouts = state.platformPayouts || [];
+      state.accountingSettings = state.accountingSettings || {};
       if (!options.quiet) showToast(error.message, "error");
       return false;
     }
@@ -1816,7 +1849,7 @@
       incense: ["incense"],
       customers: ["customers"],
       inventory: ["products", "stockMovements"],
-      accounting: ["customers", "orders", "accounting"],
+      accounting: ["customers", "orders", "accounting", "purchasing", "omni"],
       purchasing: ["purchasing"],
       purchaseCreate: ["products", "purchasing"],
       reports: ["products", "customers", "orders", "accounting"],
@@ -1876,6 +1909,8 @@
       state.accountingCategories = (data.categories || []).map(normalizeAccountingCategory);
       state.accountingReconciliations = (data.reconciliations || []).map(normalizeAccountingReconciliation);
       state.cashTransactions = (data.transactions || []).map(normalizeCashTransaction);
+      state.platformPayouts = (data.platformPayouts || []).map(normalizePlatformPayout);
+      state.accountingSettings = data.accountingSettings || {};
     }
     if (scopes.includes("purchasing")) {
       state.suppliers = (data.suppliers || []).map(normalizeSupplier);
@@ -2843,6 +2878,14 @@
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("SỔ QUỸ THU CHI", accountingPeriodSubtitle(range), ["Ngày", "Loại", "Tài khoản", "Danh mục", "Nội dung", "Loại tham chiếu", "Mã tham chiếu", "Thu", "Chi", "Ròng", "Ghi lúc"], rows, { widths: [14, 12, 22, 24, 42, 18, 20, 16, 16, 16, 22], moneyColumns: [7, 8, 9], textColumns: [6], wrapColumn: 4 }), "Sổ quỹ");
   }
 
+  function appendPlatformPayoutSheets(workbook, XLSX) {
+    const payouts = state.platformPayouts || [];
+    const rows = payouts.map(item => [commerceChannelLabel(item.channelId || item.channelCode),item.payoutCode,item.periodStart,item.periodEnd,item.payoutDate,item.grossAmount,item.totalFees,item.totalRefunds,item.expectedAmount,item.actualAmount,item.difference,payoutStatusMeta(item.status)[0],item.sourceFileName,item.sourceFileUrl,item.note]);
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("ĐỐI SOÁT SÀN", `ArtFlow POS · Cập nhật ${new Date().toLocaleString("vi-VN")}`, ["Sàn","Mã payout","Từ ngày","Đến ngày","Ngày tiền về","Doanh thu gộp","Phí sàn","Hoàn trả","Dự kiến","Thực nhận","Chênh lệch","Trạng thái","File nguồn","Link file","Ghi chú"], rows, { widths:[18,22,14,14,14,18,16,16,18,18,16,16,24,38,34], moneyColumns:[5,6,7,8,9,10], wrapColumn:14 }), "Đối soát sàn");
+    const details = payouts.flatMap(payout => payout.items.map(item => [payout.payoutCode,commerceChannelLabel(payout.channelId || payout.channelCode),item.orderCode,item.platformOrderCode,item.productTotal,item.shippingFee,item.sellerDiscount,item.platformDiscount,item.commissionFee,item.paymentFee,item.affiliateFee,item.adsFee,item.refundAmount,item.penaltyFee,item.expectedNetAmount,item.platformNetAmount,item.difference,item.status,item.note]));
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("CHI TIẾT PAYOUT", "Chi tiết phí và đơn thuộc từng payout", ["Payout","Sàn","Mã đơn","Mã đơn sàn","Tiền hàng","Vận chuyển","Voucher shop","Voucher sàn","Hoa hồng","Thanh toán","Affiliate","Ads","Hoàn trả","Phạt","Dự kiến","Sàn trả","Chênh lệch","Trạng thái","Ghi chú"], details, { widths:[20,16,20,20,16,16,16,16,16,16,16,16,16,16,16,16,16,14,30], moneyColumns:[4,5,6,7,8,9,10,11,12,13,14,15,16] }), "Chi tiết payout");
+  }
+
   function appendReceivablesSheet(workbook, XLSX) {
     const rows = accountingReceivableRows().map(row => [
       row.order.code,
@@ -2965,7 +3008,9 @@
       expenses: ["expenses"],
       accounts: ["accounts"],
       payroll: ["payroll"],
-      categories: ["categories"]
+      categories: ["categories"],
+      payouts: ["payouts"],
+      tax: ["summary", "payouts", "ledger", "expenses"]
     }[type] || ["summary", "ledger"];
 
     if (include.includes("summary")) appendAccountingSummarySheet(workbook, XLSX, range);
@@ -2977,6 +3022,7 @@
     if (include.includes("accounts")) appendAccountsAndReconciliationSheets(workbook, XLSX);
     if (include.includes("payroll")) appendPayrollSheet(workbook, XLSX, range);
     if (include.includes("categories")) appendAccountingCategoriesSheet(workbook, XLSX);
+    if (include.includes("payouts")) appendPlatformPayoutSheets(workbook, XLSX);
 
     const names = {
       full: "tong-hop-ke-toan",
@@ -5546,20 +5592,211 @@
     renderStockMovements();
   }
 
+  function ensureCommerceAccountingLayout() {
+    const switcher = document.querySelector(".accounting-view-switch");
+    const layout = document.querySelector(".accounting-layout");
+    if (!switcher || !layout || layout.dataset.commerceReady) return;
+    switcher.innerHTML = [
+      ["overview", "Tổng quan"], ["payouts", "Đối soát sàn"], ["ledger", "Dòng tiền"],
+      ["receivables", "Công nợ"], ["expenses", "Chi phí"], ["profit", "Lãi lỗ"],
+      ["tax", "Thuế & chứng từ"], ["settings", "Cài đặt kế toán"]
+    ].map(([value, label]) => `<button type="button" role="tab" data-accounting-view-filter="${value}">${label}</button>`).join("");
+    layout.insertAdjacentHTML("afterbegin", `
+      <section class="accounting-workspace accounting-commerce-overview" data-accounting-section="overview">
+        <div class="accounting-overview-kpis" data-accounting-commerce-kpis></div>
+        <div class="accounting-overview-grid">
+          <section class="panel"><div class="panel-header"><div><p class="section-kicker">Ưu tiên hôm nay</p><h2>Việc cần xử lý</h2><p>Các khoản có thể làm lệch tiền hoặc thiếu hồ sơ cuối kỳ.</p></div></div><div class="accounting-action-list" data-accounting-action-list></div></section>
+          <section class="panel"><div class="panel-header"><div><p class="section-kicker">Tiền đang ở đâu</p><h2>Số dư theo tài khoản</h2><p>Số dư sổ và tình trạng đối soát gần nhất.</p></div></div><div class="accounting-balance-list" data-accounting-balance-list></div></section>
+        </div>
+      </section>
+      <section class="panel accounting-workspace accounting-payout-workspace" data-accounting-section="payouts" hidden>
+        <div class="panel-header split"><div><p class="section-kicker">Sàn thương mại điện tử</p><h2>Đối soát tiền sàn</h2><p>Ghép đơn, kiểm tra phí và ghi nhận tiền thực nhận vào sổ quỹ.</p></div><div class="panel-header-actions"><button class="button primary" type="button" data-open-platform-payout>${icon("plus")} Tạo phiếu</button><button class="button export" type="button" data-open-accounting-export data-accounting-export-scope="payouts">${icon("download")} Xuất đối soát</button></div></div>
+        <div class="accounting-payout-kpis" data-accounting-payout-kpis></div>
+        <div class="accounting-toolbar accounting-payout-toolbar"><select data-payout-channel-filter aria-label="Lọc sàn"><option value="all">Tất cả sàn</option></select><select data-payout-status-filter aria-label="Lọc trạng thái"><option value="all">Tất cả trạng thái</option><option value="draft">Chờ đối soát</option><option value="matched">Đã khớp</option><option value="mismatch">Đang lệch</option><option value="posted">Đã ghi sổ</option></select><select data-payout-range-filter aria-label="Lọc kỳ"><option value="30">30 ngày</option><option value="90">90 ngày</option><option value="all">Toàn bộ</option></select></div>
+        <div class="table-wrap"><table><thead><tr><th>Sàn / payout</th><th>Kỳ</th><th>Dự kiến</th><th>Thực nhận</th><th>Chênh lệch</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody data-platform-payout-table></tbody></table></div>
+      </section>
+      <section class="accounting-workspace accounting-expense-workspace" data-accounting-section="expenses" hidden><div class="accounting-overview-grid expenses-grid"><section class="panel"><div class="panel-header split"><div><p class="section-kicker">Cơ cấu tiền ra</p><h2>Chi phí vận hành</h2><p>Phân nhóm chi phí để nhìn ra nơi đang tiêu nhiều nhất.</p></div><button class="button primary" type="button" data-open-cash-transaction>${icon("plus")} Ghi chi</button></div><div class="accounting-expense-summary" data-accounting-expense-summary></div><div class="accounting-expense-groups" data-accounting-expense-groups></div></section><section class="panel"><div class="panel-header"><div><p class="section-kicker">Cần bổ sung</p><h2>Thiếu chứng từ</h2><p>Giao dịch chi chưa có liên kết file chứng từ.</p></div></div><div class="accounting-action-list" data-missing-document-list></div></section></div></section>
+      <section class="accounting-workspace accounting-tax-workspace" data-accounting-section="tax" hidden><section class="panel"><div class="panel-header split"><div><p class="section-kicker">Dữ liệu tham khảo</p><h2>Thuế & chứng từ cuối kỳ</h2><p>Số liệu phục vụ đối chiếu và kê khai; không tự xác định nghĩa vụ thuế.</p></div><button class="button export" type="button" data-open-accounting-export data-accounting-export-scope="tax">${icon("download")} Xuất gói cuối kỳ</button></div><div class="accounting-tax-summary" data-accounting-tax-summary></div><div class="accounting-overview-grid"><div><h3>Doanh thu theo kênh</h3><div class="accounting-balance-list" data-accounting-channel-revenue></div></div><div><h3>Chứng từ còn thiếu</h3><div class="accounting-action-list" data-accounting-tax-documents></div></div></div></section></section>
+    `);
+    layout.insertAdjacentHTML("beforeend", `<section class="panel accounting-workspace accounting-operation-settings" data-accounting-section="settings" hidden><div class="panel-header"><div><p class="section-kicker">Quy tắc vận hành</p><h2>Cấu hình kế toán TMĐT</h2><p>Ngưỡng chênh lệch và tài khoản nhận tiền mặc định theo sàn.</p></div></div><form class="accounting-settings-form" data-accounting-settings-form><div class="field"><label>Ngưỡng lệch cho phép</label><input name="tolerance" type="number" min="0" step="1" value="1000" /></div><label class="toggle-row"><input name="autoAdjustment" type="checkbox" /><span><strong>Tự tạo giao dịch điều chỉnh</strong><small>Chỉ thực hiện khi có lý do đối soát rõ ràng.</small></span></label><div class="field full"><label>Quy tắc nhận diện payroll</label><input name="payrollKeywords" value="lương, cộng tác viên, payroll" /></div><div class="field"><label>Tài khoản nhận Shopee</label><select name="shopeeAccountId" data-accounting-setting-account></select></div><div class="field"><label>Tài khoản nhận TikTok Shop</label><select name="tiktokAccountId" data-accounting-setting-account></select></div><button class="button primary" type="submit">${icon("check")} Lưu cấu hình</button></form></section>`);
+    const operationsSettings = layout.querySelector("[data-accounting-section='settings']");
+    const payrollSection = layout.querySelector("[data-accounting-section='payroll']");
+    if (operationsSettings && payrollSection) {
+      layout.insertBefore(operationsSettings, payrollSection);
+      operationsSettings.insertAdjacentHTML("beforebegin", `<div class="segmented-control accounting-settings-switch" data-accounting-section="settings" hidden><button class="active" type="button" data-accounting-settings-view="operations">Quy tắc TMĐT</button><button type="button" data-accounting-settings-view="accounts">Tài khoản tiền</button><button type="button" data-accounting-settings-view="categories">Danh mục thu chi</button><button type="button" data-accounting-settings-view="payroll">Tiền lương</button></div>`);
+    }
+    const debtSection = layout.querySelector("[data-accounting-section='receivables']");
+    if (debtSection) {
+      debtSection.querySelector(".panel-header")?.insertAdjacentHTML("afterend", `<div class="segmented-control accounting-debt-switch"><button class="active" type="button" data-accounting-debt-view="platform">Sàn phải trả</button><button type="button" data-accounting-debt-view="customer">Khách phải thu</button><button type="button" data-accounting-debt-view="supplier">Phải trả nhà cung cấp</button></div><div class="accounting-debt-operations" data-accounting-debt-operations></div>`);
+    }
+    const profitSection = layout.querySelector("[data-accounting-section='profit']");
+    if (profitSection) {
+      profitSection.insertAdjacentHTML("beforebegin", `<div class="segmented-control accounting-profit-switch" data-accounting-section="profit" hidden><button class="active" type="button" data-accounting-profit-view="overview">Tổng quan</button><button type="button" data-accounting-profit-view="channel">Theo sàn</button><button type="button" data-accounting-profit-view="sku">Theo SKU</button><button type="button" data-accounting-profit-view="campaign">Theo campaign</button></div>`);
+      profitSection.insertAdjacentHTML("beforeend", `<section class="panel accounting-commerce-profit-detail" data-accounting-commerce-profit-detail hidden></section>`);
+    }
+    layout.dataset.commerceReady = "true";
+  }
+
   function syncAccountingView() {
+    ensureCommerceAccountingLayout();
     document.querySelectorAll("[data-accounting-view-filter]").forEach(button => {
       const active = button.dataset.accountingViewFilter === accountingFilters.view;
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
     });
     document.querySelectorAll("[data-accounting-section]").forEach(section => {
-      section.hidden = section.dataset.accountingSection !== accountingFilters.view;
+      const settingsSections = ["settings", "accounts", "categories", "payroll"];
+      section.hidden = accountingFilters.view === "settings"
+        ? !settingsSections.includes(section.dataset.accountingSection)
+        : section.dataset.accountingSection !== accountingFilters.view;
     });
+    if (accountingFilters.view === "settings") {
+      const sectionMap = { operations:"settings", accounts:"accounts", categories:"categories", payroll:"payroll" };
+      document.querySelectorAll("[data-accounting-section='settings'], [data-accounting-section='accounts'], [data-accounting-section='categories'], [data-accounting-section='payroll']").forEach(section => {
+        if (section.classList.contains("accounting-settings-switch")) { section.hidden = false; return; }
+        section.hidden = section.dataset.accountingSection !== sectionMap[accountingFilters.settingsView];
+      });
+    }
+  }
+
+  function commerceChannelLabel(codeOrId) {
+    const channel = channelByIdOrCode(codeOrId);
+    return channel?.name || channels[codeOrId] || codeOrId || "Chưa rõ sàn";
+  }
+
+  function payoutStatusMeta(status) {
+    return {
+      draft: ["Chờ đối soát", "neutral"], matched: ["Đã khớp", "success"],
+      mismatch: ["Đang lệch", "warning"], posted: ["Đã ghi sổ", "success"]
+    }[status] || [status || "Chưa rõ", "neutral"];
+  }
+
+  function renderCommerceAccounting() {
+    const payouts = state.platformPayouts || [];
+    const transactions = state.cashTransactions || [];
+    const currentMonth = localDateValue().slice(0, 7);
+    const monthTransactions = transactions.filter(item => String(item.transactionDate || item.createdAt).slice(0, 7) === currentMonth);
+    const monthIncome = monthTransactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
+    const monthExpense = monthTransactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
+    const pendingPayout = payouts.filter(item => item.status !== "posted").reduce((sum, item) => sum + item.actualAmount, 0);
+    const mismatchTotal = payouts.filter(item => item.status === "mismatch").reduce((sum, item) => sum + Math.abs(item.difference), 0);
+    const missingDocuments = transactions.filter(item => item.type === "expense" && !item.documentUrl);
+    const postedOrderIds = new Set(payouts.filter(item => item.status === "posted").flatMap(item => item.items.map(line => line.orderId).filter(Boolean)));
+    const platformOrders = (state.orders || []).filter(order => ["shopee","tiktok","lazada","facebook","website"].includes(order.channel) && ["paid","completed"].includes(order.status) && !postedOrderIds.has(order.id));
+    const kpiNode = document.querySelector("[data-accounting-commerce-kpis]");
+    if (kpiNode) {
+      const cards = [
+        ["Tiền hiện có", money.format((state.accountingAccounts || []).reduce((sum, item) => sum + item.currentBalance, 0)), "Tổng số dư sổ"],
+        ["Tiền sàn chờ về", money.format(pendingPayout), `${payouts.filter(item => item.status !== "posted").length} payout`],
+        ["Đơn chưa đối soát", String(platformOrders.length), "Đơn sàn đã hoàn tất"],
+        ["Chênh lệch", money.format(mismatchTotal), "Cần xác minh"],
+        ["Doanh thu tháng", money.format(monthIncome), currentMonth],
+        ["Lãi tạm tính", money.format(monthIncome - monthExpense), "Thu trừ chi đã ghi sổ"],
+        ["Chi phí tháng", money.format(monthExpense), currentMonth],
+        ["Thiếu chứng từ", String(missingDocuments.length), "Giao dịch chi"]
+      ];
+      kpiNode.innerHTML = cards.map(([label,value,note]) => `<article class="accounting-commerce-kpi"><small>${label}</small><strong>${value}</strong><span>${note}</span></article>`).join("");
+    }
+    const actionNode = document.querySelector("[data-accounting-action-list]");
+    if (actionNode) {
+      const actions = [
+        [platformOrders.length, "Đơn sàn chưa đối soát", "payouts"],
+        [payouts.filter(item => item.status === "mismatch").length, "Payout lệch tiền", "payouts"],
+        [transactions.filter(item => !item.categoryId).length, "Giao dịch chưa phân loại", "ledger"],
+        [missingDocuments.length, "Chi phí thiếu chứng từ", "expenses"],
+        [(state.accountingAccounts || []).filter(account => !(state.accountingReconciliations || []).some(item => item.accountId === account.id)).length, "Tài khoản chưa từng đối soát", "settings"]
+      ].filter(item => item[0] > 0);
+      actionNode.innerHTML = actions.length ? actions.map(([count,label,view]) => `<button type="button" class="accounting-action-item" data-accounting-jump="${view}"><span>${label}</span><strong>${count}</strong>${icon("external")}</button>`).join("") : `<div class="empty compact">Không có việc kế toán cần xử lý ngay.</div>`;
+    }
+    const balanceNode = document.querySelector("[data-accounting-balance-list]");
+    if (balanceNode) balanceNode.innerHTML = (state.accountingAccounts || []).map(account => {
+      const recent = (state.accountingReconciliations || []).filter(item => item.accountId === account.id).sort((a,b) => String(b.reconciledAt).localeCompare(String(a.reconciledAt)))[0];
+      return `<article><span><strong>${escapeHtml(account.name)}</strong><small>${recent ? `Đối soát ${formatDate(recent.reconciledAt)}` : "Chưa đối soát"}</small></span><b>${money.format(account.currentBalance)}</b></article>`;
+    }).join("") || `<div class="empty compact">Chưa có tài khoản tiền.</div>`;
+
+    const channelFilter = document.querySelector("[data-payout-channel-filter]");
+    if (channelFilter) {
+      channelFilter.innerHTML = `<option value="all">Tất cả sàn</option>${["shopee","tiktok","lazada","facebook","website"].map(code => `<option value="${code}">${commerceChannelLabel(code)}</option>`).join("")}`;
+      channelFilter.value = accountingFilters.payoutChannel;
+    }
+    const statusFilter = document.querySelector("[data-payout-status-filter]"); if (statusFilter) statusFilter.value = accountingFilters.payoutStatus;
+    const rangeFilter = document.querySelector("[data-payout-range-filter]"); if (rangeFilter) rangeFilter.value = accountingFilters.payoutRange;
+    const payoutCutoff = accountingFilters.payoutRange === "all" ? "" : shiftDateValue(localDateValue(), -Number(accountingFilters.payoutRange));
+    const visiblePayouts = payouts.filter(item => (accountingFilters.payoutChannel === "all" || [item.channelCode,item.channelId].includes(accountingFilters.payoutChannel)) && (accountingFilters.payoutStatus === "all" || item.status === accountingFilters.payoutStatus) && (!payoutCutoff || item.payoutDate >= payoutCutoff));
+    const payoutKpis = document.querySelector("[data-accounting-payout-kpis]");
+    if (payoutKpis) payoutKpis.innerHTML = [
+      ["Chờ đối soát", payouts.filter(item => item.status === "draft").length], ["Đã khớp", payouts.filter(item => item.status === "matched").length],
+      ["Đang lệch", payouts.filter(item => item.status === "mismatch").length], ["Tiền chưa về", money.format(pendingPayout)]
+    ].map(([label,value]) => `<article><small>${label}</small><strong>${value}</strong></article>`).join("");
+    const payoutTable = document.querySelector("[data-platform-payout-table]");
+    if (payoutTable) payoutTable.innerHTML = visiblePayouts.length ? visiblePayouts.map(item => {
+      const meta = payoutStatusMeta(item.status);
+      return `<tr><td><strong>${escapeHtml(commerceChannelLabel(item.channelId || item.channelCode))}</strong><small>${escapeHtml(item.payoutCode)} · ${item.items.length} đơn</small></td><td>${formatDate(item.periodStart)} - ${formatDate(item.periodEnd)}</td><td>${money.format(item.expectedAmount)}</td><td><strong>${money.format(item.actualAmount)}</strong></td><td class="${item.difference ? "negative" : "positive"}">${money.format(item.difference)}</td><td><span class="badge ${meta[1]}">${meta[0]}</span></td><td><div class="table-actions"><button class="link-button icon-only" type="button" data-view-platform-payout="${item.id}" title="Chi tiết">${icon("eye")}</button>${item.status !== "posted" ? `<button class="link-button icon-only" type="button" data-match-platform-payout="${item.id}" title="Ghép đơn">${icon("refresh")}</button><button class="button small primary icon-only" type="button" data-post-platform-payout="${item.id}" title="Ghi nhận tiền về">${icon("wallet")}</button>` : ""}</div></td></tr>`;
+    }).join("") : `<tr><td colspan="7" class="empty">Chưa có payout phù hợp bộ lọc.</td></tr>`;
+
+    const expenseGroups = { platform_fee:"Phí sàn", marketing:"Marketing", packaging:"Bao bì", payroll:"Lương", operation:"Vận hành", inventory_loss:"Hao hụt kho", other:"Khác" };
+    const expenseTotals = {};
+    monthTransactions.filter(item => item.type === "expense").forEach(item => { const group = getAccountingCategory(item.categoryId).group || "other"; expenseTotals[group] = (expenseTotals[group] || 0) + item.amount; });
+    const expenseSummary = document.querySelector("[data-accounting-expense-summary]"); if (expenseSummary) expenseSummary.innerHTML = `<strong>${money.format(monthExpense)}</strong><span>Tổng chi tháng ${currentMonth}</span>`;
+    const expenseNode = document.querySelector("[data-accounting-expense-groups]"); if (expenseNode) expenseNode.innerHTML = Object.entries(expenseTotals).sort((a,b)=>b[1]-a[1]).map(([group,total]) => `<article><span>${expenseGroups[group] || group}</span><b>${money.format(total)}</b><i style="--share:${monthExpense ? Math.round(total/monthExpense*100) : 0}%"></i></article>`).join("") || `<div class="empty compact">Chưa có chi phí trong tháng.</div>`;
+    const missingNode = document.querySelector("[data-missing-document-list]"); if (missingNode) missingNode.innerHTML = missingDocuments.slice(0,8).map(item => `<article class="accounting-document-item"><span><strong>${escapeHtml(item.description)}</strong><small>${formatDate(item.transactionDate)} · ${escapeHtml(getAccountingCategory(item.categoryId).name)}</small></span><b>${money.format(item.amount)}</b></article>`).join("") || `<div class="empty compact">Các giao dịch chi đã đủ liên kết chứng từ.</div>`;
+
+    const taxSummary = document.querySelector("[data-accounting-tax-summary]"); if (taxSummary) taxSummary.innerHTML = [["Doanh thu tháng",monthIncome],["Tiền sàn đã chuyển",payouts.filter(item=>item.status==="posted").reduce((s,i)=>s+i.actualAmount,0)],["Tổng phí sàn",payouts.reduce((s,i)=>s+i.totalFees,0)],["Thiếu chứng từ",missingDocuments.length]].map(([label,value],index)=>`<article><small>${label}</small><strong>${index===3?value:money.format(value)}</strong></article>`).join("");
+    const channelRevenue = document.querySelector("[data-accounting-channel-revenue]"); if (channelRevenue) { const totals={}; (state.orders||[]).filter(order=>String(order.createdAt).slice(0,7)===currentMonth).forEach(order=>totals[order.channel]=(totals[order.channel]||0)+order.netTotal); channelRevenue.innerHTML=Object.entries(totals).map(([channel,total])=>`<article><span>${commerceChannelLabel(channel)}</span><b>${money.format(total)}</b></article>`).join("")||`<div class="empty compact">Chưa có doanh thu tháng này.</div>`; }
+    const taxDocs = document.querySelector("[data-accounting-tax-documents]"); if (taxDocs) taxDocs.innerHTML = missingDocuments.slice(0,6).map(item=>`<article class="accounting-document-item"><span>${escapeHtml(item.description)}</span><b>${money.format(item.amount)}</b></article>`).join("")||`<div class="empty compact">Không còn chứng từ thiếu.</div>`;
+    document.querySelectorAll("[data-accounting-debt-view]").forEach(button => button.classList.toggle("active", button.dataset.accountingDebtView === accountingFilters.debtView));
+    const debtOps = document.querySelector("[data-accounting-debt-operations]");
+    document.querySelectorAll("[data-accounting-debt-summary], .accounting-local-toolbar, [data-accounting-receivables]").forEach(node => { node.hidden = accountingFilters.debtView !== "customer"; });
+    if (debtOps) {
+      debtOps.hidden = accountingFilters.debtView === "customer";
+      if (accountingFilters.debtView === "platform") {
+        const grouped = {};
+        platformOrders.forEach(order => { const key=order.channel||"other"; grouped[key] ||= {count:0,total:0,oldest:0}; grouped[key].count+=1; grouped[key].total+=Number(order.netTotal||order.total||0); grouped[key].oldest=Math.max(grouped[key].oldest,orderAgeDays(order)); });
+        debtOps.innerHTML = Object.entries(grouped).map(([channel,item])=>`<article class="accounting-debt-row"><span><strong>${commerceChannelLabel(channel)}</strong><small>${item.count} đơn · tuổi nợ cao nhất ${item.oldest} ngày</small></span><b>${money.format(item.total)}</b><span class="badge ${item.oldest>7?"warning":"neutral"}">${item.oldest>7?"Cần kiểm tra":"Chờ kỳ trả"}</span></article>`).join("") || `<div class="empty">Không có đơn sàn đang chờ payout.</div>`;
+      } else if (accountingFilters.debtView === "supplier") {
+        const suppliers = (state.suppliers || []).filter(item => item.status !== "deleted" && item.outstanding > 0).sort((a,b)=>b.outstanding-a.outstanding);
+        debtOps.innerHTML = suppliers.map(supplier=>`<article class="accounting-debt-row"><span><strong>${escapeHtml(supplier.name)}</strong><small>${escapeHtml(supplier.code)} · mua gần nhất ${formatDate(supplier.lastPurchaseAt)}</small></span><b>${money.format(supplier.outstanding)}</b><span class="badge neutral">Phải trả</span></article>`).join("") || `<div class="empty">Không có công nợ nhà cung cấp.</div>`;
+      }
+    }
+    const settingsForm = document.querySelector("[data-accounting-settings-form]");
+    if (settingsForm) {
+      const settings = state.accountingSettings || {};
+      settingsForm.tolerance.value = Number(settings.tolerance ?? 1000);
+      settingsForm.autoAdjustment.checked = Boolean(settings.autoAdjustment);
+      settingsForm.payrollKeywords.value = settings.payrollKeywords || "lương, cộng tác viên, payroll";
+      settingsForm.querySelectorAll("[data-accounting-setting-account]").forEach(select => {
+        const selected = select.name === "shopeeAccountId" ? settings.shopeeAccountId : settings.tiktokAccountId;
+        select.innerHTML = `<option value="">Chưa chọn</option>${(state.accountingAccounts || []).filter(item=>item.status==="active").map(account=>`<option value="${account.id}" ${selected===account.id?"selected":""}>${escapeHtml(account.name)}</option>`).join("")}`;
+      });
+    }
+    document.querySelectorAll("[data-accounting-profit-view]").forEach(button => button.classList.toggle("active", button.dataset.accountingProfitView === accountingFilters.profitView));
+    document.querySelectorAll("[data-accounting-settings-view]").forEach(button => button.classList.toggle("active", button.dataset.accountingSettingsView === accountingFilters.settingsView));
+    const profitOverview = document.querySelector(".accounting-profit-overview");
+    const profitSku = document.querySelector(".accounting-product-profit-panel");
+    const profitDetail = document.querySelector("[data-accounting-commerce-profit-detail]");
+    if (profitOverview) profitOverview.hidden = accountingFilters.profitView !== "overview";
+    if (profitSku) profitSku.hidden = accountingFilters.profitView !== "sku";
+    if (profitDetail) {
+      profitDetail.hidden = ["overview","sku"].includes(accountingFilters.profitView);
+      if (accountingFilters.profitView === "channel") {
+        const channelCodes = [...new Set((state.orders || []).map(order => order.channel).filter(Boolean))];
+        const rows = channelCodes.map(code => {
+          const snapshot = profitSnapshot(accountingFilters.range, code);
+          const platformFees = payouts.filter(item => [item.channelCode,item.channelId].includes(code)).reduce((sum,item)=>sum+item.totalFees,0);
+          const realProfit = snapshot.grossProfit - platformFees;
+          return { code, revenue:snapshot.revenue, gross:snapshot.grossProfit, fees:platformFees, profit:realProfit, margin:snapshot.revenue?realProfit/snapshot.revenue:0 };
+        }).sort((a,b)=>b.profit-a.profit);
+        profitDetail.innerHTML = `<div class="panel-header"><div><p class="section-kicker">Hiệu quả từng nơi bán</p><h2>Lãi theo sàn</h2><p>Lãi gộp trừ phí sàn đã có trong payout; chưa phân bổ chi phí chung.</p></div></div><div class="table-wrap"><table><thead><tr><th>Kênh/sàn</th><th>Doanh thu</th><th>Lãi gộp</th><th>Phí sàn</th><th>Lãi sau phí</th><th>Biên</th></tr></thead><tbody>${rows.length?rows.map(row=>`<tr><td><strong>${commerceChannelLabel(row.code)}</strong></td><td>${money.format(row.revenue)}</td><td>${money.format(row.gross)}</td><td>${money.format(row.fees)}</td><td><strong>${money.format(row.profit)}</strong></td><td>${(row.margin*100).toFixed(1)}%</td></tr>`).join(""):`<tr><td colspan="6" class="empty">Chưa có dữ liệu bán hàng theo kênh.</td></tr>`}</tbody></table></div>`;
+      } else if (accountingFilters.profitView === "campaign") {
+        profitDetail.innerHTML = `<div class="panel-header"><div><p class="section-kicker">Chiến dịch bán hàng</p><h2>Lãi theo campaign</h2><p>Chỉ tổng hợp khi đơn hoặc chi phí đã được liên kết campaign.</p></div></div><div class="empty">Dữ liệu đơn hiện tại chưa có liên kết campaign đủ để phân bổ lợi nhuận. Hệ thống không tự suy đoán để tránh báo cáo sai.</div>`;
+      }
+    }
   }
 
   function renderAccounting() {
     if (!els.accountingKpis && !els.accountingTransactionsTable) return;
     syncAccountingView();
+    renderCommerceAccounting();
     const term = searchTerm.trim().toLowerCase();
     if (els.accountingAccountFilter) {
       const current = accountingFilters.accountId;
@@ -7225,6 +7462,37 @@
     `;
   }
 
+  function renderPlatformPayoutForm(payout) {
+    const marketplace = (state.salesChannels || []).filter(channel => channel.status === "active" && channel.type === "marketplace");
+    const channelOptions = marketplace.length ? marketplace : [
+      { id:"shopee",code:"shopee",name:"Shopee" }, { id:"tiktok",code:"tiktok",name:"TikTok Shop" }, { id:"lazada",code:"lazada",name:"Lazada" }
+    ];
+    const selectedChannel = payout?.channelId || payout?.channelCode || "";
+    return `
+      <input type="hidden" name="id" value="${escapeAttribute(payout?.id || "")}" />
+      <div class="field"><label for="channelId">Sàn bán hàng</label><select id="channelId" name="channelId" required>${channelOptions.map(channel => `<option value="${escapeAttribute(channel.id)}" data-code="${escapeAttribute(channel.code)}" ${[channel.id,channel.code].includes(selectedChannel) ? "selected" : ""}>${escapeHtml(channel.name)}</option>`).join("")}</select></div>
+      <div class="field"><label for="payoutCode">Mã payout / kỳ thanh toán</label><input id="payoutCode" name="payoutCode" value="${escapeAttribute(payout?.payoutCode || "")}" placeholder="SPX-202607-001" required /></div>
+      <div class="field"><label for="periodStart">Từ ngày</label><input id="periodStart" name="periodStart" type="date" value="${payout?.periodStart || localDateValue()}" required /></div>
+      <div class="field"><label for="periodEnd">Đến ngày</label><input id="periodEnd" name="periodEnd" type="date" value="${payout?.periodEnd || localDateValue()}" required /></div>
+      <div class="field"><label for="payoutDate">Ngày tiền về</label><input id="payoutDate" name="payoutDate" type="date" value="${payout?.payoutDate || localDateValue()}" required /></div>
+      <div class="field"><label for="accountId">Tài khoản nhận</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions(payout?.accountId || "")}</select></div>
+      <div class="field"><label for="grossAmount">Doanh thu gộp</label><input id="grossAmount" name="grossAmount" type="number" min="0" step="1" value="${payout?.grossAmount || 0}" /></div>
+      <div class="field"><label for="totalFees">Tổng phí sàn</label><input id="totalFees" name="totalFees" type="number" min="0" step="1" value="${payout?.totalFees || 0}" /></div>
+      <div class="field"><label for="totalRefunds">Hoàn / trả</label><input id="totalRefunds" name="totalRefunds" type="number" min="0" step="1" value="${payout?.totalRefunds || 0}" /></div>
+      <div class="field"><label for="expectedAmount">Tiền dự kiến</label><input id="expectedAmount" name="expectedAmount" type="number" min="0" step="1" value="${payout?.expectedAmount || 0}" required /></div>
+      <div class="field"><label for="actualAmount">Tiền thực nhận</label><input id="actualAmount" name="actualAmount" type="number" min="0" step="1" value="${payout?.actualAmount || 0}" required /></div>
+      <div class="field"><label for="status">Trạng thái</label><select id="status" name="status"><option value="draft">Chờ đối soát</option><option value="matched" ${payout?.status === "matched" ? "selected" : ""}>Đã khớp</option><option value="mismatch" ${payout?.status === "mismatch" ? "selected" : ""}>Đang lệch</option></select></div>
+      <div class="field"><label for="sourceFileName">Tên file nguồn</label><input id="sourceFileName" name="sourceFileName" value="${escapeAttribute(payout?.sourceFileName || "")}" placeholder="doi-soat-shopee.xlsx" /></div>
+      <div class="field"><label for="sourceFileUrl">Link file Drive</label><input id="sourceFileUrl" name="sourceFileUrl" type="url" value="${escapeAttribute(payout?.sourceFileUrl || "")}" placeholder="https://drive.google.com/..." /></div>
+      <div class="field full"><label for="note">Ghi chú</label><textarea id="note" name="note" rows="2">${escapeHtml(payout?.note || "")}</textarea></div>
+    `;
+  }
+
+  function renderPlatformPayoutDetail(payout) {
+    const meta = payoutStatusMeta(payout.status);
+    return `<div class="payout-detail full"><div class="modal-summary"><strong>${escapeHtml(commerceChannelLabel(payout.channelId || payout.channelCode))} · ${escapeHtml(payout.payoutCode)}</strong><span>${formatDate(payout.periodStart)} - ${formatDate(payout.periodEnd)} · <span class="badge ${meta[1]}">${meta[0]}</span></span></div><div class="payout-detail-kpis"><article><small>Dự kiến</small><strong>${money.format(payout.expectedAmount)}</strong></article><article><small>Thực nhận</small><strong>${money.format(payout.actualAmount)}</strong></article><article><small>Chênh lệch</small><strong>${money.format(payout.difference)}</strong></article></div><div class="table-wrap"><table><thead><tr><th>Đơn</th><th>Tiền hàng</th><th>Dự kiến</th><th>Sàn trả</th><th>Lệch</th></tr></thead><tbody>${payout.items.length ? payout.items.map(item=>`<tr><td><strong>${escapeHtml(item.orderCode || item.platformOrderCode || "Chưa ghép")}</strong><small>${escapeHtml(item.status)}</small></td><td>${money.format(item.productTotal)}</td><td>${money.format(item.expectedNetAmount)}</td><td>${money.format(item.platformNetAmount)}</td><td>${money.format(item.difference)}</td></tr>`).join("") : `<tr><td colspan="5" class="empty">Chưa có dòng chi tiết.</td></tr>`}</tbody></table></div>${payout.sourceFileUrl ? `<a class="button ghost" href="${escapeAttribute(payout.sourceFileUrl)}" target="_blank" rel="noopener">${icon("external")} Mở file nguồn</a>` : ""}</div>`;
+  }
+
   function renderStockReceiveForm() {
     return `
       <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptions()}</select></div>
@@ -8418,6 +8686,12 @@
   function renderAccountingExportForm() {
     const range = accountingExportRange();
     const optionsByScope = {
+      payouts: [
+        ["payouts", "Đối soát sàn và chi tiết payout", "Hai sheet gồm tổng hợp từng kỳ chuyển tiền và các dòng đơn/phí chi tiết để gửi kế toán hoặc đối chiếu với sàn.", "receipt"]
+      ],
+      tax: [
+        ["tax", "Gói dữ liệu cuối kỳ", "Tổng quan, sổ quỹ, payout, phí sàn và chi phí vận hành. Đây là dữ liệu tham khảo để đối chiếu và kê khai.", "spreadsheet"]
+      ],
       receivables: [
         ["receivables", "Danh sách công nợ phải thu", "Mỗi đơn còn thiếu tiền, khách hàng, tuổi nợ, số đã thu và số còn phải thu.", "clipboard"]
       ],
@@ -8491,7 +8765,7 @@
       showToast("Bạn không có quyền quản lý kho.", "error");
       return;
     }
-    if (["cashTransaction", "payrollExpense", "orderPayment", "orderRefund", "accountingAccount", "accountingCategory", "accountingReconciliation", "accountingExport"].includes(type) && !canManageAccounting()) {
+    if (["cashTransaction", "payrollExpense", "orderPayment", "orderRefund", "accountingAccount", "accountingCategory", "accountingReconciliation", "accountingExport", "platformPayout", "platformPayoutDetail"].includes(type) && !canManageAccounting()) {
       showToast("Bạn không có quyền quản lý kế toán.", "error");
       return;
     }
@@ -8579,6 +8853,7 @@
     const viewingOrder = options.orderDetail || null;
     const editingAccountingAccount = options.account || null;
     const editingAccountingCategory = options.category || null;
+    const editingPlatformPayout = options.platformPayout || null;
     const editingSupplier = options.supplier || null;
     const editingPurchaseOrder = options.purchaseOrder || null;
     const viewingAuditLog = options.auditLog || null;
@@ -8680,6 +8955,25 @@
         eyebrow: "Kế toán",
         title: "Xuất báo cáo nghiệp vụ",
         body: renderAccountingExportForm(),
+        readOnly: true
+      },
+      platformPayout: {
+        eyebrow: "Đối soát sàn",
+        title: editingPlatformPayout ? "Cập nhật phiếu đối soát" : "Tạo phiếu đối soát",
+        body: renderPlatformPayoutForm(editingPlatformPayout),
+        async submit(form) {
+          const data = Object.fromEntries(new FormData(form));
+          const channel = channelByIdOrCode(data.channelId) || { code: data.channelId };
+          const response = await apiRequest(editingPlatformPayout ? "/accounting/payouts/update" : "/accounting/payouts/create", { method: "POST", body: JSON.stringify({ ...data, channelCode: channel.code || data.channelId }) });
+          const saved = normalizePlatformPayout(response.platformPayout);
+          state.platformPayouts = editingPlatformPayout ? state.platformPayouts.map(item => item.id === saved.id ? { ...item, ...saved } : item) : [saved, ...(state.platformPayouts || [])];
+          await loadAccountingData({ quiet: true }); renderPage(); showToast("Đã lưu phiếu đối soát sàn.");
+        }
+      },
+      platformPayoutDetail: {
+        eyebrow: "Đối soát sàn",
+        title: editingPlatformPayout ? `Chi tiết ${editingPlatformPayout.payoutCode}` : "Chi tiết payout",
+        body: editingPlatformPayout ? renderPlatformPayoutDetail(editingPlatformPayout) : "",
         readOnly: true
       },
       accountingProfitDetails: {
@@ -9058,7 +9352,7 @@
       accountingCategory: {
         eyebrow: "Danh mục kế toán",
         title: editingAccountingCategory ? "Sửa danh mục" : "Thêm danh mục",
-        body: renderAccountingCategoryForm(editingAccountingCategory, options.categoryType),
+        body: renderAccountingCategoryForm(editingAccountingCategory, options.categoryType) + `<div class="field full"><label for="group">Nhóm vận hành</label><select id="group" name="group"><option value="other">Khác</option><option value="platform_fee" ${editingAccountingCategory?.group === "platform_fee" ? "selected" : ""}>Phí sàn</option><option value="marketing" ${editingAccountingCategory?.group === "marketing" ? "selected" : ""}>Marketing / Ads</option><option value="packaging" ${editingAccountingCategory?.group === "packaging" ? "selected" : ""}>Bao bì</option><option value="payroll" ${editingAccountingCategory?.group === "payroll" ? "selected" : ""}>Lương</option><option value="operation" ${editingAccountingCategory?.group === "operation" ? "selected" : ""}>Vận hành</option><option value="inventory_loss" ${editingAccountingCategory?.group === "inventory_loss" ? "selected" : ""}>Hao hụt kho</option></select><small>Dùng để tổng hợp chi phí; không thay đổi bản chất thu hoặc chi.</small></div>`,
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
           const name = String(data.name || "").trim();
@@ -9068,7 +9362,8 @@
             body: JSON.stringify({
               id: editingAccountingCategory ? editingAccountingCategory.id : undefined,
               name,
-              type: data.type
+              type: data.type,
+              group: data.group || "other"
             })
           });
           const savedCategory = normalizeAccountingCategory(dataFromApi.category);
@@ -9440,6 +9735,18 @@
       } finally {
         setBusy(button, false);
       }
+    });
+
+    document.addEventListener("submit", async event => {
+      const form = event.target.closest && event.target.closest("[data-accounting-settings-form]");
+      if (!form) return;
+      event.preventDefault();
+      const data = Object.fromEntries(new FormData(form));
+      const settings = { tolerance:Number(data.tolerance || 0), autoAdjustment:data.autoAdjustment === "on", payrollKeywords:data.payrollKeywords || "", shopeeAccountId:data.shopeeAccountId || "", tiktokAccountId:data.tiktokAccountId || "" };
+      try {
+        await withLoading("Đang lưu cấu hình kế toán...", () => apiRequest("/accounting/settings/update", { method:"POST", body:JSON.stringify({ settings }) }));
+        state.accountingSettings = settings; window.ArtFlowPosStore.save(state); showToast("Đã lưu cấu hình kế toán TMĐT.");
+      } catch (error) { showToast(error.message || String(error), "error"); }
     });
 
     document.addEventListener("click", event => {
@@ -10067,6 +10374,26 @@
         accountingFilters.view = target.dataset.accountingViewFilter;
         renderPage();
       }
+      if (target.dataset.accountingJump) {
+        accountingFilters.view = target.dataset.accountingJump;
+        renderPage();
+      }
+      if (target.dataset.accountingDebtView) { accountingFilters.debtView = target.dataset.accountingDebtView; renderPage(); }
+      if (target.dataset.accountingProfitView) { accountingFilters.profitView = target.dataset.accountingProfitView; renderPage(); }
+      if (target.dataset.accountingSettingsView) { accountingFilters.settingsView = target.dataset.accountingSettingsView; renderPage(); }
+      if (target.matches("[data-open-platform-payout]")) openModal("platformPayout");
+      if (target.dataset.viewPlatformPayout) {
+        const payout = (state.platformPayouts || []).find(item => item.id === target.dataset.viewPlatformPayout);
+        if (payout) openModal("platformPayoutDetail", { platformPayout: payout });
+      }
+      if (target.dataset.matchPlatformPayout) {
+        await withLoading("Đang ghép đơn với payout...", () => apiRequest("/accounting/payouts/match", { method:"POST", body:JSON.stringify({ id:target.dataset.matchPlatformPayout }) }));
+        await loadAccountingData({ quiet:true }); renderPage(); showToast("Đã hoàn tất ghép đơn có mã phù hợp.");
+      }
+      if (target.dataset.postPlatformPayout && window.confirm("Ghi nhận tiền sàn chuyển về tài khoản đã chọn? Thao tác này chỉ được thực hiện một lần.")) {
+        await withLoading("Đang ghi nhận tiền sàn về...", () => apiRequest("/accounting/payouts/post", { method:"POST", body:JSON.stringify({ id:target.dataset.postPlatformPayout }) }));
+        await loadAccountingData({ quiet:true }); renderPage(); showToast("Đã ghi nhận tiền sàn về sổ quỹ.");
+      }
       if (target.dataset.accountingTypeFilter) {
         accountingFilters.type = target.dataset.accountingTypeFilter;
         document.querySelectorAll("[data-accounting-type-filter]").forEach(button => {
@@ -10415,6 +10742,9 @@
       if (event.target.matches("[data-product-picker-filter], [data-product-picker-sort]")) filterProductPicker(event.target);
       if (event.target.matches("#teamPricingTarget")) updatePricingScopeFields(event.target.closest("form"));
       if (event.target.matches("#teamPricingChannel")) syncPricingTitle(event.target.closest("form"));
+      if (event.target.matches("[data-payout-channel-filter]")) { accountingFilters.payoutChannel = event.target.value; renderPage(); }
+      if (event.target.matches("[data-payout-status-filter]")) { accountingFilters.payoutStatus = event.target.value; renderPage(); }
+      if (event.target.matches("[data-payout-range-filter]")) { accountingFilters.payoutRange = event.target.value; renderPage(); }
       if (event.target.matches("[data-pricing-line-type], [data-pricing-line-included]")) updatePricingLineState(event.target);
       if (event.target.matches("[data-select-pricing-scenario]")) selectPricingScenario(event.target.closest("form"), event.target.value);
       if (event.target.matches("[data-inventory-filter]")) {

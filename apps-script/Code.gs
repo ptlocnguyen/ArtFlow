@@ -2,7 +2,7 @@ const SPREADSHEET_ID = "1L6b0QGzti33SVadVMKG2AnlsIKHjg98mNhuU3gJSd18";
 const SESSION_DAYS = 14;
 const USER_CACHE_SECONDS = 300;
 const HASH_ROUNDS = 12000;
-const DATABASE_SCHEMA_VERSION = "2026-07-06-omni-1";
+const DATABASE_SCHEMA_VERSION = "2026-07-11-accounting-commerce-1";
 const VIETNAM_TIMEZONE = "Asia/Ho_Chi_Minh";
 
 let databaseReady = false;
@@ -333,7 +333,8 @@ const SHEETS = {
     "type",
     "status",
     "created_at",
-    "updated_at"
+    "updated_at",
+    "group"
   ],
   accounting_reconciliations: [
     "id",
@@ -345,6 +346,20 @@ const SHEETS = {
     "reconciled_by",
     "reconciled_at",
     "created_at"
+  ],
+  platform_payouts: [
+    "id", "channel_id", "channel_code", "payout_code", "period_start", "period_end",
+    "payout_date", "account_id", "gross_amount", "total_fees", "total_refunds",
+    "expected_amount", "actual_amount", "difference", "status", "source_file_name",
+    "source_file_url", "source_file_note", "note", "posted_transaction_id", "created_by",
+    "created_at", "updated_at"
+  ],
+  platform_payout_items: [
+    "id", "payout_id", "order_id", "order_code", "platform_order_code", "product_total",
+    "shipping_fee", "seller_discount", "platform_discount", "commission_fee", "payment_fee",
+    "affiliate_fee", "ads_fee", "shipping_subsidy", "refund_amount", "penalty_fee",
+    "expected_net_amount", "platform_net_amount", "difference", "status", "note",
+    "created_at", "updated_at"
   ],
   suppliers: [
     "id",
@@ -450,7 +465,9 @@ const SHEETS = {
     "created_by",
     "status",
     "created_at",
-    "updated_at"
+    "updated_at",
+    "channel_id",
+    "document_url"
   ],
   audit_logs: [
     "id",
@@ -639,6 +656,19 @@ function handleRequest(e) {
         return json(updateAccountingCategory(body));
       case "archiveAccountingCategory":
         return json(archiveAccountingCategory(body));
+      case "createPlatformPayout":
+      case "updatePlatformPayout":
+        return json(savePlatformPayout(body));
+      case "addPlatformPayoutItem":
+        return json(addPlatformPayoutItem(body));
+      case "autoMatchPlatformPayout":
+        return json(autoMatchPlatformPayout(body));
+      case "postPlatformPayout":
+        return json(postPlatformPayout(body));
+      case "resolvePlatformPayoutMismatch":
+        return json(resolvePlatformPayoutMismatch(body));
+      case "updateAccountingSettings":
+        return json(updateAccountingOperationsSettings(body));
       case "getPurchasingData":
         return json(getPurchasingData(body));
       case "createSupplier":
@@ -748,7 +778,14 @@ function auditActionMetadata(action) {
     payPurchaseOrder: ["Thanh toán phiếu mua", "supplier_payment"],
     cancelPurchaseOrder: ["Hủy phiếu mua hàng", "purchase_order"],
     returnPurchaseOrder: ["Trả hàng nhà cung cấp", "purchase_return"],
-    applySupplierCredit: ["Bù trừ dư có nhà cung cấp", "supplier_credit"]
+    applySupplierCredit: ["Bù trừ dư có nhà cung cấp", "supplier_credit"],
+    createPlatformPayout: ["Tạo phiếu đối soát sàn", "platform_payout"],
+    updatePlatformPayout: ["Cập nhật phiếu đối soát sàn", "platform_payout"],
+    addPlatformPayoutItem: ["Thêm đơn vào phiếu đối soát", "platform_payout_item"],
+    autoMatchPlatformPayout: ["Ghép đơn đối soát tự động", "platform_payout"],
+    postPlatformPayout: ["Ghi nhận tiền sàn chuyển về", "platform_payout"],
+    resolvePlatformPayoutMismatch: ["Xử lý chênh lệch payout", "platform_payout"],
+    updateAccountingSettings: ["Cập nhật cài đặt kế toán", "app_setting"]
   }[action] || null;
 }
 
@@ -842,7 +879,7 @@ function auditEntityId(context, payload) {
   if (preferred && payload[preferred] && payload[preferred].id) return String(payload[preferred].id);
   const resultKeys = [
     "user", "product", "option", "contentItem", "teamItem", "incenseWish", "customer", "order", "salesReturn", "refund", "movement",
-    "transaction", "account", "category", "reconciliation", "supplier", "purchaseOrder",
+    "transaction", "account", "category", "reconciliation", "platformPayout", "payoutItem", "supplier", "purchaseOrder",
     "purchaseReturn", "payment", "creditApplication"
   ];
   for (let i = 0; i < resultKeys.length; i += 1) {
@@ -5631,6 +5668,137 @@ function applySupplierCredit(body) {
   }
 }
 
+function publicPlatformPayoutItem(item) {
+  return {
+    id: item.id, payoutId: item.payout_id, orderId: item.order_id || "", orderCode: item.order_code || "",
+    platformOrderCode: item.platform_order_code || "", productTotal: Number(item.product_total || 0),
+    shippingFee: Number(item.shipping_fee || 0), sellerDiscount: Number(item.seller_discount || 0),
+    platformDiscount: Number(item.platform_discount || 0), commissionFee: Number(item.commission_fee || 0),
+    paymentFee: Number(item.payment_fee || 0), affiliateFee: Number(item.affiliate_fee || 0), adsFee: Number(item.ads_fee || 0),
+    shippingSubsidy: Number(item.shipping_subsidy || 0), refundAmount: Number(item.refund_amount || 0),
+    penaltyFee: Number(item.penalty_fee || 0), expectedNetAmount: Number(item.expected_net_amount || 0),
+    platformNetAmount: Number(item.platform_net_amount || 0), difference: Number(item.difference || 0),
+    status: item.status || "pending", note: item.note || "", createdAt: item.created_at || "", updatedAt: item.updated_at || ""
+  };
+}
+
+function publicPlatformPayout(payout, items) {
+  return {
+    id: payout.id, channelId: payout.channel_id || "", channelCode: payout.channel_code || "", payoutCode: payout.payout_code || "",
+    periodStart: payout.period_start || "", periodEnd: payout.period_end || "", payoutDate: payout.payout_date || "",
+    accountId: payout.account_id || "", grossAmount: Number(payout.gross_amount || 0), totalFees: Number(payout.total_fees || 0),
+    totalRefunds: Number(payout.total_refunds || 0), expectedAmount: Number(payout.expected_amount || 0),
+    actualAmount: Number(payout.actual_amount || 0), difference: Number(payout.difference || 0), status: payout.status || "draft",
+    sourceFileName: payout.source_file_name || "", sourceFileUrl: payout.source_file_url || "",
+    sourceFileNote: payout.source_file_note || "", note: payout.note || "", postedTransactionId: payout.posted_transaction_id || "",
+    createdBy: payout.created_by || "", createdAt: payout.created_at || "", updatedAt: payout.updated_at || "",
+    items: (items || []).map(publicPlatformPayoutItem)
+  };
+}
+
+function savePlatformPayout(body) {
+  const user = requireAccountingManager(body.token);
+  const id = String(body.id || "");
+  const channelId = String(body.channelId || "");
+  const channelCode = String(body.channelCode || "").trim().toLowerCase();
+  const payoutCode = String(body.payoutCode || "").trim();
+  if ((!channelId && !channelCode) || !payoutCode) return { ok: false, error: "Cần chọn sàn và nhập mã payout" };
+  const payouts = readRows("platform_payouts");
+  const existing = id ? payouts.find(function (item) { return item.id === id && item.status !== "archived"; }) : null;
+  if (id && !existing) return { ok: false, error: "Không tìm thấy phiếu đối soát" };
+  if (payouts.some(function (item) { return item.id !== id && item.status !== "archived" && item.channel_code === channelCode && item.payout_code === payoutCode; })) {
+    return { ok: false, error: "Mã payout này đã tồn tại trên cùng sàn" };
+  }
+  const now = nowIso();
+  const expected = Number(body.expectedAmount || 0), actual = Number(body.actualAmount || 0);
+  const row = {
+    id: existing ? existing.id : Utilities.getUuid(), channel_id: channelId, channel_code: channelCode, payout_code: payoutCode,
+    period_start: String(body.periodStart || ""), period_end: String(body.periodEnd || ""), payout_date: String(body.payoutDate || now.slice(0, 10)),
+    account_id: String(body.accountId || ""), gross_amount: Number(body.grossAmount || 0), total_fees: Number(body.totalFees || 0),
+    total_refunds: Number(body.totalRefunds || 0), expected_amount: expected, actual_amount: actual, difference: actual - expected,
+    status: ["draft", "matched", "mismatch"].indexOf(String(body.status || "draft")) === -1 ? "draft" : String(body.status || "draft"),
+    source_file_name: String(body.sourceFileName || ""), source_file_url: String(body.sourceFileUrl || ""),
+    source_file_note: String(body.sourceFileNote || ""), note: String(body.note || ""),
+    posted_transaction_id: existing ? existing.posted_transaction_id : "", created_by: existing ? existing.created_by : user.id,
+    created_at: existing ? existing.created_at : now, updated_at: now
+  };
+  if (existing) updateRow("platform_payouts", existing._row, row); else appendRow("platform_payouts", row);
+  return { ok: true, platformPayout: publicPlatformPayout(row, []) };
+}
+
+function addPlatformPayoutItem(body) {
+  requireAccountingManager(body.token);
+  const payout = readRows("platform_payouts").find(function (item) { return item.id === String(body.payoutId || "") && ["posted", "archived"].indexOf(item.status) === -1; });
+  if (!payout) return { ok: false, error: "Phiếu đối soát không còn được chỉnh sửa" };
+  const orderId = String(body.orderId || ""), orderCode = String(body.orderCode || "");
+  if (readRows("platform_payout_items").some(function (item) { return item.payout_id === payout.id && (item.order_id === orderId || (orderCode && item.order_code === orderCode)); })) return { ok: false, error: "Đơn đã có trong phiếu đối soát" };
+  const now = nowIso(), expected = Number(body.expectedNetAmount || 0), platform = Number(body.platformNetAmount || 0);
+  const row = { id: Utilities.getUuid(), payout_id: payout.id, order_id: orderId, order_code: orderCode, platform_order_code: String(body.platformOrderCode || ""),
+    product_total: Number(body.productTotal || 0), shipping_fee: Number(body.shippingFee || 0), seller_discount: Number(body.sellerDiscount || 0),
+    platform_discount: Number(body.platformDiscount || 0), commission_fee: Number(body.commissionFee || 0), payment_fee: Number(body.paymentFee || 0),
+    affiliate_fee: Number(body.affiliateFee || 0), ads_fee: Number(body.adsFee || 0), shipping_subsidy: Number(body.shippingSubsidy || 0),
+    refund_amount: Number(body.refundAmount || 0), penalty_fee: Number(body.penaltyFee || 0), expected_net_amount: expected,
+    platform_net_amount: platform, difference: platform - expected, status: Math.abs(platform - expected) <= Number(body.tolerance || 1000) ? "matched" : "mismatch",
+    note: String(body.note || ""), created_at: now, updated_at: now };
+  appendRow("platform_payout_items", row);
+  return { ok: true, payoutItem: publicPlatformPayoutItem(row) };
+}
+
+function autoMatchPlatformPayout(body) {
+  requireAccountingManager(body.token);
+  const payout = readRows("platform_payouts").find(function (item) { return item.id === String(body.id || "") && ["posted", "archived"].indexOf(item.status) === -1; });
+  if (!payout) return { ok: false, error: "Không tìm thấy payout có thể ghép" };
+  const orders = readRows("orders"), items = readRows("platform_payout_items").filter(function (item) { return item.payout_id === payout.id; });
+  let matched = 0, hasMismatch = false;
+  items.forEach(function (item) {
+    const order = orders.find(function (candidate) { return candidate.id === item.order_id || candidate.code === item.order_code; });
+    if (!order) return;
+    const status = Math.abs(Number(item.difference || 0)) <= 1000 ? "matched" : "mismatch";
+    updateRow("platform_payout_items", item._row, { order_id: order.id, order_code: order.code, status: status, updated_at: nowIso() });
+    matched += 1; if (status === "mismatch") hasMismatch = true;
+  });
+  const status = hasMismatch ? "mismatch" : "matched";
+  updateRow("platform_payouts", payout._row, { status: status, updated_at: nowIso() });
+  return { ok: true, matched: matched, status: status };
+}
+
+function resolvePlatformPayoutMismatch(body) {
+  requireAccountingManager(body.token);
+  const note = String(body.note || "").trim();
+  if (!note) return { ok: false, error: "Cần nhập cách xử lý chênh lệch" };
+  const payout = readRows("platform_payouts").find(function (item) { return item.id === String(body.id || "") && item.status === "mismatch"; });
+  if (!payout) return { ok: false, error: "Payout không ở trạng thái chênh lệch" };
+  updateRow("platform_payouts", payout._row, { status: "matched", note: note, updated_at: nowIso() });
+  return { ok: true, status: "matched" };
+}
+
+function postPlatformPayout(body) {
+  const user = requireAccountingManager(body.token);
+  const payout = readRows("platform_payouts").find(function (item) { return item.id === String(body.id || "") && item.status !== "archived"; });
+  if (!payout) return { ok: false, error: "Không tìm thấy payout" };
+  if (payout.status === "posted" || payout.posted_transaction_id) return { ok: false, error: "Payout đã được ghi nhận tiền về" };
+  const account = readRows("accounting_accounts").find(function (item) { return item.id === payout.account_id && item.status === "active"; });
+  if (!account) return { ok: false, error: "Tài khoản nhận tiền không hợp lệ" };
+  const category = findOrCreateAccountingCategory("income", "Tiền sàn chuyển về");
+  const now = nowIso(), transaction = { id: Utilities.getUuid(), type: "income", account_id: account.id, category_id: category.id,
+    amount: Number(payout.actual_amount || 0), transaction_date: payout.payout_date || now.slice(0, 10),
+    description: "Sàn " + (payout.channel_code || payout.channel_id) + " chuyển tiền kỳ " + payout.period_start + " - " + payout.period_end,
+    reference_type: "platform_payout", reference_id: payout.id, created_by: user.id, status: "active", created_at: now, updated_at: now,
+    channel_id: payout.channel_id || "", document_url: payout.source_file_url || "" };
+  appendRow("cash_transactions", transaction);
+  updateRow("platform_payouts", payout._row, { status: "posted", posted_transaction_id: transaction.id, updated_at: now });
+  return { ok: true, transaction: publicCashTransaction(transaction), platformPayout: publicPlatformPayout(Object.assign({}, payout, { status: "posted", posted_transaction_id: transaction.id }), []) };
+}
+
+function updateAccountingOperationsSettings(body) {
+  const user = requireAccountingManager(body.token);
+  const settings = body.settings && typeof body.settings === "object" ? body.settings : {};
+  const existing = readRows("app_settings").find(function (row) { return row.key === "accounting_operations"; });
+  const patch = { key: "accounting_operations", value_json: JSON.stringify(settings), updated_by: user.id, updated_at: nowIso() };
+  if (existing) updateRow("app_settings", existing._row, patch); else appendRow("app_settings", patch);
+  return { ok: true, accountingSettings: settings };
+}
+
 function ensureAccountingDefaults() {
   const now = nowIso();
   const accounts = readRows("accounting_accounts");
@@ -5750,6 +5918,7 @@ function publicAccountingCategory(category) {
     id: category.id,
     name: category.name,
     type: category.type || "expense",
+    group: category.group || "other",
     status: category.status || "active",
     createdAt: category.created_at || "",
     updatedAt: category.updated_at || ""
@@ -5781,6 +5950,8 @@ function publicCashTransaction(transaction) {
     description: transaction.description || "",
     referenceType: transaction.reference_type || "",
     referenceId: transaction.reference_id || "",
+    channelId: transaction.channel_id || "",
+    documentUrl: transaction.document_url || "",
     createdBy: transaction.created_by || "",
     status: transaction.status || "active",
     createdAt: transaction.created_at || "",
@@ -5826,6 +5997,9 @@ function getAccountingData(body) {
       return String(b.reconciled_at || b.created_at).localeCompare(String(a.reconciled_at || a.created_at));
     });
   const balances = calculateAccountBalances(accounts, transactions);
+  const payoutItems = readRows("platform_payout_items");
+  const payouts = readRows("platform_payouts").filter(function (item) { return item.status !== "archived"; });
+  const accountingSettings = publicAppSettings().accounting_operations || {};
 
   return {
     ok: true,
@@ -5834,7 +6008,11 @@ function getAccountingData(body) {
     }),
     categories: categories.map(publicAccountingCategory),
     transactions: transactions.map(publicCashTransaction),
-    reconciliations: reconciliations.map(publicAccountingReconciliation)
+    reconciliations: reconciliations.map(publicAccountingReconciliation),
+    platformPayouts: payouts.map(function (payout) {
+      return publicPlatformPayout(payout, payoutItems.filter(function (item) { return item.payout_id === payout.id; }));
+    }),
+    accountingSettings: accountingSettings
   };
 }
 
@@ -6014,6 +6192,7 @@ function createAccountingCategory(body) {
 
   const name = String(body.name || "").trim();
   const type = normalizeAccountingType(body.type);
+  const group = String(body.group || "other");
 
   if (!name) {
     return { ok: false, error: "Accounting category is invalid" };
@@ -6033,6 +6212,7 @@ function createAccountingCategory(body) {
     id: Utilities.getUuid(),
     name: name,
     type: type,
+    group: group,
     status: "active",
     created_at: now,
     updated_at: now
@@ -6062,6 +6242,13 @@ function updateAccountingCategory(body) {
     return { ok: false, error: "Category not found" };
   }
 
+  if (category.type !== type && readRows("cash_transactions").some(function (transaction) {
+    return transaction.category_id === category.id && transaction.status !== "deleted";
+  })) {
+    return { ok: false, error: "Không thể đổi loại danh mục đã có giao dịch" };
+  }
+  const group = String(body.group || category.group || "other");
+
   if (categories.some(function (item) {
     return item.id !== id &&
       item.status !== "deleted" &&
@@ -6074,6 +6261,7 @@ function updateAccountingCategory(body) {
   const patch = {
     name: name,
     type: type,
+    group: group,
     updated_at: nowIso()
   };
   updateRow("accounting_categories", category._row, patch);

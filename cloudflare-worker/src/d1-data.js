@@ -267,7 +267,7 @@ const SNAPSHOT_TABLES = [
   "workspace_tasks", "app_settings", "incense_wishes", "customers", "orders",
   "order_items", "sales_returns", "sales_return_items", "order_refunds",
   "stock_movements", "accounting_accounts", "accounting_categories",
-  "accounting_reconciliations", "suppliers", "purchase_orders",
+  "accounting_reconciliations", "platform_payouts", "platform_payout_items", "suppliers", "purchase_orders",
   "purchase_order_items", "supplier_payments", "purchase_returns",
   "purchase_return_items", "supplier_credit_applications", "cash_transactions",
   "audit_logs", "audit_events"

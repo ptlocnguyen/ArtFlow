@@ -331,10 +331,23 @@ async function runPageInteractions(page, pageName, viewportName) {
   if (pageName === "accounting") {
     const dir = path.join(screenshotRoot, viewportName);
     await mkdir(dir, { recursive: true });
-    for (const view of ["receivables", "ledger", "payroll", "accounts", "categories", "profit"]) {
-      await page.locator(`[data-accounting-view-filter='${view}']`).click().catch(() => {});
+    for (const view of ["overview", "payouts", "ledger", "receivables", "expenses", "profit", "tax", "settings"]) {
+      await page.locator(`[data-accounting-view-filter='${view}']`).click();
       await page.waitForTimeout(80);
-      const exportButton = page.locator(`[data-accounting-section='${view}'] [data-open-accounting-export]`).first();
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (view === "payouts") {
+        if (!(await page.locator("[data-platform-payout-table] tr").count())) throw new Error("Payout table must render reconciliation records.");
+        await page.locator("[data-open-platform-payout]").click();
+        await page.locator("#payoutCode").fill(`QA-${Date.now()}`);
+        await page.locator("#grossAmount").fill("100000");
+        await page.locator("#totalFees").fill("10000");
+        await page.locator("#expectedAmount").fill("90000");
+        await page.locator("#actualAmount").fill("90000");
+        await page.locator("[data-modal-form] button[type='submit']").click();
+        await page.waitForTimeout(120);
+        if (!(await page.locator("[data-platform-payout-table]").innerText()).includes("QA-")) throw new Error("Creating a payout must update the payout table.");
+      }
+      const exportButton = page.locator(`[data-accounting-section='${view}'] [data-open-accounting-export]:visible`).first();
       if (await exportButton.count()) {
         await exportButton.click().catch(() => {});
         await page.waitForTimeout(50);
@@ -342,12 +355,14 @@ async function runPageInteractions(page, pageName, viewportName) {
           await page.screenshot({ path: path.join(dir, "accounting-profit-export.png"), fullPage: false });
         }
         await page.locator("[data-close-modal]").first().click().catch(() => {});
+        await page.waitForTimeout(220);
       }
       if (keepScreenshots) {
         await page.screenshot({ path: path.join(dir, `accounting-${view}.png`), fullPage: false });
       }
     }
-    await page.locator("[data-open-accounting-profit-details]").click().catch(() => {});
+    await page.locator("[data-accounting-view-filter='profit']").click();
+    await page.locator("[data-open-accounting-profit-details]").click();
     await page.waitForTimeout(50);
     if (keepScreenshots) {
       await page.screenshot({ path: path.join(dir, "accounting-profit-details.png"), fullPage: false });
@@ -446,6 +461,16 @@ function handleAction(state, payload) {
       return accountingData(state);
     case "createAccountingReconciliation":
       return createAccountingReconciliation(state, payload);
+    case "createPlatformPayout": {
+      const payout = { id:`qa-payout-${Date.now()}`, channelId:payload.channelId, channelCode:payload.channelCode, payoutCode:payload.payoutCode, periodStart:payload.periodStart, periodEnd:payload.periodEnd, payoutDate:payload.payoutDate, accountId:payload.accountId, grossAmount:Number(payload.grossAmount||0), totalFees:Number(payload.totalFees||0), totalRefunds:Number(payload.totalRefunds||0), expectedAmount:Number(payload.expectedAmount||0), actualAmount:Number(payload.actualAmount||0), difference:Number(payload.actualAmount||0)-Number(payload.expectedAmount||0), status:payload.status||"draft", items:[], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() };
+      state.platformPayouts = [payout, ...(state.platformPayouts || [])]; return { ok:true, platformPayout:payout };
+    }
+    case "autoMatchPlatformPayout": return { ok:true, matched:1, status:"matched" };
+    case "postPlatformPayout": {
+      const payout = (state.platformPayouts || []).find(item=>item.id===payload.id); if (payout) payout.status="posted";
+      return { ok:true, platformPayout:payout, transaction:{ id:`qa-payout-tx-${Date.now()}`,type:"income",amount:payout?.actualAmount||0,accountId:payout?.accountId||"",categoryId:"acc-cat-income",referenceType:"platform_payout",referenceId:payout?.id||"",status:"active" } };
+    }
+    case "updateAccountingSettings": state.accountingSettings=payload.settings||{}; return { ok:true, accountingSettings:state.accountingSettings };
     case "getPurchasingData":
       return purchasingData(state);
     default:
@@ -481,12 +506,15 @@ function productsData(state) {
 }
 
 function accountingData(state) {
+  if (!state.platformPayouts) state.platformPayouts = [{ id:"qa-payout-001",channelId:"channel-shopee",channelCode:"shopee",payoutCode:"SPX-QA-001",periodStart:"2026-07-01",periodEnd:"2026-07-07",payoutDate:"2026-07-09",accountId:state.accountingAccounts[0]?.id||"",grossAmount:420000,totalFees:42000,totalRefunds:0,expectedAmount:378000,actualAmount:377000,difference:-1000,status:"mismatch",sourceFileName:"doi-soat-qa.xlsx",items:[{id:"qa-payout-item",orderId:state.orders[0]?.id||"",orderCode:state.orders[0]?.code||"",productTotal:420000,expectedNetAmount:378000,platformNetAmount:377000,difference:-1000,status:"mismatch"}],createdAt:"2026-07-09T10:00:00+07:00",updatedAt:"2026-07-09T10:00:00+07:00"}];
   return {
     ok: true,
     accounts: state.accountingAccounts,
     categories: state.accountingCategories,
     transactions: state.cashTransactions,
-    reconciliations: state.accountingReconciliations
+    reconciliations: state.accountingReconciliations,
+    platformPayouts: state.platformPayouts || [],
+    accountingSettings: state.accountingSettings || {}
   };
 }
 

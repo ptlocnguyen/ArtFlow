@@ -141,6 +141,13 @@ const AUDIT_METADATA = {
   archiveCampaign: ["Lưu trữ chiến dịch", "campaign"],
   upsertWorkspaceTask: ["Cập nhật công việc liên kênh", "workspace_task"],
   archiveWorkspaceTask: ["Lưu trữ công việc liên kênh", "workspace_task"]
+  ,createPlatformPayout: ["Tạo phiếu đối soát sàn", "platform_payout"],
+  updatePlatformPayout: ["Cập nhật phiếu đối soát sàn", "platform_payout"],
+  addPlatformPayoutItem: ["Thêm đơn vào phiếu đối soát", "platform_payout_item"],
+  autoMatchPlatformPayout: ["Ghép đơn đối soát tự động", "platform_payout"],
+  postPlatformPayout: ["Ghi nhận tiền sàn chuyển về", "platform_payout"],
+  resolvePlatformPayoutMismatch: ["Xác nhận xử lý chênh lệch payout", "platform_payout"],
+  updateAccountingSettings: ["Cập nhật cài đặt kế toán", "app_setting"]
 };
 
 function sanitizedAuditJson(value, fallback) {
@@ -178,7 +185,7 @@ async function completeAuditEvent(env, payload, response, event) {
   const metadata = AUDIT_METADATA[action] || [action, "d1_entity"];
   const entity = response.product || response.customer || response.order || response.option ||
     response.contentItem || response.teamItem || response.transaction || response.account ||
-    response.category || response.reconciliation || response.supplier || response.purchaseOrder ||
+    response.category || response.reconciliation || response.platformPayout || response.payoutItem || response.supplier || response.purchaseOrder ||
     response.salesChannel || response.channelProduct || response.campaign || response.workspaceTask ||
     response.incenseWish || response.salesReturn || response.refund || response.purchaseReturn ||
     response.payment || response.creditApplication || {};
