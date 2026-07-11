@@ -210,6 +210,12 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (await page.locator("[data-team-pricing-product]").inputValue() !== "prod-001") {
       throw new Error("Pricing page productId query must preselect the requested product.");
     }
+    if (await page.locator("[data-pricing-channel-field]").isVisible()) {
+      throw new Error("Pricing channel selector must stay hidden for offline pricing.");
+    }
+    if (!(await page.locator("#teamPricingTitle").inputValue()).includes("Shop/POS offline")) {
+      throw new Error("Pricing title must identify the offline target.");
+    }
     await page.locator("[data-open-pricing-product-picker]").click();
     await page.locator("[data-product-picker-search]").fill("ART001");
     if (!(await page.locator("[data-select-pricing-product]:visible").count())) throw new Error("Pricing picker must find products by SKU.");
@@ -219,6 +225,10 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (!costValue) throw new Error("Pricing product picker must update base cost from the selected product.");
     const selectedText = await page.locator("[data-pricing-selected-product]").innerText();
     if (!selectedText.includes("Giá vốn")) throw new Error("Pricing page must show the selected product cost summary.");
+    const selectedProductName = (await page.locator("[data-pricing-selected-product] strong").innerText()).trim();
+    if (!(await page.locator("#teamPricingTitle").inputValue()).includes(selectedProductName)) {
+      throw new Error("Changing the pricing product must update the pricing title.");
+    }
     await page.locator("#teamPricingBaseCost").fill("10000");
     const validBaseCost = await page.locator("#teamPricingBaseCost").evaluate(input => input.validity.valid);
     if (!validBaseCost) throw new Error("Pricing base cost must accept exact VND values, not only 1.000d steps.");
@@ -279,14 +289,23 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (!(await page.locator("#teamPricingBaseCost").inputValue())) throw new Error("Applying product price must not reset the pricing form.");
     await page.locator("#teamPricingTarget").selectOption("channel");
     if (!(await page.locator("[data-pricing-channel-field]").isVisible())) throw new Error("Channel selector must appear only for channel pricing.");
-    const channelValue = await page.locator("#teamPricingChannel option").nth(1).getAttribute("value");
-    if (channelValue) await page.locator("#teamPricingChannel").selectOption(channelValue);
+    const channelOptionsText = await page.locator("#teamPricingChannel").innerText();
+    if (!channelOptionsText.includes("Shopee") || !channelOptionsText.includes("TikTok") || channelOptionsText.includes("POS cửa hàng") || channelOptionsText.includes("Lazada")) {
+      throw new Error("Pricing channel selector must prioritize Shopee and TikTok without POS or unused default channels.");
+    }
+    await page.locator("#teamPricingChannel").selectOption("channel-shopee");
+    if (!(await page.locator("#teamPricingTitle").inputValue()).includes("Shopee")) {
+      throw new Error("Pricing title must update when the target channel changes.");
+    }
     await page.locator("[data-pricing-result]").filter({ hasText: "QA giá thử" }).locator('[data-apply-pricing-target="channel"]').click();
     await page.waitForTimeout(180);
     await page.locator("[data-team-pricing-page-form] button[type='submit']").click();
     await page.waitForTimeout(180);
     const currentUrl = page.url();
     if (!currentUrl.includes("id=")) throw new Error("Saving pricing page must keep the user on the saved pricing record.");
+    await page.locator("#teamPricingTarget").selectOption("offline");
+    if (await page.locator("[data-pricing-channel-field]").isVisible()) throw new Error("Switching back to offline pricing must hide the channel selector again.");
+    if (!(await page.locator("#teamPricingTitle").inputValue()).includes("Shop/POS offline")) throw new Error("Switching back to offline pricing must update the pricing title.");
     await page.evaluate(() => window.scrollTo(0, 0));
   }
   if (pageName === "purchasing") {

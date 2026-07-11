@@ -4352,6 +4352,43 @@
     return options.map(([value, label]) => `<option value="${escapeAttribute(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
   }
 
+  function pricingMarketplaceChannels() {
+    const channelsList = [...(state.salesChannels || [])]
+      .map(normalizeSalesChannel)
+      .filter(channel => channel.status === "active")
+      .filter(channel => {
+        const code = String(channel.code || "").toLowerCase();
+        return ["shopee", "tiktok"].includes(code) || (channel.type === "marketplace" && !["lazada"].includes(code));
+      });
+    const priority = { shopee: 0, tiktok: 1 };
+    return channelsList.sort((a, b) => {
+      const aCode = String(a.code || "").toLowerCase();
+      const bCode = String(b.code || "").toLowerCase();
+      return (priority[aCode] ?? 10) - (priority[bCode] ?? 10) || String(a.name).localeCompare(String(b.name), "vi");
+    });
+  }
+
+  function pricingChannelOptions(selected = "", emptyLabel = "Chọn kênh/sàn") {
+    const available = pricingMarketplaceChannels();
+    const fallback = [
+      { id: "shopee", code: "shopee", name: "Shopee" },
+      { id: "tiktok", code: "tiktok", name: "TikTok Shop" }
+    ];
+    const options = available.length ? available : fallback;
+    return `<option value="">${escapeHtml(emptyLabel)}</option>${options.map(channel => `<option value="${escapeAttribute(channel.id)}" ${selected === channel.id || selected === channel.code ? "selected" : ""}>${escapeHtml(channel.name || channel.code)}</option>`).join("")}`;
+  }
+
+  function pricingTargetLabel(priceTarget, channelId) {
+    if (priceTarget !== "channel") return "Shop/POS offline";
+    const channel = channelByIdOrCode(channelId);
+    return channel ? channel.name : "Kênh/sàn chưa chọn";
+  }
+
+  function pricingSuggestedTitle(product, priceTarget, channelId) {
+    if (!product) return "";
+    return `Tính giá ${product.name} - ${pricingTargetLabel(priceTarget, channelId)}`;
+  }
+
   function renderTeamSourceAndComments(item) {
     const comments = Array.isArray(item.commentLog) ? item.commentLog : [];
     const sourceTypes = [
@@ -4704,10 +4741,12 @@
     const selectedScenarioId = scenarios.some(scenario => scenario.id === item.selectedScenarioId)
       ? item.selectedScenarioId
       : scenarios[0]?.id || "";
+    const suggestedTitle = pricingSuggestedTitle(selectedProduct, item.priceTarget, item.channelId || item.channelCode || "");
+    const pricingTitle = !item.title || String(item.title).startsWith("Tính giá ") ? suggestedTitle || item.title : item.title;
     return `
       <div class="pricing-workbench full">
         <section class="pricing-block pricing-header-block">
-          <div class="field"><label for="teamPricingTitle">Tên bảng tính</label><input id="teamPricingTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Tính giá bộ màu nước 24 màu" required /></div>
+          <div class="field"><label for="teamPricingTitle">Tên bảng tính</label><input id="teamPricingTitle" name="title" value="${escapeAttribute(pricingTitle)}" placeholder="Tính giá bộ màu nước 24 màu" required /></div>
           <div class="field"><label for="teamPricingStatus">Trạng thái</label><select id="teamPricingStatus" name="status">${[["draft", "Nháp"], ["active", "Đang dùng"], ["approved", "Đã duyệt"], ["archived", "Lưu trữ"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
           <div class="field"><label for="teamPricingOwner">Phụ trách</label><select id="teamPricingOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
           <div class="field full"><label for="teamPricingNote">Ghi chú</label><textarea id="teamPricingNote" name="note" rows="2">${escapeHtml(item.note)}</textarea></div>
@@ -4723,11 +4762,11 @@
               </div>
               <button class="button ghost" type="button" data-open-pricing-product-picker>${icon("package")} ${selectedProduct ? "Đổi sản phẩm" : "Thêm sản phẩm"}</button>
             </div>
-            <div class="pricing-scope-panel">
+            <div class="pricing-scope-panel ${item.priceTarget === "channel" ? "is-channel" : "is-offline"}" data-pricing-scope-panel>
               <div class="field"><label for="teamPricingBaseCost">Giá vốn một sản phẩm</label><input id="teamPricingBaseCost" name="baseCost" type="number" min="0" step="1" value="${item.baseCost}" data-team-pricing-input /></div>
               <div class="field"><label for="teamPricingQuantity">Số lượng tham chiếu</label><input id="teamPricingQuantity" name="quantity" type="number" min="1" step="1" value="${item.quantity}" data-team-pricing-input /><small>Chỉ dùng để tham khảo tổng lãi, không nhân vào giá bán đơn vị.</small></div>
-              <div class="field"><label for="teamPricingTarget">Nơi muốn áp giá</label><select id="teamPricingTarget" name="priceTarget" data-team-pricing-input><option value="offline" ${item.priceTarget !== "channel" ? "selected" : ""}>Shop/POS offline</option><option value="channel" ${item.priceTarget === "channel" ? "selected" : ""}>Kênh/sàn bán hàng</option></select></div>
-              <div class="field pricing-channel-field" data-pricing-channel-field ${item.priceTarget === "channel" ? "" : "hidden"}><label for="teamPricingChannel">Kênh/sàn mặc định</label><select id="teamPricingChannel" name="channelId" data-team-pricing-input>${teamChannelOptions(item.channelId || item.channelCode || "")}</select></div>
+              <div class="field pricing-target-field" data-pricing-target-field><label for="teamPricingTarget">Nơi muốn áp giá</label><select id="teamPricingTarget" name="priceTarget" data-team-pricing-input><option value="offline" ${item.priceTarget !== "channel" ? "selected" : ""}>Shop/POS offline</option><option value="channel" ${item.priceTarget === "channel" ? "selected" : ""}>Kênh/sàn bán hàng</option></select></div>
+              <div class="field pricing-channel-field" data-pricing-channel-field ${item.priceTarget === "channel" ? "" : "hidden"}><label for="teamPricingChannel">Kênh/sàn muốn áp giá</label><select id="teamPricingChannel" name="channelId" data-team-pricing-input>${pricingChannelOptions(item.channelId || item.channelCode || "")}</select><a class="field-helper-link" href="./channels.html" target="_blank" rel="noopener">${icon("plus")} Quản lý hoặc thêm sàn khác</a></div>
             </div>
           </div>
         </section>
@@ -4829,7 +4868,7 @@
     if (hidden) hidden.value = product.id;
     if (selected) selected.innerHTML = renderPricingSelectedProduct(product);
     if (form.baseCost) form.baseCost.value = product.costPrice || 0;
-    if (form.title && !String(form.title.value || "").trim()) form.title.value = `Tính giá ${product.name}`;
+    syncPricingTitle(form, true);
     updateTeamPricingPreview(form);
     closeModal();
     showToast(`Đã chọn ${product.name} và cập nhật giá vốn.`);
@@ -4857,7 +4896,7 @@
         <button class="icon-button" type="button" data-remove-pricing-row title="Xóa kịch bản">${icon("trash")}</button>
       </header>
       <div class="pricing-scenario-fields">
-        <label class="pricing-row-field"><span>Kênh áp dụng</span><select data-pricing-scenario-channel data-team-pricing-input>${teamChannelOptions(item.channelId, "Theo nơi áp giá ở trên")}</select></label>
+        <label class="pricing-row-field"><span>Kênh áp dụng</span><select data-pricing-scenario-channel data-team-pricing-input>${pricingChannelOptions(item.channelId, "Theo nơi áp giá ở trên")}</select></label>
         <label class="pricing-row-field"><span>Biên lãi mục tiêu (%)</span><input data-pricing-scenario-margin type="number" min="0" max="95" step="0.1" value="${item.targetMargin}" data-team-pricing-input /></label>
         <label class="pricing-row-field"><span>Lãi mục tiêu (đ)</span><input data-pricing-scenario-profit type="number" min="0" step="1" value="${item.targetProfitAmount}" data-team-pricing-input placeholder="0 = dùng biên lãi" /></label>
         <label class="pricing-row-field"><span>Giá tự nhập (đ)</span><input data-pricing-scenario-price type="number" min="0" step="1" value="${item.manualPrice}" data-team-pricing-input placeholder="0 = tự tính" /></label>
@@ -4925,7 +4964,25 @@
     if (!form) return;
     const isChannel = form.priceTarget?.value === "channel";
     const channelField = form.querySelector("[data-pricing-channel-field]");
+    const scopePanel = form.querySelector("[data-pricing-scope-panel]");
     if (channelField) channelField.hidden = !isChannel;
+    if (scopePanel) {
+      scopePanel.classList.toggle("is-channel", isChannel);
+      scopePanel.classList.toggle("is-offline", !isChannel);
+    }
+    if (form.channelId) {
+      form.channelId.disabled = !isChannel;
+      form.channelId.required = isChannel;
+    }
+    syncPricingTitle(form);
+  }
+
+  function syncPricingTitle(form, force = false) {
+    if (!form?.title) return;
+    const product = form.productId?.value ? byId("products", form.productId.value) : null;
+    const suggested = pricingSuggestedTitle(product, form.priceTarget?.value || "offline", form.channelId?.value || "");
+    const current = String(form.title.value || "").trim();
+    if (suggested && (force || !current || current.startsWith("Tính giá "))) form.title.value = suggested;
   }
 
   function updatePricingLineState(source) {
@@ -4959,12 +5016,13 @@
     if (!form) return;
     const output = form.querySelector("[data-team-pricing-preview]");
     if (!output) return;
+    const priceTarget = form.priceTarget?.value || "offline";
     const model = normalizePricingModel({
       productId: form.productId?.value || "",
       baseCost: Number(form.baseCost?.value || 0),
       quantity: Number(form.quantity?.value || 1),
-      priceTarget: form.priceTarget?.value || "offline",
-      channelId: form.channelId?.value || "",
+      priceTarget,
+      channelId: priceTarget === "channel" ? form.channelId?.value || "" : "",
       selectedScenarioId: form.querySelector("[data-selected-pricing-scenario]")?.value || "",
       lines: collectPricingLines(form),
       scenarios: collectPricingScenarios(form)
@@ -5036,7 +5094,7 @@
       }).filter(Boolean);
       item = normalizeTeamPlan({ ...base, ...data, commentLog, milestones });
     } else if (type === "pricing") {
-      item = normalizePricingModel({ ...existing, ...base, ...data, commentLog, lines: collectPricingLines(form), scenarios: collectPricingScenarios(form) });
+      item = normalizePricingModel({ ...existing, ...base, ...data, ...pricingModelFromForm(form), commentLog });
     } else if (type === "decision") {
       item = normalizeTeamDecision({ ...base, ...data, commentLog });
     }
@@ -5058,6 +5116,7 @@
   }
 
   function pricingModelFromForm(form) {
+    const priceTarget = form.priceTarget?.value || "offline";
     return normalizePricingModel({
       title: form.title?.value || "",
       productId: form.productId?.value || "",
@@ -5065,8 +5124,8 @@
       owner: form.owner?.value || "",
       baseCost: form.baseCost?.value || 0,
       quantity: form.quantity?.value || 1,
-      priceTarget: form.priceTarget?.value || "offline",
-      channelId: form.channelId?.value || "",
+      priceTarget,
+      channelId: priceTarget === "channel" ? form.channelId?.value || "" : "",
       selectedScenarioId: form.querySelector("[data-selected-pricing-scenario]")?.value || "",
       note: form.note?.value || "",
       lines: collectPricingLines(form),
@@ -10355,6 +10414,7 @@
       }
       if (event.target.matches("[data-product-picker-filter], [data-product-picker-sort]")) filterProductPicker(event.target);
       if (event.target.matches("#teamPricingTarget")) updatePricingScopeFields(event.target.closest("form"));
+      if (event.target.matches("#teamPricingChannel")) syncPricingTitle(event.target.closest("form"));
       if (event.target.matches("[data-pricing-line-type], [data-pricing-line-included]")) updatePricingLineState(event.target);
       if (event.target.matches("[data-select-pricing-scenario]")) selectPricingScenario(event.target.closest("form"), event.target.value);
       if (event.target.matches("[data-inventory-filter]")) {

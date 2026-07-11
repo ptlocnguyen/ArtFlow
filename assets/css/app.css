@@ -8439,7 +8439,7 @@ body[data-page="teamPricing"] .view.active {
 
 .pricing-product-layout {
   display: grid;
-  grid-template-columns: minmax(340px, 1.05fr) minmax(420px, .95fr);
+  grid-template-columns: minmax(340px, .82fr) minmax(560px, 1.18fr);
   gap: 14px;
   margin-top: 12px;
 }
@@ -8455,6 +8455,30 @@ body[data-page="teamPricing"] .view.active {
   border-radius: 8px;
 }
 
+.pricing-scope-panel.is-offline {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pricing-channel-field[hidden] {
+  display: none !important;
+}
+
+.field-helper-link {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  width: fit-content;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.field-helper-link svg {
+  width: 14px;
+  height: 14px;
+}
+
 .pricing-scope-panel .field small {
   line-height: 1.35;
 }
@@ -8468,6 +8492,7 @@ body[data-page="teamPricing"] .view.active {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px 12px;
   align-items: end;
+  align-content: start;
 }
 
 .pricing-product-field > label {
@@ -8880,6 +8905,7 @@ body[data-page="teamPricing"] .view.active {
 
   .pricing-product-layout,
   .pricing-scope-panel,
+  .pricing-scope-panel.is-offline,
   .pricing-scenario-fields,
   .pricing-result-metrics {
     grid-template-columns: 1fr;
