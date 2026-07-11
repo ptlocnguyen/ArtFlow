@@ -1235,26 +1235,35 @@
   }
 
   function normalizePricingLine(line) {
+    const allowedTypes = ["fixed", "cost_percent", "price_percent", "note"];
+    const type = allowedTypes.includes(line.type) ? line.type : "fixed";
     return {
       id: line.id || makeLocalId("price_line"),
-      label: line.label || "",
-      type: line.type || "fixed",
-      value: Number(line.value || 0),
+      name: line.name || line.label || "",
+      label: line.name || line.label || "",
+      type,
+      value: Math.max(0, Number(line.value || 0)),
       note: line.note || "",
       included: line.included !== false
     };
   }
 
   function normalizePricingScenario(scenario) {
+    const allowedRoundingModes = ["none", "step", "tail9"];
+    const roundingMode = allowedRoundingModes.includes(scenario.roundingMode) ? scenario.roundingMode : "step";
     return {
       id: scenario.id || makeLocalId("price_scenario"),
-      label: scenario.label || "",
+      name: scenario.name || scenario.label || "",
+      label: scenario.name || scenario.label || "",
       channelId: scenario.channelId || scenario.channelCode || "",
-      targetMargin: Number(scenario.targetMargin || 35),
-      targetProfitAmount: Number(scenario.targetProfitAmount || 0),
-      salePrice: Number(scenario.salePrice || scenario.overridePrice || 0),
-      roundingMode: scenario.roundingMode || "step",
-      roundingStep: Number(scenario.roundingStep || 1000)
+      channelCode: scenario.channelCode || "",
+      targetMargin: Math.max(0, Number(scenario.targetMargin ?? 35)),
+      targetProfitAmount: Math.max(0, Number(scenario.targetProfitAmount || 0)),
+      manualPrice: Math.max(0, Number(scenario.manualPrice || scenario.salePrice || scenario.overridePrice || 0)),
+      salePrice: Math.max(0, Number(scenario.manualPrice || scenario.salePrice || scenario.overridePrice || 0)),
+      roundingMode,
+      roundingStep: Math.max(1, Number(scenario.roundingStep || 1000)),
+      resultSnapshot: scenario.resultSnapshot && typeof scenario.resultSnapshot === "object" ? scenario.resultSnapshot : null
     };
   }
 
@@ -1270,6 +1279,9 @@
       appliedAt: model.appliedAt || "",
       appliedToProduct: Boolean(model.appliedToProduct),
       appliedToChannelProduct: Boolean(model.appliedToChannelProduct),
+      appliedChannelId: model.appliedChannelId || "",
+      appliedChannelCode: model.appliedChannelCode || "",
+      appliedSnapshot: model.appliedSnapshot && typeof model.appliedSnapshot === "object" ? model.appliedSnapshot : null,
       roundingMode: model.roundingMode || "step",
       roundingStep: Number(model.roundingStep || 1000),
       targetProfitAmount: Number(model.targetProfitAmount || 0),
@@ -2453,6 +2465,11 @@
       product.unit,
       product.costPrice,
       product.salePrice,
+      productChannelPriceByCode(product.id, "shopee"),
+      productChannelPriceByCode(product.id, "tiktok"),
+      productChannelPriceByCode(product.id, "lazada"),
+      productChannelPriceByCode(product.id, "website"),
+      productChannelPriceByCode(product.id, "facebook"),
       product.stock,
       product.lowStock,
       productContentStatuses[product.contentStatus],
@@ -2472,7 +2489,7 @@
     ]);
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, createExcelSheet("DANH MỤC SẢN PHẨM", `Xuất lúc ${formatDateTime(new Date().toISOString())} · ${products.length} sản phẩm`, ["SKU", "Tên sản phẩm", "Danh mục", "Thương hiệu", "Barcode", "Đơn vị", "Giá vốn", "Giá shop/offline", "Tồn kho", "Ngưỡng thấp", "Trạng thái content", "Người phụ trách", "Mô tả ngắn", "Từ khóa", "Google Docs", "Folder media", "Website", "Shopee", "TikTok Shop", "Facebook", "Bài đăng / video", "Ngày tạo", "Cập nhật lần cuối", "Trạng thái bán"], rows, { widths: [16, 32, 22, 18, 18, 12, 18, 18, 14, 16, 20, 24, 40, 32, 38, 38, 36, 36, 36, 36, 48, 22, 22, 16], moneyColumns: [6, 7], numberColumns: [8, 9], textColumns: [0, 4], wrapColumn: 20 }), "Sản phẩm");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("DANH MỤC SẢN PHẨM", `Xuất lúc ${formatDateTime(new Date().toISOString())} · ${products.length} sản phẩm`, ["SKU", "Tên sản phẩm", "Danh mục", "Thương hiệu", "Barcode", "Đơn vị", "Giá vốn", "Giá shop/offline", "Giá Shopee", "Giá TikTok", "Giá Lazada", "Giá Website", "Giá Facebook", "Tồn kho", "Ngưỡng thấp", "Trạng thái content", "Người phụ trách", "Mô tả ngắn", "Từ khóa", "Google Docs", "Folder media", "Website", "Shopee", "TikTok Shop", "Facebook", "Bài đăng / video", "Ngày tạo", "Cập nhật lần cuối", "Trạng thái bán"], rows, { widths: [16, 32, 22, 18, 18, 12, 18, 18, 18, 18, 18, 18, 18, 14, 16, 20, 24, 40, 32, 38, 38, 36, 36, 36, 36, 48, 22, 22, 16], moneyColumns: [6, 7, 8, 9, 10, 11, 12], numberColumns: [13, 14], textColumns: [0, 4], wrapColumn: 25 }), "Sản phẩm");
     saveExcelWorkbook(workbook, `artflow-san-pham-${reportDayKey(new Date())}.xlsx`);
     showToast(`Đã xuất ${products.length} sản phẩm.`);
   }
@@ -2638,7 +2655,7 @@
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - KẾ HOẠCH", `${plans.length} kế hoạch`, ["Kế hoạch", "Kỳ", "Trạng thái", "Phụ trách", "Doanh thu mục tiêu", "Lợi nhuận mục tiêu", "Ngân sách", "Kênh", "Sản phẩm trọng tâm", "Milestone", "Rủi ro", "Ghi chú"], plans.map(item => [item.title, item.period, teamStatuses[item.status] || item.status, item.owner, item.goalRevenue, item.goalProfit, item.budget, item.channels, item.focusProducts, (item.milestones || []).map(m => [m.title, m.dueDate, m.owner].filter(Boolean).join(" | ")).join("\n"), item.risks, item.note]), { widths: [32, 14, 16, 22, 18, 18, 16, 26, 32, 42, 36, 42], moneyColumns: [4, 5, 6], wrapColumn: 9 }), "Kế hoạch");
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - TÍNH GIÁ", `${pricing.length} bảng tính giá`, ["Bảng tính", "Sản phẩm", "Trạng thái", "Phụ trách", "Giá vốn", "Chi phí thêm", "Kịch bản", "Giá gợi ý", "Biên lãi", "Ghi chú"], pricing.map(item => {
       const product = item.productId ? byId("products", item.productId) : null;
-      const scenario = (item.scenarios || [])[0] || { targetMargin: 35, salePrice: 0 };
+      const scenario = (item.scenarios || []).find(entry => entry.id === item.selectedScenarioId) || (item.scenarios || [])[0] || { targetMargin: 35, manualPrice: 0 };
       const totals = pricingTotals(item, scenario);
       return [item.title, product ? `${product.sku} · ${product.name}` : "", teamStatuses[item.status] || item.status, item.owner, item.baseCost, (item.lines || []).map(line => `${line.label}: ${line.type === "fixed" ? money.format(line.value) : line.value + "%"}`).join("\n"), (item.scenarios || []).map(s => `${s.label}: ${s.targetMargin}%`).join("\n"), totals.suggested, totals.margin / 100, item.note];
     }), { widths: [32, 34, 16, 22, 16, 34, 30, 16, 12, 38], moneyColumns: [4, 7], percentColumns: [8], wrapColumn: 5 }), "Tính giá");
@@ -3260,6 +3277,15 @@
     return (state.channelProducts || [])
       .map(normalizeChannelProduct)
       .filter(item => item.productId === productId && item.status !== "deleted" && Number(item.channelPrice || 0) > 0);
+  }
+
+  function productChannelPriceByCode(productId, code) {
+    const target = normalizeSearchText(code);
+    const mapping = productChannelPrices(productId).find(item => {
+      const channel = channelByIdOrCode(item.channelId);
+      return normalizeSearchText(channel?.code || item.channelCode || item.channelName) === target;
+    });
+    return mapping ? Number(mapping.channelPrice || 0) : 0;
   }
 
   function productPriceStatus(product) {
@@ -4139,32 +4165,95 @@
     const mode = scenario.roundingMode || "step";
     const step = Math.max(1, Number(scenario.roundingStep || 1000));
     if (mode === "none") return Math.max(0, Math.round(value));
-    if (mode === "tail9") return Math.max(0, Math.ceil(value / 10000) * 10000 - 1000);
+    if (mode === "tail9") {
+      const ceiling = Math.ceil(Math.max(0, value) / step) * step;
+      return Math.max(0, ceiling - Math.max(1, Math.round(step / 10)));
+    }
     return Math.ceil(Math.max(0, value) / step) * step;
   }
 
+  function calculatePricingScenario(model, scenario) {
+    const normalizedModel = normalizePricingModel(model || {});
+    const normalizedScenario = normalizePricingScenario(scenario || {});
+    const baseCost = Math.max(0, Number(normalizedModel.baseCost || 0));
+    const activeLines = normalizedModel.lines.filter(line => line.included !== false && line.type !== "note");
+    const fixedCostTotal = activeLines
+      .filter(line => line.type === "fixed")
+      .reduce((sum, line) => sum + Math.max(0, Number(line.value || 0)), 0);
+    const costPercentRate = activeLines
+      .filter(line => line.type === "cost_percent")
+      .reduce((sum, line) => sum + Math.max(0, Number(line.value || 0)), 0);
+    const costPercentTotal = baseCost * costPercentRate / 100;
+    const pricePercentRate = activeLines
+      .filter(line => line.type === "price_percent")
+      .reduce((sum, line) => sum + Math.max(0, Number(line.value || 0)), 0);
+    const targetProfitAmount = Math.max(0, Number(normalizedScenario.targetProfitAmount || 0));
+    const targetMargin = Math.max(0, Number(normalizedScenario.targetMargin || 0));
+    const manualPrice = Math.max(0, Number(normalizedScenario.manualPrice || 0));
+    const costBeforeSaleLinkedFees = baseCost + fixedCostTotal + costPercentTotal;
+    const warnings = [];
+    let rawSuggestedPrice = manualPrice;
+
+    if (!baseCost) warnings.push("Sản phẩm chưa có giá vốn; kết quả chỉ mang tính tham khảo.");
+    if (pricePercentRate >= 100) warnings.push("Tổng phí theo giá bán phải nhỏ hơn 100%.");
+    if (!manualPrice) {
+      const requiredRate = pricePercentRate + (targetProfitAmount > 0 ? 0 : targetMargin);
+      const divisor = 1 - requiredRate / 100;
+      if (divisor <= 0) {
+        warnings.push("Tổng phí theo giá bán và biên lãi mục tiêu quá cao nên không thể tính giá hợp lệ.");
+        rawSuggestedPrice = 0;
+      } else {
+        rawSuggestedPrice = targetProfitAmount > 0
+          ? (costBeforeSaleLinkedFees + targetProfitAmount) / Math.max(0.01, 1 - pricePercentRate / 100)
+          : costBeforeSaleLinkedFees / divisor;
+      }
+    }
+
+    const roundedPrice = rawSuggestedPrice > 0 ? roundedPricingValue(rawSuggestedPrice, normalizedScenario) : 0;
+    const pricePercentTotal = roundedPrice * pricePercentRate / 100;
+    const totalCost = costBeforeSaleLinkedFees + pricePercentTotal;
+    const expectedProfit = roundedPrice - totalCost;
+    const expectedMargin = roundedPrice > 0 ? expectedProfit / roundedPrice * 100 : 0;
+    if (roundedPrice > 0 && roundedPrice < baseCost) warnings.push("Giá sau làm tròn đang thấp hơn giá vốn.");
+    if (roundedPrice > 0 && expectedProfit < 0) warnings.push("Kịch bản này đang tạo lợi nhuận âm.");
+    if (!roundedPrice) warnings.push("Chưa tính được giá bán hợp lệ.");
+
+    return {
+      baseCost,
+      fixedCostTotal,
+      costPercentRate,
+      costPercentTotal,
+      pricePercentRate,
+      pricePercentTotal,
+      targetProfitAmount,
+      targetMargin,
+      rawSuggestedPrice,
+      roundedPrice,
+      expectedProfit,
+      expectedMargin,
+      totalCost,
+      warnings
+    };
+  }
+
   function pricingTotals(model, scenario) {
-    const targetMargin = Math.max(0, Number(scenario?.targetMargin || 0));
-    const baseCost = Number(model.baseCost || 0);
-    const fixedExtra = (model.lines || []).filter(line => line.type !== "price_percent").reduce((sum, line) => sum + pricingLineAmount(line, baseCost, 0), 0);
-    const pricePercent = (model.lines || []).filter(line => line.included !== false && line.type === "price_percent").reduce((sum, line) => sum + Number(line.value || 0), 0);
-    const divisor = Math.max(0.01, 1 - (targetMargin + pricePercent) / 100);
-    const targetProfitAmount = Number(scenario?.targetProfitAmount || model.targetProfitAmount || 0);
-    const rawSuggested = targetProfitAmount > 0 ? (baseCost + fixedExtra + targetProfitAmount) / Math.max(0.01, 1 - pricePercent / 100) : (baseCost + fixedExtra) / divisor;
-    const suggested = roundedPricingValue(rawSuggested, scenario);
-    const salePrice = Number(scenario?.salePrice || 0) || suggested;
-    const extra = (model.lines || []).reduce((sum, line) => sum + pricingLineAmount(line, baseCost, salePrice), 0);
-    const totalCost = baseCost + extra;
-    const grossProfit = salePrice - totalCost;
-    const priceLinkedCost = (model.lines || []).filter(line => line.included !== false && line.type === "price_percent").reduce((sum, line) => sum + pricingLineAmount(line, baseCost, salePrice), 0);
-    return { salePrice, totalCost, grossProfit, margin: salePrice > 0 ? grossProfit / salePrice * 100 : 0, suggested, fixedExtra, priceLinkedCost };
+    const result = calculatePricingScenario(model, scenario);
+    return {
+      ...result,
+      salePrice: result.roundedPrice,
+      grossProfit: result.expectedProfit,
+      margin: result.expectedMargin,
+      suggested: result.roundedPrice,
+      fixedExtra: result.fixedCostTotal + result.costPercentTotal,
+      priceLinkedCost: result.pricePercentTotal
+    };
   }
 
   function renderTeamPricing() {
     const items = currentTeamItems();
     return `<div class="team-pricing-list">${items.length ? items.map(model => {
       const product = model.productId ? byId("products", model.productId) : null;
-      const scenario = (model.scenarios || [])[0] || { targetMargin: 35, salePrice: 0 };
+      const scenario = (model.scenarios || []).find(item => item.id === model.selectedScenarioId) || (model.scenarios || [])[0] || { targetMargin: 35, manualPrice: 0 };
       const totals = pricingTotals(model, scenario);
       return `<article class="team-pricing-card">
         <div class="team-card-head"><div><strong>${escapeHtml(model.title || (product ? "Tính giá " + product.name : "Bảng tính giá"))}</strong><small>${product ? `${escapeHtml(product.sku)} · ${escapeHtml(product.name)}` : "Không gắn sản phẩm"} · ${escapeHtml(model.owner || "Chưa giao")}</small></div>${teamStatusBadge(model.status)}</div>
@@ -4210,11 +4299,14 @@
       </form>
     `;
     hydrateIcons(container);
-    updateTeamPricingPreview(container.querySelector("[data-team-pricing-page-form]"));
+    const form = container.querySelector("[data-team-pricing-page-form]");
+    updatePricingScopeFields(form);
+    updateTeamPricingPreview(form);
     enhanceMoneyInputs(container);
   }
 
   async function submitTeamPricingPageForm(form) {
+    validatePricingModel(pricingModelFromForm(form));
     const existingId = form.dataset.pricingExistingId || "";
     const existing = existingId ? (state.teamPricingModels || []).find(item => item.id === existingId) : null;
     const saved = await saveTeamItem("pricing", form, existing || null);
@@ -4246,17 +4338,17 @@
     return `<option value="">Không gắn sản phẩm</option>${products.map(product => `<option value="${product.id}" ${selected === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}`;
   }
 
-  function teamChannelOptions(selected = "") {
-    const channels = [...(state.salesChannels || [])].filter(channel => channel.status !== "deleted");
+  function teamChannelOptions(selected = "", emptyLabel = "Shop/POS offline") {
+    const channels = [...(state.salesChannels || [])].filter(channel => channel.status === "active");
     const fallback = [
-      ["", "Shop/POS offline"],
+      ["", emptyLabel],
       ["website", "Website"],
       ["shopee", "Shopee"],
       ["tiktok", "TikTok Shop"],
       ["lazada", "Lazada"],
       ["facebook", "Facebook"]
     ];
-    const options = channels.length ? [["", "Shop/POS offline"], ...channels.map(channel => [channel.id, channel.name || channel.code])] : fallback;
+    const options = channels.length ? [["", emptyLabel], ...channels.map(channel => [channel.id, channel.name || channel.code])] : fallback;
     return options.map(([value, label]) => `<option value="${escapeAttribute(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
   }
 
@@ -4603,15 +4695,15 @@
     const selectedProduct = item.productId ? byId("products", item.productId) : null;
     const lines = item.lines.length ? item.lines : [
       { label: "Bao bì", type: "fixed", value: 1000 },
-      { label: "Phí sàn / thanh toán", type: "price_percent", value: 3 },
-      { label: "Marketing dự kiến", type: "price_percent", value: 5 },
-      { label: "Voucher/khuyến mãi", type: "price_percent", value: 5 },
+      { label: "Phí thanh toán", type: "price_percent", value: 3 },
       { label: "Dự phòng rủi ro", type: "price_percent", value: 2 }
     ].map(normalizePricingLine);
     const scenarios = item.scenarios.length ? item.scenarios : [
-      { label: "Giá shop", targetMargin: 35, salePrice: 0, roundingStep: 1000 },
-      { label: "Giá sàn", targetMargin: 28, salePrice: 0, roundingMode: "tail9", roundingStep: 10000 }
+      { label: "Giá shop đề xuất", targetMargin: 35, manualPrice: 0, roundingStep: 1000 }
     ].map(normalizePricingScenario);
+    const selectedScenarioId = scenarios.some(scenario => scenario.id === item.selectedScenarioId)
+      ? item.selectedScenarioId
+      : scenarios[0]?.id || "";
     return `
       <div class="pricing-workbench full">
         <section class="pricing-block pricing-header-block">
@@ -4621,9 +4713,9 @@
           <div class="field full"><label for="teamPricingNote">Ghi chú</label><textarea id="teamPricingNote" name="note" rows="2">${escapeHtml(item.note)}</textarea></div>
         </section>
         <section class="pricing-block pricing-product-block">
-          <div class="team-editor-head"><strong>Sản phẩm và phạm vi giá</strong><small>Chọn sản phẩm từ danh mục để tự lấy đúng giá vốn hiện tại.</small></div>
-          <div class="pricing-grid-3">
-            <div class="field pricing-product-field full">
+          <div class="team-editor-head"><div><strong>Sản phẩm và nơi áp giá</strong><small>Giá vốn lấy từ danh mục và vẫn có thể điều chỉnh riêng cho bản tính này.</small></div></div>
+          <div class="pricing-product-layout">
+            <div class="field pricing-product-field">
               <label>Sản phẩm</label>
               <input type="hidden" name="productId" value="${escapeAttribute(item.productId)}" data-team-pricing-product />
               <div class="pricing-selected-product" data-pricing-selected-product>
@@ -4631,26 +4723,30 @@
               </div>
               <button class="button ghost" type="button" data-open-pricing-product-picker>${icon("package")} ${selectedProduct ? "Đổi sản phẩm" : "Thêm sản phẩm"}</button>
             </div>
-            <div class="field"><label for="teamPricingBaseCost">Giá vốn</label><input id="teamPricingBaseCost" name="baseCost" type="number" min="0" step="1" value="${item.baseCost}" data-team-pricing-input /></div>
-            <div class="field"><label for="teamPricingQuantity">Số lượng tính</label><input id="teamPricingQuantity" name="quantity" type="number" min="1" step="1" value="${item.quantity}" /></div>
-            <div class="field"><label for="teamPricingTarget">Phạm vi áp dụng</label><select id="teamPricingTarget" name="priceTarget" data-team-pricing-input><option value="offline" ${item.priceTarget !== "channel" ? "selected" : ""}>Shop/POS offline</option><option value="channel" ${item.priceTarget === "channel" ? "selected" : ""}>Kênh/sàn bán hàng</option></select></div>
-            <div class="field"><label for="teamPricingChannel">Kênh/sàn</label><select id="teamPricingChannel" name="channelId">${teamChannelOptions(item.channelId || item.channelCode || "")}</select></div>
+            <div class="pricing-scope-panel">
+              <div class="field"><label for="teamPricingBaseCost">Giá vốn một sản phẩm</label><input id="teamPricingBaseCost" name="baseCost" type="number" min="0" step="1" value="${item.baseCost}" data-team-pricing-input /></div>
+              <div class="field"><label for="teamPricingQuantity">Số lượng tham chiếu</label><input id="teamPricingQuantity" name="quantity" type="number" min="1" step="1" value="${item.quantity}" data-team-pricing-input /><small>Chỉ dùng để tham khảo tổng lãi, không nhân vào giá bán đơn vị.</small></div>
+              <div class="field"><label for="teamPricingTarget">Nơi muốn áp giá</label><select id="teamPricingTarget" name="priceTarget" data-team-pricing-input><option value="offline" ${item.priceTarget !== "channel" ? "selected" : ""}>Shop/POS offline</option><option value="channel" ${item.priceTarget === "channel" ? "selected" : ""}>Kênh/sàn bán hàng</option></select></div>
+              <div class="field pricing-channel-field" data-pricing-channel-field ${item.priceTarget === "channel" ? "" : "hidden"}><label for="teamPricingChannel">Kênh/sàn mặc định</label><select id="teamPricingChannel" name="channelId" data-team-pricing-input>${teamChannelOptions(item.channelId || item.channelCode || "")}</select></div>
+            </div>
           </div>
         </section>
-        <section class="pricing-block">
-          <div class="team-editor-head"><strong>Dòng chi phí</strong><button class="button ghost compact-button" type="button" data-add-pricing-line>Thêm dòng</button></div>
-          <div class="pricing-row-labels pricing-line-labels"><span>Tên chi phí</span><span>Cách tính</span><span>Giá trị</span><span></span></div>
+        <section class="pricing-block pricing-cost-block">
+          <div class="team-editor-head"><div><strong>Cấu phần chi phí</strong><small>Chi phí được cộng vào giá của một sản phẩm.</small></div><button class="button ghost compact-button" type="button" data-add-pricing-line>${icon("plus")} Thêm dòng</button></div>
+          <div class="pricing-presets" aria-label="Mẫu chi phí nhanh">
+            ${[["Bao bì", "fixed"], ["Nhân công", "fixed"], ["Phí sàn", "price_percent"], ["Phí thanh toán", "price_percent"], ["Marketing/Ads", "price_percent"], ["Voucher/khuyến mãi", "price_percent"], ["Affiliate", "price_percent"], ["Dự phòng rủi ro", "price_percent"]].map(([name, type]) => `<button type="button" data-add-pricing-preset data-preset-name="${escapeAttribute(name)}" data-preset-type="${type}">+ ${escapeHtml(name)}</button>`).join("")}
+          </div>
+          <div class="pricing-row-labels pricing-line-labels"><span>Dùng</span><span>Tên chi phí</span><span>Cách tính</span><span>Giá trị</span><span>Ghi chú</span><span></span></div>
           <div data-pricing-lines>${lines.map((line, index) => renderPricingLineInput(line, index)).join("")}</div>
         </section>
-        <section class="pricing-block">
-          <div class="team-editor-head"><strong>Kịch bản giá</strong><button class="button ghost compact-button" type="button" data-add-pricing-scenario>Thêm kịch bản</button></div>
-          <div class="pricing-row-labels pricing-scenario-labels"><span>Tên kịch bản</span><span>Biên lãi mục tiêu</span><span>Giá tự nhập</span><span></span></div>
-          <div data-pricing-scenarios>${scenarios.map((scenario, index) => renderPricingScenarioInput(scenario, index)).join("")}</div>
+        <section class="pricing-block pricing-scenario-block">
+          <div class="team-editor-head"><div><strong>Kịch bản giá</strong><small>Chọn một kịch bản để xem và áp dụng kết quả tương ứng.</small></div><button class="button ghost compact-button" type="button" data-add-pricing-scenario>${icon("plus")} Thêm kịch bản</button></div>
+          <input type="hidden" name="selectedScenarioId" value="${escapeAttribute(selectedScenarioId)}" data-selected-pricing-scenario />
+          <div class="pricing-scenario-list" data-pricing-scenarios>${scenarios.map((scenario, index) => renderPricingScenarioInput(scenario, index, selectedScenarioId)).join("")}</div>
         </section>
         <section class="pricing-block pricing-result-block">
-          <div class="team-editor-head"><strong>Kết quả realtime</strong><small>Dùng kịch bản đầu tiên để áp dụng nhanh.</small></div>
+          <div class="team-editor-head"><div><strong>Kết quả tính giá</strong><small>Thay đổi đầu vào ở trên, kết quả sẽ cập nhật ngay mà không tải lại trang.</small></div></div>
           <div class="team-pricing-preview" data-team-pricing-preview></div>
-          <div class="team-pricing-apply"><button class="button primary" type="button" data-apply-pricing-model="offline">${icon("check")} Áp dụng giá shop/offline</button><button class="button ghost" type="button" data-apply-pricing-model="channel">${icon("truck")} Áp dụng cho kênh đã chọn</button></div>
         </section>
       </div>
       ${renderTeamSourceAndComments(item)}
@@ -4691,6 +4787,7 @@
         <div class="product-picker-filters">
           <select data-product-picker-filter="category"><option value="">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
           <select data-product-picker-filter="brand"><option value="">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
+          <select data-product-picker-filter="price"><option value="">Tất cả trạng thái giá</option><option value="missing">Chưa có giá shop</option><option value="ready">Đã có giá shop</option></select>
           <select data-product-picker-filter="stock"><option value="">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="low">Sắp hết</option><option value="out">Hết hàng</option></select>
           <select data-product-picker-sort><option value="name">Tên A-Z</option><option value="stock">Tồn kho nhiều</option><option value="priceAsc">Giá thấp</option><option value="priceDesc">Giá cao</option><option value="margin">Biên lãi cao</option></select>
           <button class="button ghost icon-only" type="button" data-reset-product-picker aria-label="Làm mới" title="Làm mới">${icon("refresh")}</button>
@@ -4708,7 +4805,7 @@
     const margin = product.salePrice > 0 ? Math.round(((product.salePrice - product.costPrice) / product.salePrice) * 100) : 0;
     const stockState = product.stock <= 0 ? "out" : (product.stock <= product.lowStock ? "low" : "available");
     return `
-      <button class="product-card product-card-rich" type="button" data-product-picker-card data-select-pricing-product="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-category="${escapeAttribute(product.category || "")}" data-brand="${escapeAttribute(product.brand || "")}" data-stock-state="${stockState}" data-name="${escapeAttribute(product.name || "")}" data-price="${Number(product.salePrice || 0)}" data-stock="${Number(product.stock || 0)}" data-margin="${margin}">
+      <button class="product-card product-card-rich" type="button" data-product-picker-card data-select-pricing-product="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-category="${escapeAttribute(product.category || "")}" data-brand="${escapeAttribute(product.brand || "")}" data-stock-state="${stockState}" data-price-state="${productHasShopPrice(product) ? "ready" : "missing"}" data-name="${escapeAttribute(product.name || "")}" data-price="${Number(product.salePrice || 0)}" data-stock="${Number(product.stock || 0)}" data-margin="${margin}">
         ${renderProductThumb(product)}
         <span class="product-card-main">
           <strong>${escapeHtml(product.name)}</strong>
@@ -4739,21 +4836,35 @@
   }
 
   function renderPricingLineInput(line, index) {
-    return `<div class="team-dynamic-row pricing-line-row" data-pricing-line-row>
-      <label class="pricing-row-field"><span>Tên chi phí</span><input name="lineLabel${index}" value="${escapeAttribute(line.label)}" placeholder="VD: Bao bì, phí sàn..." aria-label="Tên chi phí" /></label>
-      <label class="pricing-row-field"><span>Cách tính</span><select name="lineType${index}" data-team-pricing-input aria-label="Cách tính chi phí"><option value="fixed" ${line.type === "fixed" ? "selected" : ""}>Số tiền</option><option value="cost_percent" ${line.type === "cost_percent" ? "selected" : ""}>% giá vốn</option><option value="price_percent" ${line.type === "price_percent" ? "selected" : ""}>% giá bán</option></select></label>
-      <label class="pricing-row-field"><span>Giá trị</span><input name="lineValue${index}" type="number" step="0.1" value="${line.value}" data-team-pricing-input placeholder="0" aria-label="Giá trị chi phí" /></label>
+    const item = normalizePricingLine(line || {});
+    return `<div class="team-dynamic-row pricing-line-row ${item.included ? "" : "is-excluded"}" data-pricing-line-row data-pricing-line-id="${escapeAttribute(item.id)}">
+      <label class="pricing-row-toggle" title="Tính chi phí này"><input type="checkbox" data-pricing-line-included ${item.included ? "checked" : ""} data-team-pricing-input /><span>${icon("check")}</span></label>
+      <label class="pricing-row-field"><span>Tên chi phí</span><input data-pricing-line-name value="${escapeAttribute(item.name)}" placeholder="VD: Bao bì, phí sàn..." aria-label="Tên chi phí" /></label>
+      <label class="pricing-row-field"><span>Cách tính</span><select data-pricing-line-type data-team-pricing-input aria-label="Cách tính chi phí"><option value="fixed" ${item.type === "fixed" ? "selected" : ""}>Số tiền cố định</option><option value="cost_percent" ${item.type === "cost_percent" ? "selected" : ""}>% giá vốn</option><option value="price_percent" ${item.type === "price_percent" ? "selected" : ""}>% giá bán</option><option value="note" ${item.type === "note" ? "selected" : ""}>Chỉ ghi chú</option></select></label>
+      <label class="pricing-row-field"><span>Giá trị</span><input data-pricing-line-value type="number" min="0" max="${item.type.includes("percent") ? "99" : "999999999"}" step="0.1" value="${item.value}" data-team-pricing-input placeholder="0" aria-label="Giá trị chi phí" ${item.type === "note" ? "disabled" : ""} /></label>
+      <label class="pricing-row-field"><span>Ghi chú</span><input data-pricing-line-note value="${escapeAttribute(item.note)}" placeholder="Không bắt buộc" aria-label="Ghi chú chi phí" /></label>
       <button class="icon-button" type="button" data-remove-pricing-row title="Xóa">${icon("trash")}</button>
     </div>`;
   }
 
-  function renderPricingScenarioInput(scenario, index) {
-    return `<div class="team-dynamic-row pricing-scenario-row" data-pricing-scenario-row>
-      <label class="pricing-row-field"><span>Tên kịch bản</span><input name="scenarioLabel${index}" value="${escapeAttribute(scenario.label)}" placeholder="VD: Giá shop, giá sàn..." aria-label="Tên kịch bản giá" /></label>
-      <label class="pricing-row-field"><span>Biên lãi mục tiêu</span><input name="scenarioMargin${index}" type="number" step="0.1" value="${scenario.targetMargin}" data-team-pricing-input placeholder="%" aria-label="Biên lãi mục tiêu phần trăm" /></label>
-      <label class="pricing-row-field"><span>Giá tự nhập</span><input name="scenarioPrice${index}" type="number" step="1" value="${scenario.salePrice}" data-team-pricing-input placeholder="Để 0 để tự tính" aria-label="Giá tự nhập tùy chọn" /></label>
-      <button class="icon-button" type="button" data-remove-pricing-row title="Xóa">${icon("trash")}</button>
-    </div>`;
+  function renderPricingScenarioInput(scenario, index, selectedScenarioId = "") {
+    const item = normalizePricingScenario(scenario || {});
+    const selected = item.id === selectedScenarioId || (!selectedScenarioId && index === 0);
+    return `<article class="pricing-scenario-card ${selected ? "is-selected" : ""}" data-pricing-scenario-row data-pricing-scenario-id="${escapeAttribute(item.id)}">
+      <header>
+        <label class="pricing-scenario-choice"><input type="radio" name="pricingScenarioChoice" value="${escapeAttribute(item.id)}" ${selected ? "checked" : ""} data-select-pricing-scenario /><span></span></label>
+        <label class="pricing-scenario-name"><span>Tên kịch bản</span><input data-pricing-scenario-name data-team-pricing-input value="${escapeAttribute(item.name)}" placeholder="VD: Giá shop, giá Shopee..." aria-label="Tên kịch bản giá" required /></label>
+        <button class="icon-button" type="button" data-remove-pricing-row title="Xóa kịch bản">${icon("trash")}</button>
+      </header>
+      <div class="pricing-scenario-fields">
+        <label class="pricing-row-field"><span>Kênh áp dụng</span><select data-pricing-scenario-channel data-team-pricing-input>${teamChannelOptions(item.channelId, "Theo nơi áp giá ở trên")}</select></label>
+        <label class="pricing-row-field"><span>Biên lãi mục tiêu (%)</span><input data-pricing-scenario-margin type="number" min="0" max="95" step="0.1" value="${item.targetMargin}" data-team-pricing-input /></label>
+        <label class="pricing-row-field"><span>Lãi mục tiêu (đ)</span><input data-pricing-scenario-profit type="number" min="0" step="1" value="${item.targetProfitAmount}" data-team-pricing-input placeholder="0 = dùng biên lãi" /></label>
+        <label class="pricing-row-field"><span>Giá tự nhập (đ)</span><input data-pricing-scenario-price type="number" min="0" step="1" value="${item.manualPrice}" data-team-pricing-input placeholder="0 = tự tính" /></label>
+        <label class="pricing-row-field"><span>Quy tắc làm tròn</span><select data-pricing-scenario-rounding data-team-pricing-input><option value="none" ${item.roundingMode === "none" ? "selected" : ""}>Không làm tròn</option><option value="step" ${item.roundingMode === "step" ? "selected" : ""}>Làm tròn lên theo bước</option><option value="tail9" ${item.roundingMode === "tail9" ? "selected" : ""}>Giá đuôi 9</option></select></label>
+        <label class="pricing-row-field"><span>Bước làm tròn</span><select data-pricing-scenario-step data-team-pricing-input><option value="1000" ${item.roundingStep === 1000 ? "selected" : ""}>1.000đ</option><option value="5000" ${item.roundingStep === 5000 ? "selected" : ""}>5.000đ</option><option value="10000" ${item.roundingStep === 10000 ? "selected" : ""}>10.000đ</option><option value="100" ${item.roundingStep === 100 ? "selected" : ""}>100đ</option></select></label>
+      </div>
+    </article>`;
   }
 
   function renderDecisionForm(decision) {
@@ -4771,19 +4882,77 @@
   }
 
   function collectPricingLines(form) {
-    return [...form.querySelectorAll("[data-pricing-line-row]")].map((row, index) => normalizePricingLine({
-      label: row.querySelector(`[name="lineLabel${index}"]`)?.value || row.querySelector("input")?.value || "",
-      type: row.querySelector(`[name="lineType${index}"]`)?.value || row.querySelector("select")?.value || "fixed",
-      value: row.querySelector(`[name="lineValue${index}"]`)?.value || row.querySelectorAll("input")[1]?.value || 0
+    return [...form.querySelectorAll("[data-pricing-line-row]")].map(row => normalizePricingLine({
+      id: row.dataset.pricingLineId,
+      name: row.querySelector("[data-pricing-line-name]")?.value || "",
+      type: row.querySelector("[data-pricing-line-type]")?.value || "fixed",
+      value: row.querySelector("[data-pricing-line-value]")?.value || 0,
+      note: row.querySelector("[data-pricing-line-note]")?.value || "",
+      included: row.querySelector("[data-pricing-line-included]")?.checked !== false
     })).filter(line => line.label);
   }
 
   function collectPricingScenarios(form) {
-    return [...form.querySelectorAll("[data-pricing-scenario-row]")].map((row, index) => normalizePricingScenario({
-      label: row.querySelector(`[name="scenarioLabel${index}"]`)?.value || row.querySelector("input")?.value || "",
-      targetMargin: row.querySelector(`[name="scenarioMargin${index}"]`)?.value || row.querySelectorAll("input")[1]?.value || 0,
-      salePrice: row.querySelector(`[name="scenarioPrice${index}"]`)?.value || row.querySelectorAll("input")[2]?.value || 0
+    return [...form.querySelectorAll("[data-pricing-scenario-row]")].map(row => normalizePricingScenario({
+      id: row.dataset.pricingScenarioId,
+      name: row.querySelector("[data-pricing-scenario-name]")?.value || "",
+      channelId: row.querySelector("[data-pricing-scenario-channel]")?.value || "",
+      targetMargin: row.querySelector("[data-pricing-scenario-margin]")?.value || 0,
+      targetProfitAmount: row.querySelector("[data-pricing-scenario-profit]")?.value || 0,
+      manualPrice: row.querySelector("[data-pricing-scenario-price]")?.value || 0,
+      roundingMode: row.querySelector("[data-pricing-scenario-rounding]")?.value || "step",
+      roundingStep: row.querySelector("[data-pricing-scenario-step]")?.value || 1000
     })).filter(scenario => scenario.label);
+  }
+
+  function refreshPricingBuilderState(form) {
+    if (!form) return;
+    const lineContainer = form.querySelector("[data-pricing-lines]");
+    const scenarioContainer = form.querySelector("[data-pricing-scenarios]");
+    [lineContainer, scenarioContainer].forEach(container => {
+      if (!container) return;
+      container.querySelector("[data-pricing-empty]")?.remove();
+    });
+    if (lineContainer && !lineContainer.querySelector("[data-pricing-line-row]")) {
+      lineContainer.insertAdjacentHTML("beforeend", `<div class="pricing-empty-hint" data-pricing-empty>Chưa có chi phí thêm. Giá sẽ được tính từ giá vốn và mục tiêu lợi nhuận.</div>`);
+    }
+    if (scenarioContainer && !scenarioContainer.querySelector("[data-pricing-scenario-row]")) {
+      scenarioContainer.insertAdjacentHTML("beforeend", `<div class="pricing-empty-hint" data-pricing-empty>Thêm ít nhất một kịch bản để tính và áp dụng giá.</div>`);
+    }
+  }
+
+  function updatePricingScopeFields(form) {
+    if (!form) return;
+    const isChannel = form.priceTarget?.value === "channel";
+    const channelField = form.querySelector("[data-pricing-channel-field]");
+    if (channelField) channelField.hidden = !isChannel;
+  }
+
+  function updatePricingLineState(source) {
+    const row = source?.closest("[data-pricing-line-row]");
+    if (!row) return;
+    const type = row.querySelector("[data-pricing-line-type]")?.value || "fixed";
+    const value = row.querySelector("[data-pricing-line-value]");
+    const included = row.querySelector("[data-pricing-line-included]")?.checked !== false;
+    row.classList.toggle("is-excluded", !included);
+    if (value) {
+      value.disabled = type === "note";
+      value.max = type.includes("percent") ? "99" : "999999999";
+      if (type === "note") value.value = "0";
+    }
+  }
+
+  function selectPricingScenario(form, scenarioId) {
+    if (!form || !scenarioId) return;
+    const hidden = form.querySelector("[data-selected-pricing-scenario]");
+    if (hidden) hidden.value = scenarioId;
+    form.querySelectorAll("[data-pricing-scenario-row]").forEach(row => {
+      const selected = row.dataset.pricingScenarioId === scenarioId;
+      row.classList.toggle("is-selected", selected);
+      const radio = row.querySelector("[data-select-pricing-scenario]");
+      if (radio) radio.checked = selected;
+    });
+    updateTeamPricingPreview(form);
   }
 
   function updateTeamPricingPreview(form) {
@@ -4791,14 +4960,46 @@
     const output = form.querySelector("[data-team-pricing-preview]");
     if (!output) return;
     const model = normalizePricingModel({
+      productId: form.productId?.value || "",
       baseCost: Number(form.baseCost?.value || 0),
+      quantity: Number(form.quantity?.value || 1),
+      priceTarget: form.priceTarget?.value || "offline",
+      channelId: form.channelId?.value || "",
+      selectedScenarioId: form.querySelector("[data-selected-pricing-scenario]")?.value || "",
       lines: collectPricingLines(form),
       scenarios: collectPricingScenarios(form)
     });
+    const product = model.productId ? byId("products", model.productId) : null;
+    const selectedId = model.scenarios.some(scenario => scenario.id === model.selectedScenarioId)
+      ? model.selectedScenarioId
+      : model.scenarios[0]?.id || "";
+    if (selectedId && model.selectedScenarioId !== selectedId) {
+      const selectedInput = form.querySelector("[data-selected-pricing-scenario]");
+      if (selectedInput) selectedInput.value = selectedId;
+    }
     output.innerHTML = model.scenarios.length ? model.scenarios.map(scenario => {
-      const totals = pricingTotals(model, scenario);
-      return `<article><span>${escapeHtml(scenario.label)}</span><strong>${money.format(totals.salePrice)}</strong><small>Chi phí ${money.format(totals.totalCost)} · Lãi ${money.format(totals.grossProfit)} · Biên ${totals.margin.toFixed(1)}%</small></article>`;
+      const result = calculatePricingScenario(model, scenario);
+      const isSelected = scenario.id === selectedId;
+      const channelId = scenario.channelId || model.channelId;
+      const channel = channelId ? channelByIdOrCode(channelId) : null;
+      const targetLabel = channel ? channel.name : (model.priceTarget === "channel" ? "Chưa chọn kênh" : "Shop/POS offline");
+      return `<article class="pricing-result-card ${isSelected ? "is-selected" : ""}" data-pricing-result="${escapeAttribute(scenario.id)}">
+        <header><div><span>${escapeHtml(scenario.name)}</span><small>${escapeHtml(product ? `${product.sku} · ${product.name}` : "Chưa chọn sản phẩm")} · ${escapeHtml(targetLabel)}</small></div>${isSelected ? `<em>Đang chọn</em>` : `<button type="button" class="button ghost compact-button" data-choose-pricing-result="${escapeAttribute(scenario.id)}">Chọn</button>`}</header>
+        <div class="pricing-result-price"><small>Giá đề xuất sau làm tròn</small><strong>${money.format(result.roundedPrice)}</strong><span>Trước làm tròn ${money.format(result.rawSuggestedPrice)}</span></div>
+        <div class="pricing-result-metrics">
+          <span><small>Giá vốn</small><b>${money.format(result.baseCost)}</b></span>
+          <span><small>Chi phí cố định</small><b>${money.format(result.fixedCostTotal)}</b></span>
+          <span><small>% theo giá vốn</small><b>${money.format(result.costPercentTotal)} (${result.costPercentRate.toFixed(1)}%)</b></span>
+          <span><small>% theo giá bán</small><b>${money.format(result.pricePercentTotal)} (${result.pricePercentRate.toFixed(1)}%)</b></span>
+          <span><small>Lãi dự kiến / SP</small><b class="${result.expectedProfit < 0 ? "negative-text" : "positive-text"}">${money.format(result.expectedProfit)}</b></span>
+          <span><small>Biên lãi dự kiến</small><b class="${result.expectedMargin < 0 ? "negative-text" : "positive-text"}">${result.expectedMargin.toFixed(1)}%</b></span>
+        </div>
+        ${model.quantity > 1 ? `<p class="pricing-quantity-note">Với ${model.quantity} sản phẩm: lãi dự kiến ${money.format(result.expectedProfit * model.quantity)}.</p>` : ""}
+        ${result.warnings.length ? `<div class="pricing-warnings">${result.warnings.map(message => `<span>${icon("alertTriangle")} ${escapeHtml(message)}</span>`).join("")}</div>` : ""}
+        <footer><button class="button primary" type="button" data-apply-pricing-scenario="${escapeAttribute(scenario.id)}" data-apply-pricing-target="offline">${icon("check")} Áp dụng giá shop</button><button class="button channel-action" type="button" data-apply-pricing-scenario="${escapeAttribute(scenario.id)}" data-apply-pricing-target="channel">${icon("truck")} Áp dụng giá kênh</button></footer>
+      </article>`;
     }).join("") : `<p class="content-empty">Thêm ít nhất một kịch bản giá để xem gợi ý.</p>`;
+    refreshPricingBuilderState(form);
   }
 
   function teamApiCollection(type) {
@@ -4835,7 +5036,7 @@
       }).filter(Boolean);
       item = normalizeTeamPlan({ ...base, ...data, commentLog, milestones });
     } else if (type === "pricing") {
-      item = normalizePricingModel({ ...base, ...data, commentLog, lines: collectPricingLines(form), scenarios: collectPricingScenarios(form) });
+      item = normalizePricingModel({ ...existing, ...base, ...data, commentLog, lines: collectPricingLines(form), scenarios: collectPricingScenarios(form) });
     } else if (type === "decision") {
       item = normalizeTeamDecision({ ...base, ...data, commentLog });
     }
@@ -4852,7 +5053,7 @@
     state[collection] = upsertLocalItem(state[collection] || [], saved);
     window.ArtFlowPosStore.save(state);
     renderPage();
-    showToast("Đã lưu Team Hub.");
+    showToast(type === "pricing" ? "Đã lưu bảng tính giá." : "Đã lưu Team Hub.");
     return saved;
   }
 
@@ -4866,24 +5067,72 @@
       quantity: form.quantity?.value || 1,
       priceTarget: form.priceTarget?.value || "offline",
       channelId: form.channelId?.value || "",
+      selectedScenarioId: form.querySelector("[data-selected-pricing-scenario]")?.value || "",
       note: form.note?.value || "",
       lines: collectPricingLines(form),
       scenarios: collectPricingScenarios(form)
     });
   }
 
-  async function applyPricingFromForm(form, target) {
+  function validatePricingModel(model) {
+    if (model.baseCost < 0 || !Number.isFinite(model.baseCost)) throw new Error("Giá vốn chưa hợp lệ.");
+    model.lines.forEach(line => {
+      if (!Number.isFinite(line.value) || line.value < 0) throw new Error(`Giá trị chi phí “${line.name || "chưa đặt tên"}” chưa hợp lệ.`);
+      if (["cost_percent", "price_percent"].includes(line.type) && line.value >= 100) throw new Error(`Tỷ lệ “${line.name || "chi phí"}” phải nhỏ hơn 100%.`);
+    });
+    if (!model.scenarios.length) throw new Error("Cần có ít nhất một kịch bản giá.");
+    model.scenarios.forEach(scenario => {
+      if (scenario.targetMargin < 0 || scenario.targetMargin > 95) throw new Error(`Biên lãi của “${scenario.name}” phải từ 0% đến 95%.`);
+    });
+  }
+
+  async function persistAppliedPricingModel(form, model) {
+    const existingId = form.dataset.pricingExistingId || "";
+    const existing = existingId ? (state.teamPricingModels || []).find(item => item.id === existingId) : null;
+    const now = new Date().toISOString();
+    const item = normalizePricingModel({
+      ...existing,
+      ...model,
+      id: existing?.id || model.id || makeLocalId("pricing"),
+      createdAt: existing?.createdAt || now,
+      updatedAt: now
+    });
+    const response = await apiRequest(existing ? "/team/update" : "/team/create", {
+      method: "POST",
+      body: JSON.stringify({
+        id: existing ? existing.id : "",
+        itemType: "pricing",
+        itemJson: JSON.stringify(item)
+      })
+    });
+    const saved = normalizePricingModel(response.teamItem || item);
+    state.teamPricingModels = upsertLocalItem(state.teamPricingModels || [], saved);
+    form.dataset.pricingExistingId = saved.id;
+    if (!existingId) window.history.replaceState(null, "", `./team-pricing.html?id=${encodeURIComponent(saved.id)}`);
+    return saved;
+  }
+
+  async function applyPricingFromForm(form, target, scenarioId = "") {
     const model = pricingModelFromForm(form);
+    validatePricingModel(model);
     const product = byId("products", model.productId);
     if (!product) throw new Error("Chọn sản phẩm trước khi áp dụng giá.");
-    const scenario = model.scenarios[0];
+    const selectedScenarioId = scenarioId || model.selectedScenarioId || model.scenarios[0]?.id || "";
+    const scenario = model.scenarios.find(item => item.id === selectedScenarioId) || model.scenarios[0];
     if (!scenario) throw new Error("Cần có ít nhất một kịch bản giá.");
-    const totals = pricingTotals(model, scenario);
-    const appliedPrice = Math.max(0, Number(totals.salePrice || totals.suggested || 0));
+    const result = calculatePricingScenario(model, scenario);
+    const appliedPrice = Math.max(0, Number(result.roundedPrice || 0));
     if (!appliedPrice) throw new Error("Giá áp dụng chưa hợp lệ.");
+    if (appliedPrice < Number(product.costPrice || 0) || result.expectedProfit < 0) {
+      throw new Error("Giá đang thấp hơn giá vốn hoặc tạo lợi nhuận âm. Hãy điều chỉnh kịch bản trước khi áp dụng.");
+    }
+    const appliedAt = new Date().toISOString();
+    let appliedChannel = null;
     if (target === "channel") {
-      const channelId = model.channelId;
+      const channelId = scenario.channelId || model.channelId;
       if (!channelId) throw new Error("Chọn kênh/sàn trước khi áp dụng giá kênh.");
+      const channel = channelByIdOrCode(channelId);
+      if (!channel || channel.status !== "active") throw new Error("Kênh/sàn đã chọn không tồn tại hoặc đang ngừng hoạt động.");
       const existing = (state.channelProducts || []).find(item => item.productId === product.id && item.channelId === channelId && item.status !== "deleted");
       const response = await apiRequest("/omni/mappings/upsert", {
         method: "POST",
@@ -4903,6 +5152,7 @@
       });
       const saved = normalizeChannelProduct(response.channelProduct);
       state.channelProducts = upsertLocalItem(state.channelProducts || [], saved);
+      appliedChannel = channel;
       showToast(`Đã áp dụng giá kênh ${money.format(appliedPrice)}.`);
     } else {
       const payload = { ...product, salePrice: appliedPrice };
@@ -4911,6 +5161,19 @@
       state.products = upsertLocalItem(state.products || [], saved);
       showToast(`Đã áp dụng giá shop/offline ${money.format(appliedPrice)}.`);
     }
+    const scenarios = model.scenarios.map(item => item.id === scenario.id ? normalizePricingScenario({ ...item, resultSnapshot: result }) : item);
+    await persistAppliedPricingModel(form, normalizePricingModel({
+      ...model,
+      scenarios,
+      selectedScenarioId: scenario.id,
+      appliedPrice,
+      appliedAt,
+      appliedToProduct: target !== "channel",
+      appliedToChannelProduct: target === "channel",
+      appliedChannelId: appliedChannel?.id || "",
+      appliedChannelCode: appliedChannel?.code || "",
+      appliedSnapshot: result
+    }));
     window.ArtFlowPosStore.save(state);
     if (document.body.dataset.page === "teamPricing" && form?.isConnected) {
       const selected = form.querySelector("[data-pricing-selected-product]");
@@ -4919,6 +5182,7 @@
     } else {
       renderPage();
     }
+    selectPricingScenario(form, scenario.id);
     updateTeamPricingPreview(form);
   }
 
@@ -5993,10 +6257,10 @@
                   <td><strong>${row.available}</strong><small>Giữ ${row.reserved}</small></td>
                   <td>${row.mappings.length ? row.mappings.map(item => {
                     const channel = channelByIdOrCode(item.channelId);
-                    return `<span class="omni-channel-pill">${escapeHtml(channel ? channel.name : item.channelId)} · ${item.channelStock}</span>`;
+                    return `<span class="omni-channel-pill">${escapeHtml(channel ? channel.name : item.channelId)} · tồn ${item.channelStock} · ${Number(item.channelPrice || 0) > 0 ? money.format(item.channelPrice) : "chưa có giá"}</span>`;
                   }).join("") : `<span class="muted">Chưa map kênh</span>`}</td>
                   <td><span class="status-chip ${issueClass}">${issue}</span></td>
-                  <td><button class="button ghost icon-only" type="button" data-open-channel-product-form data-product-id="${row.product.id}" title="Map SKU"><span data-icon="edit"></span></button></td>
+                  <td><div class="row-actions"><a class="button ghost icon-only" href="./team-pricing.html?productId=${encodeURIComponent(row.product.id)}" title="Tính giá kênh" aria-label="Tính giá kênh"><span data-icon="calculator"></span></a><button class="button ghost icon-only" type="button" data-open-channel-product-form data-product-id="${row.product.id}" title="Map SKU"><span data-icon="edit"></span></button></div></td>
                 </tr>`;
               }).join("") : `<tr><td colspan="6" class="empty">Không có sản phẩm phù hợp.</td></tr>`}
             </tbody></table>
@@ -6605,6 +6869,7 @@
     const term = normalizeSearchText(panel.querySelector("[data-product-picker-search]")?.value || "");
     const category = String(panel.querySelector('[data-product-picker-filter="category"]')?.value || "");
     const brand = String(panel.querySelector('[data-product-picker-filter="brand"]')?.value || "");
+    const price = String(panel.querySelector('[data-product-picker-filter="price"]')?.value || "");
     const stock = String(panel.querySelector('[data-product-picker-filter="stock"]')?.value || "");
     const sort = String(panel.querySelector("[data-product-picker-sort]")?.value || "name");
     const list = panel.querySelector("[data-product-picker-list]");
@@ -6622,6 +6887,7 @@
       const matched = (!term || card.dataset.productSearch.indexOf(term) !== -1) &&
         (!category || card.dataset.category === category) &&
         (!brand || card.dataset.brand === brand) &&
+        (!price || card.dataset.priceState === price) &&
         (!stock || card.dataset.stockState === stock);
       card.hidden = !matched;
       if (matched) visible += 1;
@@ -9550,26 +9816,47 @@
       if (target.matches("[data-add-pricing-line]")) {
         const container = target.closest("form")?.querySelector("[data-pricing-lines]");
         if (container) {
+          container.querySelector("[data-pricing-empty]")?.remove();
           const index = container.querySelectorAll("[data-pricing-line-row]").length;
-          container.insertAdjacentHTML("beforeend", renderPricingLineInput({ label: "", type: "fixed", value: 0 }, index));
+          container.insertAdjacentHTML("beforeend", renderPricingLineInput({ name: "", type: "fixed", value: 0 }, index));
           hydrateIcons(container);
           updateTeamPricingPreview(target.closest("form"));
+        }
+      }
+      if (target.matches("[data-add-pricing-preset]")) {
+        const form = target.closest("form");
+        const container = form?.querySelector("[data-pricing-lines]");
+        if (container) {
+          const name = target.dataset.presetName || "Chi phí";
+          const existing = collectPricingLines(form).some(line => normalizeSearchText(line.name) === normalizeSearchText(name));
+          if (existing) {
+            showToast(`${name} đã có trong bảng tính.`, "warning");
+          } else {
+            container.querySelector("[data-pricing-empty]")?.remove();
+            const index = container.querySelectorAll("[data-pricing-line-row]").length;
+            container.insertAdjacentHTML("beforeend", renderPricingLineInput({ name, type: target.dataset.presetType || "fixed", value: 0 }, index));
+            hydrateIcons(container);
+            updateTeamPricingPreview(form);
+          }
         }
       }
       if (target.matches("[data-add-pricing-scenario]")) {
-        const container = target.closest("form")?.querySelector("[data-pricing-scenarios]");
+        const form = target.closest("form");
+        const container = form?.querySelector("[data-pricing-scenarios]");
         if (container) {
+          container.querySelector("[data-pricing-empty]")?.remove();
           const index = container.querySelectorAll("[data-pricing-scenario-row]").length;
-          container.insertAdjacentHTML("beforeend", renderPricingScenarioInput({ label: "Kịch bản mới", targetMargin: 35, salePrice: 0 }, index));
+          const scenario = normalizePricingScenario({ name: `Kịch bản ${index + 1}`, targetMargin: 35, manualPrice: 0 });
+          container.insertAdjacentHTML("beforeend", renderPricingScenarioInput(scenario, index, scenario.id));
           hydrateIcons(container);
-          updateTeamPricingPreview(target.closest("form"));
+          selectPricingScenario(form, scenario.id);
         }
       }
-      if (target.matches("[data-apply-pricing-model]")) {
+      if (target.matches("[data-apply-pricing-scenario]")) {
         const form = target.closest("form");
         try {
           setBusy(target, true);
-          await applyPricingFromForm(form, target.dataset.applyPricingModel || "offline");
+          await applyPricingFromForm(form, target.dataset.applyPricingTarget || "offline", target.dataset.applyPricingScenario || "");
         } catch (error) {
           showToast(error.message || String(error), "error");
         } finally {
@@ -9577,8 +9864,20 @@
         }
       }
       if (target.matches("[data-remove-pricing-row]")) {
-        target.closest(".team-dynamic-row")?.remove();
-        updateTeamPricingPreview(target.closest("form"));
+        const form = target.closest("form");
+        const row = target.closest("[data-pricing-line-row], [data-pricing-scenario-row]");
+        const removedScenarioId = row?.dataset.pricingScenarioId || "";
+        row?.remove();
+        if (removedScenarioId) {
+          const nextScenario = form?.querySelector("[data-pricing-scenario-row]");
+          if (nextScenario) selectPricingScenario(form, nextScenario.dataset.pricingScenarioId);
+        }
+        refreshPricingBuilderState(form);
+        updateTeamPricingPreview(form);
+      }
+      if (target.matches("[data-select-pricing-scenario], [data-choose-pricing-result]")) {
+        const form = target.closest("form");
+        selectPricingScenario(form, target.dataset.choosePricingResult || target.value || "");
       }
       if (target.matches("[data-open-pricing-product-picker]")) {
         openModal("pricingProductPicker");
@@ -10015,7 +10314,10 @@
       if (event.target.matches("[data-order-return-quantity]")) updateOrderReturnPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-reconciliation-actual]")) updateReconciliationPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-payroll-money]")) updatePayrollPreview(event.target.closest("form") || els.modalForm);
-      if (event.target.matches("[data-team-pricing-input]")) updateTeamPricingPreview(event.target.closest("form") || els.modalForm);
+      if (event.target.matches("[data-team-pricing-input]")) {
+        updatePricingLineState(event.target);
+        updateTeamPricingPreview(event.target.closest("form") || els.modalForm);
+      }
     });
 
     document.addEventListener("change", async event => {
@@ -10052,6 +10354,9 @@
         return;
       }
       if (event.target.matches("[data-product-picker-filter], [data-product-picker-sort]")) filterProductPicker(event.target);
+      if (event.target.matches("#teamPricingTarget")) updatePricingScopeFields(event.target.closest("form"));
+      if (event.target.matches("[data-pricing-line-type], [data-pricing-line-included]")) updatePricingLineState(event.target);
+      if (event.target.matches("[data-select-pricing-scenario]")) selectPricingScenario(event.target.closest("form"), event.target.value);
       if (event.target.matches("[data-inventory-filter]")) {
         inventoryFilters[event.target.dataset.inventoryFilter] = event.target.value;
         renderInventory();

@@ -66,7 +66,8 @@ Các vai trò hiện có:
 
 - Tạo, sửa, ngừng bán và kích hoạt lại sản phẩm.
 - Quản lý SKU, barcode, danh mục, thương hiệu, đơn vị, xuất xứ, chất liệu và kích thước.
-- Quản lý giá vốn, giá bán, lãi trên sản phẩm và tỷ lệ biên lãi.
+- Quản lý giá vốn; giá shop/offline (`sale_price`) có thể để trống hoặc bằng 0 khi tạo sản phẩm.
+- Giá riêng theo sàn/kênh được lưu tại `channel_products.channel_price`.
 - Theo dõi tồn kho và ngưỡng tồn thấp.
 - Quản lý trạng thái nội dung sản phẩm.
 - Gắn người phụ trách content.
@@ -77,6 +78,14 @@ Các vai trò hiện có:
 - Bộ lọc nhanh theo trạng thái, tồn kho, biên lãi, content và tài nguyên.
 - Nhập, xuất sản phẩm bằng Excel.
 - Tải file Excel mẫu có hướng dẫn và định dạng sẵn.
+
+### 2.3.1. Team Pricing
+
+- Tạo bảng tính giá gắn với sản phẩm, lưu trong `team_items` với `item_type = pricing` và toàn bộ model trong `detail_json`.
+- Tính chi phí cố định, phần trăm theo giá vốn và phần trăm theo giá bán; dòng ghi chú hoặc dòng đã tắt không tham gia công thức.
+- Hỗ trợ nhiều kịch bản, lợi nhuận mục tiêu theo tỷ lệ hoặc số tiền, giá nhập tay và các quy tắc làm tròn.
+- Áp dụng giá shop/offline vào `products.sale_price` hoặc giá kênh vào `channel_products.channel_price`.
+- Mỗi lần áp giá lưu lại kịch bản đang chọn, thời gian, nơi áp dụng và snapshot kết quả để đối chiếu.
 
 ### 2.4. Khách hàng
 
@@ -678,8 +687,10 @@ Giới hạn được frontend kiểm tra:
 
 - Tối đa 500 dòng mỗi lần nhập.
 - Tối đa 5 MB mỗi file.
-- Sản phẩm bắt buộc có SKU, tên, danh mục, giá và tồn kho hợp lệ.
-- Giá bán không được thấp hơn giá vốn trong luồng nhập hiện tại.
+- Sản phẩm bắt buộc có SKU, tên, danh mục, giá vốn và tồn kho hợp lệ.
+- Cột giá shop/offline là tùy chọn; nếu thiếu thì hệ thống lưu bằng 0 để tính giá sau trong Team Pricing.
+- Nếu có nhập giá shop/offline lớn hơn 0 thì giá này không được thấp hơn giá vốn.
+- Đơn hàng không được lưu với đơn giá 0; người dùng có thể nhập đơn giá tùy chỉnh lớn hơn 0 nếu sản phẩm chưa có giá shop.
 - Khách hàng bắt buộc có tên và số điện thoại.
 - Email khách hàng phải hợp lệ nếu được cung cấp.
 

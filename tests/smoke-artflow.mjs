@@ -12,8 +12,10 @@ const token = "qa-token";
 const storageKey = "artflow-pos.v2";
 const screenshotRoot = path.join(root, "test-artifacts", "screenshots");
 const reportRoot = path.join(root, "test-artifacts", "reports");
+const requestedPage = process.argv.find(argument => argument.startsWith("--page="))?.split("=")[1] || "";
+const requestedViewport = process.argv.find(argument => argument.startsWith("--viewport="))?.split("=")[1] || "";
 
-const pages = [
+const allPages = [
   ["dashboard", "pages/dashboard.html"],
   ["orders", "pages/orders.html"],
   ["order-create", "pages/order-create.html"],
@@ -34,11 +36,15 @@ const pages = [
   ["settings", "pages/settings.html"],
   ["activity", "pages/activity.html"]
 ];
+const pages = requestedPage ? allPages.filter(([name]) => name === requestedPage) : allPages;
+if (!pages.length) throw new Error(`Unknown smoke page: ${requestedPage}`);
 
-const viewports = [
+const allViewports = [
   { name: "desktop", width: 1440, height: 900 },
   { name: "mobile", width: 390, height: 844 }
 ];
+const viewports = requestedViewport ? allViewports.filter(viewport => viewport.name === requestedViewport) : allViewports;
+if (!viewports.length) throw new Error(`Unknown smoke viewport: ${requestedViewport}`);
 
 await mkdir(reportRoot, { recursive: true });
 if (keepScreenshots) {
@@ -198,37 +204,90 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.waitForTimeout(150);
   }
   if (pageName === "team-pricing") {
+    await page.evaluate(() => window.history.replaceState(null, "", "?productId=prod-001"));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.locator("[data-team-pricing-page-form]").waitFor();
+    if (await page.locator("[data-team-pricing-product]").inputValue() !== "prod-001") {
+      throw new Error("Pricing page productId query must preselect the requested product.");
+    }
     await page.locator("[data-open-pricing-product-picker]").click();
-    await page.locator("[data-product-picker-search]").fill("Bút chì").catch(() => {});
+    await page.locator("[data-product-picker-search]").fill("ART001");
+    if (!(await page.locator("[data-select-pricing-product]:visible").count())) throw new Error("Pricing picker must find products by SKU.");
+    await page.locator("[data-product-picker-search]").fill("Bút chì");
     await page.locator("[data-select-pricing-product]:visible").first().click();
     const costValue = Number(await page.locator("#teamPricingBaseCost").inputValue());
     if (!costValue) throw new Error("Pricing product picker must update base cost from the selected product.");
     const selectedText = await page.locator("[data-pricing-selected-product]").innerText();
     if (!selectedText.includes("Giá vốn")) throw new Error("Pricing page must show the selected product cost summary.");
-    await page.locator("#teamPricingBaseCost").fill("6361");
+    await page.locator("#teamPricingBaseCost").fill("10000");
     const validBaseCost = await page.locator("#teamPricingBaseCost").evaluate(input => input.validity.valid);
     if (!validBaseCost) throw new Error("Pricing base cost must accept exact VND values, not only 1.000d steps.");
-    await page.locator("[name='scenarioPrice0']").fill("11200");
-    const validScenarioPrice = await page.locator("[name='scenarioPrice0']").evaluate(input => input.validity.valid);
+    const firstScenario = page.locator("[data-pricing-scenario-row]").first();
+    await firstScenario.locator("[data-pricing-scenario-margin]").fill("20");
+    await firstScenario.locator("[data-pricing-scenario-profit]").fill("0");
+    await firstScenario.locator("[data-pricing-scenario-price]").fill("0");
+    await firstScenario.locator("[data-pricing-scenario-rounding]").selectOption("none");
+    const validScenarioPrice = await firstScenario.locator("[data-pricing-scenario-price]").evaluate(input => input.validity.valid);
     if (!validScenarioPrice) throw new Error("Pricing scenario manual price must accept exact VND values.");
+
+    while (await page.locator("[data-pricing-line-row] [data-remove-pricing-row]").count()) {
+      await page.locator("[data-pricing-line-row] [data-remove-pricing-row]").first().click();
+    }
+    const addCost = async (name, type, value, included = true) => {
+      await page.locator("[data-add-pricing-line]").click();
+      const row = page.locator("[data-pricing-line-row]").last();
+      await row.locator("[data-pricing-line-name]").fill(name);
+      await row.locator("[data-pricing-line-type]").selectOption(type);
+      if (type !== "note") await row.locator("[data-pricing-line-value]").fill(String(value));
+      if (!included) await row.locator(".pricing-row-toggle").click();
+    };
+    await addCost("Đóng gói", "fixed", 1000);
+    await addCost("Nhân công", "cost_percent", 10);
+    await addCost("Phí thanh toán", "price_percent", 5);
+    await addCost("Ghi chú QA", "note", 99999);
+    await addCost("Không tính", "fixed", 5000, false);
+    await page.waitForTimeout(80);
+    const pricingResultText = await page.locator("[data-pricing-result]").first().innerText();
+    if (!pricingResultText.includes("16.000") || !pricingResultText.includes("20.0%")) {
+      throw new Error("Pricing formula must include fixed, cost-percent and sale-price-percent costs while ignoring notes and excluded rows.");
+    }
+
     await page.locator("[data-add-pricing-line]").click();
-    await page.locator("[data-pricing-line-row]").last().locator("input").first().fill("QA phí đóng gói");
+    await page.locator("[data-pricing-line-row]").last().locator("[data-pricing-line-name]").fill("QA phí đóng gói");
     await page.locator("[data-add-pricing-scenario]").click();
-    await page.locator("[data-pricing-scenario-row]").last().locator("input").first().fill("QA giá thử");
+    const secondScenario = page.locator("[data-pricing-scenario-row]").last();
+    await secondScenario.locator("[data-pricing-scenario-name]").fill("QA giá thử");
+    await secondScenario.locator("[data-pricing-scenario-price]").fill("20000");
+    await secondScenario.locator("[data-pricing-scenario-rounding]").selectOption("none");
+    await secondScenario.locator("[data-select-pricing-scenario]").check();
     await page.locator("[data-pricing-line-row]").last().locator("[data-remove-pricing-row]").click();
-    await page.locator("[data-pricing-scenario-row]").last().locator("[data-remove-pricing-row]").click();
     await page.locator("[data-open-pricing-product-picker]").click();
+    await page.locator('[data-product-picker-filter="price"]').selectOption("missing");
+    const missingPriceCards = page.locator("[data-select-pricing-product]:visible");
+    if (await missingPriceCards.count()) {
+      const invalidPriceState = await missingPriceCards.evaluateAll(cards => cards.some(card => card.dataset.priceState !== "missing"));
+      if (invalidPriceState) throw new Error("Pricing picker price-status filter returned a product with an existing shop price.");
+    } else if (!(await page.locator("[data-product-picker-empty]").isVisible())) {
+      throw new Error("Pricing picker must show a valid empty state when no product is missing a shop price.");
+    }
     await page.locator("[data-product-picker-search]").fill("khong-co-san-pham-nao");
     const emptyVisible = await page.locator("[data-product-picker-empty]").isVisible();
     if (!emptyVisible) throw new Error("Pricing product picker must show an empty state when filters return no product.");
     await page.locator("[data-close-modal]").first().click();
-    await page.locator("[data-apply-pricing-model='offline']").click();
+    await page.locator("[data-pricing-result]").filter({ hasText: "QA giá thử" }).locator('[data-apply-pricing-target="offline"]').click();
     await page.waitForTimeout(180);
     if (!(await page.locator("#teamPricingBaseCost").inputValue())) throw new Error("Applying product price must not reset the pricing form.");
+    await page.locator("#teamPricingTarget").selectOption("channel");
+    if (!(await page.locator("[data-pricing-channel-field]").isVisible())) throw new Error("Channel selector must appear only for channel pricing.");
+    const channelValue = await page.locator("#teamPricingChannel option").nth(1).getAttribute("value");
+    if (channelValue) await page.locator("#teamPricingChannel").selectOption(channelValue);
+    await page.locator("[data-pricing-result]").filter({ hasText: "QA giá thử" }).locator('[data-apply-pricing-target="channel"]').click();
+    await page.waitForTimeout(180);
     await page.locator("[data-team-pricing-page-form] button[type='submit']").click();
     await page.waitForTimeout(180);
     const currentUrl = page.url();
     if (!currentUrl.includes("id=")) throw new Error("Saving pricing page must keep the user on the saved pricing record.");
+    await page.evaluate(() => window.scrollTo(0, 0));
   }
   if (pageName === "purchasing") {
     const hasXlsx = await page.evaluate(() => Boolean(window.XLSX));
@@ -522,7 +581,7 @@ function upsertChannelProduct(state, payload) {
   const product = state.products.find(item => item.id === payload.productId) || state.products[0];
   const channel = (state.salesChannels || [])[0] || { id: "channel-pos" };
   const item = {
-    id: payload.id || `qa-channel-product-${Date.now()}`,
+    id: payload.id || (state.channelProducts || []).find(row => row.productId === payload.productId && row.channelId === payload.channelId)?.id || `qa-channel-product-${Date.now()}`,
     channelId: payload.channelId || channel.id,
     productId: payload.productId || product.id,
     channelSku: payload.channelSku || product.sku,
@@ -537,7 +596,7 @@ function upsertChannelProduct(state, payload) {
     createdAt: "2026-06-29T10:30:00+07:00",
     updatedAt: "2026-06-29T10:30:00+07:00"
   };
-  state.channelProducts = [item, ...(state.channelProducts || []).filter(row => row.id !== item.id)];
+  state.channelProducts = [item, ...(state.channelProducts || []).filter(row => row.id !== item.id && !(row.productId === item.productId && row.channelId === item.channelId))];
   return { ok: true, channelProduct: item };
 }
 
@@ -638,6 +697,7 @@ function createOrder(state, payload) {
     if (!product) throw new Error("Product not found");
     const quantity = Number(entry.quantity || 1);
     const unitPrice = Number(entry.unitPrice || product.salePrice);
+    if (!unitPrice || unitPrice <= 0) throw new Error(`Sản phẩm ${product.name} chưa có giá bán hợp lệ.`);
     product.stock = Math.max(0, product.stock - quantity);
     return {
       id: `qa-order-item-${index + 1}`,

@@ -2577,6 +2577,13 @@ function upsertChannelProduct(body) {
     updateRow("channel_products", row._row, patch);
     return { ok: true, channelProduct: publicChannelProduct(Object.assign({}, row, patch)) };
   }
+  const existingPair = rows.find(function (item) {
+    return item.channel_id === channelId && item.product_id === productId && item.status !== "deleted";
+  });
+  if (existingPair) {
+    updateRow("channel_products", existingPair._row, patch);
+    return { ok: true, channelProduct: publicChannelProduct(Object.assign({}, existingPair, patch)) };
+  }
   const row = Object.assign({ id: Utilities.getUuid(), created_at: now }, patch);
   appendRow("channel_products", row);
   return { ok: true, channelProduct: publicChannelProduct(row) };
