@@ -1,7 +1,7 @@
 import { requireSession } from "./d1-data.js";
 
 const ACTIONS = new Set([
-  "getAccountingData", "createCashTransaction", "archiveCashTransaction",
+  "getAccountingData", "createCashTransaction", "updateCashTransaction", "archiveCashTransaction",
   "createAccountingAccount", "updateAccountingAccount", "archiveAccountingAccount",
   "createAccountingReconciliation", "createAccountingCategory",
   "updateAccountingCategory", "archiveAccountingCategory",
@@ -289,12 +289,30 @@ export async function handleAccountingAction(env, body) {
       if(!account)return {ok:false,error:"Account not found"};
       if(!category)return {ok:false,error:"Category not found"};
       const now=nowIso();
-      const row={id:crypto.randomUUID(),type,account_id:accountId,category_id:categoryId,amount,transaction_date:clean(body.transactionDate??body.transaction_date)||today(),description,reference_type:clean(body.referenceType??body.reference_type)||"manual",reference_id:clean(body.referenceId??body.reference_id),created_by:user.id,status:"active",created_at:now,updated_at:now};
+      const row={id:crypto.randomUUID(),type,account_id:accountId,category_id:categoryId,amount,transaction_date:clean(body.transactionDate??body.transaction_date)||today(),description,reference_type:clean(body.referenceType??body.reference_type)||"manual",reference_id:clean(body.referenceId??body.reference_id),created_by:user.id,status:"active",created_at:now,updated_at:now,channel_id:clean(body.channelId??body.channel_id),document_url:clean(body.documentUrl??body.document_url)};
       await env.DB.prepare(
-        `INSERT INTO cash_transactions(id,type,account_id,category_id,amount,transaction_date,description,reference_type,reference_id,created_by,status,created_at,updated_at)
-         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+        `INSERT INTO cash_transactions(id,type,account_id,category_id,amount,transaction_date,description,reference_type,reference_id,created_by,status,created_at,updated_at,channel_id,document_url)
+         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(...Object.values(row)).run();
       return {ok:true,transaction:publicTransaction(row)};
+    }
+    if(body.action==="updateCashTransaction"){
+      const id=clean(body.id),existing=await env.DB.prepare("SELECT * FROM cash_transactions WHERE id=? AND status<>'deleted'").bind(id).first();
+      if(!existing)return {ok:false,error:"Transaction not found"};
+      const documentUrl=clean(body.documentUrl??body.document_url);
+      if(existing.reference_type&&existing.reference_type!=="manual"){
+        await env.DB.prepare("UPDATE cash_transactions SET document_url=?,updated_at=? WHERE id=?").bind(documentUrl,nowIso(),id).run();
+        return {ok:true,transaction:publicTransaction({...existing,document_url:documentUrl,updated_at:nowIso()})};
+      }
+      const type=clean(body.type)==="expense"?"expense":"income",accountId=clean(body.accountId??body.account_id),categoryId=clean(body.categoryId??body.category_id);
+      const amount=number(body.amount,NaN),description=clean(body.description);
+      if(!accountId||!categoryId||!Number.isFinite(amount)||amount<=0||!description)return {ok:false,error:"Cash transaction is invalid"};
+      const [account,category]=await Promise.all([env.DB.prepare("SELECT id FROM accounting_accounts WHERE id=? AND status='active'").bind(accountId).first(),env.DB.prepare("SELECT id FROM accounting_categories WHERE id=? AND type=? AND status='active'").bind(categoryId,type).first()]);
+      if(!account||!category)return {ok:false,error:"Account or category is invalid"};
+      const updated=nowIso();
+      await env.DB.prepare("UPDATE cash_transactions SET type=?,account_id=?,category_id=?,amount=?,transaction_date=?,description=?,reference_id=?,channel_id=?,document_url=?,updated_at=? WHERE id=?")
+        .bind(type,accountId,categoryId,amount,clean(body.transactionDate??body.transaction_date)||today(),description,clean(body.referenceId??body.reference_id),clean(body.channelId??body.channel_id),documentUrl,updated,id).run();
+      return {ok:true,transaction:publicTransaction({...existing,type,account_id:accountId,category_id:categoryId,amount,transaction_date:clean(body.transactionDate??body.transaction_date)||today(),description,reference_id:clean(body.referenceId??body.reference_id),channel_id:clean(body.channelId??body.channel_id),document_url:documentUrl,updated_at:updated})};
     }
     if(body.action==="archiveCashTransaction"){
       const row=await env.DB.prepare("SELECT * FROM cash_transactions WHERE id=? AND status<>'deleted'").bind(clean(body.id)).first();

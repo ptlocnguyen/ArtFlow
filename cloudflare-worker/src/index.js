@@ -140,14 +140,15 @@ const AUDIT_METADATA = {
   upsertCampaign: ["Cập nhật chiến dịch", "campaign"],
   archiveCampaign: ["Lưu trữ chiến dịch", "campaign"],
   upsertWorkspaceTask: ["Cập nhật công việc liên kênh", "workspace_task"],
-  archiveWorkspaceTask: ["Lưu trữ công việc liên kênh", "workspace_task"]
-  ,createPlatformPayout: ["Tạo phiếu đối soát sàn", "platform_payout"],
+  archiveWorkspaceTask: ["Lưu trữ công việc liên kênh", "workspace_task"],
+  createPlatformPayout: ["Tạo phiếu đối soát sàn", "platform_payout"],
   updatePlatformPayout: ["Cập nhật phiếu đối soát sàn", "platform_payout"],
   addPlatformPayoutItem: ["Thêm đơn vào phiếu đối soát", "platform_payout_item"],
   autoMatchPlatformPayout: ["Ghép đơn đối soát tự động", "platform_payout"],
   postPlatformPayout: ["Ghi nhận tiền sàn chuyển về", "platform_payout"],
   resolvePlatformPayoutMismatch: ["Xác nhận xử lý chênh lệch payout", "platform_payout"],
-  updateAccountingSettings: ["Cập nhật cài đặt kế toán", "app_setting"]
+  updateAccountingSettings: ["Cập nhật cài đặt kế toán", "app_setting"],
+  updateCashTransaction: ["Cập nhật giao dịch thu chi", "cash_transaction"]
 };
 
 function sanitizedAuditJson(value, fallback) {

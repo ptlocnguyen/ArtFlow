@@ -347,6 +347,15 @@ async function runPageInteractions(page, pageName, viewportName) {
         await page.waitForTimeout(120);
         if (!(await page.locator("[data-platform-payout-table]").innerText()).includes("QA-")) throw new Error("Creating a payout must update the payout table.");
       }
+      if (view === "ledger") {
+        const ledger = page.locator("[data-accounting-transactions-table]");
+        if (viewportName === "desktop" && !(await ledger.locator("xpath=ancestor::table").innerText()).toLocaleUpperCase("vi-VN").includes("CHỨNG TỪ")) throw new Error("Cash ledger must include the document column.");
+        await page.locator("[data-edit-cash-transaction]").first().click();
+        await page.locator("#documentUrl").fill("https://drive.google.com/file/d/qa-accounting-document/view");
+        await page.locator("[data-modal-form] button[type='submit']").click();
+        await page.waitForTimeout(120);
+        if (!(await ledger.innerText()).includes("Mở file")) throw new Error("Updating a transaction document must refresh the ledger.");
+      }
       const exportButton = page.locator(`[data-accounting-section='${view}'] [data-open-accounting-export]:visible`).first();
       if (await exportButton.count()) {
         await exportButton.click().catch(() => {});
@@ -461,6 +470,25 @@ function handleAction(state, payload) {
       return accountingData(state);
     case "createAccountingReconciliation":
       return createAccountingReconciliation(state, payload);
+    case "updateCashTransaction": {
+      const transaction = state.cashTransactions.find(item => item.id === payload.id);
+      if (!transaction) return { ok: false, error: "Transaction not found" };
+      if (transaction.referenceType && transaction.referenceType !== "manual") {
+        transaction.documentUrl = payload.documentUrl || "";
+      } else {
+        Object.assign(transaction, {
+          type: payload.type || transaction.type,
+          accountId: payload.accountId || transaction.accountId,
+          categoryId: payload.categoryId || transaction.categoryId,
+          amount: Number(payload.amount || transaction.amount),
+          transactionDate: payload.transactionDate || transaction.transactionDate,
+          description: payload.description || transaction.description,
+          referenceId: payload.referenceId || "",
+          documentUrl: payload.documentUrl || ""
+        });
+      }
+      return { ok: true, transaction };
+    }
     case "createPlatformPayout": {
       const payout = { id:`qa-payout-${Date.now()}`, channelId:payload.channelId, channelCode:payload.channelCode, payoutCode:payload.payoutCode, periodStart:payload.periodStart, periodEnd:payload.periodEnd, payoutDate:payload.payoutDate, accountId:payload.accountId, grossAmount:Number(payload.grossAmount||0), totalFees:Number(payload.totalFees||0), totalRefunds:Number(payload.totalRefunds||0), expectedAmount:Number(payload.expectedAmount||0), actualAmount:Number(payload.actualAmount||0), difference:Number(payload.actualAmount||0)-Number(payload.expectedAmount||0), status:payload.status||"draft", items:[], createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() };
       state.platformPayouts = [payout, ...(state.platformPayouts || [])]; return { ok:true, platformPayout:payout };

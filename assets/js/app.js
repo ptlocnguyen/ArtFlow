@@ -545,6 +545,7 @@
       "/page-data": "getPageData",
       "/accounting": "getAccountingData",
       "/accounting/transactions/create": "createCashTransaction",
+      "/accounting/transactions/update": "updateCashTransaction",
       "/accounting/transactions/archive": "archiveCashTransaction",
       "/accounting/accounts/create": "createAccountingAccount",
       "/accounting/accounts/update": "updateAccountingAccount",
@@ -5634,6 +5635,13 @@
       profitSection.insertAdjacentHTML("beforebegin", `<div class="segmented-control accounting-profit-switch" data-accounting-section="profit" hidden><button class="active" type="button" data-accounting-profit-view="overview">Tổng quan</button><button type="button" data-accounting-profit-view="channel">Theo sàn</button><button type="button" data-accounting-profit-view="sku">Theo SKU</button><button type="button" data-accounting-profit-view="campaign">Theo campaign</button></div>`);
       profitSection.insertAdjacentHTML("beforeend", `<section class="panel accounting-commerce-profit-detail" data-accounting-commerce-profit-detail hidden></section>`);
     }
+    const ledgerTable = layout.querySelector("[data-accounting-transactions-table]")?.closest("table");
+    if (ledgerTable) ledgerTable.querySelector("thead").innerHTML = `<tr><th>Ngày</th><th>Loại</th><th>Danh mục / tài khoản</th><th>Nội dung</th><th>Chứng từ</th><th>Số tiền</th><th>Thao tác</th></tr>`;
+    const missingExpensePanel = layout.querySelector("[data-missing-document-list]")?.closest("section");
+    if (missingExpensePanel) missingExpensePanel.remove();
+    const taxMissingBlock = layout.querySelector("[data-accounting-tax-documents]")?.parentElement;
+    if (taxMissingBlock) taxMissingBlock.remove();
+    layout.querySelector("[data-accounting-channel-revenue]")?.parentElement?.classList.add("full");
     layout.dataset.commerceReady = "true";
   }
 
@@ -5693,7 +5701,7 @@
         ["Doanh thu tháng", money.format(monthIncome), currentMonth],
         ["Lãi tạm tính", money.format(monthIncome - monthExpense), "Thu trừ chi đã ghi sổ"],
         ["Chi phí tháng", money.format(monthExpense), currentMonth],
-        ["Thiếu chứng từ", String(missingDocuments.length), "Giao dịch chi"]
+        ["Giao dịch tháng", String(monthTransactions.length), "Thu và chi đã ghi sổ"]
       ];
       kpiNode.innerHTML = cards.map(([label,value,note]) => `<article class="accounting-commerce-kpi"><small>${label}</small><strong>${value}</strong><span>${note}</span></article>`).join("");
     }
@@ -5703,7 +5711,6 @@
         [platformOrders.length, "Đơn sàn chưa đối soát", "payouts"],
         [payouts.filter(item => item.status === "mismatch").length, "Payout lệch tiền", "payouts"],
         [transactions.filter(item => !item.categoryId).length, "Giao dịch chưa phân loại", "ledger"],
-        [missingDocuments.length, "Chi phí thiếu chứng từ", "expenses"],
         [(state.accountingAccounts || []).filter(account => !(state.accountingReconciliations || []).some(item => item.accountId === account.id)).length, "Tài khoản chưa từng đối soát", "settings"]
       ].filter(item => item[0] > 0);
       actionNode.innerHTML = actions.length ? actions.map(([count,label,view]) => `<button type="button" class="accounting-action-item" data-accounting-jump="${view}"><span>${label}</span><strong>${count}</strong>${icon("external")}</button>`).join("") : `<div class="empty compact">Không có việc kế toán cần xử lý ngay.</div>`;
@@ -5739,11 +5746,9 @@
     monthTransactions.filter(item => item.type === "expense").forEach(item => { const group = getAccountingCategory(item.categoryId).group || "other"; expenseTotals[group] = (expenseTotals[group] || 0) + item.amount; });
     const expenseSummary = document.querySelector("[data-accounting-expense-summary]"); if (expenseSummary) expenseSummary.innerHTML = `<strong>${money.format(monthExpense)}</strong><span>Tổng chi tháng ${currentMonth}</span>`;
     const expenseNode = document.querySelector("[data-accounting-expense-groups]"); if (expenseNode) expenseNode.innerHTML = Object.entries(expenseTotals).sort((a,b)=>b[1]-a[1]).map(([group,total]) => `<article><span>${expenseGroups[group] || group}</span><b>${money.format(total)}</b><i style="--share:${monthExpense ? Math.round(total/monthExpense*100) : 0}%"></i></article>`).join("") || `<div class="empty compact">Chưa có chi phí trong tháng.</div>`;
-    const missingNode = document.querySelector("[data-missing-document-list]"); if (missingNode) missingNode.innerHTML = missingDocuments.slice(0,8).map(item => `<article class="accounting-document-item"><span><strong>${escapeHtml(item.description)}</strong><small>${formatDate(item.transactionDate)} · ${escapeHtml(getAccountingCategory(item.categoryId).name)}</small></span><b>${money.format(item.amount)}</b></article>`).join("") || `<div class="empty compact">Các giao dịch chi đã đủ liên kết chứng từ.</div>`;
 
-    const taxSummary = document.querySelector("[data-accounting-tax-summary]"); if (taxSummary) taxSummary.innerHTML = [["Doanh thu tháng",monthIncome],["Tiền sàn đã chuyển",payouts.filter(item=>item.status==="posted").reduce((s,i)=>s+i.actualAmount,0)],["Tổng phí sàn",payouts.reduce((s,i)=>s+i.totalFees,0)],["Thiếu chứng từ",missingDocuments.length]].map(([label,value],index)=>`<article><small>${label}</small><strong>${index===3?value:money.format(value)}</strong></article>`).join("");
+    const taxSummary = document.querySelector("[data-accounting-tax-summary]"); if (taxSummary) taxSummary.innerHTML = [["Doanh thu tháng",monthIncome],["Tiền sàn đã chuyển",payouts.filter(item=>item.status==="posted").reduce((s,i)=>s+i.actualAmount,0)],["Tổng phí sàn",payouts.reduce((s,i)=>s+i.totalFees,0)],["Chi phí tháng",monthExpense]].map(([label,value])=>`<article><small>${label}</small><strong>${money.format(value)}</strong></article>`).join("");
     const channelRevenue = document.querySelector("[data-accounting-channel-revenue]"); if (channelRevenue) { const totals={}; (state.orders||[]).filter(order=>String(order.createdAt).slice(0,7)===currentMonth).forEach(order=>totals[order.channel]=(totals[order.channel]||0)+order.netTotal); channelRevenue.innerHTML=Object.entries(totals).map(([channel,total])=>`<article><span>${commerceChannelLabel(channel)}</span><b>${money.format(total)}</b></article>`).join("")||`<div class="empty compact">Chưa có doanh thu tháng này.</div>`; }
-    const taxDocs = document.querySelector("[data-accounting-tax-documents]"); if (taxDocs) taxDocs.innerHTML = missingDocuments.slice(0,6).map(item=>`<article class="accounting-document-item"><span>${escapeHtml(item.description)}</span><b>${money.format(item.amount)}</b></article>`).join("")||`<div class="empty compact">Không còn chứng từ thiếu.</div>`;
     document.querySelectorAll("[data-accounting-debt-view]").forEach(button => button.classList.toggle("active", button.dataset.accountingDebtView === accountingFilters.debtView));
     const debtSection = document.querySelector("[data-accounting-section='receivables']");
     if (debtSection) {
@@ -6067,11 +6072,12 @@
             <td><span class="badge ${transaction.type === "income" ? "active" : "pending"}">${accountingTypeLabel(transaction.type)}</span></td>
             <td><strong>${category.name}</strong><br><small>${account.name}</small></td>
             <td>${transaction.description}</td>
+            <td>${transaction.documentUrl ? `<a class="document-link" href="${escapeAttribute(transaction.documentUrl)}" target="_blank" rel="noopener" title="Mở chứng từ">${icon("file")} <span>Mở file</span></a>` : `<span class="badge warning">Chưa có</span>`}</td>
             <td class="money-cell ${transaction.type === "income" ? "positive-money" : "negative-money"}"><strong>${money.format(signedAmount)}</strong></td>
-            <td><div class="row-actions">${canManageAccounting() && (!transaction.referenceType || transaction.referenceType === "manual") ? `<button class="link-button danger-link icon-only" data-archive-cash-transaction="${transaction.id}" aria-label="Xóa" title="Xóa">${icon("trash")}</button>` : `<small>Giao dịch liên kết</small>`}</div></td>
+            <td><div class="row-actions">${canManageAccounting() ? `<button class="link-button icon-only" data-edit-cash-transaction="${transaction.id}" aria-label="${transaction.documentUrl ? "Sửa giao dịch / chứng từ" : "Bổ sung chứng từ"}" title="${transaction.documentUrl ? "Sửa giao dịch / chứng từ" : "Bổ sung chứng từ"}">${icon(transaction.documentUrl ? "edit" : "folderPlus")}</button>${(!transaction.referenceType || transaction.referenceType === "manual") ? `<button class="link-button danger-link icon-only" data-archive-cash-transaction="${transaction.id}" aria-label="Xóa" title="Xóa">${icon("trash")}</button>` : ""}` : ""}</div></td>
           </tr>
         `;
-      }).join("") : `<tr><td colspan="6" class="empty">Chưa có giao dịch thu/chi.</td></tr>`;
+      }).join("") : `<tr><td colspan="7" class="empty">Chưa có giao dịch thu/chi.</td></tr>`;
     }
 
     renderAccountingProfit();
@@ -7254,10 +7260,10 @@
     return Object.entries(options).map(([value, label]) => `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`).join("");
   }
 
-  function renderAccountingAccountOptions() {
+  function renderAccountingAccountOptions(selectedId = "") {
     return (state.accountingAccounts || [])
       .filter(account => account.status === "active")
-      .map(account => `<option value="${account.id}">${account.name} · ${money.format(account.currentBalance)}</option>`)
+      .map(account => `<option value="${account.id}" ${account.id === selectedId ? "selected" : ""}>${account.name} · ${money.format(account.currentBalance)}</option>`)
       .join("");
   }
 
@@ -7274,16 +7280,24 @@
     }) || null;
   }
 
-  function renderCashTransactionForm() {
+  function renderCashTransactionForm(transaction) {
     const today = localDateValue();
+    const linked = Boolean(transaction && transaction.referenceType && transaction.referenceType !== "manual");
+    if (linked) return `
+      <div class="modal-summary full"><strong>${escapeHtml(transaction.description)}</strong><span>${formatDate(transaction.transactionDate)} · ${money.format(transaction.amount)} · Giao dịch liên kết ${escapeHtml(transaction.referenceType)}</span></div>
+      <input type="hidden" name="id" value="${transaction.id}" />
+      <div class="field full"><label for="documentUrl">Link chứng từ</label><input id="documentUrl" name="documentUrl" type="url" value="${escapeAttribute(transaction.documentUrl || "")}" placeholder="https://drive.google.com/..." /><small>Giao dịch liên kết chỉ cho bổ sung chứng từ. Muốn đổi số tiền cần xử lý từ chứng từ nguồn.</small></div>
+    `;
     return `
-      <div class="field"><label for="type">Loại giao dịch</label><select id="type" name="type" required data-cash-type><option value="income">Thu tiền</option><option value="expense">Chi tiền</option></select></div>
-      <div class="field"><label for="transactionDate">Ngày ghi nhận</label><input id="transactionDate" name="transactionDate" type="date" value="${today}" required /></div>
-      <div class="field"><label for="accountId">Tài khoản tiền</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions()}</select></div>
-      <div class="field"><label for="categoryId">Danh mục</label><select id="categoryId" name="categoryId" required data-cash-category>${renderAccountingCategoryOptions("income")}</select></div>
-      <div class="field"><label for="amount">Số tiền</label><input id="amount" name="amount" type="number" min="1" step="1" placeholder="500000" required /></div>
-      <div class="field"><label for="referenceId">Mã tham chiếu</label><input id="referenceId" name="referenceId" type="text" placeholder="Mã đơn, phiếu chi..." /></div>
-      <div class="field full"><label for="description">Nội dung</label><input id="description" name="description" type="text" placeholder="Thu tiền đơn hàng, chi nhập vật tư..." required /></div>
+      <input type="hidden" name="id" value="${transaction?.id || ""}" />
+      <div class="field"><label for="type">Loại giao dịch</label><select id="type" name="type" required data-cash-type><option value="income" ${transaction?.type !== "expense" ? "selected" : ""}>Thu tiền</option><option value="expense" ${transaction?.type === "expense" ? "selected" : ""}>Chi tiền</option></select></div>
+      <div class="field"><label for="transactionDate">Ngày ghi nhận</label><input id="transactionDate" name="transactionDate" type="date" value="${transaction?.transactionDate || today}" required /></div>
+      <div class="field"><label for="accountId">Tài khoản tiền</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions(transaction?.accountId || "")}</select></div>
+      <div class="field"><label for="categoryId">Danh mục</label><select id="categoryId" name="categoryId" required data-cash-category>${renderAccountingCategoryOptions(transaction?.type || "income", transaction?.categoryId || "")}</select></div>
+      <div class="field"><label for="amount">Số tiền</label><input id="amount" name="amount" type="number" min="1" step="1" value="${transaction?.amount || ""}" placeholder="500000" required /></div>
+      <div class="field"><label for="referenceId">Mã tham chiếu</label><input id="referenceId" name="referenceId" type="text" value="${escapeAttribute(transaction?.referenceId || "")}" placeholder="Mã đơn, phiếu chi..." /></div>
+      <div class="field full"><label for="description">Nội dung</label><input id="description" name="description" type="text" value="${escapeAttribute(transaction?.description || "")}" placeholder="Thu tiền đơn hàng, chi nhập vật tư..." required /></div>
+      <div class="field full"><label for="documentUrl">Link chứng từ</label><input id="documentUrl" name="documentUrl" type="url" value="${escapeAttribute(transaction?.documentUrl || "")}" placeholder="https://drive.google.com/file/..." /><small>Link hóa đơn, biên nhận, ảnh phiếu hoặc file trên Drive.</small></div>
     `;
   }
 
@@ -8865,6 +8879,7 @@
     const viewingOrder = options.orderDetail || null;
     const editingAccountingAccount = options.account || null;
     const editingAccountingCategory = options.category || null;
+    const editingCashTransaction = options.transaction || null;
     const editingPlatformPayout = options.platformPayout || null;
     const editingSupplier = options.supplier || null;
     const editingPurchaseOrder = options.purchaseOrder || null;
@@ -9176,17 +9191,19 @@
       },
       cashTransaction: {
         eyebrow: "Kế toán",
-        title: "Ghi thu / chi",
-        body: renderCashTransactionForm(),
+        title: editingCashTransaction ? (editingCashTransaction.referenceType && editingCashTransaction.referenceType !== "manual" ? "Bổ sung chứng từ" : "Sửa giao dịch thu / chi") : "Ghi thu / chi",
+        body: renderCashTransactionForm(editingCashTransaction),
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
+          const linked = Boolean(editingCashTransaction && editingCashTransaction.referenceType && editingCashTransaction.referenceType !== "manual");
           const amount = Number(data.amount);
-          if (!data.accountId || !data.categoryId || amount <= 0 || !String(data.description || "").trim()) {
+          if (!linked && (!data.accountId || !data.categoryId || amount <= 0 || !String(data.description || "").trim())) {
             throw new Error("Vui lòng nhập đủ tài khoản, danh mục, số tiền và nội dung.");
           }
-          const dataFromApi = await apiRequest("/accounting/transactions/create", {
+          const dataFromApi = await apiRequest(editingCashTransaction ? "/accounting/transactions/update" : "/accounting/transactions/create", {
             method: "POST",
             body: JSON.stringify({
+              id: editingCashTransaction?.id,
               type: data.type,
               accountId: data.accountId,
               categoryId: data.categoryId,
@@ -9194,13 +9211,15 @@
               transactionDate: data.transactionDate,
               description: data.description,
               referenceType: "manual",
-              referenceId: data.referenceId || ""
+              referenceId: data.referenceId || "",
+              documentUrl: data.documentUrl || ""
             })
           });
-          state.cashTransactions.unshift(normalizeCashTransaction(dataFromApi.transaction));
+          const savedTransaction = normalizeCashTransaction(dataFromApi.transaction);
+          state.cashTransactions = editingCashTransaction ? state.cashTransactions.map(item => item.id === savedTransaction.id ? savedTransaction : item) : [savedTransaction, ...state.cashTransactions];
           await loadAccountingData({ quiet: true });
           renderPage();
-          showToast("Đã ghi nhận giao dịch thu/chi.");
+          showToast(editingCashTransaction ? "Đã cập nhật giao dịch và chứng từ." : "Đã ghi nhận giao dịch thu/chi.");
         }
       },
       payrollExpense: {
@@ -10393,6 +10412,10 @@
       if (target.dataset.accountingDebtView) { accountingFilters.debtView = target.dataset.accountingDebtView; renderPage(); }
       if (target.dataset.accountingProfitView) { accountingFilters.profitView = target.dataset.accountingProfitView; renderPage(); }
       if (target.dataset.accountingSettingsView) { accountingFilters.settingsView = target.dataset.accountingSettingsView; renderPage(); }
+      if (target.dataset.editCashTransaction) {
+        const transaction = (state.cashTransactions || []).find(item => item.id === target.dataset.editCashTransaction);
+        if (transaction) openModal("cashTransaction", { transaction });
+      }
       if (target.matches("[data-open-platform-payout]")) openModal("platformPayout");
       if (target.dataset.viewPlatformPayout) {
         const payout = (state.platformPayouts || []).find(item => item.id === target.dataset.viewPlatformPayout);

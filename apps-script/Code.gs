@@ -640,6 +640,8 @@ function handleRequest(e) {
         return json(getAccountingData(body));
       case "createCashTransaction":
         return json(createCashTransaction(body));
+      case "updateCashTransaction":
+        return json(updateCashTransaction(body));
       case "archiveCashTransaction":
         return json(archiveCashTransaction(body));
       case "createAccountingAccount":
@@ -761,6 +763,7 @@ function auditActionMetadata(action) {
     receiveStock: ["Nhập kho thủ công", "stock_movement"],
     adjustStock: ["Điều chỉnh tồn kho", "stock_movement"],
     createCashTransaction: ["Ghi giao dịch thu chi", "cash_transaction"],
+    updateCashTransaction: ["Cập nhật giao dịch thu chi", "cash_transaction"],
     archiveCashTransaction: ["Xóa giao dịch thu chi", "cash_transaction"],
     createAccountingAccount: ["Tạo tài khoản tiền", "accounting_account"],
     updateAccountingAccount: ["Cập nhật tài khoản tiền", "accounting_account"],
@@ -821,6 +824,7 @@ function auditBeforeSnapshot(action, body) {
     returnOrder: ["orders", "orderId"], refundOrder: ["orders", "orderId"],
     receiveStock: ["products", "productId"], adjustStock: ["products", "productId"],
     archiveCashTransaction: ["cash_transactions", "id"],
+    updateCashTransaction: ["cash_transactions", "id"],
     updateAccountingAccount: ["accounting_accounts", "id"], archiveAccountingAccount: ["accounting_accounts", "id"],
     updateAccountingCategory: ["accounting_categories", "id"], archiveAccountingCategory: ["accounting_categories", "id"],
     updateSupplier: ["suppliers", "id"], archiveSupplier: ["suppliers", "id"],
@@ -6340,6 +6344,8 @@ function createCashTransaction(body) {
       status: "active",
       created_at: now,
       updated_at: now
+      ,channel_id: String(body.channelId || body.channel_id || "")
+      ,document_url: String(body.documentUrl || body.document_url || "")
     };
     appendRow("cash_transactions", transaction);
 
@@ -6347,6 +6353,33 @@ function createCashTransaction(body) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function updateCashTransaction(body) {
+  requireAccountingManager(body.token);
+  const id = String(body.id || "");
+  const transaction = readRows("cash_transactions").find(function (item) { return item.id === id && item.status !== "deleted"; });
+  if (!transaction) return { ok: false, error: "Transaction not found" };
+  const documentUrl = String(body.documentUrl || body.document_url || "").trim();
+  if (transaction.reference_type && transaction.reference_type !== "manual") {
+    const linkedPatch = { document_url: documentUrl, updated_at: nowIso() };
+    updateRow("cash_transactions", transaction._row, linkedPatch);
+    return { ok: true, transaction: publicCashTransaction(Object.assign({}, transaction, linkedPatch)) };
+  }
+  const type = normalizeAccountingType(body.type);
+  const accountId = String(body.accountId || body.account_id || "");
+  const categoryId = String(body.categoryId || body.category_id || "");
+  const amount = Number(body.amount);
+  const description = String(body.description || "").trim();
+  const account = readRows("accounting_accounts").find(function (item) { return item.id === accountId && item.status === "active"; });
+  const category = readRows("accounting_categories").find(function (item) { return item.id === categoryId && item.type === type && item.status === "active"; });
+  if (!account || !category || !isFinite(amount) || amount <= 0 || !description) return { ok: false, error: "Cash transaction is invalid" };
+  const patch = { type: type, account_id: accountId, category_id: categoryId, amount: amount,
+    transaction_date: String(body.transactionDate || body.transaction_date || nowIso().slice(0, 10)).slice(0, 10),
+    description: description, reference_id: String(body.referenceId || body.reference_id || "").trim(),
+    channel_id: String(body.channelId || body.channel_id || ""), document_url: documentUrl, updated_at: nowIso() };
+  updateRow("cash_transactions", transaction._row, patch);
+  return { ok: true, transaction: publicCashTransaction(Object.assign({}, transaction, patch)) };
 }
 
 function archiveCashTransaction(body) {

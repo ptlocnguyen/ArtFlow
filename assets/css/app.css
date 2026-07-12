@@ -1580,6 +1580,41 @@ body[data-page="accounting"] [hidden] { display: none !important; }
 .accounting-settings-form .toggle-row { align-self: end; }
 .accounting-settings-form button[type="submit"] { justify-self: end; width: auto; min-width: 180px; }
 
+.accounting-expense-workspace .accounting-overview-grid { grid-template-columns: 1fr; }
+.accounting-expense-workspace .panel { min-height: 260px; }
+
+.document-link { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 800; text-decoration: none; white-space: nowrap; }
+.document-link svg { width: 16px; height: 16px; }
+
+body[data-page="accounting"] .accounting-profit-grid {
+  grid-template-rows: auto;
+  align-content: start;
+  overflow: visible;
+}
+
+body[data-page="accounting"] .accounting-profit-overview,
+body[data-page="accounting"] .accounting-product-profit-panel {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+body[data-page="accounting"] .accounting-product-profit-panel .table-wrap {
+  min-height: 140px;
+  max-height: calc(100vh - 360px);
+}
+
+body[data-page="accounting"] .profit-chart.compact-accounting-chart {
+  flex: 0 1 auto;
+  min-height: 150px;
+  max-height: 280px;
+}
+
+body[data-page="accounting"] .compact-accounting-chart > .empty {
+  min-height: 130px;
+  display: grid;
+  place-items: center;
+}
+
 @media (max-width: 1180px) {
   .accounting-overview-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -9199,5 +9234,47 @@ body[data-page="teamPricing"] .view.active {
 
   body[data-page="accounting"] .accounting-local-toolbar .debt-filter button {
     min-width: 0;
+  }
+}
+
+/* Final accounting layout overrides must follow the legacy accounting rules. */
+body[data-page="accounting"] .accounting-profit-grid {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto;
+  align-items: start;
+}
+
+body[data-page="accounting"] .accounting-tax-workspace .accounting-overview-grid > .full {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  body[data-page="accounting"] .accounting-profit-switch {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  body[data-page="accounting"] .accounting-profit-switch button {
+    flex: 0 0 auto;
+    min-width: max-content;
+    padding-inline: 14px;
+    white-space: nowrap;
+  }
+
+  body[data-page="accounting"] .accounting-settings-switch {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  body[data-page="accounting"] .accounting-settings-switch button {
+    flex: 0 0 auto;
+    min-width: max-content;
+    padding-inline: 14px;
+    white-space: nowrap;
   }
 }
