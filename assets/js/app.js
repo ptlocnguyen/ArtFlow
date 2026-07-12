@@ -5599,7 +5599,7 @@
     if (!switcher || !layout || layout.dataset.commerceReady) return;
     switcher.innerHTML = [
       ["overview", "Tổng quan"], ["payouts", "Đối soát sàn"], ["ledger", "Dòng tiền"],
-      ["receivables", "Công nợ"], ["expenses", "Chi phí"], ["profit", "Lãi lỗ"],
+      ["receivables", "Công nợ"], ["profit", "Lãi lỗ"],
       ["tax", "Thuế & chứng từ"], ["settings", "Cài đặt kế toán"]
     ].map(([value, label]) => `<button type="button" role="tab" data-accounting-view-filter="${value}">${label}</button>`).join("");
     layout.insertAdjacentHTML("afterbegin", `
@@ -5637,6 +5637,12 @@
     }
     const ledgerTable = layout.querySelector("[data-accounting-transactions-table]")?.closest("table");
     if (ledgerTable) ledgerTable.querySelector("thead").innerHTML = `<tr><th>Ngày</th><th>Loại</th><th>Danh mục / tài khoản</th><th>Nội dung</th><th>Chứng từ</th><th>Số tiền</th><th>Thao tác</th></tr>`;
+    const ledgerSection = layout.querySelector("[data-accounting-section='ledger']");
+    const ledgerSummary = ledgerSection?.querySelector("[data-accounting-ledger-summary]");
+    if (ledgerSummary) {
+      ledgerSummary.insertAdjacentHTML("afterend", `<details class="accounting-ledger-analysis"><summary>${icon("chart")}<span><strong>Phân tích chi phí tháng</strong><small>Xem cơ cấu các khoản chi đã ghi trong dòng tiền.</small></span></summary><div class="accounting-ledger-analysis-body"><div class="accounting-expense-summary" data-accounting-expense-summary></div><div class="accounting-expense-groups" data-accounting-expense-groups></div></div></details>`);
+    }
+    layout.querySelector("[data-accounting-section='expenses']")?.remove();
     const missingExpensePanel = layout.querySelector("[data-missing-document-list]")?.closest("section");
     if (missingExpensePanel) missingExpensePanel.remove();
     const taxMissingBlock = layout.querySelector("[data-accounting-tax-documents]")?.parentElement;

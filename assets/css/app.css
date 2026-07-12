@@ -1586,6 +1586,37 @@ body[data-page="accounting"] [hidden] { display: none !important; }
 .document-link { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 800; text-decoration: none; white-space: nowrap; }
 .document-link svg { width: 16px; height: 16px; }
 
+.accounting-ledger-analysis {
+  margin: 12px 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.accounting-ledger-analysis summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.accounting-ledger-analysis summary::-webkit-details-marker { display: none; }
+.accounting-ledger-analysis summary svg { width: 20px; height: 20px; color: var(--primary); }
+.accounting-ledger-analysis summary span { display: grid; gap: 2px; }
+.accounting-ledger-analysis summary small { color: var(--muted); font-weight: 400; }
+.accounting-ledger-analysis[open] summary { border-bottom: 1px solid var(--border); }
+.accounting-ledger-analysis-body { display: grid; grid-template-columns: minmax(180px, .35fr) minmax(0, 1fr); gap: 18px; padding: 14px; }
+.accounting-ledger-analysis-body .accounting-expense-summary { margin: 0; }
+.accounting-ledger-analysis-body .accounting-expense-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (max-width: 640px) {
+  .accounting-ledger-analysis { margin-inline: 0; }
+  .accounting-ledger-analysis-body { grid-template-columns: 1fr; }
+  .accounting-ledger-analysis-body .accounting-expense-groups { grid-template-columns: 1fr; }
+}
+
 body[data-page="accounting"] .accounting-profit-grid {
   grid-template-rows: auto;
   align-content: start;

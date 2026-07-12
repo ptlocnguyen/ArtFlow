@@ -331,7 +331,7 @@ async function runPageInteractions(page, pageName, viewportName) {
   if (pageName === "accounting") {
     const dir = path.join(screenshotRoot, viewportName);
     await mkdir(dir, { recursive: true });
-    for (const view of ["overview", "payouts", "ledger", "receivables", "expenses", "profit", "tax", "settings"]) {
+    for (const view of ["overview", "payouts", "ledger", "receivables", "profit", "tax", "settings"]) {
       await page.locator(`[data-accounting-view-filter='${view}']`).click();
       await page.waitForTimeout(80);
       await page.evaluate(() => window.scrollTo(0, 0));
@@ -355,6 +355,8 @@ async function runPageInteractions(page, pageName, viewportName) {
         await page.locator("[data-modal-form] button[type='submit']").click();
         await page.waitForTimeout(120);
         if (!(await ledger.innerText()).includes("Mở file")) throw new Error("Updating a transaction document must refresh the ledger.");
+        await page.locator(".accounting-ledger-analysis summary").click();
+        if (!(await page.locator(".accounting-ledger-analysis").innerText()).includes("Phân tích chi phí tháng")) throw new Error("Ledger must expose the compact expense analysis.");
       }
       const exportButton = page.locator(`[data-accounting-section='${view}'] [data-open-accounting-export]:visible`).first();
       if (await exportButton.count()) {
