@@ -5425,10 +5425,11 @@ function payPurchaseOrder(body) {
   try {
     const id = String(body.id || "");
     const order = readRows("purchase_orders").find(function (item) { return item.id === id && item.status !== "deleted"; });
-    if (!order || order.status !== "received") return { ok: false, error: "Purchase order is not payable" };
-    const netTotal = Math.max(0, Number(order.total || 0) - Number(order.returned_amount || 0));
+    if (!order || order.status !== "received" || order.payment_status === "paid") return { ok: false, error: "Purchase order is not payable" };
     const creditAppliedAmount = Number(order.credit_applied_amount || 0);
-    const outstanding = Math.max(0, netTotal - Number(order.paid_amount || 0) - creditAppliedAmount);
+    const payableAmount = Math.max(0, Number(order.total || 0) - Number(order.returned_amount || 0) - creditAppliedAmount);
+    const outstanding = Math.max(0, payableAmount - Number(order.paid_amount || 0));
+    if (outstanding <= 0) return { ok: false, error: "Purchase order has no outstanding balance" };
     const amount = Number(body.amount);
     if (!isFinite(amount) || amount <= 0 || amount > outstanding) return { ok: false, error: "Payment amount is invalid" };
     const accountId = String(body.accountId || body.account_id || "");
@@ -5439,18 +5440,31 @@ function payPurchaseOrder(body) {
     const paymentDate = String(body.paymentDate || body.payment_date || nowIso().slice(0, 10)).slice(0, 10);
     const note = String(body.note || "").trim();
     const now = nowIso();
-    const cashTransaction = { id: Utilities.getUuid(), type: "expense", account_id: accountId, category_id: categoryId, amount: amount, transaction_date: paymentDate, description: note || "Thanh toán " + order.code, reference_type: "purchase_order", reference_id: order.code, created_by: user.id, status: "active", created_at: now, updated_at: now };
-    appendRow("cash_transactions", cashTransaction);
-    const payment = { id: Utilities.getUuid(), purchase_order_id: order.id, supplier_id: order.supplier_id, cash_transaction_id: cashTransaction.id, amount: amount, payment_date: paymentDate, note: note, created_by: user.id, created_at: now };
-    appendRow("supplier_payments", payment);
-    const paidAmount = Number(order.paid_amount || 0) + amount;
-    const settledAmount = paidAmount + creditAppliedAmount;
-    const patch = { paid_amount: paidAmount, payment_status: settledAmount >= netTotal ? "paid" : "partial", updated_at: now };
-    updateRow("purchase_orders", order._row, patch);
     const supplier = readRows("suppliers").find(function (item) { return item.id === order.supplier_id && item.status !== "deleted"; });
-    if (supplier) updateRow("suppliers", supplier._row, { outstanding: Math.max(0, Number(supplier.outstanding || 0) - amount), updated_at: now });
-    const items = readRows("purchase_order_items").filter(function (item) { return item.purchase_order_id === order.id; });
-    return { ok: true, purchaseOrder: publicPurchaseOrder(Object.assign({}, order, patch), items), payment: publicSupplierPayment(payment), transaction: publicCashTransaction(cashTransaction) };
+    if (!supplier) return { ok: false, error: "Supplier not found" };
+    const cashTransaction = { id: Utilities.getUuid(), type: "expense", account_id: accountId, category_id: categoryId, amount: amount, transaction_date: paymentDate, description: note || "Thanh toán phiếu mua " + order.code, reference_type: "purchase_order", reference_id: order.id, created_by: user.id, status: "active", created_at: now, updated_at: now, channel_id: "", document_url: "" };
+    const payment = { id: Utilities.getUuid(), purchase_order_id: order.id, supplier_id: order.supplier_id, cash_transaction_id: cashTransaction.id, amount: amount, payment_date: paymentDate, note: note, created_by: user.id, created_at: now };
+    const paidAmount = Number(order.paid_amount || 0) + amount;
+    const patch = { paid_amount: paidAmount, payment_status: paidAmount >= payableAmount ? "paid" : "partial", updated_at: now };
+    const supplierPatch = { outstanding: Math.max(0, Number(supplier.outstanding || 0) - amount), updated_at: now };
+    try {
+      appendRow("cash_transactions", cashTransaction);
+      appendRow("supplier_payments", payment);
+      updateRow("purchase_orders", order._row, patch);
+      updateRow("suppliers", supplier._row, supplierPatch);
+      const items = readRows("purchase_order_items").filter(function (item) { return item.purchase_order_id === order.id; });
+      return { ok: true, purchaseOrder: publicPurchaseOrder(Object.assign({}, order, patch), items), supplier: publicSupplier(Object.assign({}, supplier, supplierPatch)), payment: publicSupplierPayment(payment), transaction: publicCashTransaction(cashTransaction) };
+    } catch (error) {
+      try {
+        updateRow("purchase_orders", order._row, { paid_amount: order.paid_amount, payment_status: order.payment_status, updated_at: order.updated_at });
+        updateRow("suppliers", supplier._row, { outstanding: supplier.outstanding, updated_at: supplier.updated_at });
+        deleteRows("supplier_payments", readRows("supplier_payments").filter(function (item) { return item.id === payment.id; }).map(function (item) { return item._row; }));
+        deleteRows("cash_transactions", readRows("cash_transactions").filter(function (item) { return item.id === cashTransaction.id; }).map(function (item) { return item._row; }));
+      } catch (rollbackError) {
+        console.error("Purchase payment rollback failed: " + (rollbackError.message || String(rollbackError)));
+      }
+      throw error;
+    }
   } finally {
     lock.releaseLock();
   }

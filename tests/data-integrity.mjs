@@ -43,4 +43,26 @@ if (!migration.includes("request_id TEXT PRIMARY KEY") || !migration.includes("i
   throw new Error("Durable audit migration is incomplete.");
 }
 
+const purchasingWorker = fs.readFileSync("cloudflare-worker/src/d1-purchasing-actions.js", "utf8");
+const paymentWorkerBlock = purchasingWorker.slice(
+  purchasingWorker.indexOf('if(b.action==="payPurchaseOrder")'),
+  purchasingWorker.indexOf('if(b.action==="applySupplierCredit")')
+);
+const paymentAppsBlock = appsScript.slice(
+  appsScript.indexOf("function payPurchaseOrder(body)"),
+  appsScript.indexOf("function cancelPurchaseOrder(body)")
+);
+if (!paymentWorkerBlock.includes("env.DB.batch") || !paymentWorkerBlock.includes("INSERT INTO cash_transactions(id,type,account_id") || !paymentWorkerBlock.includes("INSERT INTO supplier_payments(id,purchase_order_id")) {
+  throw new Error("D1 purchase payment must atomically create explicit cash transaction and supplier payment rows.");
+}
+if (!paymentWorkerBlock.includes('row.status!=="received"') || !paymentWorkerBlock.includes('row.payment_status==="paid"') || !paymentWorkerBlock.includes("amount<=0") || !paymentWorkerBlock.includes("amount>outstanding")) {
+  throw new Error("D1 purchase payment guards are incomplete.");
+}
+if (!paymentAppsBlock.includes('order.status !== "received"') || !paymentAppsBlock.includes('order.payment_status === "paid"') || !paymentAppsBlock.includes("amount <= 0") || !paymentAppsBlock.includes("amount > outstanding")) {
+  throw new Error("Apps Script purchase payment guards are incomplete.");
+}
+if (!paymentAppsBlock.includes('deleteRows("supplier_payments"') || !paymentAppsBlock.includes('deleteRows("cash_transactions"')) {
+  throw new Error("Apps Script purchase payment must compensate partial writes on failure.");
+}
+
 console.log(`Data integrity QA passed for ${new Set(actions).size} API actions.`);

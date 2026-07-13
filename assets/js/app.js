@@ -12,6 +12,9 @@
   const API_TIMEOUT_MS = 40000;
   const API_RETRY_DELAYS = [650, 1500, 3200];
   const purchaseEditId = new URLSearchParams(window.location.search).get("edit") || "";
+  const accountingTransactionTarget = new URLSearchParams(window.location.search).get("transactionId") || "";
+  const purchasingOrderTarget = new URLSearchParams(window.location.search).get("purchaseOrderId") || "";
+  let deepLinkFocusHandled = false;
   const receiptSettingsKey = `${config.storageKey}.receiptSettings`;
   const loyaltyRules = { earnPerVnd: 10000, pointValue: 1000, maxRedeemRate: 0.2 };
   const readOnlyActions = new Set([
@@ -60,6 +63,11 @@
   };
   let accountingExportScope = "receivables";
   const purchasingFilters = { view: "orders", status: "all", paymentStatus: "all" };
+  if (page === "accounting" && accountingTransactionTarget) {
+    accountingFilters.view = "ledger";
+    accountingFilters.range = "all";
+  }
+  if (page === "purchasing" && purchasingOrderTarget) purchasingFilters.view = "orders";
   const reportFilters = { range: "30", channel: "all" };
   const auditFilters = { entityType: "all", range: "30" };
   const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" };
@@ -1260,6 +1268,12 @@
       note: line.note || "",
       included: line.included !== false
     };
+  }
+
+  function showToastLink(message, href, label) {
+    showToast(message);
+    if (!els.toast || !href) return;
+    els.toast.innerHTML = `<span>${escapeHtml(message)}</span><a href="${escapeAttribute(href)}">${escapeHtml(label)}</a>`;
   }
 
   function normalizePricingScenario(scenario) {
@@ -5759,14 +5773,16 @@
     const debtSection = document.querySelector("[data-accounting-section='receivables']");
     if (debtSection) {
       const titles = {
-        platform: ["Công nợ sàn", "Các đơn sàn đã hoàn tất nhưng chưa nằm trong payout đã ghi sổ."],
-        customer: ["Công nợ khách hàng", "Theo dõi đơn còn thiếu tiền và ưu tiên khoản quá hạn."],
-        supplier: ["Công nợ nhà cung cấp", "Theo dõi số tiền còn phải trả theo từng nhà cung cấp."]
+        platform: ["SÀN THƯƠNG MẠI ĐIỆN TỬ", "Công nợ sàn", "Các đơn sàn đã hoàn tất nhưng chưa nằm trong payout đã ghi sổ."],
+        customer: ["PHẢI THU KHÁCH HÀNG", "Công nợ khách hàng", "Theo dõi đơn còn thiếu tiền và ưu tiên khoản quá hạn."],
+        supplier: ["PHẢI TRẢ NHÀ CUNG CẤP", "Công nợ nhà cung cấp", "Theo dõi từng phiếu đã nhận hàng còn phải thanh toán."]
       }[accountingFilters.debtView];
+      const kicker = debtSection.querySelector(".panel-header .section-kicker");
       const heading = debtSection.querySelector(".panel-header h2");
       const note = debtSection.querySelector(".panel-header h2 + p");
-      if (heading) heading.textContent = titles[0];
-      if (note) note.textContent = titles[1];
+      if (kicker) kicker.textContent = titles[0];
+      if (heading) heading.textContent = titles[1];
+      if (note) note.textContent = titles[2];
     }
     const debtOps = document.querySelector("[data-accounting-debt-operations]");
     document.querySelectorAll("[data-accounting-debt-summary], .accounting-local-toolbar, [data-accounting-receivables]").forEach(node => { node.hidden = accountingFilters.debtView !== "customer"; });
@@ -5777,8 +5793,21 @@
         platformOrders.forEach(order => { const key=order.channel||"other"; grouped[key] ||= {count:0,total:0,oldest:0}; grouped[key].count+=1; grouped[key].total+=Number(order.netTotal||order.total||0); grouped[key].oldest=Math.max(grouped[key].oldest,orderAgeDays(order)); });
         debtOps.innerHTML = Object.entries(grouped).map(([channel,item])=>`<article class="accounting-debt-row"><span><strong>${commerceChannelLabel(channel)}</strong><small>${item.count} đơn · tuổi nợ cao nhất ${item.oldest} ngày</small></span><b>${money.format(item.total)}</b><span class="badge ${item.oldest>7?"warning":"neutral"}">${item.oldest>7?"Cần kiểm tra":"Chờ kỳ trả"}</span></article>`).join("") || `<div class="empty">Không có đơn sàn đang chờ payout.</div>`;
       } else if (accountingFilters.debtView === "supplier") {
-        const suppliers = (state.suppliers || []).filter(item => item.status !== "deleted" && item.outstanding > 0).sort((a,b)=>b.outstanding-a.outstanding);
-        debtOps.innerHTML = suppliers.map(supplier=>`<article class="accounting-debt-row"><span><strong>${escapeHtml(supplier.name)}</strong><small>${escapeHtml(supplier.code)} · mua gần nhất ${formatDate(supplier.lastPurchaseAt)}</small></span><b>${money.format(supplier.outstanding)}</b><span class="badge neutral">Phải trả</span></article>`).join("") || `<div class="empty">Không có công nợ nhà cung cấp.</div>`;
+        const payableOrders = (state.purchaseOrders || [])
+          .filter(order => order.status === "received" && order.paymentStatus !== "paid" && order.outstanding > 0)
+          .sort((a,b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")) || String(b.receivedAt).localeCompare(String(a.receivedAt)));
+        debtOps.innerHTML = payableOrders.map(order => {
+          const supplier = getSupplier(order);
+          const receivedTime = new Date(order.receivedAt || order.createdAt).getTime();
+          const age = isFinite(receivedTime) ? Math.max(0, Math.floor((Date.now() - receivedTime) / 86400000)) : 0;
+          const dueDays = purchaseDueDays(order);
+          const statusText = order.paidAmount > 0 || order.creditAppliedAmount > 0 ? "Trả một phần" : "Chưa thanh toán";
+          return `<article class="supplier-payable-card ${dueDays !== null && dueDays > 0 ? "overdue" : ""}" data-supplier-payable-order="${order.id}">
+            <div class="supplier-payable-head"><div><strong>${escapeHtml(order.code)}</strong><small>${escapeHtml(supplier.name)} · nhận ${formatDate(order.receivedAt)}</small></div><span class="badge ${order.paidAmount > 0 ? "pending" : "neutral"}">${statusText}</span></div>
+            <div class="supplier-payable-values"><span><small>Tổng phiếu</small><b>${money.format(order.netTotal)}</b></span><span><small>Đã trả</small><b>${money.format(order.paidAmount)}</b></span><span><small>Đã bù trừ</small><b>${money.format(order.creditAppliedAmount)}</b></span><span class="outstanding"><small>Còn phải trả</small><b>${money.format(order.outstanding)}</b></span></div>
+            <div class="supplier-payable-foot"><span>${order.dueDate ? `Hạn ${formatDate(order.dueDate)}${dueDays > 0 ? ` · quá ${dueDays} ngày` : ""}` : "Chưa đặt hạn"} · tuổi nợ ${age} ngày</span><div class="row-actions"><a class="link-button" href="./purchasing.html?purchaseOrderId=${encodeURIComponent(order.id)}">Xem phiếu mua</a>${canManageAccounting() ? `<button class="button primary compact-button" type="button" data-accounting-pay-purchase="${order.id}">${icon("receipt")} Thanh toán</button>` : ""}</div></div>
+          </article>`;
+        }).join("") || `<div class="empty">Không có phiếu mua đã nhận hàng còn phải trả.</div>`;
       }
     }
     const settingsForm = document.querySelector("[data-accounting-settings-form]");
@@ -6073,11 +6102,11 @@
         const account = getAccountingAccount(transaction.accountId);
         const signedAmount = transaction.type === "income" ? transaction.amount : -transaction.amount;
         return `
-          <tr>
+          <tr data-transaction-row="${transaction.id}" class="${transaction.id === accountingTransactionTarget ? "deep-link-highlight" : ""}">
             <td><strong>${formatDate(transaction.transactionDate)}</strong><br><small>${transaction.referenceType || "manual"}</small></td>
             <td><span class="badge ${transaction.type === "income" ? "active" : "pending"}">${accountingTypeLabel(transaction.type)}</span></td>
             <td><strong>${category.name}</strong><br><small>${account.name}</small></td>
-            <td>${transaction.description}</td>
+            <td>${escapeHtml(transaction.description)}${transaction.referenceType === "purchase_order" && transaction.referenceId ? `<br><a class="reference-link" href="./purchasing.html?purchaseOrderId=${encodeURIComponent(transaction.referenceId)}">${icon("external")} Phiếu mua ${escapeHtml(transaction.referenceId)}</a>` : ""}</td>
             <td>${transaction.documentUrl ? `<a class="document-link" href="${escapeAttribute(transaction.documentUrl)}" target="_blank" rel="noopener" title="Mở chứng từ">${icon("file")} <span>Mở file</span></a>` : `<span class="badge warning">Chưa có</span>`}</td>
             <td class="money-cell ${transaction.type === "income" ? "positive-money" : "negative-money"}"><strong>${money.format(signedAmount)}</strong></td>
             <td><div class="row-actions">${canManageAccounting() ? `<button class="link-button icon-only" data-edit-cash-transaction="${transaction.id}" aria-label="${transaction.documentUrl ? "Sửa giao dịch / chứng từ" : "Bổ sung chứng từ"}" title="${transaction.documentUrl ? "Sửa giao dịch / chứng từ" : "Bổ sung chứng từ"}">${icon(transaction.documentUrl ? "edit" : "folderPlus")}</button>${(!transaction.referenceType || transaction.referenceType === "manual") ? `<button class="link-button danger-link icon-only" data-archive-cash-transaction="${transaction.id}" aria-label="Xóa" title="Xóa">${icon("trash")}</button>` : ""}` : ""}</div></td>
@@ -6144,7 +6173,7 @@
         if (canPayPurchases() && order.status === "received" && order.outstanding > 0 && supplier.creditBalance > 0) actions.push(`<button class="link-button icon-only action-credit" type="button" data-apply-supplier-credit="${order.id}" aria-label="Bù trừ" title="Bù trừ">${icon("calculator")}</button>`);
         if (canManagePurchasing() && ["draft", "received"].includes(order.status) && order.paidAmount <= 0 && order.creditAppliedAmount <= 0 && order.returnedAmount <= 0) actions.push(`<button class="link-button danger-link icon-only" type="button" data-cancel-purchase="${order.id}" aria-label="Hủy" title="Hủy">${icon("close")}</button>`);
         return `
-          <tr class="${isOverdue ? "overdue-row" : ""}">
+          <tr data-purchase-order-row="${order.id}" class="${isOverdue ? "overdue-row " : ""}${[order.id, order.code].includes(purchasingOrderTarget) ? "deep-link-highlight" : ""}">
             <td><strong>${order.code}</strong><br><small>${order.invoiceNumber || "Chưa có số hóa đơn"}</small></td>
             <td><strong>${supplier.name}</strong><br><small>${supplier.code}</small></td>
             <td>${purchaseItemSummary(order)}${order.returnedAmount > 0 ? `<br><small>Đã trả ${money.format(order.returnedAmount)}</small>` : ""}</td>
@@ -6734,6 +6763,26 @@
     renderSettingsPage();
     enhanceResponsiveTables();
     enhanceMoneyInputs();
+    focusDeepLinkedRecord();
+  }
+
+  function focusDeepLinkedRecord() {
+    if (deepLinkFocusHandled || !pageDataReady) return;
+    const linkedPurchaseOrder = page === "purchasing" && purchasingOrderTarget
+      ? (state.purchaseOrders || []).find(order => order.id === purchasingOrderTarget || order.code === purchasingOrderTarget)
+      : null;
+    const selector = page === "accounting" && accountingTransactionTarget
+      ? `[data-transaction-row="${CSS.escape(accountingTransactionTarget)}"]`
+      : page === "purchasing" && purchasingOrderTarget
+        ? `[data-purchase-order-row="${CSS.escape(linkedPurchaseOrder?.id || purchasingOrderTarget)}"]`
+        : "";
+    if (!selector) return;
+    deepLinkFocusHandled = true;
+    window.requestAnimationFrame(() => {
+      const target = document.querySelector(selector);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+      else showToast("Không tìm thấy bản ghi được liên kết trong dữ liệu hiện tại.", "error");
+    });
   }
 
   function closeModal() {
@@ -8498,14 +8547,35 @@
   function renderPurchasePaymentForm(order) {
     const today = localDateValue();
     const supplier = getSupplier(order);
+    const defaultExpenseCategory = (state.accountingCategories || []).find(category => category.status === "active" && category.type === "expense" && /nhập hàng|mua hàng|giá vốn/i.test(category.name || ""))
+      || (state.accountingCategories || []).find(category => category.status === "active" && category.type === "expense");
     return `
-      <div class="modal-summary full"><strong>${order.code} · ${supplier.name}</strong><span>Còn phải trả ${money.format(order.outstanding)} · Đã trả ${money.format(order.paidAmount)}</span></div>
+      <div class="purchase-payment-summary full">
+        <div><small>Phiếu mua</small><strong>${escapeHtml(order.code)}</strong><span>${escapeHtml(supplier.name)}</span></div>
+        <div><small>Tổng phiếu</small><strong>${money.format(order.netTotal)}</strong></div>
+        <div><small>Đã thanh toán</small><strong>${money.format(order.paidAmount)}</strong></div>
+        <div><small>Đã bù trừ</small><strong>${money.format(order.creditAppliedAmount)}</strong></div>
+        <div class="outstanding"><small>Còn phải trả</small><strong>${money.format(order.outstanding)}</strong></div>
+      </div>
       <div class="field"><label for="paymentDate">Ngày thanh toán</label><input id="paymentDate" name="paymentDate" type="date" value="${today}" required /></div>
       <div class="field"><label for="amount">Số tiền</label><input id="amount" name="amount" type="number" min="1" max="${Math.max(1, order.outstanding)}" step="1" value="${order.outstanding}" required /></div>
       <div class="field"><label for="accountId">Tài khoản chi</label><select id="accountId" name="accountId" required>${renderAccountingAccountOptions()}</select></div>
-      <div class="field"><label for="categoryId">Danh mục chi</label><select id="categoryId" name="categoryId" required>${renderAccountingCategoryOptions("expense")}</select></div>
-      <div class="field full"><label for="note">Nội dung</label><input id="note" name="note" value="Thanh toán ${order.code}" required /></div>
+      <div class="field"><label for="categoryId">Danh mục chi</label><select id="categoryId" name="categoryId" required>${renderAccountingCategoryOptions("expense", defaultExpenseCategory?.id || "")}</select></div>
+      <div class="field full"><label for="note">Nội dung</label><input id="note" name="note" value="Thanh toán phiếu mua ${escapeAttribute(order.code)}" required /></div>
     `;
+  }
+
+  function openPurchasePaymentModal(purchaseOrder, options = {}) {
+    if (!purchaseOrder) return;
+    if (purchaseOrder.status !== "received") {
+      showToast("Phiếu mua chưa nhận hàng nên chưa thể thanh toán.", "error");
+      return;
+    }
+    if (purchaseOrder.paymentStatus === "paid" || purchaseOrder.outstanding <= 0) {
+      showToast("Phiếu mua này không còn công nợ phải trả.", "error");
+      return;
+    }
+    openModal("purchasePayment", { purchaseOrder, source: options.source || page });
   }
 
   function renderSupplierCreditForm(order) {
@@ -8817,7 +8887,7 @@
       showToast("Chỉ admin có quyền bù trừ dư có nhà cung cấp.", "error");
       return;
     }
-    if (type === "purchasePayment" && (!options.purchaseOrder || options.purchaseOrder.outstanding <= 0)) {
+    if (type === "purchasePayment" && (!options.purchaseOrder || options.purchaseOrder.status !== "received" || options.purchaseOrder.paymentStatus === "paid" || options.purchaseOrder.outstanding <= 0)) {
       showToast("Phiếu mua này không còn công nợ phải trả.", "error");
       return;
     }
@@ -9435,12 +9505,31 @@
         body: editingPurchaseOrder ? renderPurchasePaymentForm(editingPurchaseOrder) : "",
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
-          const response = await apiRequest("/purchase-orders/pay", { method: "POST", body: JSON.stringify({ id: editingPurchaseOrder.id, amount: Number(data.amount), accountId: data.accountId, categoryId: data.categoryId, paymentDate: data.paymentDate, note: data.note || "" }) });
+          const amount = Number(data.amount);
+          const account = (state.accountingAccounts || []).find(item => item.id === data.accountId && item.status === "active");
+          const category = (state.accountingCategories || []).find(item => item.id === data.categoryId && item.status === "active" && item.type === "expense");
+          if (editingPurchaseOrder.status !== "received") throw new Error("Phiếu mua chưa nhận hàng nên chưa thể thanh toán.");
+          if (editingPurchaseOrder.paymentStatus === "paid" || editingPurchaseOrder.outstanding <= 0) throw new Error("Phiếu mua đã được thanh toán đầy đủ.");
+          if (!isFinite(amount) || amount <= 0) throw new Error("Số tiền thanh toán phải lớn hơn 0.");
+          if (amount > editingPurchaseOrder.outstanding) throw new Error("Số tiền thanh toán không được vượt công nợ còn lại.");
+          if (!account) throw new Error("Vui lòng chọn tài khoản chi hợp lệ.");
+          if (!category) throw new Error("Vui lòng chọn danh mục chi hợp lệ.");
+          const response = await apiRequest("/purchase-orders/pay", { method: "POST", body: JSON.stringify({ id: editingPurchaseOrder.id, amount, accountId: data.accountId, categoryId: data.categoryId, paymentDate: data.paymentDate, note: data.note || "" }) });
           const saved = normalizePurchaseOrder(response.purchaseOrder);
           state.purchaseOrders = state.purchaseOrders.map(item => item.id === saved.id ? saved : item);
+          if (response.payment) state.supplierPayments = [normalizeSupplierPayment(response.payment), ...(state.supplierPayments || [])];
+          if (response.transaction) state.cashTransactions = [normalizeCashTransaction(response.transaction), ...(state.cashTransactions || [])];
+          if (response.supplier) {
+            const savedSupplier = normalizeSupplier(response.supplier);
+            state.suppliers = state.suppliers.map(item => item.id === savedSupplier.id ? savedSupplier : item);
+          }
+          if (response.transaction && account) account.currentBalance -= amount;
           await Promise.all([loadPurchasingData({ quiet: true }), loadAccountingData({ quiet: true })]);
           renderPage();
-          showToast(saved.outstanding <= 0 ? "Đã thanh toán đủ công nợ phiếu mua." : "Đã ghi nhận thanh toán một phần.");
+          const message = saved.outstanding <= 0
+            ? "Đã thanh toán đủ phiếu mua và ghi nhận giao dịch chi bên kế toán."
+            : "Đã thanh toán một phần phiếu mua và ghi nhận giao dịch chi bên kế toán.";
+          showToastLink(message, response.transaction ? `./accounting.html?transactionId=${encodeURIComponent(response.transaction.id)}` : "", "Xem giao dịch kế toán");
         }
       },
       supplierCredit: {
@@ -10515,7 +10604,11 @@
       }
       if (target.dataset.payPurchase) {
         const purchaseOrder = byId("purchaseOrders", target.dataset.payPurchase);
-        if (purchaseOrder) openModal("purchasePayment", { purchaseOrder });
+        if (purchaseOrder) openPurchasePaymentModal(purchaseOrder, { source: page });
+      }
+      if (target.dataset.accountingPayPurchase) {
+        const purchaseOrder = byId("purchaseOrders", target.dataset.accountingPayPurchase);
+        if (purchaseOrder) openPurchasePaymentModal(purchaseOrder, { source: "accounting" });
       }
       if (target.dataset.applySupplierCredit) {
         const purchaseOrder = byId("purchaseOrders", target.dataset.applySupplierCredit);

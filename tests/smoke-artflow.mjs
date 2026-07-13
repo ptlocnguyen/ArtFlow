@@ -358,6 +358,25 @@ async function runPageInteractions(page, pageName, viewportName) {
         await page.locator(".accounting-ledger-analysis summary").click();
         if (!(await page.locator(".accounting-ledger-analysis").innerText()).includes("Phân tích chi phí tháng")) throw new Error("Ledger must expose the compact expense analysis.");
       }
+      if (view === "receivables") {
+        await page.locator("[data-accounting-debt-view='supplier']").click();
+        const payable = page.locator("[data-supplier-payable-order='po-001']");
+        if (!(await payable.innerText()).includes("800.000")) throw new Error("Supplier payable must show the purchase order outstanding balance.");
+        if (await page.locator("[data-supplier-payable-order='po-draft-001']").count()) throw new Error("Draft purchase orders must not be payable from accounting.");
+        await payable.locator("[data-accounting-pay-purchase]").click();
+        if (keepScreenshots) await page.screenshot({ path: path.join(dir, "accounting-supplier-payment-modal.png"), fullPage: false });
+        await page.locator("#amount").fill("400000");
+        await page.locator("[data-modal-form] button[type='submit']").click();
+        await page.waitForTimeout(160);
+        if (!(await payable.innerText()).includes("400.000")) throw new Error("Partial supplier payment must keep the remaining payable visible.");
+        if (keepScreenshots) await page.screenshot({ path: path.join(dir, "accounting-supplier-payable-partial.png"), fullPage: false });
+        await payable.locator("[data-accounting-pay-purchase]").click();
+        if (Number((await page.locator("#amount").inputValue()).replaceAll(".", "")) !== 400000) throw new Error("The next payment must default to the remaining balance.");
+        await page.locator("[data-modal-form] button[type='submit']").click();
+        await page.waitForTimeout(160);
+        if (await page.locator("[data-supplier-payable-order='po-001']").count()) throw new Error("Fully paid purchase order must leave the supplier payable list.");
+        if (!(await page.locator("[data-toast]").innerText()).includes("Xem giao dịch kế toán")) throw new Error("Payment success must expose the accounting transaction link.");
+      }
       const exportButton = page.locator(`[data-accounting-section='${view}'] [data-open-accounting-export]:visible`).first();
       if (await exportButton.count()) {
         await exportButton.click().catch(() => {});
@@ -379,6 +398,17 @@ async function runPageInteractions(page, pageName, viewportName) {
       await page.screenshot({ path: path.join(dir, "accounting-profit-details.png"), fullPage: false });
     }
     await page.locator("[data-close-modal]").first().click().catch(() => {});
+    const deepLinkUrl = new URL(page.url());
+    deepLinkUrl.searchParams.set("transactionId", "tx-002");
+    await page.goto(deepLinkUrl.toString(), { waitUntil: "networkidle" });
+    if (!(await page.locator("[data-accounting-view-filter='ledger']").getAttribute("class") || "").includes("active")) throw new Error("Accounting deep link must open the ledger view.");
+    if (!(await page.locator("[data-transaction-row='tx-002']").getAttribute("class") || "").includes("deep-link-highlight")) throw new Error("Accounting deep link must highlight the transaction.");
+  }
+  if (pageName === "purchasing") {
+    const deepLinkUrl = new URL(page.url());
+    deepLinkUrl.searchParams.set("purchaseOrderId", "po-001");
+    await page.goto(deepLinkUrl.toString(), { waitUntil: "networkidle" });
+    if (!(await page.locator("[data-purchase-order-row='po-001']").getAttribute("class") || "").includes("deep-link-highlight")) throw new Error("Purchasing deep link must highlight the purchase order.");
   }
   if (pageName === "incense") {
     await page.locator("[data-incense-kind-choice='team']").click().catch(() => {});
@@ -451,6 +481,8 @@ function handleAction(state, payload) {
       return createOrder(state, payload);
     case "createPurchaseOrder":
       return createPurchaseOrder(state, payload);
+    case "payPurchaseOrder":
+      return payPurchaseOrder(state, payload);
     case "createOrderReceiptPdf":
       return createReceipt(state, payload);
     case "getAppSettings":
@@ -879,4 +911,27 @@ function createPurchaseOrder(state, payload) {
   };
   state.purchaseOrders = [order, ...(state.purchaseOrders || [])];
   return { ok: true, purchaseOrder: order };
+}
+
+function payPurchaseOrder(state, payload) {
+  const order = state.purchaseOrders.find(item => item.id === payload.id);
+  if (!order || order.status !== "received" || order.paymentStatus === "paid" || order.outstanding <= 0) return { ok:false, error:"Purchase order is not payable" };
+  const amount = Number(payload.amount);
+  const account = state.accountingAccounts.find(item => item.id === payload.accountId && item.status === "active");
+  const category = state.accountingCategories.find(item => item.id === payload.categoryId && item.status === "active" && item.type === "expense");
+  if (!Number.isFinite(amount) || amount <= 0 || amount > order.outstanding) return { ok:false, error:"Payment amount is invalid" };
+  if (!account || !category) return { ok:false, error:"Payment account or expense category is invalid" };
+  const supplier = state.suppliers.find(item => item.id === order.supplierId);
+  const now = new Date().toISOString();
+  const transaction = { id:`qa-supplier-tx-${Date.now()}`,type:"expense",accountId:account.id,categoryId:category.id,amount,transactionDate:payload.paymentDate||"2026-07-12",description:payload.note||`Thanh toán phiếu mua ${order.code}`,referenceType:"purchase_order",referenceId:order.id,channelId:"",documentUrl:"",createdBy:state.user.id,status:"active",createdAt:now,updatedAt:now };
+  const payment = { id:`qa-supplier-payment-${Date.now()}`,purchaseOrderId:order.id,supplierId:supplier.id,cashTransactionId:transaction.id,amount,paymentDate:transaction.transactionDate,note:payload.note||"",createdBy:state.user.id,createdAt:now };
+  order.paidAmount += amount;
+  order.settledAmount = order.paidAmount + order.creditAppliedAmount;
+  order.outstanding = Math.max(0, order.netTotal - order.settledAmount);
+  order.paymentStatus = order.outstanding <= 0 ? "paid" : "partial";
+  supplier.outstanding = Math.max(0, supplier.outstanding - amount);
+  account.currentBalance -= amount;
+  state.cashTransactions.unshift(transaction);
+  state.supplierPayments.unshift(payment);
+  return { ok:true,purchaseOrder:order,supplier,payment,transaction };
 }

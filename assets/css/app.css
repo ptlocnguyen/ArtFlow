@@ -1586,6 +1586,33 @@ body[data-page="accounting"] [hidden] { display: none !important; }
 .document-link { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 800; text-decoration: none; white-space: nowrap; }
 .document-link svg { width: 16px; height: 16px; }
 
+.supplier-payable-card { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.supplier-payable-card.overdue { border-color: #f2b8b5; }
+.supplier-payable-head, .supplier-payable-foot { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+.supplier-payable-head > div { display: grid; gap: 3px; }
+.supplier-payable-head small, .supplier-payable-foot > span { color: var(--muted); }
+.supplier-payable-values, .purchase-payment-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.supplier-payable-values > span, .purchase-payment-summary > div { display: grid; gap: 3px; padding: 10px; border-radius: 7px; background: var(--surface-soft); }
+.supplier-payable-values small, .purchase-payment-summary small { color: var(--muted); }
+.supplier-payable-values .outstanding, .purchase-payment-summary .outstanding { background: #fff3df; }
+.supplier-payable-values .outstanding b, .purchase-payment-summary .outstanding strong { color: #a54800; }
+.purchase-payment-summary { grid-column: 1 / -1; grid-template-columns: 1.35fr repeat(4, minmax(0, .8fr)); }
+.purchase-payment-summary > div:first-child { background: #eaf2ff; }
+.purchase-payment-summary span { color: var(--muted); }
+.reference-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; color: var(--primary); font-size: 12px; font-weight: 800; text-decoration: none; }
+.reference-link svg { width: 14px; height: 14px; }
+.deep-link-highlight { animation: deep-link-pulse 2.4s ease-out; box-shadow: inset 4px 0 var(--primary); background: #eef5ff !important; }
+@keyframes deep-link-pulse { 0%, 45% { background: #dbeafe; } 100% { background: #eef5ff; } }
+[data-toast] a { margin-left: 10px; color: #fff; font-weight: 900; text-decoration: underline; }
+
+@media (max-width: 760px) {
+  .supplier-payable-head, .supplier-payable-foot { align-items: flex-start; flex-direction: column; }
+  .supplier-payable-values { grid-template-columns: 1fr 1fr; width: 100%; }
+  .supplier-payable-foot .row-actions { width: 100%; justify-content: flex-end; }
+  .purchase-payment-summary { grid-template-columns: 1fr 1fr; }
+  .purchase-payment-summary > div:first-child { grid-column: 1 / -1; }
+}
+
 .accounting-ledger-analysis {
   margin: 12px 16px 0;
   border: 1px solid var(--border);
