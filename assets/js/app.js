@@ -344,8 +344,10 @@
     accountingLedgerSummary: qs("[data-accounting-ledger-summary]"),
     accountingReceivables: qs("[data-accounting-receivables]"),
     accountingDebtSummary: qs("[data-accounting-debt-summary]"),
+    accountingTypeSelect: qs("[data-accounting-type-select]"),
     accountingAccountFilter: qs("[data-accounting-account-filter]"),
     accountingRangeFilter: qs("[data-accounting-range-filter]"),
+    accountingLedgerCount: qs("[data-accounting-ledger-count]"),
     accountingProfitRange: qs("[data-accounting-profit-range]"),
     accountingProfitSummary: qs("[data-accounting-profit-summary]"),
     accountingProfitChart: qs("[data-accounting-profit-chart]"),
@@ -5651,11 +5653,6 @@
     }
     const ledgerTable = layout.querySelector("[data-accounting-transactions-table]")?.closest("table");
     if (ledgerTable) ledgerTable.querySelector("thead").innerHTML = `<tr><th>Ngày</th><th>Loại</th><th>Danh mục / tài khoản</th><th>Nội dung</th><th>Chứng từ</th><th>Số tiền</th><th>Thao tác</th></tr>`;
-    const ledgerSection = layout.querySelector("[data-accounting-section='ledger']");
-    const ledgerSummary = ledgerSection?.querySelector("[data-accounting-ledger-summary]");
-    if (ledgerSummary) {
-      ledgerSummary.insertAdjacentHTML("afterend", `<details class="accounting-ledger-analysis"><summary>${icon("chart")}<span><strong>Phân tích chi phí tháng</strong><small>Xem cơ cấu các khoản chi đã ghi trong dòng tiền.</small></span></summary><div class="accounting-ledger-analysis-body"><div class="accounting-expense-summary" data-accounting-expense-summary></div><div class="accounting-expense-groups" data-accounting-expense-groups></div></div></details>`);
-    }
     layout.querySelector("[data-accounting-section='expenses']")?.remove();
     const missingExpensePanel = layout.querySelector("[data-missing-document-list]")?.closest("section");
     if (missingExpensePanel) missingExpensePanel.remove();
@@ -5850,6 +5847,7 @@
     syncAccountingView();
     renderCommerceAccounting();
     const term = searchTerm.trim().toLowerCase();
+    if (els.accountingTypeSelect) els.accountingTypeSelect.value = accountingFilters.type;
     if (els.accountingAccountFilter) {
       const current = accountingFilters.accountId;
       els.accountingAccountFilter.innerHTML = `<option value="all">Tất cả tài khoản</option>${(state.accountingAccounts || []).map(account => `<option value="${account.id}">${account.name}</option>`).join("")}`;
@@ -5896,6 +5894,9 @@
     const overdueReceivable = receivableOrders.filter(item => item.ageDays > 7).reduce((sum, item) => sum + item.outstanding, 0);
     const dueSoonReceivable = receivableOrders.filter(item => item.ageDays > 3 && item.ageDays <= 7).reduce((sum, item) => sum + item.outstanding, 0);
     const netCash = income - expense;
+    if (els.accountingLedgerCount) {
+      els.accountingLedgerCount.innerHTML = `<strong>${transactions.length}</strong><span>giao dịch phù hợp</span>`;
+    }
 
     if (els.accountingLedgerSummary) {
       const activeAccount = accountingFilters.accountId === "all"
@@ -6352,6 +6353,50 @@
         return `<div class="profit-chart-day"><div class="profit-bars"><i class="revenue" style="--value:${Math.max(3, Math.round(row.revenue / maxValue * 100))}%" title="Doanh thu ${money.format(row.revenue)}"></i><i class="profit" style="--value:${Math.max(3, Math.round(Math.max(0, row.profit) / maxValue * 100))}%" title="Lãi gộp ${money.format(row.profit)}"></i></div><span>${day.slice(5).replace("-", "/")}</span></div>`;
       }).join("") : `<div class="empty">Chưa có doanh thu trong kỳ.</div>`;
     }
+  }
+
+  function renderAccountingLedgerAnalysis() {
+    const cutoff = accountingFilters.range === "all"
+      ? ""
+      : shiftDateValue(localDateValue(), -Number(accountingFilters.range));
+    const transactions = (state.cashTransactions || []).filter(transaction => {
+      if (transaction.status === "deleted") return false;
+      if (accountingFilters.accountId !== "all" && transaction.accountId !== accountingFilters.accountId) return false;
+      return !cutoff || String(transaction.transactionDate || transaction.createdAt).slice(0, 10) >= cutoff;
+    });
+    const income = transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
+    const expenses = transactions.filter(item => item.type === "expense");
+    const expense = expenses.reduce((sum, item) => sum + item.amount, 0);
+    const missingDocuments = expenses.filter(item => !item.documentUrl).length;
+    const byCategory = expenses.reduce((groups, transaction) => {
+      const category = getAccountingCategory(transaction.categoryId);
+      const label = category.name || "Chưa phân loại";
+      groups[label] = (groups[label] || 0) + transaction.amount;
+      return groups;
+    }, {});
+    const categories = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+    const maxExpense = Math.max(...categories.map(item => item[1]), 1);
+    const account = accountingFilters.accountId === "all"
+      ? "Tất cả tài khoản"
+      : getAccountingAccount(accountingFilters.accountId).name;
+    return `
+      <div class="modal-summary full"><strong>${escapeHtml(accountingRangeLabel(accountingFilters.range))}</strong><span>${escapeHtml(account)} · phân tích theo bộ lọc Dòng tiền hiện tại.</span></div>
+      <div class="profit-detail-flow ledger-analysis-metrics full">
+        <article><span>Tổng thu</span><strong>${money.format(income)}</strong><small>${transactions.filter(item => item.type === "income").length} giao dịch</small></article>
+        <article><span>Tổng chi</span><strong>${money.format(expense)}</strong><small>${expenses.length} giao dịch</small></article>
+        <article><span>Dòng tiền ròng</span><strong>${money.format(income - expense)}</strong><small>Thu trừ chi</small></article>
+        <article><span>Thiếu chứng từ</span><strong>${missingDocuments}</strong><small>Khoản chi cần bổ sung</small></article>
+      </div>
+      <div class="modal-section full">
+        <div class="modal-section-heading"><h3>Cơ cấu khoản chi</h3><p>Xếp từ danh mục chi lớn nhất trong phạm vi đang chọn.</p></div>
+        <div class="expense-breakdown compact">
+          ${categories.length ? categories.map(([label, amount]) => {
+            const share = expense > 0 ? amount / expense * 100 : 0;
+            return `<div class="expense-row"><div><strong>${escapeHtml(label)}</strong><span>${money.format(amount)} · ${share.toFixed(1)}%</span></div><i style="--expense-width:${Math.round(amount / maxExpense * 100)}%"></i></div>`;
+          }).join("") : `<div class="empty">Chưa phát sinh khoản chi trong phạm vi đang chọn.</div>`}
+        </div>
+      </div>
+    `;
   }
 
   function renderAccountingProfitDetails() {
@@ -9085,6 +9130,12 @@
         body: renderAccountingProfitDetails(),
         readOnly: true
       },
+      accountingLedgerAnalysis: {
+        eyebrow: "Dòng tiền",
+        title: "Phân tích thu và chi",
+        body: renderAccountingLedgerAnalysis(),
+        readOnly: true
+      },
       customerImport: {
         eyebrow: "Nhập dữ liệu Excel",
         title: "Nhập danh sách khách hàng",
@@ -9953,6 +10004,13 @@
       });
     });
 
+    if (els.accountingTypeSelect) {
+      els.accountingTypeSelect.addEventListener("change", event => {
+        accountingFilters.type = event.target.value;
+        renderPage();
+      });
+    }
+
     if (els.accountingAccountFilter) {
       els.accountingAccountFilter.addEventListener("change", event => {
         accountingFilters.accountId = event.target.value;
@@ -10475,6 +10533,7 @@
         openModal("accountingExport");
       }
       if (target.matches("[data-open-accounting-profit-details]")) openModal("accountingProfitDetails");
+      if (target.matches("[data-open-accounting-ledger-analysis]")) openModal("accountingLedgerAnalysis");
       if (target.dataset.exportAccountingReport) {
         exportAccountingReport(target.dataset.exportAccountingReport);
         closeModal();

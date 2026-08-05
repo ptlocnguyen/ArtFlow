@@ -348,6 +348,7 @@ async function runPageInteractions(page, pageName, viewportName) {
         if (!(await page.locator("[data-platform-payout-table]").innerText()).includes("QA-")) throw new Error("Creating a payout must update the payout table.");
       }
       if (view === "ledger") {
+        await page.locator("[data-accounting-range-filter]").selectOption("all");
         const ledger = page.locator("[data-accounting-transactions-table]");
         if (viewportName === "desktop" && !(await ledger.locator("xpath=ancestor::table").innerText()).toLocaleUpperCase("vi-VN").includes("CHỨNG TỪ")) throw new Error("Cash ledger must include the document column.");
         await page.locator("[data-edit-cash-transaction]").first().click();
@@ -355,8 +356,14 @@ async function runPageInteractions(page, pageName, viewportName) {
         await page.locator("[data-modal-form] button[type='submit']").click();
         await page.waitForTimeout(120);
         if (!(await ledger.innerText()).includes("Mở file")) throw new Error("Updating a transaction document must refresh the ledger.");
-        await page.locator(".accounting-ledger-analysis summary").click();
-        if (!(await page.locator(".accounting-ledger-analysis").innerText()).includes("Phân tích chi phí tháng")) throw new Error("Ledger must expose the compact expense analysis.");
+        await page.locator("[data-accounting-type-select]").selectOption("expense");
+        if (!(await page.locator("[data-accounting-ledger-count]").innerText()).includes("giao dịch phù hợp")) throw new Error("Ledger must show the filtered transaction count.");
+        if ((await ledger.innerText()).includes("Thu bán hàng")) throw new Error("Expense filter must hide income transactions.");
+        await page.locator("[data-accounting-type-select]").selectOption("all");
+        await page.locator("[data-open-accounting-ledger-analysis]").click();
+        if (!(await page.locator("[data-modal-form]").innerText()).includes("Cơ cấu khoản chi")) throw new Error("Ledger analysis must open outside the primary table workspace.");
+        if (keepScreenshots) await page.screenshot({ path: path.join(dir, "accounting-ledger-analysis.png"), fullPage: false });
+        await page.locator("[data-close-modal]").first().click();
       }
       if (view === "receivables") {
         await page.locator("[data-accounting-debt-view='supplier']").click();

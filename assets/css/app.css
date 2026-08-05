@@ -9336,3 +9336,184 @@ body[data-page="accounting"] .accounting-tax-workspace .accounting-overview-grid
     white-space: nowrap;
   }
 }
+
+/* Dòng tiền ưu tiên bảng giao dịch; phân tích chi tiết được mở theo nhu cầu. */
+body[data-page="accounting"] .accounting-ledger {
+  min-height: 0;
+}
+
+body[data-page="accounting"] .accounting-ledger-header {
+  flex: 0 0 auto;
+  padding: 14px 16px 10px;
+}
+
+body[data-page="accounting"] .accounting-ledger-header h2 {
+  font-size: 21px;
+}
+
+body[data-page="accounting"] .accounting-ledger-summary {
+  flex: 0 0 auto;
+  gap: 0;
+  margin: 0 16px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+body[data-page="accounting"] .accounting-ledger-summary article {
+  padding: 8px 12px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+
+body[data-page="accounting"] .accounting-ledger-summary article:last-child {
+  border-right: 0;
+}
+
+body[data-page="accounting"] .accounting-ledger-summary strong {
+  margin: 2px 0 0;
+  font-size: 16px;
+}
+
+body[data-page="accounting"] .accounting-ledger-summary small {
+  display: none;
+}
+
+body[data-page="accounting"] .accounting-ledger-toolbar {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(170px, .8fr) minmax(210px, 1.2fr) minmax(170px, .8fr) auto;
+  align-items: end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+body[data-page="accounting"] .accounting-ledger-toolbar label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+body[data-page="accounting"] .accounting-ledger-toolbar label > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+body[data-page="accounting"] .accounting-ledger-toolbar select {
+  width: 100%;
+  min-height: 38px;
+}
+
+.ledger-result-count {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.ledger-result-count strong {
+  color: var(--text);
+}
+
+body[data-page="accounting"] .accounting-ledger-table {
+  flex: 1 1 auto;
+  min-height: 230px;
+  margin: 0;
+  border-radius: 0 0 8px 8px;
+}
+
+body[data-page="accounting"] .accounting-ledger-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+
+.ledger-analysis-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  body[data-page="accounting"] .accounting-ledger-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ledger-result-count {
+    grid-column: 1 / -1;
+    min-height: 20px;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 820px) {
+  body[data-page="accounting"] .accounting-ledger-summary {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(145px, 1fr);
+    grid-template-columns: none;
+    margin-inline: 14px;
+    overflow-x: auto;
+  }
+
+  body[data-page="accounting"] .accounting-ledger-summary article {
+    border-right: 1px solid var(--line);
+  }
+
+  body[data-page="accounting"] .accounting-ledger-toolbar {
+    grid-template-columns: 1fr 1fr;
+    padding-inline: 14px;
+  }
+
+  body[data-page="accounting"] .accounting-ledger-toolbar label:first-child,
+  .ledger-result-count {
+    grid-column: 1 / -1;
+  }
+
+  body[data-page="accounting"] .accounting-ledger-table {
+    max-height: 62vh;
+    overflow: auto;
+  }
+
+  .ledger-analysis-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  body[data-page="accounting"] .accounting-ledger-summary {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: hidden;
+  }
+
+  body[data-page="accounting"] .accounting-ledger-summary article:nth-child(2) {
+    border-right: 0;
+  }
+
+  body[data-page="accounting"] .accounting-ledger-summary article:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  body[data-page="accounting"] .accounting-ledger-header .panel-header-actions {
+    grid-template-columns: 1fr 1fr auto;
+  }
+
+  body[data-page="accounting"] .accounting-ledger-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-page="accounting"] .accounting-ledger-toolbar label:first-child,
+  .ledger-result-count {
+    grid-column: auto;
+  }
+}
