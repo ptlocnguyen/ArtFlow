@@ -1,6 +1,7 @@
 .DS_Store
 Thumbs.db
 node_modules/
+test-artifacts/
 tmp/
 .env
 .env.*
@@ -16,3 +17,6 @@ service-account*.json
 credentials*.json
 token*.json
 docs/
+!docs/
+docs/*
+!docs/information-architecture-refactor.md

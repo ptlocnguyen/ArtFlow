@@ -1,0 +1,5 @@
+.badge, .status-pill { border-radius: 999px; font-weight: 700; }
+.badge.success, .status-success { color: var(--v3-success); background: var(--v3-success-soft); }
+.badge.warning, .status-warning { color: var(--v3-warning); background: var(--v3-warning-soft); }
+.badge.danger, .status-danger { color: var(--v3-danger); background: var(--v3-danger-soft); }
+.badge.info, .status-info { color: var(--v3-primary); background: var(--v3-primary-soft); }

@@ -16,11 +16,13 @@ const requestedPage = process.argv.find(argument => argument.startsWith("--page=
 const requestedViewport = process.argv.find(argument => argument.startsWith("--viewport="))?.split("=")[1] || "";
 
 const allPages = [
+  ["auth", "index.html"],
   ["dashboard", "pages/dashboard.html"],
   ["orders", "pages/orders.html"],
   ["order-create", "pages/order-create.html"],
   ["products", "pages/products.html"],
   ["channels", "pages/channels.html"],
+  ["channel-settings", "pages/channel-settings.html"],
   ["content", "pages/content.html"],
   ["team", "pages/team.html"],
   ["team-pricing", "pages/team-pricing.html"],
@@ -29,7 +31,9 @@ const allPages = [
   ["customers", "pages/customers.html"],
   ["inventory", "pages/inventory.html"],
   ["accounting", "pages/accounting.html"],
+  ["accounting-settings", "pages/accounting-settings.html"],
   ["purchasing", "pages/purchasing.html"],
+  ["suppliers", "pages/suppliers.html"],
   ["purchase-create", "pages/purchase-create.html"],
   ["reports", "pages/reports.html"],
   ["users", "pages/users.html"],
@@ -41,6 +45,8 @@ if (!pages.length) throw new Error(`Unknown smoke page: ${requestedPage}`);
 
 const allViewports = [
   { name: "desktop", width: 1440, height: 900 },
+  { name: "desktop-1280", width: 1280, height: 800 },
+  { name: "tablet", width: 768, height: 1024 },
   { name: "mobile", width: 390, height: 844 }
 ];
 const viewports = requestedViewport ? allViewports.filter(viewport => viewport.name === requestedViewport) : allViewports;
@@ -74,6 +80,11 @@ for (const viewport of viewports) {
   for (const [name, relativeFile] of pages) {
     const state = createArtflowFixture();
     const page = await context.newPage();
+    if (name === "auth") {
+      await page.addInitScript(storageKey => {
+        localStorage.removeItem(`${storageKey}.authToken`);
+      }, storageKey);
+    }
     const consoleErrors = [];
     const pageErrors = [];
     page.on("console", message => {
@@ -81,7 +92,7 @@ for (const viewport of viewports) {
         consoleErrors.push(`${message.type()}: ${message.text()}`);
       }
     });
-    page.on("pageerror", error => pageErrors.push(error.message));
+    page.on("pageerror", error => pageErrors.push(error.stack || error.message));
     await installApiMock(page, state);
 
     const url = pathToFileURL(path.join(root, relativeFile)).href;
@@ -89,7 +100,10 @@ for (const viewport of viewports) {
     let result;
     try {
       await page.goto(url, { waitUntil: "domcontentloaded" });
-      await page.waitForSelector("[data-app-shell]:not([hidden])", { timeout: 8000 });
+      await page.waitForSelector(
+        name === "auth" ? "[data-login-form] input[name='email']" : "[data-app-shell]:not([hidden])",
+        { timeout: 8000 }
+      );
       await page.waitForTimeout(250);
       await runPageInteractions(page, name, viewport.name);
       const metrics = await page.evaluate(() => {
@@ -166,6 +180,19 @@ async function saveScreenshot(page, viewportName, pageName) {
 }
 
 async function runPageInteractions(page, pageName, viewportName) {
+  if (viewportName === "mobile" && pageName !== "auth") {
+    await page.locator("[data-context-toggle]").click().catch(() => {});
+    if (!(await page.locator("body").getAttribute("class") || "").includes("context-open")) throw new Error("Mobile context navigation must open from the command bar.");
+    await page.keyboard.press("Escape");
+  }
+  if (["orders", "products", "customers"].includes(pageName)) {
+    const rowSelector = pageName === "orders" ? "[data-orders-table] [data-view-order]" : pageName === "products" ? "[data-products-table] [data-view-product]" : "[data-customers-table] [data-view-customer]";
+    await page.locator(rowSelector).first().click();
+    const expectedType = pageName === "orders" ? "orderDetail" : pageName === "products" ? "productDetail" : "customerDetail";
+    await page.locator(`[data-modal-type='${expectedType}']`).waitFor();
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector("[data-modal-backdrop]")?.hidden === true);
+  }
   if (pageName === "team") {
     await page.locator("[data-team-view='tasks']").click().catch(() => {});
     await page.locator("[data-team-secondary-action]").click().catch(() => {});
@@ -183,12 +210,37 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.waitForTimeout(100);
   }
   if (pageName === "channels") {
+    await page.locator("[data-omni-quick-filter]").first().click().catch(() => {});
+    await page.waitForTimeout(60);
     await page.locator("[data-open-channel-product-form]").first().click().catch(() => {});
     await page.waitForTimeout(80);
     await page.locator("#channelSku").fill("QA-SKU-001").catch(() => {});
     await page.locator("[data-modal-form] button[type='submit']").click().catch(() => {});
     await page.locator("[data-modal-backdrop][hidden], .modal-backdrop[hidden]").waitFor({ timeout: 1500 }).catch(() => {});
     await page.waitForTimeout(120);
+  }
+  if (pageName === "channel-settings") {
+    if (!(await page.locator("[data-channel-settings-list] .channel-setting-row").count())) throw new Error("Channel settings must render configured sales channels.");
+    await page.locator("[data-channel-settings-search]").fill("Shopee");
+    if (await page.locator("[data-channel-settings-list] .channel-setting-row").count() !== 1) throw new Error("Channel settings search must filter the management list.");
+    await page.locator("[data-channel-settings-search]").fill("");
+  }
+  if (pageName === "accounting-settings") {
+    await page.locator("a[href='#categories']").click().catch(() => {});
+    await page.waitForTimeout(80);
+  }
+  if (pageName === "suppliers") {
+    await page.locator("[data-supplier-balance-filter]").selectOption("payable").catch(() => {});
+    await page.waitForTimeout(80);
+    await page.locator("[data-supplier-card]").first().click();
+    await page.locator("[data-supplier-detail]:not([hidden])").waitFor();
+    await page.locator("[data-close-management-drawer]").click();
+  }
+  if (pageName === "purchasing") {
+    await page.locator("[data-purchase-saved-view='unpaid']").click();
+    await page.locator("[data-purchase-order-row]").first().click();
+    await page.locator("[data-purchase-detail]:not([hidden])").waitFor();
+    await page.locator("[data-close-management-drawer]").click();
   }
   if (pageName === "order-create") {
     await page.locator("[data-open-product-picker], [data-show-product-picker], [data-product-picker-open]").first().click({ timeout: 1200 }).catch(() => {});
@@ -331,8 +383,8 @@ async function runPageInteractions(page, pageName, viewportName) {
   if (pageName === "accounting") {
     const dir = path.join(screenshotRoot, viewportName);
     await mkdir(dir, { recursive: true });
-    for (const view of ["overview", "payouts", "ledger", "receivables", "profit", "tax", "settings"]) {
-      await page.locator(`[data-accounting-view-filter='${view}']`).click();
+    for (const view of ["overview", "payouts", "ledger", "receivables", "payroll", "tax"]) {
+      await page.locator(`[data-accounting-view-filter='${view}']`).evaluate(element => element.click());
       await page.waitForTimeout(80);
       await page.evaluate(() => window.scrollTo(0, 0));
       if (view === "payouts") {
@@ -388,9 +440,6 @@ async function runPageInteractions(page, pageName, viewportName) {
       if (await exportButton.count()) {
         await exportButton.click().catch(() => {});
         await page.waitForTimeout(50);
-        if (keepScreenshots && view === "profit") {
-          await page.screenshot({ path: path.join(dir, "accounting-profit-export.png"), fullPage: false });
-        }
         await page.locator("[data-close-modal]").first().click().catch(() => {});
         await page.waitForTimeout(220);
       }
@@ -398,13 +447,6 @@ async function runPageInteractions(page, pageName, viewportName) {
         await page.screenshot({ path: path.join(dir, `accounting-${view}.png`), fullPage: false });
       }
     }
-    await page.locator("[data-accounting-view-filter='profit']").click();
-    await page.locator("[data-open-accounting-profit-details]").click();
-    await page.waitForTimeout(50);
-    if (keepScreenshots) {
-      await page.screenshot({ path: path.join(dir, "accounting-profit-details.png"), fullPage: false });
-    }
-    await page.locator("[data-close-modal]").first().click().catch(() => {});
     const deepLinkUrl = new URL(page.url());
     deepLinkUrl.searchParams.set("transactionId", "tx-002");
     await page.goto(deepLinkUrl.toString(), { waitUntil: "networkidle" });

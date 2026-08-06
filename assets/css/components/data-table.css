@@ -1,0 +1,11 @@
+.table-wrap { border: 1px solid var(--v3-border); border-radius: var(--v3-radius); background: var(--v3-surface); }
+.table-wrap table { border-collapse: separate; border-spacing: 0; }
+.table-wrap th { height: 42px; color: var(--v3-muted); background: var(--v3-surface-soft); font-size: 12px; letter-spacing: 0; }
+.table-wrap td { min-height: 48px; }
+.table-wrap tbody tr { cursor: default; transition: background var(--v3-fast); }
+.table-wrap tbody tr[data-order-id], .table-wrap tbody tr[data-product-id], .table-wrap tbody tr[data-customer-id], .table-wrap tbody tr[data-purchase-order-row] { cursor: pointer; }
+.table-wrap tbody tr:hover { background: #f8faff; }
+.table-wrap tbody tr:focus-within { box-shadow: inset 3px 0 var(--v3-primary); }
+.table-wrap tbody tr.data-row-clickable { cursor: pointer; }
+.table-wrap tbody tr.data-row-clickable:hover, .table-wrap tbody tr.data-row-clickable:focus-visible { background: var(--v3-primary-soft); }
+.table-wrap tbody tr.data-row-clickable:focus-visible { outline: 2px solid var(--v3-primary); outline-offset: -2px; }

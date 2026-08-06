@@ -1,0 +1,34 @@
+:root {
+  --v3-app: #f5f6f8;
+  --v3-surface: #fff;
+  --v3-surface-soft: #f8fafc;
+  --v3-ink: #171a1f;
+  --v3-muted: #667085;
+  --v3-border: #e4e7ec;
+  --v3-primary: #2864e8;
+  --v3-primary-hover: #1f54ca;
+  --v3-primary-soft: #eaf1ff;
+  --v3-success: #15865c;
+  --v3-success-soft: #e8f7f0;
+  --v3-warning: #b76e00;
+  --v3-warning-soft: #fff4dc;
+  --v3-danger: #c53d4b;
+  --v3-danger-soft: #fff0f1;
+  --v3-rail: #101d2f;
+  --v3-rail-muted: #9fb1c8;
+  --v3-radius: 12px;
+  --v3-radius-sm: 9px;
+  --v3-shadow: 0 8px 24px rgba(16, 24, 40, .06);
+  --v3-fast: 160ms ease;
+  --rail-width: 72px;
+  --context-width: 244px;
+  --command-height: 64px;
+}
+
+html { color-scheme: light; }
+body { color: var(--v3-ink); background: var(--v3-app); }
+button, input, select, textarea { font: inherit; }
+:focus-visible { outline: 3px solid rgba(40, 100, 232, .28); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto; transition-duration: .01ms; animation-duration: .01ms; animation-iteration-count: 1; }
+}

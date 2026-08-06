@@ -1,4 +1,5 @@
 (function () {
+  window.ArtFlowPageModules = window.ArtFlowPageModules || {};
   const config = window.ARTFLOW_POS_CONFIG;
   const page = document.body.dataset.page || "auth";
   const root = document.body.dataset.root || ".";
@@ -12,8 +13,10 @@
   const API_TIMEOUT_MS = 40000;
   const API_RETRY_DELAYS = [650, 1500, 3200];
   const purchaseEditId = new URLSearchParams(window.location.search).get("edit") || "";
-  const accountingTransactionTarget = new URLSearchParams(window.location.search).get("transactionId") || "";
+  const routeParams = new URLSearchParams(window.location.search);
+  const accountingTransactionTarget = routeParams.get("transactionId") || "";
   const purchasingOrderTarget = new URLSearchParams(window.location.search).get("purchaseOrderId") || "";
+  const supplierTarget = routeParams.get("supplierId") || "";
   let deepLinkFocusHandled = false;
   const receiptSettingsKey = `${config.storageKey}.receiptSettings`;
   const loyaltyRules = { earnPerVnd: 10000, pointValue: 1000, maxRedeemRate: 0.2 };
@@ -46,7 +49,7 @@
   let pageDataReady = false;
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
   const accountingFilters = {
-    view: "overview",
+    view: accountingTransactionTarget ? "ledger" : (["overview", "ledger", "receivables", "payouts", "payroll", "tax"].includes(routeParams.get("view")) ? routeParams.get("view") : "overview"),
     type: "all",
     accountId: "all",
     range: "30",
@@ -57,24 +60,26 @@
     payoutChannel: "all",
     payoutStatus: "all",
     payoutRange: "90",
-    debtView: "platform",
-    profitView: "overview",
-    settingsView: "operations"
+    debtView: routeParams.get("debt") || "platform"
   };
   let accountingExportScope = "receivables";
-  const purchasingFilters = { view: "orders", status: "all", paymentStatus: "all" };
+  const purchasingFilters = { status: "all", paymentStatus: "all", savedView: "all" };
+  const supplierFilters = { status: "all", balance: "all", search: "" };
   if (page === "accounting" && accountingTransactionTarget) {
     accountingFilters.view = "ledger";
     accountingFilters.range = "all";
   }
-  if (page === "purchasing" && purchasingOrderTarget) purchasingFilters.view = "orders";
+  if (page === "accounting" && !accountingTransactionTarget && ["overview", "ledger", "receivables", "payouts", "payroll", "tax"].includes(routeParams.get("view"))) {
+    accountingFilters.view = routeParams.get("view");
+  }
   const reportFilters = { range: "30", channel: "all" };
   const auditFilters = { entityType: "all", range: "30" };
   const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" };
   const inventoryFilters = { category: "all", stock: "all", sort: "risk" };
   const contentFilters = { status: "all", type: "all", owner: "all", channel: "all", product: "all", schedule: "all" };
-  const teamFilters = { view: "meetings", status: "all", owner: "all", range: "30" };
+  const teamFilters = { view: "tasks", status: "all", owner: "all", range: "30" };
   const omniFilters = { channel: "all", stock: "all", issue: "all" };
+  const channelSettingsFilters = { status: "all", search: "" };
 
   const channels = {
     pos: "POS",
@@ -171,20 +176,23 @@
 
   const pages = {
     dashboard: { title: "Tổng quan", href: "./dashboard.html", icon: "dashboard", roles: ["admin", "sales", "inventory", "viewer"], modes: ["simple", "standard", "advanced"] },
-    orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "shoppingCart", roles: ["admin", "sales"], modes: ["simple", "standard", "advanced"] },
+    orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "shoppingCart", roles: ["admin", "sales"], modes: ["simple", "standard", "advanced"], hidden: true },
     orders: { title: "Đơn hàng", href: "./orders.html", icon: "clipboard", roles: ["admin", "sales", "viewer"], modes: ["simple", "standard", "advanced"] },
     customers: { title: "Khách hàng", href: "./customers.html", icon: "users", roles: ["admin", "sales", "viewer"], modes: ["simple", "standard", "advanced"] },
     products: { title: "Sản phẩm", href: "./products.html", icon: "package", roles: ["admin", "sales", "inventory", "viewer"], modes: ["simple", "standard", "advanced"] },
     inventory: { title: "Kho hàng", href: "./inventory.html", icon: "warehouse", roles: ["admin", "inventory", "viewer"], modes: ["simple", "standard", "advanced"] },
     purchasing: { title: "Mua hàng", href: "./purchasing.html", icon: "truck", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
+    suppliers: { title: "Nhà cung cấp", href: "./suppliers.html", icon: "users", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
     purchaseCreate: { title: "Tạo phiếu mua", href: "./purchase-create.html", icon: "plus", roles: ["admin", "inventory"], modes: ["standard", "advanced"], hidden: true },
     accounting: { title: "Kế toán", href: "./accounting.html", icon: "calculator", roles: ["admin"], modes: ["standard", "advanced"] },
+    accountingSettings: { title: "Thiết lập kế toán", href: "./accounting-settings.html", icon: "settings", roles: ["admin"], modes: ["standard", "advanced"], hidden: true, parent: "accounting" },
     reports: { title: "Báo cáo", href: "./reports.html", icon: "chart", roles: ["admin", "sales", "inventory", "viewer"], modes: ["simple", "standard", "advanced"] },
     content: { title: "Content", href: "./content.html", icon: "sparkles", roles: ["admin"], modes: ["advanced"] },
     channels: { title: "Kênh bán", href: "./channels.html", icon: "truck", roles: ["admin"], modes: ["advanced"] },
+    channelSettings: { title: "Thiết lập kênh", href: "./channel-settings.html", icon: "settings", roles: ["admin"], modes: ["advanced"], hidden: true, parent: "channels" },
     team: { title: "Team Hub", href: "./team.html", icon: "briefcase", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
     teamPricing: { title: "Tính giá", href: "./team-pricing.html", icon: "calculator", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
-    meetingMinutes: { title: "Biên bản họp", href: "./meeting-minutes.html", icon: "clipboard", roles: ["admin"], modes: ["advanced"], hidden: true },
+    meetingMinutes: { title: "Biên bản họp", href: "./meeting-minutes.html", icon: "clipboard", roles: ["admin"], modes: ["advanced"] },
     incense: { title: "Xin vía", href: "./incense.html", icon: "sparkles", roles: ["admin", "sales", "inventory"], modes: ["advanced"] },
     users: { title: "Nhân viên", href: "./users.html", icon: "userPlus", roles: ["admin"], modes: ["standard", "advanced"], adminOnly: true },
     settings: { title: "Cài đặt", href: "./settings.html", icon: "settings", roles: ["admin"], modes: ["standard", "advanced"], adminOnly: true },
@@ -194,10 +202,10 @@
   const navGroups = [
     { id: "overview", title: "Tổng quan", defaultOpen: true, items: ["dashboard"] },
     { id: "sales", title: "Bán hàng", defaultOpen: true, items: ["orderCreate", "orders", "customers"] },
-    { id: "catalog", title: "Hàng hóa", defaultOpen: true, items: ["products", "inventory", "purchasing"] },
+    { id: "catalog", title: "Hàng hóa & cung ứng", defaultOpen: true, items: ["products", "teamPricing", "inventory", "purchasing", "suppliers"] },
+    { id: "growth", title: "Kênh bán & tăng trưởng", defaultOpen: false, items: ["channels", "content"] },
     { id: "finance", title: "Tài chính", defaultOpen: false, items: ["accounting", "reports"] },
-    { id: "growth", title: "Tăng trưởng", defaultOpen: false, items: ["content", "channels"] },
-    { id: "internal", title: "Nội bộ", defaultOpen: false, items: ["team", "teamPricing", "meetingMinutes", "incense"] },
+    { id: "internal", title: "Làm việc nội bộ", defaultOpen: false, items: ["team", "meetingMinutes", "incense"] },
     { id: "admin", title: "Quản trị", defaultOpen: false, items: ["users", "settings", "activity"] }
   ];
 
@@ -265,6 +273,8 @@
     loginForm: qs("[data-login-form]"),
     currentUser: qs("[data-current-user]"),
     title: qs("[data-page-title]"),
+    spaceNav: qs("[data-space-nav]"),
+    contextTitle: qs("[data-context-title]"),
     navList: qs("[data-nav-list]"),
     kpis: qs("[data-kpis]"),
     lowStock: qs("[data-low-stock]"),
@@ -397,6 +407,18 @@
         </section>
       </div>
       <button class="menu-scrim" type="button" data-menu-close aria-label="Đóng menu"></button>
+      <div class="popover" id="quick-create-popover" data-popover hidden>
+        <a class="nav-link" href="./order-create.html">${icon("shoppingCart")}<span>Tạo đơn bán</span></a>
+        <a class="nav-link" href="./purchase-create.html">${icon("truck")}<span>Tạo phiếu mua</span></a>
+        <a class="nav-link" href="./accounting.html?view=ledger">${icon("wallet")}<span>Ghi thu hoặc chi</span></a>
+        <a class="nav-link" href="./team.html?view=tasks">${icon("clipboard")}<span>Tạo việc cần làm</span></a>
+      </div>
+      <div class="popover" id="work-queue-popover" data-popover hidden>
+        <strong>Việc cần xử lý</strong>
+        <a class="nav-link" href="./orders.html?status=pending">${icon("clipboard")}<span>Đơn chờ xác nhận</span></a>
+        <a class="nav-link" href="./inventory.html?view=health">${icon("warehouse")}<span>Tồn kho cần chú ý</span></a>
+        <a class="nav-link" href="./accounting.html?view=overview">${icon("calculator")}<span>Việc tài chính hôm nay</span></a>
+      </div>
       <div class="toast" data-toast hidden></div>
       <div class="loading-overlay" data-loading-overlay hidden>
         <div class="loading-card" role="status" aria-live="polite">
@@ -475,17 +497,10 @@
   }
 
   function setConnectionStatus(status, title, message) {
-    document.querySelectorAll(".sidebar-card").forEach(card => {
-      card.dataset.connectionStatus = status || "online";
-      const strong = card.querySelector("strong");
-      const paragraph = card.querySelector("p");
-      if (strong) strong.textContent = title || "Đã kết nối";
-      if (paragraph) {
-        Array.from(paragraph.childNodes)
-          .filter(node => node.nodeType === Node.TEXT_NODE)
-          .forEach(node => node.remove());
-        paragraph.append(document.createTextNode(message || " Phiên làm việc được xác thực qua Worker."));
-      }
+    document.querySelectorAll(".context-connection").forEach(indicator => {
+      indicator.dataset.connectionStatus = status || "online";
+      const label = indicator.querySelector("span:last-child");
+      if (label) label.textContent = `${title || "Đã kết nối"}${message || " qua Worker"}`;
     });
   }
 
@@ -1103,174 +1118,23 @@
       && state.suppliers.some(supplier => supplier.status === "active");
   }
 
-  function normalizeProduct(product) {
-    return {
-      id: product.id,
-      sku: product.sku || "",
-      name: product.name || "",
-      category: product.category || "",
-      brand: product.brand || "",
-      barcode: product.barcode || "",
-      unit: product.unit || "cái",
-      weightGrams: Number(product.weightGrams || 0),
-      dimensions: product.dimensions || "",
-      origin: product.origin || "",
-      material: product.material || "",
-      costPrice: Number(product.costPrice || 0),
-      salePrice: Number(product.salePrice || 0),
-      stock: Number(product.stock || 0),
-      lowStock: Number(product.lowStock || 0),
-      imageUrl: product.imageUrl || "",
-      shortDescription: product.shortDescription || "",
-      keyFeatures: product.keyFeatures || "",
-      targetAudience: product.targetAudience || "",
-      seoKeywords: product.seoKeywords || "",
-      contentStatus: product.contentStatus || "not_started",
-      contentOwner: product.contentOwner || "",
-      contentNote: product.contentNote || "",
-      websiteProductUrl: product.websiteProductUrl || "",
-      shopeeProductUrl: product.shopeeProductUrl || "",
-      tiktokProductUrl: product.tiktokProductUrl || "",
-      facebookProductUrl: product.facebookProductUrl || "",
-      contentPostLinks: product.contentPostLinks || "",
-      contentDocUrl: product.contentDocUrl || "",
-      mediaFolderUrl: product.mediaFolderUrl || "",
-      imageFolderUrl: product.imageFolderUrl || "",
-      videoFolderUrl: product.videoFolderUrl || "",
-      status: product.status || "active",
-      createdAt: product.createdAt || "",
-      updatedAt: product.updatedAt || ""
-    };
-  }
 
-  function normalizeProductOption(option) {
-    return {
-      id: option.id,
-      type: option.type || "category",
-      name: option.name || "",
-      status: option.status || "active",
-      createdAt: option.createdAt || "",
-      updatedAt: option.updatedAt || ""
-    };
-  }
 
-  function normalizeContentItem(item) {
-    return {
-      id: item.id,
-      type: item.type || "campaign",
-      title: item.title || "",
-      productId: item.productId || "",
-      channel: item.channel || "multi",
-      status: item.status || "idea",
-      priority: item.priority || "normal",
-      dueDate: item.dueDate || "",
-      publishAt: item.publishAt || "",
-      template: item.template || "",
-      owner: item.owner || "",
-      collaborators: item.collaborators || "",
-      tags: item.tags || "",
-      campaign: item.campaign || "",
-      brief: item.brief || "",
-      checklist: Array.isArray(item.checklist) ? item.checklist : [],
-      assetChecklist: Array.isArray(item.assetChecklist) ? item.assetChecklist : [],
-      commentLog: Array.isArray(item.commentLog) ? item.commentLog : [],
-      promptText: item.promptText || "",
-      targetMetric: item.targetMetric || "",
-      result: item.result && typeof item.result === "object" ? item.result : {},
-      note: item.note || "",
-      publishUrl: item.publishUrl || "",
-      contentDocUrl: item.contentDocUrl || "",
-      mediaFolderUrl: item.mediaFolderUrl || "",
-      createdBy: item.createdBy || "",
-      createdAt: item.createdAt || "",
-      updatedAt: item.updatedAt || ""
-    };
-  }
 
-  function normalizeIncenseWish(item) {
-    return {
-      id: item.id || makeLocalId("wish"),
-      kind: item.kind || "sales",
-      wish: item.wish || "",
-      actorId: item.actorId || "",
-      actorName: item.actorName || "",
-      actorEmail: item.actorEmail || "",
-      offerings: Array.isArray(item.offerings)
-        ? item.offerings
-        : String(item.offerings || "").split(",").map(value => value.trim()).filter(Boolean),
-      createdAt: item.createdAt || ""
-    };
-  }
 
-  function normalizeTeamAction(action) {
-    return {
-      id: action.id || makeLocalId("action"),
-      title: action.title || "",
-      owner: action.owner || "",
-      dueDate: action.dueDate || "",
-      status: action.status || "todo"
-    };
-  }
 
-  function normalizeTeamMeeting(meeting) {
-    return {
-      id: meeting.id || makeLocalId("meeting"),
-      title: meeting.title || "",
-      type: meeting.type || "weekly",
-      status: meeting.status || "draft",
-      meetingAt: meeting.meetingAt || "",
-      owner: meeting.owner || "",
-      attendees: meeting.attendees || "",
-      agenda: meeting.agenda || "",
-      notes: meeting.notes || "",
-      decisions: Array.isArray(meeting.decisions) ? meeting.decisions : [],
-      actions: Array.isArray(meeting.actions) ? meeting.actions.map(normalizeTeamAction) : [],
-      template: meeting.template || "",
-      sourceType: meeting.sourceType || "manual",
-      sourceId: meeting.sourceId || "",
-      commentLog: Array.isArray(meeting.commentLog) ? meeting.commentLog : [],
-      links: meeting.links || "",
-      createdAt: meeting.createdAt || "",
-      updatedAt: meeting.updatedAt || ""
-    };
-  }
 
-  function normalizeTeamPlan(plan) {
-    return {
-      id: plan.id || makeLocalId("plan"),
-      title: plan.title || "",
-      period: plan.period || "",
-      status: plan.status || "idea",
-      owner: plan.owner || "",
-      goalRevenue: Number(plan.goalRevenue || 0),
-      goalProfit: Number(plan.goalProfit || 0),
-      budget: Number(plan.budget || 0),
-      channels: plan.channels || "",
-      focusProducts: plan.focusProducts || "",
-      milestones: Array.isArray(plan.milestones) ? plan.milestones : [],
-      sourceType: plan.sourceType || "manual",
-      sourceId: plan.sourceId || "",
-      commentLog: Array.isArray(plan.commentLog) ? plan.commentLog : [],
-      risks: plan.risks || "",
-      note: plan.note || "",
-      createdAt: plan.createdAt || "",
-      updatedAt: plan.updatedAt || ""
-    };
-  }
 
-  function normalizePricingLine(line) {
-    const allowedTypes = ["fixed", "cost_percent", "price_percent", "note"];
-    const type = allowedTypes.includes(line.type) ? line.type : "fixed";
-    return {
-      id: line.id || makeLocalId("price_line"),
-      name: line.name || line.label || "",
-      label: line.name || line.label || "",
-      type,
-      value: Math.max(0, Number(line.value || 0)),
-      note: line.note || "",
-      included: line.included !== false
-    };
-  }
+
+
+
+
+
+
+
+
+
+  const { normalizeProduct, normalizeProductOption, normalizeContentItem, normalizeIncenseWish, normalizeTeamAction, normalizeTeamMeeting, normalizeTeamPlan, normalizePricingLine, normalizePricingScenario, normalizePricingModel, normalizeTeamDecision, normalizeSalesChannel, normalizeChannelProduct, normalizeInventoryReservation, normalizeCampaign, normalizeWorkspaceTask, normalizeCustomer, normalizeOrderItem, normalizeOrder, normalizeSalesReturn, normalizeOrderRefund, normalizeStockMovement, normalizeAccountingAccount, normalizeAccountingCategory, normalizeAccountingReconciliation, normalizeCashTransaction, normalizePlatformPayout, normalizeSupplier, normalizePurchaseOrder, normalizeSupplierPayment, normalizePurchaseReturn, normalizeSupplierCreditApplication } = window.ArtFlowDomain.create({ makeLocalId, channels });
 
   function showToastLink(message, href, label) {
     showToast(message);
@@ -1278,169 +1142,21 @@
     els.toast.innerHTML = `<span>${escapeHtml(message)}</span><a href="${escapeAttribute(href)}">${escapeHtml(label)}</a>`;
   }
 
-  function normalizePricingScenario(scenario) {
-    const allowedRoundingModes = ["none", "step", "tail9"];
-    const roundingMode = allowedRoundingModes.includes(scenario.roundingMode) ? scenario.roundingMode : "step";
-    return {
-      id: scenario.id || makeLocalId("price_scenario"),
-      name: scenario.name || scenario.label || "",
-      label: scenario.name || scenario.label || "",
-      channelId: scenario.channelId || scenario.channelCode || "",
-      channelCode: scenario.channelCode || "",
-      targetMargin: Math.max(0, Number(scenario.targetMargin ?? 35)),
-      targetProfitAmount: Math.max(0, Number(scenario.targetProfitAmount || 0)),
-      manualPrice: Math.max(0, Number(scenario.manualPrice || scenario.salePrice || scenario.overridePrice || 0)),
-      salePrice: Math.max(0, Number(scenario.manualPrice || scenario.salePrice || scenario.overridePrice || 0)),
-      roundingMode,
-      roundingStep: Math.max(1, Number(scenario.roundingStep || 1000)),
-      resultSnapshot: scenario.resultSnapshot && typeof scenario.resultSnapshot === "object" ? scenario.resultSnapshot : null
-    };
-  }
 
-  function normalizePricingModel(model) {
-    return {
-      id: model.id || makeLocalId("pricing"),
-      title: model.title || "",
-      productId: model.productId || "",
-      channelId: model.channelId || model.channelCode || "",
-      channelCode: model.channelCode || "",
-      priceTarget: model.priceTarget || "offline",
-      appliedPrice: Number(model.appliedPrice || 0),
-      appliedAt: model.appliedAt || "",
-      appliedToProduct: Boolean(model.appliedToProduct),
-      appliedToChannelProduct: Boolean(model.appliedToChannelProduct),
-      appliedChannelId: model.appliedChannelId || "",
-      appliedChannelCode: model.appliedChannelCode || "",
-      appliedSnapshot: model.appliedSnapshot && typeof model.appliedSnapshot === "object" ? model.appliedSnapshot : null,
-      roundingMode: model.roundingMode || "step",
-      roundingStep: Number(model.roundingStep || 1000),
-      targetProfitAmount: Number(model.targetProfitAmount || 0),
-      targetMargin: Number(model.targetMargin || 35),
-      selectedScenarioId: model.selectedScenarioId || "",
-      status: model.status || "draft",
-      owner: model.owner || "",
-      baseCost: Number(model.baseCost || 0),
-      quantity: Math.max(1, Number(model.quantity || 1)),
-      lines: Array.isArray(model.lines) ? model.lines.map(normalizePricingLine) : [],
-      scenarios: Array.isArray(model.scenarios) ? model.scenarios.map(normalizePricingScenario) : [],
-      sourceType: model.sourceType || "product",
-      sourceId: model.sourceId || model.productId || "",
-      commentLog: Array.isArray(model.commentLog) ? model.commentLog : [],
-      note: model.note || "",
-      createdAt: model.createdAt || "",
-      updatedAt: model.updatedAt || ""
-    };
-  }
 
-  function normalizeTeamDecision(decision) {
-    return {
-      id: decision.id || makeLocalId("decision"),
-      title: decision.title || "",
-      sourceType: decision.sourceType || "manual",
-      sourceId: decision.sourceId || "",
-      status: decision.status || "active",
-      owner: decision.owner || "",
-      decidedAt: decision.decidedAt || "",
-      tags: decision.tags || "",
-      detail: decision.detail || "",
-      nextReviewAt: decision.nextReviewAt || "",
-      sourceType: decision.sourceType || "manual",
-      sourceId: decision.sourceId || "",
-      commentLog: Array.isArray(decision.commentLog) ? decision.commentLog : [],
-      createdAt: decision.createdAt || "",
-      updatedAt: decision.updatedAt || ""
-    };
-  }
 
-  function normalizeSalesChannel(channel) {
-    return {
-      id: channel.id || makeLocalId("channel"),
-      code: channel.code || "",
-      name: channel.name || "",
-      type: channel.type || "marketplace",
-      status: channel.status || "active",
-      syncMode: channel.syncMode || "manual",
-      defaultPricePolicy: channel.defaultPricePolicy || "same",
-      note: channel.note || "",
-      createdAt: channel.createdAt || "",
-      updatedAt: channel.updatedAt || ""
-    };
-  }
 
-  function normalizeChannelProduct(item) {
-    return {
-      id: item.id || makeLocalId("channel_product"),
-      channelId: item.channelId || "",
-      productId: item.productId || "",
-      channelSku: item.channelSku || "",
-      channelName: item.channelName || "",
-      channelPrice: Number(item.channelPrice || 0),
-      channelStock: Number(item.channelStock || 0),
-      syncStock: item.syncStock !== false,
-      syncPrice: item.syncPrice === true,
-      status: item.status || "active",
-      lastSyncAt: item.lastSyncAt || "",
-      note: item.note || "",
-      createdAt: item.createdAt || "",
-      updatedAt: item.updatedAt || ""
-    };
-  }
 
-  function normalizeInventoryReservation(item) {
-    return {
-      id: item.id || makeLocalId("reservation"),
-      productId: item.productId || "",
-      orderId: item.orderId || "",
-      channelId: item.channelId || "",
-      quantity: Number(item.quantity || 0),
-      status: item.status || "active",
-      reason: item.reason || "",
-      createdBy: item.createdBy || "",
-      createdAt: item.createdAt || "",
-      releasedAt: item.releasedAt || ""
-    };
-  }
 
-  function normalizeCampaign(item) {
-    return {
-      id: item.id || makeLocalId("campaign"),
-      name: item.name || "",
-      status: item.status || "idea",
-      owner: item.owner || "",
-      channels: item.channels || "",
-      startDate: item.startDate || "",
-      endDate: item.endDate || "",
-      goal: item.goal || "",
-      budget: Number(item.budget || 0),
-      targetRevenue: Number(item.targetRevenue || 0),
-      targetProfit: Number(item.targetProfit || 0),
-      note: item.note || "",
-      createdBy: item.createdBy || "",
-      createdAt: item.createdAt || "",
-      updatedAt: item.updatedAt || ""
-    };
-  }
 
-  function normalizeWorkspaceTask(item) {
-    item = item || {};
-    return {
-      id: item.id || makeLocalId("task"),
-      title: item.title || "",
-      status: item.status || "todo",
-      priority: item.priority || "normal",
-      owner: item.owner || "",
-      sourceType: item.sourceType || "",
-      sourceId: item.sourceId || "",
-      productId: item.productId || "",
-      channelId: item.channelId || "",
-      campaignId: item.campaignId || "",
-      dueDate: item.dueDate || "",
-      description: item.description || "",
-      createdBy: item.createdBy || "",
-      createdAt: item.createdAt || "",
-      updatedAt: item.updatedAt || ""
-    };
-  }
+
+
+
+
+
+
+
+
 
   async function loadProducts(options = {}) {
     try {
@@ -1456,23 +1172,7 @@
     }
   }
 
-  function normalizeCustomer(customer) {
-    return {
-      id: customer.id,
-      name: customer.name || "",
-      phone: customer.phone || "",
-      email: customer.email || "",
-      group: customer.group || "Bán lẻ",
-      status: customer.status || "active",
-      totalSpent: Number(customer.totalSpent || 0),
-      loyaltyPoints: Number(customer.loyaltyPoints || 0),
-      lifetimePoints: Number(customer.lifetimePoints || 0),
-      lastOrderAt: customer.lastOrderAt || "",
-      note: customer.note || "",
-      createdAt: customer.createdAt || "",
-      updatedAt: customer.updatedAt || ""
-    };
-  }
+
 
   async function loadCustomers(options = {}) {
     try {
@@ -1486,100 +1186,13 @@
     }
   }
 
-  function normalizeOrderItem(item) {
-    return {
-      id: item.id,
-      orderId: item.orderId || "",
-      productId: item.productId || "",
-      sku: item.sku || "",
-      name: item.name || "",
-      quantity: Number(item.quantity || 0),
-      unitPrice: Number(item.unitPrice || 0),
-      costPrice: Number(item.costPrice || 0),
-      discountPercent: Number(item.discountPercent || 0),
-      lineTotal: Number(item.lineTotal || 0),
-      createdAt: item.createdAt || ""
-    };
-  }
 
-  function normalizeOrder(order) {
-    const items = (order.items || []).map(normalizeOrderItem);
-    return {
-      id: order.id,
-      code: order.code || "",
-      customerId: order.customerId || "",
-      status: order.status || "pending",
-      paymentStatus: order.paymentStatus || "unpaid",
-      paymentMethod: order.paymentMethod || "cash",
-      subtotal: Number(order.subtotal || 0),
-      discount: Number(order.discount || 0),
-      discountPercent: Number(order.discountPercent || 0),
-      loyaltyPointsUsed: Number(order.loyaltyPointsUsed || 0),
-      loyaltyDiscount: Number(order.loyaltyDiscount || 0),
-      cashReceived: Number(order.cashReceived || 0),
-      changeAmount: Number(order.changeAmount || 0),
-      roundingAmount: Number(order.roundingAmount || 0),
-      shippingFee: Number(order.shippingFee || 0),
-      total: Number(order.total || 0),
-      receiptPdfUrl: order.receiptPdfUrl || "",
-      returnedAmount: Number(order.returnedAmount || 0),
-      refundedAmount: Number(order.refundedAmount || 0),
-      netTotal: Number(order.netTotal === undefined ? Math.max(0, Number(order.total || 0) - Number(order.returnedAmount || 0)) : order.netTotal),
-      note: order.note || "",
-      createdBy: order.createdBy || "",
-      createdAt: order.createdAt || "",
-      updatedAt: order.updatedAt || "",
-      channel: order.channel || "pos",
-      shippingStatus: order.shippingStatus || "none",
-      carrier: order.carrier || "",
-      trackingCode: order.trackingCode || "",
-      productId: items[0] ? items[0].productId : "",
-      quantity: items.reduce((sum, item) => sum + item.quantity, 0),
-      items
-    };
-  }
 
-  function normalizeSalesReturn(salesReturn) {
-    return {
-      id: salesReturn.id,
-      code: salesReturn.code || "",
-      orderId: salesReturn.orderId || "",
-      customerId: salesReturn.customerId || "",
-      amount: Number(salesReturn.amount || 0),
-      note: salesReturn.note || "",
-      createdBy: salesReturn.createdBy || "",
-      createdAt: salesReturn.createdAt || "",
-      items: (salesReturn.items || []).map(item => ({
-        id: item.id,
-        returnId: item.returnId || salesReturn.id,
-        orderItemId: item.orderItemId || "",
-        productId: item.productId || "",
-        sku: item.sku || "",
-        name: item.name || "",
-        quantity: Number(item.quantity || 0),
-        unitPrice: Number(item.unitPrice || 0),
-        costPrice: Number(item.costPrice || 0),
-        lineTotal: Number(item.lineTotal || 0),
-        createdAt: item.createdAt || ""
-      }))
-    };
-  }
 
-  function normalizeOrderRefund(refund) {
-    return {
-      id: refund.id,
-      orderId: refund.orderId || "",
-      salesReturnId: refund.salesReturnId || "",
-      cashTransactionId: refund.cashTransactionId || "",
-      accountId: refund.accountId || "",
-      categoryId: refund.categoryId || "",
-      amount: Number(refund.amount || 0),
-      refundDate: refund.refundDate || "",
-      note: refund.note || "",
-      createdBy: refund.createdBy || "",
-      createdAt: refund.createdAt || ""
-    };
-  }
+
+
+
+
 
   async function loadOrders(options = {}) {
     try {
@@ -1595,23 +1208,7 @@
     }
   }
 
-  function normalizeStockMovement(movement) {
-    return {
-      id: movement.id,
-      productId: movement.productId || "",
-      sku: movement.sku || "",
-      productName: movement.productName || "",
-      type: movement.type || "",
-      quantityDelta: Number(movement.quantityDelta || 0),
-      stockBefore: Number(movement.stockBefore || 0),
-      stockAfter: Number(movement.stockAfter || 0),
-      reason: movement.reason || "",
-      referenceType: movement.referenceType || "",
-      referenceId: movement.referenceId || "",
-      createdBy: movement.createdBy || "",
-      createdAt: movement.createdAt || ""
-    };
-  }
+
 
   async function loadStockMovements(options = {}) {
     try {
@@ -1626,77 +1223,15 @@
     }
   }
 
-  function normalizeAccountingAccount(account) {
-    return {
-      id: account.id,
-      name: account.name || "",
-      type: account.type || "cash",
-      openingBalance: Number(account.openingBalance || 0),
-      currentBalance: Number(account.currentBalance || 0),
-      status: account.status || "active",
-      createdAt: account.createdAt || "",
-      updatedAt: account.updatedAt || ""
-    };
-  }
 
-  function normalizeAccountingCategory(category) {
-    return {
-      id: category.id,
-      name: category.name || "",
-      type: category.type || "expense",
-      group: category.group || "other",
-      status: category.status || "active",
-      createdAt: category.createdAt || "",
-      updatedAt: category.updatedAt || ""
-    };
-  }
 
-  function normalizeAccountingReconciliation(reconciliation) {
-    return {
-      id: reconciliation.id,
-      accountId: reconciliation.accountId || "",
-      systemBalance: Number(reconciliation.systemBalance || 0),
-      actualBalance: Number(reconciliation.actualBalance || 0),
-      difference: Number(reconciliation.difference || 0),
-      note: reconciliation.note || "",
-      reconciledBy: reconciliation.reconciledBy || "",
-      reconciledAt: reconciliation.reconciledAt || "",
-      createdAt: reconciliation.createdAt || ""
-    };
-  }
 
-  function normalizeCashTransaction(transaction) {
-    return {
-      id: transaction.id,
-      type: transaction.type || "expense",
-      accountId: transaction.accountId || "",
-      categoryId: transaction.categoryId || "",
-      amount: Number(transaction.amount || 0),
-      transactionDate: transaction.transactionDate || "",
-      description: transaction.description || "",
-      referenceType: transaction.referenceType || "",
-      referenceId: transaction.referenceId || "",
-      channelId: transaction.channelId || "",
-      documentUrl: transaction.documentUrl || "",
-      createdBy: transaction.createdBy || "",
-      status: transaction.status || "active",
-      createdAt: transaction.createdAt || "",
-      updatedAt: transaction.updatedAt || ""
-    };
-  }
 
-  function normalizePlatformPayout(payout) {
-    return {
-      id: payout.id, channelId: payout.channelId || "", channelCode: payout.channelCode || "", payoutCode: payout.payoutCode || "",
-      periodStart: payout.periodStart || "", periodEnd: payout.periodEnd || "", payoutDate: payout.payoutDate || "", accountId: payout.accountId || "",
-      grossAmount: Number(payout.grossAmount || 0), totalFees: Number(payout.totalFees || 0), totalRefunds: Number(payout.totalRefunds || 0),
-      expectedAmount: Number(payout.expectedAmount || 0), actualAmount: Number(payout.actualAmount || 0), difference: Number(payout.difference || 0),
-      status: payout.status || "draft", sourceFileName: payout.sourceFileName || "", sourceFileUrl: payout.sourceFileUrl || "",
-      sourceFileNote: payout.sourceFileNote || "", note: payout.note || "", postedTransactionId: payout.postedTransactionId || "",
-      createdBy: payout.createdBy || "", createdAt: payout.createdAt || "", updatedAt: payout.updatedAt || "",
-      items: Array.isArray(payout.items) ? payout.items.map(item => ({ ...item, productTotal: Number(item.productTotal || 0), expectedNetAmount: Number(item.expectedNetAmount || 0), platformNetAmount: Number(item.platformNetAmount || 0), difference: Number(item.difference || 0) })) : []
-    };
-  }
+
+
+
+
+
 
   async function loadAccountingData(options = {}) {
     try {
@@ -1721,115 +1256,15 @@
     }
   }
 
-  function normalizeSupplier(supplier) {
-    return {
-      id: supplier.id,
-      code: supplier.code || "",
-      name: supplier.name || "",
-      phone: supplier.phone || "",
-      email: supplier.email || "",
-      taxCode: supplier.taxCode || "",
-      address: supplier.address || "",
-      status: supplier.status || "active",
-      totalPurchased: Number(supplier.totalPurchased || 0),
-      outstanding: Number(supplier.outstanding || 0),
-      creditBalance: Number(supplier.creditBalance || 0),
-      lastPurchaseAt: supplier.lastPurchaseAt || "",
-      note: supplier.note || "",
-      createdAt: supplier.createdAt || "",
-      updatedAt: supplier.updatedAt || ""
-    };
-  }
 
-  function normalizePurchaseOrder(order) {
-    return {
-      id: order.id,
-      code: order.code || "",
-      supplierId: order.supplierId || "",
-      status: order.status || "draft",
-      paymentStatus: order.paymentStatus || "unpaid",
-      subtotal: Number(order.subtotal || 0),
-      discount: Number(order.discount || 0),
-      shippingFee: Number(order.shippingFee || 0),
-      total: Number(order.total || 0),
-      paidAmount: Number(order.paidAmount || 0),
-      creditAppliedAmount: Number(order.creditAppliedAmount || 0),
-      settledAmount: Number(order.settledAmount === undefined ? Number(order.paidAmount || 0) + Number(order.creditAppliedAmount || 0) : order.settledAmount),
-      returnedAmount: Number(order.returnedAmount || 0),
-      netTotal: Number(order.netTotal === undefined ? Math.max(0, Number(order.total || 0) - Number(order.returnedAmount || 0)) : order.netTotal),
-      outstanding: Number(order.outstanding === undefined ? Math.max(0, Number(order.total || 0) - Number(order.returnedAmount || 0) - Number(order.paidAmount || 0) - Number(order.creditAppliedAmount || 0)) : order.outstanding),
-      creditAmount: Number(order.creditAmount || 0),
-      dueDate: order.dueDate || "",
-      invoiceNumber: order.invoiceNumber || "",
-      note: order.note || "",
-      createdBy: order.createdBy || "",
-      receivedAt: order.receivedAt || "",
-      createdAt: order.createdAt || "",
-      updatedAt: order.updatedAt || "",
-      items: (order.items || []).map(item => ({
-        id: item.id,
-        purchaseOrderId: item.purchaseOrderId || order.id,
-        productId: item.productId || "",
-        sku: item.sku || "",
-        name: item.name || "",
-        quantity: Number(item.quantity || 0),
-        unitCost: Number(item.unitCost || 0),
-        lineTotal: Number(item.lineTotal || 0),
-        createdAt: item.createdAt || ""
-      }))
-    };
-  }
 
-  function normalizeSupplierPayment(payment) {
-    return {
-      id: payment.id,
-      purchaseOrderId: payment.purchaseOrderId || "",
-      supplierId: payment.supplierId || "",
-      cashTransactionId: payment.cashTransactionId || "",
-      amount: Number(payment.amount || 0),
-      paymentDate: payment.paymentDate || "",
-      note: payment.note || "",
-      createdBy: payment.createdBy || "",
-      createdAt: payment.createdAt || ""
-    };
-  }
 
-  function normalizePurchaseReturn(purchaseReturn) {
-    return {
-      id: purchaseReturn.id,
-      code: purchaseReturn.code || "",
-      purchaseOrderId: purchaseReturn.purchaseOrderId || "",
-      supplierId: purchaseReturn.supplierId || "",
-      amount: Number(purchaseReturn.amount || 0),
-      note: purchaseReturn.note || "",
-      createdBy: purchaseReturn.createdBy || "",
-      createdAt: purchaseReturn.createdAt || "",
-      items: (purchaseReturn.items || []).map(item => ({
-        id: item.id,
-        returnId: item.returnId || purchaseReturn.id,
-        purchaseOrderItemId: item.purchaseOrderItemId || "",
-        productId: item.productId || "",
-        sku: item.sku || "",
-        name: item.name || "",
-        quantity: Number(item.quantity || 0),
-        unitCost: Number(item.unitCost || 0),
-        lineTotal: Number(item.lineTotal || 0),
-        createdAt: item.createdAt || ""
-      }))
-    };
-  }
 
-  function normalizeSupplierCreditApplication(application) {
-    return {
-      id: application.id,
-      supplierId: application.supplierId || "",
-      purchaseOrderId: application.purchaseOrderId || "",
-      amount: Number(application.amount || 0),
-      note: application.note || "",
-      createdBy: application.createdBy || "",
-      createdAt: application.createdAt || ""
-    };
-  }
+
+
+
+
+
 
   async function loadPurchasingData(options = {}) {
     try {
@@ -1859,6 +1294,7 @@
       orderCreate: ["products", "customers", "settings"],
       products: ["products"],
       channels: ["omni"],
+      channelSettings: ["omni"],
       content: ["content"],
       team: ["team"],
       teamPricing: ["products", "team", "omni"],
@@ -1867,7 +1303,9 @@
       customers: ["customers"],
       inventory: ["products", "stockMovements"],
       accounting: ["customers", "orders", "accounting", "purchasing", "omni"],
+      accountingSettings: ["accounting", "omni"],
       purchasing: ["purchasing"],
+      suppliers: ["purchasing"],
       purchaseCreate: ["products", "purchasing"],
       reports: ["products", "customers", "orders", "accounting"],
       settings: ["settings"],
@@ -1875,7 +1313,7 @@
       activity: []
     };
     const scopes = [...(scopesByPage[page] || [])];
-    if (page === "purchasing" && canPayPurchases()) scopes.push("accounting");
+    if (["purchasing", "suppliers"].includes(page) && canPayPurchases()) scopes.push("accounting");
     return [...new Set(scopes)];
   }
 
@@ -2086,46 +1524,55 @@
 
   function renderNav() {
     if (!els.navList) return;
-    let stored = {};
-    try {
-      stored = JSON.parse(localStorage.getItem(navStateKey) || "{}");
-    } catch (error) {
-      stored = {};
-    }
     const role = currentUser?.role || "viewer";
+    const activeNavPage = pages[page]?.parent || page;
     const canShow = ([key, item]) => {
       if (!item || item.hidden) return false;
       if (item.adminOnly && !isAdmin()) return false;
-      if (item.modes && item.modes.indexOf(UX_MODE) === -1) return false;
+      if (key !== activeNavPage && item.modes && item.modes.indexOf(UX_MODE) === -1) return false;
       if (item.roles && item.roles.indexOf(role) === -1) return false;
       return true;
     };
-    els.navList.innerHTML = navGroups.map(group => {
-      const items = group.items
+    const visibleGroups = navGroups.map(group => ({
+      ...group,
+      items: group.items
         .map(key => [key, pages[key]])
-        .filter(canShow);
-      if (!items.length) return "";
-      const hasActive = items.some(([key]) => key === page);
-      const isOpen = Object.prototype.hasOwnProperty.call(stored, group.id)
-        ? Boolean(stored[group.id])
-        : (group.defaultOpen || hasActive);
-      return `
-        <section class="nav-group ${isOpen ? "open" : ""} ${hasActive ? "active" : ""}" data-nav-group="${group.id}">
-          <button class="nav-group-toggle" type="button" data-toggle-nav-group="${group.id}" aria-expanded="${String(isOpen)}">
-            <span>${escapeHtml(group.title)}</span>
-            <span class="nav-group-chevron">${icon("chevronDown")}</span>
-          </button>
-          <div class="nav-group-items" ${isOpen ? "" : "hidden"}>
-            ${items.map(([key, item]) => `
-              <a class="nav-link ${key === page ? "active" : ""}" href="${item.href}" data-nav-page="${key}" ${key === page ? "aria-current=\"page\"" : ""}>
-                <span class="nav-icon">${icon(item.icon)}</span>
-                <span>${escapeHtml(item.title)}</span>
-              </a>
-            `).join("")}
-          </div>
-        </section>
-      `;
-    }).join("");
+        .filter(canShow),
+      hasActive: group.items.indexOf(activeNavPage) !== -1
+    })).filter(group => group.items.length);
+    const activeGroup = visibleGroups.find(group => group.hasActive) || visibleGroups[0];
+    const spaceIcons = { overview: "dashboard", sales: "shoppingCart", catalog: "package", growth: "chart", finance: "calculator", internal: "users", admin: "settings" };
+
+    if (els.spaceNav) {
+      els.spaceNav.innerHTML = visibleGroups.map(group => {
+        const destination = group.items[0]?.[1]?.href || "./dashboard.html";
+        return `<a class="rail-link ${group.id === activeGroup?.id ? "active" : ""}" href="${destination}" title="${escapeAttribute(group.title)}" aria-label="${escapeAttribute(group.title)}" ${group.id === activeGroup?.id ? "aria-current=\"true\"" : ""}>${icon(spaceIcons[group.id] || "file")}</a>`;
+      }).join("");
+    }
+    if (els.contextTitle) els.contextTitle.textContent = activeGroup?.title || "ArtFlow POS";
+    const financeViews = page === "accounting" ? [
+      ["overview", "dashboard", "Tổng quan", "Ưu tiên hôm nay"],
+      ["ledger", "wallet", "Dòng tiền", "Thu, chi và chứng từ"],
+      ["receivables", "receipt", "Công nợ", "Các khoản cần thu, trả"],
+      ["payouts", "refresh", "Đối soát sàn", "Tiền về và chênh lệch"],
+      ["payroll", "users", "Tiền lương", "Chi phí nhân sự"],
+      ["tax", "file", "Thuế & chứng từ", "Hồ sơ cuối kỳ"]
+    ] : [];
+    const financeViewMarkup = financeViews.length ? `<div class="context-view-list">${financeViews.map(([view, viewIcon, label, note]) => `
+      <button class="nav-link ${accountingFilters.view === view ? "active" : ""}" type="button" data-accounting-view-filter="${view}">
+        <span class="nav-icon">${icon(viewIcon)}</span><span><strong>${label}</strong><small>${note}</small></span><b data-accounting-nav-badge="${view}"></b>
+      </button>`).join("")}<a class="nav-link" href="./accounting-settings.html"><span class="nav-icon">${icon("settings")}</span><span><strong>Thiết lập</strong><small>Tài khoản và quy tắc</small></span></a></div>` : "";
+    els.navList.innerHTML = activeGroup ? `
+      <section class="nav-group open active" data-nav-group="${activeGroup.id}">
+        <p class="context-section-label">${escapeHtml(activeGroup.title)}</p>
+        <div class="nav-group-items">
+          ${financeViews.length ? financeViewMarkup : activeGroup.items.map(([key, item]) => `
+            <a class="nav-link ${key === activeNavPage ? "active" : ""}" href="${item.href}" data-nav-page="${key}" ${key === activeNavPage ? "aria-current=\"page\"" : ""}>
+              <span class="nav-icon">${icon(item.icon)}</span><span>${escapeHtml(item.title)}</span>
+            </a>`).join("")}
+        </div>
+      </section>` : "";
+    hydrateIcons(els.spaceNav || document);
   }
 
   function applyPermissions() {
@@ -3224,7 +2671,7 @@
       const actions = `<div class="row-actions compact-actions"><button class="link-button icon-only" data-view-order="${order.id}" aria-label="Xem chi tiết" title="Xem chi tiết">${icon("eye")}</button><button class="link-button icon-only" data-order-receipt-pdf="${order.id}" aria-label="${order.receiptPdfUrl ? "Mở hóa đơn PDF" : "Tạo hóa đơn PDF"}" title="${order.receiptPdfUrl ? "Mở hóa đơn PDF" : "Tạo hóa đơn PDF"}">${icon(order.receiptPdfUrl ? "external" : "printer")}</button>${canManageOrders() && order.status !== "cancelled" ? `<button class="link-button icon-only" data-edit-order-fulfillment="${order.id}" aria-label="Cập nhật" title="Cập nhật">${icon("edit")}</button>` : ""}${canReturnOrder(order) ? `<button class="link-button icon-only" data-return-order="${order.id}" aria-label="Trả hàng" title="Trả hàng">${icon("rotateCcw")}</button>` : ""}${isAdmin() && refundableForOrder(order) > 0 ? `<button class="link-button icon-only" data-refund-order="${order.id}" aria-label="Hoàn tiền" title="Hoàn tiền">${icon("receipt")}</button>` : ""}${canManageOrders() && order.status !== "completed" && order.status !== "cancelled" ? `<button class="link-button icon-only" data-complete-order="${order.id}" aria-label="Hoàn tất" title="Hoàn tất">${icon("check")}</button>` : ""}${canManageOrders() && order.status !== "cancelled" && order.returnedAmount <= 0 && order.refundedAmount <= 0 && collectedForOrder(order) <= 0 ? `<button class="link-button danger-link icon-only" data-cancel-order="${order.id}" aria-label="Hủy" title="Hủy">${icon("close")}</button>` : ""}</div>`;
       const shippingMeta = `${carrierLabel(order.carrier)}${order.trackingCode ? ` · ${order.trackingCode}` : ""}`;
       return `
-        <tr>
+        <tr class="data-row-clickable" data-view-order="${order.id}" tabindex="0" aria-label="Xem chi tiết đơn ${escapeAttribute(order.code)}">
           <td><div class="order-code-cell"><strong>${order.code}</strong><small>${formatDateTimeShort(order.createdAt)}</small></div></td>
           <td><div class="customer-channel-cell"><strong>${customer.name}</strong><span class="badge">${channelLabel(order.channel)}</span></div></td>
           <td><span class="item-summary">${orderItemSummary(order)}</span></td>
@@ -3452,17 +2899,14 @@
       button.classList.toggle("active", button.dataset.productPreset === productFilters.preset);
     });
     els.productsTable.innerHTML = rows.length ? rows.map(product => {
-      const priceStatus = productPriceStatus(product);
       const channelCount = productChannelPrices(product.id).length;
       return `
-      <tr class="${product.status === "archived" ? "product-row-archived" : ""}">
-        <td>${product.imageUrl ? `<img class="product-table-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="" loading="lazy" />` : `<span class="product-table-image placeholder">${icon("image")}</span>`}</td>
-        <td><strong>${product.sku}</strong><br><span class="product-sale-status ${product.status}">${statusLabel(product.status)}</span></td>
-        <td><strong>${escapeHtml(product.name)}</strong><br><small>${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small></td>
-        <td><strong>${productHasShopPrice(product) ? money.format(product.salePrice) : "Chưa có giá"}</strong><br><small>Vốn ${money.format(product.costPrice)}${channelCount ? ` · ${channelCount} kênh` : ""}</small><span class="price-status ${priceStatus.key}">${priceStatus.label}</span></td>
-        <td><div class="product-margin-cell">${productHasShopPrice(product) ? `<strong class="margin-${productMarginTone(product)}">${money.format(productGrossProfit(product))}</strong><span class="badge margin-${productMarginTone(product)}">${productMarginRate(product).toFixed(1)}%</span>` : `<strong class="margin-missing">—</strong><span class="badge margin-missing">Chờ tính giá</span>`}</div></td>
-        <td><span class="badge ${product.stock <= 0 ? "margin-loss" : product.stock <= product.lowStock ? "low" : "active"}">${product.stock}</span></td>
-        <td><div class="product-content-cell"><span class="badge content-${product.contentStatus}">${productContentStatuses[product.contentStatus]}</span><small class="${productAssetsComplete(product) ? "assets-complete" : "assets-missing"}">${productAssetsComplete(product) ? "Đủ tài nguyên" : "Thiếu tài nguyên"}</small></div></td>
+      <tr class="data-row-clickable ${product.status === "archived" ? "product-row-archived" : ""}" data-view-product="${product.id}" tabindex="0" aria-label="Xem chi tiết ${escapeAttribute(product.name)}">
+        <td><div class="resource-primary-cell">${product.imageUrl ? `<img class="product-table-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="" loading="lazy" />` : `<span class="product-table-image placeholder">${icon("image")}</span>`}<span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small></span></div></td>
+        <td><strong>${escapeHtml(product.sku)}</strong></td>
+        <td><strong>${productHasShopPrice(product) ? money.format(product.salePrice) : "Chưa có giá"}</strong>${channelCount ? `<br><small>${channelCount} giá theo kênh</small>` : ""}</td>
+        <td><span class="badge ${product.stock <= 0 ? "margin-loss" : product.stock <= product.lowStock ? "low" : "active"}">${product.stock}</span><br><small>Ngưỡng ${product.lowStock}</small></td>
+        <td><span class="badge ${product.status}">${statusLabel(product.status)}</span></td>
         <td>
           <div class="row-actions">
             <button class="link-button action-view icon-only" data-view-product="${product.id}" aria-label="Chi tiết" title="Chi tiết">${icon("eye")}</button>
@@ -3471,7 +2915,7 @@
         </td>
       </tr>
     `;
-    }).join("") : `<tr><td colspan="8" class="empty">${products.length ? "Không có sản phẩm phù hợp bộ lọc." : "Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên."}</td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="empty">${products.length ? "Không có sản phẩm phù hợp bộ lọc." : "Chưa có sản phẩm. Hãy thêm sản phẩm đầu tiên."}</td></tr>`;
   }
 
   function getContentProduct(item) {
@@ -3952,121 +3396,22 @@
     approved: "Đã duyệt"
   };
 
-  function teamOwners() {
-    const values = new Set();
-    [
-      ...(state.teamMeetings || []),
-      ...(state.teamPlans || []),
-      ...(state.teamPricingModels || []),
-      ...(state.teamDecisions || []),
-      ...(state.workspaceTasks || [])
-    ].forEach(item => {
-      if (item.owner) values.add(item.owner);
-      (item.actions || []).forEach(action => { if (action.owner) values.add(action.owner); });
-    });
-    (state.users || []).filter(user => user.status === "active").forEach(user => values.add(user.name || user.email));
-    if (currentUser) values.add(currentUser.name || currentUser.email);
-    return [...values].filter(Boolean).sort((a, b) => a.localeCompare(b, "vi"));
-  }
 
-  function teamDateInRange(value) {
-    if (teamFilters.range === "all") return true;
-    if (!value) return true;
-    const date = new Date(value).getTime();
-    if (!isFinite(date)) return true;
-    const days = Math.max(1, Number(teamFilters.range || 30));
-    return Date.now() - date <= days * 86400000;
-  }
 
-  function teamSearchText(item) {
-    return [
-      item.title, item.type, item.status, item.owner, item.attendees, item.agenda, item.notes,
-      item.channels, item.focusProducts, item.tags, item.detail, item.note, item.links
-    ].join(" ").toLowerCase();
-  }
 
-  function currentTeamItems() {
-    const map = {
-      meetings: (state.teamMeetings || []).map(normalizeTeamMeeting),
-      tasks: (state.workspaceTasks || []).map(normalizeWorkspaceTask),
-      plans: (state.teamPlans || []).map(normalizeTeamPlan),
-      pricing: (state.teamPricingModels || []).map(normalizePricingModel),
-      decisions: (state.teamDecisions || []).map(normalizeTeamDecision)
-    };
-    const term = searchTerm.trim().toLowerCase();
-    return (map[teamFilters.view] || [])
-      .filter(item => item.status !== "deleted")
-      .filter(item => teamFilters.status === "all" || item.status === teamFilters.status)
-      .filter(item => teamFilters.owner === "all" || item.owner === teamFilters.owner || (item.actions || []).some(action => action.owner === teamFilters.owner))
-      .filter(item => teamDateInRange(item.meetingAt || item.updatedAt || item.createdAt || item.decidedAt || item.period))
-      .filter(item => !term || teamSearchText(item).includes(term))
-      .sort((a, b) => String(b.meetingAt || b.decidedAt || b.updatedAt || b.createdAt || "").localeCompare(String(a.meetingAt || a.decidedAt || a.updatedAt || a.createdAt || "")));
-  }
 
-  function setTeamOptions(select, entries, current, allLabel) {
-    if (!select) return;
-    select.innerHTML = `<option value="all">${allLabel}</option>${entries.map(([value, label]) => `<option value="${escapeAttribute(value)}">${escapeHtml(label)}</option>`).join("")}`;
-    select.value = entries.some(([value]) => value === current) ? current : "all";
-  }
 
-  function renderTeamFilters() {
-    const items = {
-      meetings: state.teamMeetings || [],
-      tasks: state.workspaceTasks || [],
-      plans: state.teamPlans || [],
-      pricing: state.teamPricingModels || [],
-      decisions: state.teamDecisions || []
-    }[teamFilters.view] || [];
-    const statuses = [...new Set(items.map(item => item.status).filter(Boolean))]
-      .map(status => [status, teamStatuses[status] || status]);
-    setTeamOptions(els.teamStatusFilter, statuses, teamFilters.status, "Tất cả trạng thái");
-    setTeamOptions(els.teamOwnerFilter, teamOwners().map(owner => [owner, owner]), teamFilters.owner, "Tất cả phụ trách");
-    if (els.teamRangeFilter) els.teamRangeFilter.value = teamFilters.range;
-  }
 
-  function teamKpis() {
-    const meetings = (state.teamMeetings || []).map(normalizeTeamMeeting);
-    const plans = (state.teamPlans || []).map(normalizeTeamPlan);
-    const pricing = (state.teamPricingModels || []).map(normalizePricingModel);
-    const decisions = (state.teamDecisions || []).map(normalizeTeamDecision);
-    const tasks = (state.workspaceTasks || []).map(normalizeWorkspaceTask);
-    const openActions = meetings.flatMap(item => item.actions || []).filter(action => action.status !== "done").length;
-    return [
-      ["Cuộc họp", meetings.length, "Biên bản và action items"],
-      ["Việc mở", openActions, "Từ các cuộc họp"],
-      ["Kế hoạch", plans.filter(plan => ["idea", "active"].includes(plan.status)).length, "Đang theo dõi"],
-      ["Bảng giá", pricing.length, "Kịch bản giá bán"],
-      ["Quyết định", decisions.filter(decision => decision.status === "active").length, "Đang có hiệu lực"]
-    ];
-  }
 
-  function renderTeamHub() {
-    if (!els.teamContent) return;
-    renderTeamFilters();
-    document.querySelectorAll("[data-team-view]").forEach(button => {
-      button.classList.toggle("active", button.dataset.teamView === teamFilters.view);
-    });
-    const view = teamViews[teamFilters.view] || teamViews.meetings;
-    if (els.teamPanelTitle) els.teamPanelTitle.textContent = view.title;
-    if (els.teamPanelNote) els.teamPanelNote.textContent = view.note;
-    const primary = qs("[data-team-primary-action]");
-    const secondary = qs("[data-team-secondary-action]");
-    [primary, secondary].forEach(button => {
-      if (button) button.innerHTML = `${icon("plus")} ${button === primary ? "Tạo " : ""}${view.action}`;
-    });
-    if (els.teamKpis) {
-      els.teamKpis.innerHTML = teamKpis().map(([label, value, note]) => `<article><span>${escapeHtml(label)}</span><strong>${value}</strong><small>${escapeHtml(note)}</small></article>`).join("");
-    }
-    const renderers = {
-      meetings: renderTeamMeetings,
-      tasks: renderTeamTasks,
-      plans: renderTeamPlans,
-      pricing: renderTeamPricing,
-      decisions: renderTeamDecisions
-    };
-    els.teamContent.innerHTML = renderers[teamFilters.view]();
-    enhanceResponsiveTables(els.teamContent);
-  }
+
+
+
+
+
+
+
+
+
 
   const incenseKinds = {
     sales: ["Đơn", "Xin chốt đơn mượt."],
@@ -4092,1054 +3437,145 @@
     sweet_soup: { label: "Chè chay", image: "sweet-soup.png" }
   };
 
-  function selectedIncenseOfferings() {
-    const selected = Array.from(document.querySelectorAll("[data-offering-choice].active"))
-      .map(button => button.dataset.offeringChoice)
-      .filter(key => Object.prototype.hasOwnProperty.call(incenseOfferings, key));
-    return selected.length ? selected : ["banana"];
-  }
-
-  function syncIncenseOfferings() {
-    if (els.incenseOfferings) {
-      els.incenseOfferings.value = selectedIncenseOfferings().join(",");
-    }
-  }
-
-  function renderOfferingTray(items) {
-    if (!els.offeringTray) return;
-    const selected = (items && items.length ? items : selectedIncenseOfferings()).slice(0, 6);
-    els.offeringTray.innerHTML = selected.map(key => {
-      const offering = incenseOfferings[key] || incenseOfferings.banana;
-      return `<span class="offering-item offering-${escapeAttribute(key)}"><img src="../assets/images/offerings/${escapeAttribute(offering.image)}" alt="" /><small>${escapeHtml(offering.label)}</small></span>`;
-    }).join("");
-    els.offeringTray.classList.remove("is-offered");
-    window.requestAnimationFrame(() => els.offeringTray.classList.add("is-offered"));
-  }
-
-  function renderIncense() {
-    if (!els.incenseHistory) return;
-    const wishes = (state.incenseWishes || []).map(normalizeIncenseWish)
-      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-    els.incenseHistory.innerHTML = wishes.length ? wishes.slice(0, 18).map(item => {
-      const kind = incenseKinds[item.kind] || incenseKinds.sales;
-      return `<article class="incense-wish-card">
-        <span>${escapeHtml(kind[0])}</span>
-        <strong>${escapeHtml(item.wish)}</strong>
-        <small>${escapeHtml(item.actorName || "ArtFlow")} · ${item.createdAt ? formatDateTimeShort(item.createdAt) : "vừa xong"}</small>
-      </article>`;
-    }).join("") : `<div class="empty-state">Chưa ai thắp hôm nay.</div>`;
-  }
-
-  async function submitIncenseWish(form) {
-    const button = form.querySelector("button[type='submit']");
-    const data = Object.fromEntries(new FormData(form));
-    const wish = String(data.wish || "").trim();
-    const offerings = selectedIncenseOfferings();
-    if (!wish) throw new Error("Nhập một câu ngắn thôi nha.");
-    setBusy(button, true, "Đang thắp...");
-    try {
-      const response = await apiRequest("/incense/create", {
-        method: "POST",
-        body: JSON.stringify({ kind: data.kind || "sales", wish, offerings })
-      });
-      state.incenseWishes = (response.incenseWishes || [response.incenseWish]).filter(Boolean).map(normalizeIncenseWish);
-      window.ArtFlowPosStore.save(state);
-      if (els.incenseWish) els.incenseWish.value = "";
-      if (els.incenseResult) {
-        const kind = incenseKinds[data.kind] || incenseKinds.sales;
-        els.incenseResult.textContent = kind[1];
-      }
-      const panel = form.closest(".incense-panel");
-      if (panel) {
-        panel.classList.remove("just-lit");
-        window.requestAnimationFrame(() => panel.classList.add("just-lit"));
-        window.setTimeout(() => panel.classList.remove("just-lit"), 950);
-      }
-      renderOfferingTray(offerings);
-      renderIncense();
-      showToast("Đã thắp một nén nhỏ.");
-    } finally {
-      setBusy(button, false);
-    }
-  }
-
-  function teamStatusBadge(status) {
-    return `<span class="badge team-status-${escapeAttribute(status)}">${escapeHtml(teamStatuses[status] || status || "—")}</span>`;
-  }
-
-  function renderTeamTasks() {
-    const tasks = currentTeamItems().map(normalizeWorkspaceTask);
-    return `
-      <div class="team-task-board">
-        ${tasks.length ? tasks.map(task => {
-          const product = task.productId ? byId("products", task.productId) : null;
-          const channel = task.channelId ? channelByIdOrCode(task.channelId) : null;
-          const campaign = task.campaignId ? (state.campaigns || []).find(item => item.id === task.campaignId) : null;
-          return `<article class="team-task-card ${task.priority}">
-            <div class="task-card-main">
-              <span class="status-chip ${task.status === "done" ? "success" : task.status === "blocked" ? "danger" : task.status === "doing" ? "info" : "warning"}">${teamStatuses[task.status] || task.status}</span>
-              <h3>${escapeHtml(task.title)}</h3>
-              <p>${escapeHtml(task.description || "Chưa có mô tả.")}</p>
-            </div>
-            <div class="task-card-meta">
-              <span>${icon("users")} ${escapeHtml(task.owner ? ownerName(task.owner) : "Chưa giao")}</span>
-              <span>${icon("history")} ${task.dueDate ? formatDate(task.dueDate) : "Chưa có hạn"}</span>
-              ${product ? `<span>${icon("package")} ${escapeHtml(product.sku)}</span>` : ""}
-              ${channel ? `<span>${icon("truck")} ${escapeHtml(channel.name)}</span>` : ""}
-              ${campaign ? `<span>${icon("sparkles")} ${escapeHtml(campaign.name)}</span>` : ""}
-            </div>
-          </article>`;
-        }).join("") : `<div class="empty">Chưa có việc cần làm phù hợp.</div>`}
-      </div>
-    `;
-  }
-
-  function renderTeamMeetings() {
-    const items = currentTeamItems();
-    return `<div class="team-list">${items.length ? items.map(meeting => {
-      const openActions = (meeting.actions || []).filter(action => action.status !== "done").length;
-      return `<article class="team-item">
-        <div><strong>${escapeHtml(meeting.title)}</strong><small>${escapeHtml(meeting.type)} · ${meeting.meetingAt ? formatDateTimeShort(meeting.meetingAt) : "Chưa có lịch"} · ${escapeHtml(meeting.owner || "Chưa giao")}</small></div>
-        <div>${teamStatusBadge(meeting.status)}<small>${openActions} việc mở · ${(meeting.decisions || []).length} quyết định</small></div>
-        <div class="team-item-preview">${escapeHtml(meeting.agenda || meeting.notes || "Chưa có nội dung.").slice(0, 160)}</div>
-        <div class="row-actions"><button class="link-button icon-only" type="button" data-view-team-meeting="${meeting.id}" title="Xem">${icon("eye")}</button><button class="link-button icon-only action-edit" type="button" data-edit-team-meeting="${meeting.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="meetings:${meeting.id}" title="Lưu trữ">${icon("archive")}</button></div>
-      </article>`;
-    }).join("") : `<div class="empty">Chưa có biên bản phù hợp.</div>`}</div>`;
-  }
-
-  function renderTeamPlans() {
-    const items = currentTeamItems();
-    return `<div class="team-card-grid">${items.length ? items.map(plan => `<article class="team-plan-card">
-      <div class="team-card-head"><div><strong>${escapeHtml(plan.title)}</strong><small>${escapeHtml(plan.period || "Chưa có kỳ")} · ${escapeHtml(plan.owner || "Chưa giao")}</small></div>${teamStatusBadge(plan.status)}</div>
-      <div class="team-money-grid"><span><small>Doanh thu mục tiêu</small><b>${money.format(plan.goalRevenue)}</b></span><span><small>Lợi nhuận mục tiêu</small><b>${money.format(plan.goalProfit)}</b></span><span><small>Ngân sách</small><b>${money.format(plan.budget)}</b></span></div>
-      <p>${escapeHtml(plan.note || plan.risks || "Chưa có ghi chú.")}</p>
-      <div class="row-actions"><button class="link-button icon-only action-edit" type="button" data-edit-team-plan="${plan.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="plans:${plan.id}" title="Lưu trữ">${icon("archive")}</button></div>
-    </article>`).join("") : `<div class="empty">Chưa có kế hoạch phù hợp.</div>`}</div>`;
-  }
-
-  function pricingLineAmount(line, baseCost, salePrice) {
-    if (line.included === false || line.type === "note") return 0;
-    if (line.type === "cost_percent") return baseCost * line.value / 100;
-    if (line.type === "price_percent") return salePrice * line.value / 100;
-    return line.value;
-  }
-
-  function roundedPricingValue(value, scenario = {}) {
-    const mode = scenario.roundingMode || "step";
-    const step = Math.max(1, Number(scenario.roundingStep || 1000));
-    if (mode === "none") return Math.max(0, Math.round(value));
-    if (mode === "tail9") {
-      const ceiling = Math.ceil(Math.max(0, value) / step) * step;
-      return Math.max(0, ceiling - Math.max(1, Math.round(step / 10)));
-    }
-    return Math.ceil(Math.max(0, value) / step) * step;
-  }
-
-  function calculatePricingScenario(model, scenario) {
-    const normalizedModel = normalizePricingModel(model || {});
-    const normalizedScenario = normalizePricingScenario(scenario || {});
-    const baseCost = Math.max(0, Number(normalizedModel.baseCost || 0));
-    const activeLines = normalizedModel.lines.filter(line => line.included !== false && line.type !== "note");
-    const fixedCostTotal = activeLines
-      .filter(line => line.type === "fixed")
-      .reduce((sum, line) => sum + Math.max(0, Number(line.value || 0)), 0);
-    const costPercentRate = activeLines
-      .filter(line => line.type === "cost_percent")
-      .reduce((sum, line) => sum + Math.max(0, Number(line.value || 0)), 0);
-    const costPercentTotal = baseCost * costPercentRate / 100;
-    const pricePercentRate = activeLines
-      .filter(line => line.type === "price_percent")
-      .reduce((sum, line) => sum + Math.max(0, Number(line.value || 0)), 0);
-    const targetProfitAmount = Math.max(0, Number(normalizedScenario.targetProfitAmount || 0));
-    const targetMargin = Math.max(0, Number(normalizedScenario.targetMargin || 0));
-    const manualPrice = Math.max(0, Number(normalizedScenario.manualPrice || 0));
-    const costBeforeSaleLinkedFees = baseCost + fixedCostTotal + costPercentTotal;
-    const warnings = [];
-    let rawSuggestedPrice = manualPrice;
-
-    if (!baseCost) warnings.push("Sản phẩm chưa có giá vốn; kết quả chỉ mang tính tham khảo.");
-    if (pricePercentRate >= 100) warnings.push("Tổng phí theo giá bán phải nhỏ hơn 100%.");
-    if (!manualPrice) {
-      const requiredRate = pricePercentRate + (targetProfitAmount > 0 ? 0 : targetMargin);
-      const divisor = 1 - requiredRate / 100;
-      if (divisor <= 0) {
-        warnings.push("Tổng phí theo giá bán và biên lãi mục tiêu quá cao nên không thể tính giá hợp lệ.");
-        rawSuggestedPrice = 0;
-      } else {
-        rawSuggestedPrice = targetProfitAmount > 0
-          ? (costBeforeSaleLinkedFees + targetProfitAmount) / Math.max(0.01, 1 - pricePercentRate / 100)
-          : costBeforeSaleLinkedFees / divisor;
-      }
-    }
-
-    const roundedPrice = rawSuggestedPrice > 0 ? roundedPricingValue(rawSuggestedPrice, normalizedScenario) : 0;
-    const pricePercentTotal = roundedPrice * pricePercentRate / 100;
-    const totalCost = costBeforeSaleLinkedFees + pricePercentTotal;
-    const expectedProfit = roundedPrice - totalCost;
-    const expectedMargin = roundedPrice > 0 ? expectedProfit / roundedPrice * 100 : 0;
-    if (roundedPrice > 0 && roundedPrice < baseCost) warnings.push("Giá sau làm tròn đang thấp hơn giá vốn.");
-    if (roundedPrice > 0 && expectedProfit < 0) warnings.push("Kịch bản này đang tạo lợi nhuận âm.");
-    if (!roundedPrice) warnings.push("Chưa tính được giá bán hợp lệ.");
-
-    return {
-      baseCost,
-      fixedCostTotal,
-      costPercentRate,
-      costPercentTotal,
-      pricePercentRate,
-      pricePercentTotal,
-      targetProfitAmount,
-      targetMargin,
-      rawSuggestedPrice,
-      roundedPrice,
-      expectedProfit,
-      expectedMargin,
-      totalCost,
-      warnings
-    };
-  }
-
-  function pricingTotals(model, scenario) {
-    const result = calculatePricingScenario(model, scenario);
-    return {
-      ...result,
-      salePrice: result.roundedPrice,
-      grossProfit: result.expectedProfit,
-      margin: result.expectedMargin,
-      suggested: result.roundedPrice,
-      fixedExtra: result.fixedCostTotal + result.costPercentTotal,
-      priceLinkedCost: result.pricePercentTotal
-    };
-  }
-
-  function renderTeamPricing() {
-    const items = currentTeamItems();
-    return `<div class="team-pricing-list">${items.length ? items.map(model => {
-      const product = model.productId ? byId("products", model.productId) : null;
-      const scenario = (model.scenarios || []).find(item => item.id === model.selectedScenarioId) || (model.scenarios || [])[0] || { targetMargin: 35, manualPrice: 0 };
-      const totals = pricingTotals(model, scenario);
-      return `<article class="team-pricing-card">
-        <div class="team-card-head"><div><strong>${escapeHtml(model.title || (product ? "Tính giá " + product.name : "Bảng tính giá"))}</strong><small>${product ? `${escapeHtml(product.sku)} · ${escapeHtml(product.name)}` : "Không gắn sản phẩm"} · ${escapeHtml(model.owner || "Chưa giao")}</small></div>${teamStatusBadge(model.status)}</div>
-        <div class="team-money-grid"><span><small>Tổng chi phí</small><b>${money.format(totals.totalCost)}</b></span><span><small>Giá gợi ý</small><b>${money.format(totals.suggested)}</b></span><span><small>Biên lãi</small><b class="${totals.margin < 20 ? "negative-text" : "positive-text"}">${totals.margin.toFixed(1)}%</b></span></div>
-        <div class="team-cost-lines">${(model.lines || []).slice(0, 4).map(line => `<span>${escapeHtml(line.label)} <b>${line.type === "fixed" ? money.format(line.value) : line.value + "%"}</b></span>`).join("") || "<span>Chưa có chi phí thêm</span>"}</div>
-        <div class="row-actions"><a class="link-button icon-only action-edit" href="./team-pricing.html?id=${encodeURIComponent(model.id)}" title="Sửa" aria-label="Sửa">${icon("edit")}</a><button class="link-button danger-link icon-only" type="button" data-archive-team-item="pricing:${model.id}" title="Lưu trữ">${icon("archive")}</button></div>
-      </article>`;
-    }).join("") : `<div class="empty">Chưa có bảng tính giá phù hợp.</div>`}</div>`;
-  }
-
-  function teamPricingPageContext() {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get("id") || "";
-    const productId = params.get("productId") || "";
-    const existing = id ? (state.teamPricingModels || []).map(normalizePricingModel).find(item => item.id === id) : null;
-    if (existing) return { existing, model: existing };
-    const product = productId ? byId("products", productId) : null;
-    return {
-      existing: null,
-      model: normalizePricingModel({
-        title: product ? `Tính giá ${product.name}` : "",
-        productId: product ? product.id : "",
-        baseCost: product ? product.costPrice : 0,
-        priceTarget: "offline",
-        status: "draft",
-        owner: currentUser ? currentUser.name : ""
-      })
-    };
-  }
-
-  function renderTeamPricingPage() {
-    const container = qs("[data-team-pricing-page]");
-    if (!container) return;
-    const { existing, model } = teamPricingPageContext();
-    if (els.title) els.title.textContent = existing ? "Cập nhật bảng tính giá" : "Tạo bảng tính giá";
-    container.innerHTML = `
-      <form class="team-pricing-page-form" data-team-pricing-page-form data-pricing-existing-id="${escapeAttribute(existing ? existing.id : "")}">
-        ${renderPricingForm(model)}
-        <footer class="team-pricing-page-actions">
-          <a class="button ghost" href="./team.html">${icon("close")} Quay lại Team Hub</a>
-          <button class="button primary" type="submit">${icon("check")} Lưu bảng tính giá</button>
-        </footer>
-      </form>
-    `;
-    hydrateIcons(container);
-    const form = container.querySelector("[data-team-pricing-page-form]");
-    updatePricingScopeFields(form);
-    updateTeamPricingPreview(form);
-    enhanceMoneyInputs(container);
-  }
-
-  async function submitTeamPricingPageForm(form) {
-    validatePricingModel(pricingModelFromForm(form));
-    const existingId = form.dataset.pricingExistingId || "";
-    const existing = existingId ? (state.teamPricingModels || []).find(item => item.id === existingId) : null;
-    const saved = await saveTeamItem("pricing", form, existing || null);
-    const nextUrl = `./team-pricing.html?id=${encodeURIComponent(saved.id)}`;
-    if (!existingId) window.history.replaceState(null, "", nextUrl);
-    form.dataset.pricingExistingId = saved.id;
-    renderTeamPricingPage();
-    return saved;
-  }
-
-  function renderTeamDecisions() {
-    const items = currentTeamItems();
-    return `<div class="team-list">${items.length ? items.map(decision => `<article class="team-item compact">
-      <div><strong>${escapeHtml(decision.title)}</strong><small>${decision.decidedAt ? formatDate(decision.decidedAt) : "Chưa có ngày"} · ${escapeHtml(decision.owner || "Chưa giao")} · ${escapeHtml(decision.tags || "Không tag")}</small></div>
-      <div>${teamStatusBadge(decision.status)}<small>${decision.nextReviewAt ? "Xem lại " + formatDate(decision.nextReviewAt) : "Không lịch xem lại"}</small></div>
-      <div class="team-item-preview">${escapeHtml(decision.detail || "Chưa có mô tả.")}</div>
-      <div class="row-actions"><button class="link-button icon-only action-edit" type="button" data-edit-team-decision="${decision.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="decisions:${decision.id}" title="Lưu trữ">${icon("archive")}</button></div>
-    </article>`).join("") : `<div class="empty">Chưa có quyết định phù hợp.</div>`}</div>`;
-  }
-
-  function teamOwnerOptions(selected) {
-    const values = teamOwners();
-    if (selected && !values.includes(selected)) values.unshift(selected);
-    return `<option value="">Chưa giao</option>${values.map(name => `<option value="${escapeAttribute(name)}" ${selected === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}`;
-  }
-
-  function teamProductOptions(selected) {
-    const products = [...(state.products || [])].filter(product => product.status !== "deleted").sort((a, b) => a.name.localeCompare(b.name, "vi"));
-    return `<option value="">Không gắn sản phẩm</option>${products.map(product => `<option value="${product.id}" ${selected === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}`;
-  }
-
-  function teamChannelOptions(selected = "", emptyLabel = "Shop/POS offline") {
-    const channels = [...(state.salesChannels || [])].filter(channel => channel.status === "active");
-    const fallback = [
-      ["", emptyLabel],
-      ["website", "Website"],
-      ["shopee", "Shopee"],
-      ["tiktok", "TikTok Shop"],
-      ["lazada", "Lazada"],
-      ["facebook", "Facebook"]
-    ];
-    const options = channels.length ? [["", emptyLabel], ...channels.map(channel => [channel.id, channel.name || channel.code])] : fallback;
-    return options.map(([value, label]) => `<option value="${escapeAttribute(value)}" ${selected === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
-  }
-
-  function pricingMarketplaceChannels() {
-    const channelsList = [...(state.salesChannels || [])]
-      .map(normalizeSalesChannel)
-      .filter(channel => channel.status === "active")
-      .filter(channel => {
-        const code = String(channel.code || "").toLowerCase();
-        return ["shopee", "tiktok"].includes(code) || (channel.type === "marketplace" && !["lazada"].includes(code));
-      });
-    const priority = { shopee: 0, tiktok: 1 };
-    return channelsList.sort((a, b) => {
-      const aCode = String(a.code || "").toLowerCase();
-      const bCode = String(b.code || "").toLowerCase();
-      return (priority[aCode] ?? 10) - (priority[bCode] ?? 10) || String(a.name).localeCompare(String(b.name), "vi");
-    });
-  }
-
-  function pricingChannelOptions(selected = "", emptyLabel = "Chọn kênh/sàn") {
-    const available = pricingMarketplaceChannels();
-    const fallback = [
-      { id: "shopee", code: "shopee", name: "Shopee" },
-      { id: "tiktok", code: "tiktok", name: "TikTok Shop" }
-    ];
-    const options = available.length ? available : fallback;
-    return `<option value="">${escapeHtml(emptyLabel)}</option>${options.map(channel => `<option value="${escapeAttribute(channel.id)}" ${selected === channel.id || selected === channel.code ? "selected" : ""}>${escapeHtml(channel.name || channel.code)}</option>`).join("")}`;
-  }
-
-  function pricingTargetLabel(priceTarget, channelId) {
-    if (priceTarget !== "channel") return "Shop/POS offline";
-    const channel = channelByIdOrCode(channelId);
-    return channel ? channel.name : "Kênh/sàn chưa chọn";
-  }
-
-  function pricingSuggestedTitle(product, priceTarget, channelId) {
-    if (!product) return "";
-    return `Tính giá ${product.name} - ${pricingTargetLabel(priceTarget, channelId)}`;
-  }
-
-  function renderTeamSourceAndComments(item) {
-    const comments = Array.isArray(item.commentLog) ? item.commentLog : [];
-    const sourceTypes = [
-      ["manual", "Ghi chú riêng"],
-      ["product", "Sản phẩm"],
-      ["content", "Content"],
-      ["order", "Đơn hàng"],
-      ["pricing", "Bảng tính giá"],
-      ["plan", "Kế hoạch"]
-    ];
-    return `
-      <details class="content-details team-extra-details full">
-        <summary><span>Liên kết và trao đổi<small>Nguồn tham chiếu, link liên quan và comment nội bộ.</small></span></summary>
-        <div class="content-details-body">
-          <div class="field"><label>Nguồn liên kết</label><select name="sourceType">${sourceTypes.map(([value, label]) => `<option value="${value}" ${item.sourceType === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-          <div class="field"><label>Mã/link nguồn</label><input name="sourceId" value="${escapeAttribute(item.sourceId || "")}" placeholder="SKU, mã đơn, link Docs/Drive..." /></div>
-          <div class="content-form-box full"><strong>Lịch sử trao đổi</strong>${comments.length ? `<div class="content-comment-log">${comments.slice(-6).map(comment => `<p><span>${escapeHtml(comment.author || "Team")} · ${escapeHtml(formatDateTime(comment.createdAt || ""))}</span>${escapeHtml(comment.text || "")}</p>`).join("")}</div>` : `<p class="content-empty">Chưa có trao đổi.</p>`}<textarea name="newComment" rows="2" placeholder="Thêm comment, cảnh báo, số liệu cần theo dõi..."></textarea></div>
-        </div>
-      </details>
-    `;
-  }
-
-  function appendTeamCommentLog(existing, data) {
-    const comments = Array.isArray(existing && existing.commentLog) ? [...existing.commentLog] : [];
-    const text = String(data.newComment || "").trim();
-    delete data.newComment;
-    if (text) {
-      comments.push({
-        text,
-        author: currentUser ? currentUser.name : "Team",
-        createdAt: new Date().toISOString()
-      });
-    }
-    return comments;
-  }
-
-  function actionRowsFromText(text) {
-    return String(text || "").split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => {
-      const parts = line.split("|").map(part => part.trim());
-      return normalizeTeamAction({ title: parts[0] || "", owner: parts[1] || "", dueDate: parts[2] || "", status: parts[3] || "todo" });
-    });
-  }
-
-  function textFromActionRows(actions) {
-    return (actions || []).map(action => [action.title, action.owner, action.dueDate, action.status].filter(Boolean).join(" | ")).join("\n");
-  }
-
-  function localDateTimeValue(value) {
-    const date = value ? new Date(value) : new Date();
-    if (!isFinite(date.getTime())) return "";
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return local.toISOString().slice(0, 16);
-  }
-
-  function meetingTypeOptions(selected) {
-    return [["weekly", "Họp tuần"], ["planning", "Kế hoạch"], ["product", "Sản phẩm"], ["finance", "Tài chính"], ["content", "Content"], ["other", "Khác"]]
-      .map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
-  }
-
-  function meetingStatusOptions(selected) {
-    return [["draft", "Nháp"], ["scheduled", "Đã lên lịch"], ["completed", "Hoàn tất"], ["cancelled", "Hủy"]]
-      .map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
-  }
-
-  function actionStatusOptions(selected) {
-    return [["todo", "Cần làm"], ["doing", "Đang làm"], ["done", "Xong"]]
-      .map(([value, label]) => `<option value="${value}" ${selected === value ? "selected" : ""}>${label}</option>`).join("");
-  }
-
-  function splitListText(text) {
-    return String(text || "")
-      .split(/\n+/)
-      .map(line => line.replace(/^\s*(?:[-*•]+|\d+[.)]|[a-z][.)])\s*/i, "").trim())
-      .filter(Boolean);
-  }
-
-  function meetingMinutesIdFromUrl() {
-    return new URLSearchParams(window.location.search).get("id") || "";
-  }
-
-  function setMeetingMinutesUrl(id) {
-    const url = new URL(window.location.href);
-    if (id) url.searchParams.set("id", id);
-    else url.searchParams.delete("id");
-    window.history.replaceState({}, "", url);
-  }
-
-  function renderMinutesTextRows(container, items, type) {
-    if (!container) return;
-    container.innerHTML = (items.length ? items : [""]).map(item => `
-      <div class="minutes-row" data-minutes-${type}-row>
-        <input value="${escapeAttribute(item)}" placeholder="${type === "agenda" ? "Nội dung agenda" : type === "decision" ? "Quyết định đã chốt" : "Link hoặc ghi chú link"}" />
-        <button class="icon-button" type="button" data-minutes-remove-row title="Xóa">${icon("trash")}</button>
-      </div>
-    `).join("");
-    hydrateIcons(container);
-  }
-
-  function renderMinutesActions(container, actions) {
-    if (!container) return;
-    const rows = actions.length ? actions : [normalizeTeamAction({ title: "", owner: "", dueDate: "", status: "todo" })];
-    container.innerHTML = rows.map(action => `
-      <div class="minutes-action-row" data-minutes-action-row>
-        <input data-action-title value="${escapeAttribute(action.title)}" placeholder="Việc cần làm" />
-        <select data-action-owner>${teamOwnerOptions(action.owner)}</select>
-        <input data-action-due type="date" value="${escapeAttribute(action.dueDate)}" />
-        <select data-action-status>${actionStatusOptions(action.status || "todo")}</select>
-        <button class="icon-button" type="button" data-minutes-remove-row title="Xóa">${icon("trash")}</button>
-      </div>
-    `).join("");
-    hydrateIcons(container);
-  }
-
-  function renderMinutesAttendees(form, attendeesText) {
-    const host = form?.querySelector("[data-minutes-attendees]");
-    const hidden = form?.querySelector("[data-minutes-attendees-hidden]");
-    if (!host || !hidden) return;
-    const attendees = String(attendeesText || "")
-      .split(/[,;\n]+/)
-      .map(item => item.trim())
-      .filter(Boolean);
-    hidden.value = attendees.join(", ");
-    host.innerHTML = attendees.length ? attendees.map(name => `
-      <button class="minutes-chip" type="button" data-minutes-remove-attendee="${escapeAttribute(name)}">${escapeHtml(name)} ${icon("close")}</button>
-    `).join("") : `<span class="muted">Chưa thêm ai.</span>`;
-  }
-
-  function renderMeetingMinutesForm(meeting) {
-    const form = els.minutesForm;
-    if (!form) return;
-    const fields = form.elements;
-    const item = normalizeTeamMeeting(meeting || {});
-    const isNew = !item.id || item.id.indexOf("meeting_") === 0;
-    form.dataset.meetingId = isNew ? "" : item.id;
-    fields.title.value = item.title || "";
-    fields.type.innerHTML = meetingTypeOptions(item.type || "weekly");
-    fields.status.innerHTML = meetingStatusOptions(item.status || "draft");
-    fields.meetingAt.value = item.meetingAt ? localDateTimeValue(item.meetingAt) : localDateTimeValue();
-    fields.owner.innerHTML = teamOwnerOptions(item.owner || (currentUser ? currentUser.name : ""));
-    fields.notes.value = item.notes || "";
-    fields.sourceType.value = item.sourceType || "manual";
-    fields.sourceId.value = item.sourceId || "";
-    fields.newComment.value = "";
-    const attendeeSelect = form.querySelector("[data-minutes-attendee-select]");
-    if (attendeeSelect) attendeeSelect.innerHTML = `<option value="">Chọn nhân viên</option>${teamOwners().map(name => `<option value="${escapeAttribute(name)}">${escapeHtml(name)}</option>`).join("")}`;
-    renderMinutesAttendees(form, item.attendees || "");
-    renderMinutesTextRows(els.minutesAgendaList, splitListText(item.agenda), "agenda");
-    renderMinutesTextRows(els.minutesDecisionsList, item.decisions || [], "decision");
-    renderMinutesTextRows(els.minutesLinksList, splitListText(item.links), "link");
-    renderMinutesActions(els.minutesActionsList, item.actions || []);
-    syncMeetingMinutesForm();
-    if (els.minutesTitle) els.minutesTitle.textContent = isNew ? "Biên bản mới" : item.title || "Biên bản họp";
-    if (els.minutesSubtitle) {
-      els.minutesSubtitle.textContent = isNew
-        ? "Ghi nhanh, hệ thống sẽ tự chuẩn hóa agenda, quyết định và việc cần làm."
-        : `${teamStatuses[item.status] || item.status || "Nháp"} · ${item.meetingAt ? formatDateTimeShort(item.meetingAt) : "Chưa có lịch"}`;
-    }
-  }
-
-  function renderMeetingMinutesList(activeId) {
-    if (!els.minutesList) return;
-    const meetings = (state.teamMeetings || []).map(normalizeTeamMeeting)
-      .filter(item => item.status !== "deleted")
-      .sort((a, b) => String(b.meetingAt || b.updatedAt || b.createdAt || "").localeCompare(String(a.meetingAt || a.updatedAt || a.createdAt || "")));
-    els.minutesList.innerHTML = meetings.length ? meetings.map(item => {
-      const openActions = (item.actions || []).filter(action => action.status !== "done").length;
-      return `<button type="button" class="${item.id === activeId ? "active" : ""}" data-minutes-select="${escapeAttribute(item.id)}">
-        <strong>${escapeHtml(item.title || "Biên bản chưa đặt tên")}</strong>
-        <span>${item.meetingAt ? formatDateTimeShort(item.meetingAt) : "Chưa có lịch"} · ${escapeHtml(item.owner || "Chưa giao")}</span>
-        <small>${openActions} việc mở · ${(item.decisions || []).length} quyết định</small>
-      </button>`;
-    }).join("") : `<div class="empty">Chưa có biên bản.</div>`;
-  }
-
-  function renderMeetingMinutesPage() {
-    if (!els.minutesForm) return;
-    const id = meetingMinutesIdFromUrl();
-    const meeting = id ? (state.teamMeetings || []).find(item => item.id === id) : null;
-    renderMeetingMinutesList(id);
-    renderMeetingMinutesForm(meeting || {});
-  }
-
-  function valuesFromMinutesRows(selector) {
-    return [...document.querySelectorAll(selector)]
-      .map(row => row.querySelector("input")?.value.trim() || "")
-      .filter(Boolean);
-  }
-
-  function syncMeetingMinutesForm() {
-    if (!els.minutesForm) return;
-    if (els.minutesHiddenAgenda) els.minutesHiddenAgenda.value = valuesFromMinutesRows("[data-minutes-agenda-row]").join("\n");
-    if (els.minutesHiddenDecisions) els.minutesHiddenDecisions.value = valuesFromMinutesRows("[data-minutes-decision-row]").join("\n");
-    if (els.minutesHiddenLinks) els.minutesHiddenLinks.value = valuesFromMinutesRows("[data-minutes-link-row]").join("\n");
-    if (els.minutesHiddenActions) {
-      els.minutesHiddenActions.value = [...document.querySelectorAll("[data-minutes-action-row]")]
-        .map(row => [
-          row.querySelector("[data-action-title]")?.value.trim() || "",
-          row.querySelector("[data-action-owner]")?.value.trim() || "",
-          row.querySelector("[data-action-due]")?.value.trim() || "",
-          row.querySelector("[data-action-status]")?.value.trim() || "todo"
-        ])
-        .filter(parts => parts[0])
-        .map(parts => parts.join(" | "))
-        .join("\n");
-    }
-  }
-
-  function addMinutesTextRow(type, value = "") {
-    const container = {
-      agenda: els.minutesAgendaList,
-      decision: els.minutesDecisionsList,
-      link: els.minutesLinksList
-    }[type];
-    if (!container) return;
-    container.insertAdjacentHTML("beforeend", `
-      <div class="minutes-row" data-minutes-${type}-row>
-        <input value="${escapeAttribute(value)}" placeholder="${type === "agenda" ? "Nội dung agenda" : type === "decision" ? "Quyết định đã chốt" : "Link hoặc ghi chú link"}" />
-        <button class="icon-button" type="button" data-minutes-remove-row title="Xóa">${icon("trash")}</button>
-      </div>
-    `);
-    hydrateIcons(container);
-    container.querySelector(".minutes-row:last-child input")?.focus();
-  }
-
-  function addMinutesAction(action = {}) {
-    if (!els.minutesActionsList) return;
-    const item = normalizeTeamAction({ status: "todo", ...action });
-    els.minutesActionsList.insertAdjacentHTML("beforeend", `
-      <div class="minutes-action-row" data-minutes-action-row>
-        <input data-action-title value="${escapeAttribute(item.title)}" placeholder="Việc cần làm" />
-        <select data-action-owner>${teamOwnerOptions(item.owner)}</select>
-        <input data-action-due type="date" value="${escapeAttribute(item.dueDate)}" />
-        <select data-action-status>${actionStatusOptions(item.status || "todo")}</select>
-        <button class="icon-button" type="button" data-minutes-remove-row title="Xóa">${icon("trash")}</button>
-      </div>
-    `);
-    hydrateIcons(els.minutesActionsList);
-    els.minutesActionsList.querySelector(".minutes-action-row:last-child input")?.focus();
-  }
-
-  function applyMeetingTemplate(template) {
-    const templates = {
-      weekly: ["Kết quả tuần trước", "Vướng mắc cần gỡ", "Việc ưu tiên tuần này", "Người phụ trách và deadline"],
-      planning: ["Mục tiêu", "Nguồn lực/ngân sách", "Rủi ro", "Mốc triển khai", "Quyết định cần chốt"],
-      content: ["Ý tưởng/chủ đề", "Kênh đăng", "Asset cần chuẩn bị", "Deadline", "Số liệu cần theo dõi"],
-      finance: ["Số liệu hiện tại", "Khoản cần xử lý", "Chênh lệch/rủi ro", "Quyết định", "Người phụ trách"]
-    };
-    renderMinutesTextRows(els.minutesAgendaList, templates[template] || templates.weekly, "agenda");
-    syncMeetingMinutesForm();
-  }
-
-  function parseQuickMeetingNote() {
-    const text = els.minutesQuickNote?.value || "";
-    if (!text.trim()) return;
-    const noteLines = [];
-    splitListText(text).forEach(line => {
-      const clean = line.replace(/^(quyết định|quyet dinh|chốt|chot|decision|qd)\s*[:\-]\s*/i, "").trim();
-      if (/^(quyết định|quyet dinh|chốt|chot|decision|qd)\s*[:\-]/i.test(line)) {
-        addMinutesTextRow("decision", clean);
-      } else if (/^(việc|viec|todo|action|làm|lam)\s*[:\-]/i.test(line)) {
-        const actionText = line.replace(/^(việc|viec|todo|action|làm|lam)\s*[:\-]\s*/i, "").trim();
-        const dueMatch = actionText.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
-        addMinutesAction({
-          title: actionText.replace(/\s*(trước|truoc|deadline|hạn|han)?\s*20\d{2}-\d{2}-\d{2}\b/i, "").trim(),
-          dueDate: dueMatch ? dueMatch[1] : ""
-        });
-      } else if (/https?:\/\/|drive\.google|docs\.google|sheets\.google/i.test(line)) {
-        addMinutesTextRow("link", line);
-      } else {
-        noteLines.push(line);
-      }
-    });
-    if (noteLines.length && els.minutesForm?.notes) {
-      els.minutesForm.elements.notes.value = [els.minutesForm.elements.notes.value.trim(), noteLines.join("\n")].filter(Boolean).join("\n");
-    }
-    els.minutesQuickNote.value = "";
-    syncMeetingMinutesForm();
-  }
-
-  function cleanMeetingMinutesText() {
-    if (!els.minutesForm) return;
-    ["notes"].forEach(name => {
-      if (els.minutesForm.elements[name]) els.minutesForm.elements[name].value = splitListText(els.minutesForm.elements[name].value).join("\n");
-    });
-    ["agenda", "decision", "link"].forEach(type => {
-      document.querySelectorAll(`[data-minutes-${type}-row] input`).forEach(input => {
-        input.value = splitListText(input.value).join(" ");
-      });
-    });
-    syncMeetingMinutesForm();
-  }
-
-  async function submitMeetingMinutesForm(form) {
-    syncMeetingMinutesForm();
-    const id = form.dataset.meetingId || "";
-    const existing = id ? (state.teamMeetings || []).find(item => item.id === id) : null;
-    const saved = await saveTeamItem("meeting", form, existing || null);
-    if (saved?.id) setMeetingMinutesUrl(saved.id);
-    showToast("Đã lưu biên bản họp.");
-  }
-
-  function renderMeetingForm(meeting) {
-    const item = normalizeTeamMeeting(meeting || {});
-    return `
-      <div class="field"><label for="teamMeetingTitle">Tên cuộc họp</label><input id="teamMeetingTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Họp kế hoạch tháng 7" required /></div>
-      <div class="field"><label for="teamMeetingType">Loại họp</label><select id="teamMeetingType" name="type">${[["weekly", "Họp tuần"], ["planning", "Kế hoạch"], ["product", "Sản phẩm"], ["finance", "Tài chính"], ["content", "Content"], ["other", "Khác"]].map(([value, label]) => `<option value="${value}" ${item.type === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-      <div class="field"><label for="teamMeetingAt">Thời gian</label><input id="teamMeetingAt" name="meetingAt" type="datetime-local" value="${escapeAttribute(item.meetingAt)}" /></div>
-      <div class="field"><label for="teamMeetingStatus">Trạng thái</label><select id="teamMeetingStatus" name="status">${[["draft", "Nháp"], ["scheduled", "Đã lên lịch"], ["completed", "Hoàn tất"], ["cancelled", "Hủy"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-      <div class="field"><label for="teamMeetingOwner">Người chủ trì</label><select id="teamMeetingOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
-      <div class="field"><label for="teamMeetingAttendees">Thành viên</label><input id="teamMeetingAttendees" name="attendees" value="${escapeAttribute(item.attendees)}" placeholder="Nguyên, Linh, Kho..." /></div>
-      <div class="field full"><label for="teamMeetingAgenda">Agenda</label><textarea id="teamMeetingAgenda" name="agenda" rows="4" placeholder="1. Kết quả tuần trước&#10;2. Vấn đề cần chốt&#10;3. Việc tuần này">${escapeHtml(item.agenda)}</textarea></div>
-      <div class="field full"><label for="teamMeetingNotes">Nội dung biên bản</label><textarea id="teamMeetingNotes" name="notes" rows="6" placeholder="Ghi nhanh diễn biến, số liệu, bối cảnh...">${escapeHtml(item.notes)}</textarea></div>
-      <div class="field full"><label for="teamMeetingDecisions">Quyết định đã chốt</label><textarea id="teamMeetingDecisions" name="decisionsText" rows="3" placeholder="Mỗi dòng một quyết định">${escapeHtml((item.decisions || []).join("\n"))}</textarea></div>
-      <div class="field full"><label for="teamMeetingActions">Việc cần làm</label><textarea id="teamMeetingActions" name="actionsText" rows="4" placeholder="Nội dung | Người phụ trách | YYYY-MM-DD | todo/doing/done">${escapeHtml(textFromActionRows(item.actions))}</textarea><small>Mỗi dòng một việc. Có thể bỏ trống người phụ trách/deadline nếu chưa chốt.</small></div>
-      <div class="field full"><label for="teamMeetingLinks">Link liên quan</label><textarea id="teamMeetingLinks" name="links" rows="2" placeholder="Google Drive, tài liệu, sản phẩm, content...">${escapeHtml(item.links)}</textarea></div>
-      ${renderTeamSourceAndComments(item)}
-    `;
-  }
-
-  function renderPlanForm(plan) {
-    const item = normalizeTeamPlan(plan || {});
-    return `
-      <div class="field"><label for="teamPlanTitle">Tên kế hoạch</label><input id="teamPlanTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Kế hoạch bán Back to School" required /></div>
-      <div class="field"><label for="teamPlanPeriod">Kỳ</label><input id="teamPlanPeriod" name="period" value="${escapeAttribute(item.period)}" placeholder="07/2026 hoặc Q3/2026" /></div>
-      <div class="field"><label for="teamPlanStatus">Trạng thái</label><select id="teamPlanStatus" name="status">${[["idea", "Ý tưởng"], ["active", "Đang chạy"], ["paused", "Tạm dừng"], ["done", "Xong"], ["archived", "Lưu trữ"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-      <div class="field"><label for="teamPlanOwner">Phụ trách</label><select id="teamPlanOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
-      <div class="field"><label for="teamPlanRevenue">Doanh thu mục tiêu</label><input id="teamPlanRevenue" name="goalRevenue" type="number" min="0" step="1000" value="${item.goalRevenue}" /></div>
-      <div class="field"><label for="teamPlanProfit">Lợi nhuận mục tiêu</label><input id="teamPlanProfit" name="goalProfit" type="number" min="0" step="1000" value="${item.goalProfit}" /></div>
-      <div class="field"><label for="teamPlanBudget">Ngân sách</label><input id="teamPlanBudget" name="budget" type="number" min="0" step="1000" value="${item.budget}" /></div>
-      <div class="field"><label for="teamPlanChannels">Kênh triển khai</label><input id="teamPlanChannels" name="channels" value="${escapeAttribute(item.channels)}" placeholder="POS, Shopee, TikTok..." /></div>
-      <div class="field full"><label for="teamPlanProducts">Sản phẩm trọng tâm</label><input id="teamPlanProducts" name="focusProducts" value="${escapeAttribute(item.focusProducts)}" placeholder="SKU hoặc nhóm sản phẩm" /></div>
-      <div class="field full"><label for="teamPlanMilestones">Milestone</label><textarea id="teamPlanMilestones" name="milestonesText" rows="4" placeholder="Mỗi dòng: Việc cần đạt | Deadline | Phụ trách">${escapeHtml((item.milestones || []).map(m => [m.title, m.dueDate, m.owner].filter(Boolean).join(" | ")).join("\n"))}</textarea></div>
-      <div class="field full"><label for="teamPlanRisks">Rủi ro / giả định</label><textarea id="teamPlanRisks" name="risks" rows="3">${escapeHtml(item.risks)}</textarea></div>
-      <div class="field full"><label for="teamPlanNote">Ghi chú</label><textarea id="teamPlanNote" name="note" rows="3">${escapeHtml(item.note)}</textarea></div>
-      ${renderTeamSourceAndComments(item)}
-    `;
-  }
-
-  function renderPricingForm(model) {
-    const item = normalizePricingModel(model || {});
-    const selectedProduct = item.productId ? byId("products", item.productId) : null;
-    const lines = item.lines.length ? item.lines : [
-      { label: "Bao bì", type: "fixed", value: 1000 },
-      { label: "Phí thanh toán", type: "price_percent", value: 3 },
-      { label: "Dự phòng rủi ro", type: "price_percent", value: 2 }
-    ].map(normalizePricingLine);
-    const scenarios = item.scenarios.length ? item.scenarios : [
-      { label: "Giá shop đề xuất", targetMargin: 35, manualPrice: 0, roundingStep: 1000 }
-    ].map(normalizePricingScenario);
-    const selectedScenarioId = scenarios.some(scenario => scenario.id === item.selectedScenarioId)
-      ? item.selectedScenarioId
-      : scenarios[0]?.id || "";
-    const suggestedTitle = pricingSuggestedTitle(selectedProduct, item.priceTarget, item.channelId || item.channelCode || "");
-    const pricingTitle = !item.title || String(item.title).startsWith("Tính giá ") ? suggestedTitle || item.title : item.title;
-    return `
-      <div class="pricing-workbench full">
-        <section class="pricing-block pricing-header-block">
-          <div class="field"><label for="teamPricingTitle">Tên bảng tính</label><input id="teamPricingTitle" name="title" value="${escapeAttribute(pricingTitle)}" placeholder="Tính giá bộ màu nước 24 màu" required /></div>
-          <div class="field"><label for="teamPricingStatus">Trạng thái</label><select id="teamPricingStatus" name="status">${[["draft", "Nháp"], ["active", "Đang dùng"], ["approved", "Đã duyệt"], ["archived", "Lưu trữ"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-          <div class="field"><label for="teamPricingOwner">Phụ trách</label><select id="teamPricingOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
-          <div class="field full"><label for="teamPricingNote">Ghi chú</label><textarea id="teamPricingNote" name="note" rows="2">${escapeHtml(item.note)}</textarea></div>
-        </section>
-        <section class="pricing-block pricing-product-block">
-          <div class="team-editor-head"><div><strong>Sản phẩm và nơi áp giá</strong><small>Giá vốn lấy từ danh mục và vẫn có thể điều chỉnh riêng cho bản tính này.</small></div></div>
-          <div class="pricing-product-layout">
-            <div class="field pricing-product-field">
-              <label>Sản phẩm</label>
-              <input type="hidden" name="productId" value="${escapeAttribute(item.productId)}" data-team-pricing-product />
-              <div class="pricing-selected-product" data-pricing-selected-product>
-                ${renderPricingSelectedProduct(selectedProduct)}
-              </div>
-              <button class="button ghost" type="button" data-open-pricing-product-picker>${icon("package")} ${selectedProduct ? "Đổi sản phẩm" : "Thêm sản phẩm"}</button>
-            </div>
-            <div class="pricing-scope-panel ${item.priceTarget === "channel" ? "is-channel" : "is-offline"}" data-pricing-scope-panel>
-              <div class="field"><label for="teamPricingBaseCost">Giá vốn một sản phẩm</label><input id="teamPricingBaseCost" name="baseCost" type="number" min="0" step="1" value="${item.baseCost}" data-team-pricing-input /></div>
-              <div class="field"><label for="teamPricingQuantity">Số lượng tham chiếu</label><input id="teamPricingQuantity" name="quantity" type="number" min="1" step="1" value="${item.quantity}" data-team-pricing-input /><small>Chỉ dùng để tham khảo tổng lãi, không nhân vào giá bán đơn vị.</small></div>
-              <div class="field pricing-target-field" data-pricing-target-field><label for="teamPricingTarget">Nơi muốn áp giá</label><select id="teamPricingTarget" name="priceTarget" data-team-pricing-input><option value="offline" ${item.priceTarget !== "channel" ? "selected" : ""}>Shop/POS offline</option><option value="channel" ${item.priceTarget === "channel" ? "selected" : ""}>Kênh/sàn bán hàng</option></select></div>
-              <div class="field pricing-channel-field" data-pricing-channel-field ${item.priceTarget === "channel" ? "" : "hidden"}><label for="teamPricingChannel">Kênh/sàn muốn áp giá</label><select id="teamPricingChannel" name="channelId" data-team-pricing-input>${pricingChannelOptions(item.channelId || item.channelCode || "")}</select><a class="field-helper-link" href="./channels.html" target="_blank" rel="noopener">${icon("plus")} Quản lý hoặc thêm sàn khác</a></div>
-            </div>
-          </div>
-        </section>
-        <section class="pricing-block pricing-cost-block">
-          <div class="team-editor-head"><div><strong>Cấu phần chi phí</strong><small>Chi phí được cộng vào giá của một sản phẩm.</small></div><button class="button ghost compact-button" type="button" data-add-pricing-line>${icon("plus")} Thêm dòng</button></div>
-          <div class="pricing-presets" aria-label="Mẫu chi phí nhanh">
-            ${[["Bao bì", "fixed"], ["Nhân công", "fixed"], ["Phí sàn", "price_percent"], ["Phí thanh toán", "price_percent"], ["Marketing/Ads", "price_percent"], ["Voucher/khuyến mãi", "price_percent"], ["Affiliate", "price_percent"], ["Dự phòng rủi ro", "price_percent"]].map(([name, type]) => `<button type="button" data-add-pricing-preset data-preset-name="${escapeAttribute(name)}" data-preset-type="${type}">+ ${escapeHtml(name)}</button>`).join("")}
-          </div>
-          <div class="pricing-row-labels pricing-line-labels"><span>Dùng</span><span>Tên chi phí</span><span>Cách tính</span><span>Giá trị</span><span>Ghi chú</span><span></span></div>
-          <div data-pricing-lines>${lines.map((line, index) => renderPricingLineInput(line, index)).join("")}</div>
-        </section>
-        <section class="pricing-block pricing-scenario-block">
-          <div class="team-editor-head"><div><strong>Kịch bản giá</strong><small>Chọn một kịch bản để xem và áp dụng kết quả tương ứng.</small></div><button class="button ghost compact-button" type="button" data-add-pricing-scenario>${icon("plus")} Thêm kịch bản</button></div>
-          <input type="hidden" name="selectedScenarioId" value="${escapeAttribute(selectedScenarioId)}" data-selected-pricing-scenario />
-          <div class="pricing-scenario-list" data-pricing-scenarios>${scenarios.map((scenario, index) => renderPricingScenarioInput(scenario, index, selectedScenarioId)).join("")}</div>
-        </section>
-        <section class="pricing-block pricing-result-block">
-          <div class="team-editor-head"><div><strong>Kết quả tính giá</strong><small>Thay đổi đầu vào ở trên, kết quả sẽ cập nhật ngay mà không tải lại trang.</small></div></div>
-          <div class="team-pricing-preview" data-team-pricing-preview></div>
-        </section>
-      </div>
-      ${renderTeamSourceAndComments(item)}
-    `;
-  }
-
-  function renderPricingSelectedProduct(product) {
-    if (!product) {
-      return `<div class="pricing-product-empty"><strong>Chưa chọn sản phẩm</strong><small>Bấm Thêm sản phẩm để chọn từ danh mục shop.</small></div>`;
-    }
-    return `
-      <div class="pricing-product-summary">
-        ${renderProductThumb(product, "cart-product-thumb")}
-        <div>
-          <strong>${escapeHtml(product.name)}</strong>
-          <small>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small>
-          <small>Giá vốn hiện tại: <b>${money.format(product.costPrice)}</b> · Giá shop: ${productHasShopPrice(product) ? money.format(product.salePrice) : "chưa có"}</small>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderPricingProductPicker() {
-    const products = [...(state.products || [])]
-      .filter(product => product.status !== "deleted")
-      .sort((a, b) => a.name.localeCompare(b.name, "vi"));
-    const categories = Array.from(new Set(products.map(product => String(product.category || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "vi"));
-    const brands = Array.from(new Set(products.map(product => String(product.brand || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "vi"));
-    return `
-      <div class="product-picker pricing-product-picker full">
-        <div class="product-picker-toolbar">
-          <label class="search-box product-picker-search">
-            ${icon("search")}
-            <input type="search" placeholder="Tìm SKU, tên, danh mục, hãng, mã vạch..." data-product-picker-search />
-          </label>
-          <span class="pill" data-product-picker-count>${products.length} sản phẩm</span>
-        </div>
-        <div class="product-picker-filters">
-          <select data-product-picker-filter="category"><option value="">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
-          <select data-product-picker-filter="brand"><option value="">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
-          <select data-product-picker-filter="price"><option value="">Tất cả trạng thái giá</option><option value="missing">Chưa có giá shop</option><option value="ready">Đã có giá shop</option></select>
-          <select data-product-picker-filter="stock"><option value="">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="low">Sắp hết</option><option value="out">Hết hàng</option></select>
-          <select data-product-picker-sort><option value="name">Tên A-Z</option><option value="stock">Tồn kho nhiều</option><option value="priceAsc">Giá thấp</option><option value="priceDesc">Giá cao</option><option value="margin">Biên lãi cao</option></select>
-          <button class="button ghost icon-only" type="button" data-reset-product-picker aria-label="Làm mới" title="Làm mới">${icon("refresh")}</button>
-        </div>
-        <div class="product-picker-list" data-product-picker-list>
-          ${products.map(renderPricingProductPickerCard).join("") || `<div class="empty">Chưa có sản phẩm trong danh mục.</div>`}
-          <div class="product-picker-empty" data-product-picker-empty hidden>Không tìm thấy sản phẩm phù hợp.</div>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderPricingProductPickerCard(product) {
-    const stockClass = product.stock <= 0 ? "draft" : (product.stock <= product.lowStock ? "low" : "active");
-    const margin = product.salePrice > 0 ? Math.round(((product.salePrice - product.costPrice) / product.salePrice) * 100) : 0;
-    const stockState = product.stock <= 0 ? "out" : (product.stock <= product.lowStock ? "low" : "available");
-    return `
-      <button class="product-card product-card-rich" type="button" data-product-picker-card data-select-pricing-product="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-category="${escapeAttribute(product.category || "")}" data-brand="${escapeAttribute(product.brand || "")}" data-stock-state="${stockState}" data-price-state="${productHasShopPrice(product) ? "ready" : "missing"}" data-name="${escapeAttribute(product.name || "")}" data-price="${Number(product.salePrice || 0)}" data-stock="${Number(product.stock || 0)}" data-margin="${margin}">
-        ${renderProductThumb(product)}
-        <span class="product-card-main">
-          <strong>${escapeHtml(product.name)}</strong>
-          <small>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small>
-          <span class="product-card-tags"><em>Vốn ${money.format(product.costPrice)}</em><small>${productHasShopPrice(product) ? `Giá shop ${money.format(product.salePrice)}` : "Chưa có giá shop"}</small></span>
-        </span>
-        <span class="product-card-side">
-          <small class="badge ${stockClass}">${product.stock} còn</small>
-          <small>${product.status === "active" ? "Đang bán" : "Ngừng bán"}</small>
-        </span>
-      </button>
-    `;
-  }
-
-  function selectPricingProduct(productId) {
-    const product = byId("products", productId);
-    const form = qs("[data-team-pricing-page-form]") || els.modalForm;
-    if (!product || !form) return;
-    const hidden = form.querySelector("[data-team-pricing-product]");
-    const selected = form.querySelector("[data-pricing-selected-product]");
-    if (hidden) hidden.value = product.id;
-    if (selected) selected.innerHTML = renderPricingSelectedProduct(product);
-    if (form.baseCost) form.baseCost.value = product.costPrice || 0;
-    syncPricingTitle(form, true);
-    updateTeamPricingPreview(form);
-    closeModal();
-    showToast(`Đã chọn ${product.name} và cập nhật giá vốn.`);
-  }
-
-  function renderPricingLineInput(line, index) {
-    const item = normalizePricingLine(line || {});
-    return `<div class="team-dynamic-row pricing-line-row ${item.included ? "" : "is-excluded"}" data-pricing-line-row data-pricing-line-id="${escapeAttribute(item.id)}">
-      <label class="pricing-row-toggle" title="Tính chi phí này"><input type="checkbox" data-pricing-line-included ${item.included ? "checked" : ""} data-team-pricing-input /><span>${icon("check")}</span></label>
-      <label class="pricing-row-field"><span>Tên chi phí</span><input data-pricing-line-name value="${escapeAttribute(item.name)}" placeholder="VD: Bao bì, phí sàn..." aria-label="Tên chi phí" /></label>
-      <label class="pricing-row-field"><span>Cách tính</span><select data-pricing-line-type data-team-pricing-input aria-label="Cách tính chi phí"><option value="fixed" ${item.type === "fixed" ? "selected" : ""}>Số tiền cố định</option><option value="cost_percent" ${item.type === "cost_percent" ? "selected" : ""}>% giá vốn</option><option value="price_percent" ${item.type === "price_percent" ? "selected" : ""}>% giá bán</option><option value="note" ${item.type === "note" ? "selected" : ""}>Chỉ ghi chú</option></select></label>
-      <label class="pricing-row-field"><span>Giá trị</span><input data-pricing-line-value type="number" min="0" max="${item.type.includes("percent") ? "99" : "999999999"}" step="0.1" value="${item.value}" data-team-pricing-input placeholder="0" aria-label="Giá trị chi phí" ${item.type === "note" ? "disabled" : ""} /></label>
-      <label class="pricing-row-field"><span>Ghi chú</span><input data-pricing-line-note value="${escapeAttribute(item.note)}" placeholder="Không bắt buộc" aria-label="Ghi chú chi phí" /></label>
-      <button class="icon-button" type="button" data-remove-pricing-row title="Xóa">${icon("trash")}</button>
-    </div>`;
-  }
-
-  function renderPricingScenarioInput(scenario, index, selectedScenarioId = "") {
-    const item = normalizePricingScenario(scenario || {});
-    const selected = item.id === selectedScenarioId || (!selectedScenarioId && index === 0);
-    return `<article class="pricing-scenario-card ${selected ? "is-selected" : ""}" data-pricing-scenario-row data-pricing-scenario-id="${escapeAttribute(item.id)}">
-      <header>
-        <label class="pricing-scenario-choice"><input type="radio" name="pricingScenarioChoice" value="${escapeAttribute(item.id)}" ${selected ? "checked" : ""} data-select-pricing-scenario /><span></span></label>
-        <label class="pricing-scenario-name"><span>Tên kịch bản</span><input data-pricing-scenario-name data-team-pricing-input value="${escapeAttribute(item.name)}" placeholder="VD: Giá shop, giá Shopee..." aria-label="Tên kịch bản giá" required /></label>
-        <button class="icon-button" type="button" data-remove-pricing-row title="Xóa kịch bản">${icon("trash")}</button>
-      </header>
-      <div class="pricing-scenario-fields">
-        <label class="pricing-row-field"><span>Kênh áp dụng</span><select data-pricing-scenario-channel data-team-pricing-input>${pricingChannelOptions(item.channelId, "Theo nơi áp giá ở trên")}</select></label>
-        <label class="pricing-row-field"><span>Biên lãi mục tiêu (%)</span><input data-pricing-scenario-margin type="number" min="0" max="95" step="0.1" value="${item.targetMargin}" data-team-pricing-input /></label>
-        <label class="pricing-row-field"><span>Lãi mục tiêu (đ)</span><input data-pricing-scenario-profit type="number" min="0" step="1" value="${item.targetProfitAmount}" data-team-pricing-input placeholder="0 = dùng biên lãi" /></label>
-        <label class="pricing-row-field"><span>Giá tự nhập (đ)</span><input data-pricing-scenario-price type="number" min="0" step="1" value="${item.manualPrice}" data-team-pricing-input placeholder="0 = tự tính" /></label>
-        <label class="pricing-row-field"><span>Quy tắc làm tròn</span><select data-pricing-scenario-rounding data-team-pricing-input><option value="none" ${item.roundingMode === "none" ? "selected" : ""}>Không làm tròn</option><option value="step" ${item.roundingMode === "step" ? "selected" : ""}>Làm tròn lên theo bước</option><option value="tail9" ${item.roundingMode === "tail9" ? "selected" : ""}>Giá đuôi 9</option></select></label>
-        <label class="pricing-row-field"><span>Bước làm tròn</span><select data-pricing-scenario-step data-team-pricing-input><option value="1000" ${item.roundingStep === 1000 ? "selected" : ""}>1.000đ</option><option value="5000" ${item.roundingStep === 5000 ? "selected" : ""}>5.000đ</option><option value="10000" ${item.roundingStep === 10000 ? "selected" : ""}>10.000đ</option><option value="100" ${item.roundingStep === 100 ? "selected" : ""}>100đ</option></select></label>
-      </div>
-    </article>`;
-  }
-
-  function renderDecisionForm(decision) {
-    const item = normalizeTeamDecision(decision || {});
-    return `
-      <div class="field"><label for="teamDecisionTitle">Quyết định</label><input id="teamDecisionTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="Chốt giá bán lẻ bộ màu nước 24 màu" required /></div>
-      <div class="field"><label for="teamDecisionStatus">Trạng thái</label><select id="teamDecisionStatus" name="status">${[["active", "Có hiệu lực"], ["archived", "Lưu trữ"]].map(([value, label]) => `<option value="${value}" ${item.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-      <div class="field"><label for="teamDecisionOwner">Phụ trách</label><select id="teamDecisionOwner" name="owner">${teamOwnerOptions(item.owner)}</select></div>
-      <div class="field"><label for="teamDecisionAt">Ngày chốt</label><input id="teamDecisionAt" name="decidedAt" type="date" value="${escapeAttribute(item.decidedAt)}" /></div>
-      <div class="field"><label for="teamDecisionReview">Ngày xem lại</label><input id="teamDecisionReview" name="nextReviewAt" type="date" value="${escapeAttribute(item.nextReviewAt)}" /></div>
-      <div class="field"><label for="teamDecisionTags">Tag</label><input id="teamDecisionTags" name="tags" value="${escapeAttribute(item.tags)}" placeholder="giá bán, nhập hàng, marketing" /></div>
-      <div class="field full"><label for="teamDecisionDetail">Nội dung chi tiết</label><textarea id="teamDecisionDetail" name="detail" rows="6">${escapeHtml(item.detail)}</textarea></div>
-      ${renderTeamSourceAndComments(item)}
-    `;
-  }
-
-  function collectPricingLines(form) {
-    return [...form.querySelectorAll("[data-pricing-line-row]")].map(row => normalizePricingLine({
-      id: row.dataset.pricingLineId,
-      name: row.querySelector("[data-pricing-line-name]")?.value || "",
-      type: row.querySelector("[data-pricing-line-type]")?.value || "fixed",
-      value: row.querySelector("[data-pricing-line-value]")?.value || 0,
-      note: row.querySelector("[data-pricing-line-note]")?.value || "",
-      included: row.querySelector("[data-pricing-line-included]")?.checked !== false
-    })).filter(line => line.label);
-  }
-
-  function collectPricingScenarios(form) {
-    return [...form.querySelectorAll("[data-pricing-scenario-row]")].map(row => normalizePricingScenario({
-      id: row.dataset.pricingScenarioId,
-      name: row.querySelector("[data-pricing-scenario-name]")?.value || "",
-      channelId: row.querySelector("[data-pricing-scenario-channel]")?.value || "",
-      targetMargin: row.querySelector("[data-pricing-scenario-margin]")?.value || 0,
-      targetProfitAmount: row.querySelector("[data-pricing-scenario-profit]")?.value || 0,
-      manualPrice: row.querySelector("[data-pricing-scenario-price]")?.value || 0,
-      roundingMode: row.querySelector("[data-pricing-scenario-rounding]")?.value || "step",
-      roundingStep: row.querySelector("[data-pricing-scenario-step]")?.value || 1000
-    })).filter(scenario => scenario.label);
-  }
-
-  function refreshPricingBuilderState(form) {
-    if (!form) return;
-    const lineContainer = form.querySelector("[data-pricing-lines]");
-    const scenarioContainer = form.querySelector("[data-pricing-scenarios]");
-    [lineContainer, scenarioContainer].forEach(container => {
-      if (!container) return;
-      container.querySelector("[data-pricing-empty]")?.remove();
-    });
-    if (lineContainer && !lineContainer.querySelector("[data-pricing-line-row]")) {
-      lineContainer.insertAdjacentHTML("beforeend", `<div class="pricing-empty-hint" data-pricing-empty>Chưa có chi phí thêm. Giá sẽ được tính từ giá vốn và mục tiêu lợi nhuận.</div>`);
-    }
-    if (scenarioContainer && !scenarioContainer.querySelector("[data-pricing-scenario-row]")) {
-      scenarioContainer.insertAdjacentHTML("beforeend", `<div class="pricing-empty-hint" data-pricing-empty>Thêm ít nhất một kịch bản để tính và áp dụng giá.</div>`);
-    }
-  }
-
-  function updatePricingScopeFields(form) {
-    if (!form) return;
-    const isChannel = form.priceTarget?.value === "channel";
-    const channelField = form.querySelector("[data-pricing-channel-field]");
-    const scopePanel = form.querySelector("[data-pricing-scope-panel]");
-    if (channelField) channelField.hidden = !isChannel;
-    if (scopePanel) {
-      scopePanel.classList.toggle("is-channel", isChannel);
-      scopePanel.classList.toggle("is-offline", !isChannel);
-    }
-    if (form.channelId) {
-      form.channelId.disabled = !isChannel;
-      form.channelId.required = isChannel;
-    }
-    syncPricingTitle(form);
-  }
-
-  function syncPricingTitle(form, force = false) {
-    if (!form?.title) return;
-    const product = form.productId?.value ? byId("products", form.productId.value) : null;
-    const suggested = pricingSuggestedTitle(product, form.priceTarget?.value || "offline", form.channelId?.value || "");
-    const current = String(form.title.value || "").trim();
-    if (suggested && (force || !current || current.startsWith("Tính giá "))) form.title.value = suggested;
-  }
-
-  function updatePricingLineState(source) {
-    const row = source?.closest("[data-pricing-line-row]");
-    if (!row) return;
-    const type = row.querySelector("[data-pricing-line-type]")?.value || "fixed";
-    const value = row.querySelector("[data-pricing-line-value]");
-    const included = row.querySelector("[data-pricing-line-included]")?.checked !== false;
-    row.classList.toggle("is-excluded", !included);
-    if (value) {
-      value.disabled = type === "note";
-      value.max = type.includes("percent") ? "99" : "999999999";
-      if (type === "note") value.value = "0";
-    }
-  }
-
-  function selectPricingScenario(form, scenarioId) {
-    if (!form || !scenarioId) return;
-    const hidden = form.querySelector("[data-selected-pricing-scenario]");
-    if (hidden) hidden.value = scenarioId;
-    form.querySelectorAll("[data-pricing-scenario-row]").forEach(row => {
-      const selected = row.dataset.pricingScenarioId === scenarioId;
-      row.classList.toggle("is-selected", selected);
-      const radio = row.querySelector("[data-select-pricing-scenario]");
-      if (radio) radio.checked = selected;
-    });
-    updateTeamPricingPreview(form);
-  }
-
-  function updateTeamPricingPreview(form) {
-    if (!form) return;
-    const output = form.querySelector("[data-team-pricing-preview]");
-    if (!output) return;
-    const priceTarget = form.priceTarget?.value || "offline";
-    const model = normalizePricingModel({
-      productId: form.productId?.value || "",
-      baseCost: Number(form.baseCost?.value || 0),
-      quantity: Number(form.quantity?.value || 1),
-      priceTarget,
-      channelId: priceTarget === "channel" ? form.channelId?.value || "" : "",
-      selectedScenarioId: form.querySelector("[data-selected-pricing-scenario]")?.value || "",
-      lines: collectPricingLines(form),
-      scenarios: collectPricingScenarios(form)
-    });
-    const product = model.productId ? byId("products", model.productId) : null;
-    const selectedId = model.scenarios.some(scenario => scenario.id === model.selectedScenarioId)
-      ? model.selectedScenarioId
-      : model.scenarios[0]?.id || "";
-    if (selectedId && model.selectedScenarioId !== selectedId) {
-      const selectedInput = form.querySelector("[data-selected-pricing-scenario]");
-      if (selectedInput) selectedInput.value = selectedId;
-    }
-    output.innerHTML = model.scenarios.length ? model.scenarios.map(scenario => {
-      const result = calculatePricingScenario(model, scenario);
-      const isSelected = scenario.id === selectedId;
-      const channelId = scenario.channelId || model.channelId;
-      const channel = channelId ? channelByIdOrCode(channelId) : null;
-      const targetLabel = channel ? channel.name : (model.priceTarget === "channel" ? "Chưa chọn kênh" : "Shop/POS offline");
-      return `<article class="pricing-result-card ${isSelected ? "is-selected" : ""}" data-pricing-result="${escapeAttribute(scenario.id)}">
-        <header><div><span>${escapeHtml(scenario.name)}</span><small>${escapeHtml(product ? `${product.sku} · ${product.name}` : "Chưa chọn sản phẩm")} · ${escapeHtml(targetLabel)}</small></div>${isSelected ? `<em>Đang chọn</em>` : `<button type="button" class="button ghost compact-button" data-choose-pricing-result="${escapeAttribute(scenario.id)}">Chọn</button>`}</header>
-        <div class="pricing-result-price"><small>Giá đề xuất sau làm tròn</small><strong>${money.format(result.roundedPrice)}</strong><span>Trước làm tròn ${money.format(result.rawSuggestedPrice)}</span></div>
-        <div class="pricing-result-metrics">
-          <span><small>Giá vốn</small><b>${money.format(result.baseCost)}</b></span>
-          <span><small>Chi phí cố định</small><b>${money.format(result.fixedCostTotal)}</b></span>
-          <span><small>% theo giá vốn</small><b>${money.format(result.costPercentTotal)} (${result.costPercentRate.toFixed(1)}%)</b></span>
-          <span><small>% theo giá bán</small><b>${money.format(result.pricePercentTotal)} (${result.pricePercentRate.toFixed(1)}%)</b></span>
-          <span><small>Lãi dự kiến / SP</small><b class="${result.expectedProfit < 0 ? "negative-text" : "positive-text"}">${money.format(result.expectedProfit)}</b></span>
-          <span><small>Biên lãi dự kiến</small><b class="${result.expectedMargin < 0 ? "negative-text" : "positive-text"}">${result.expectedMargin.toFixed(1)}%</b></span>
-        </div>
-        ${model.quantity > 1 ? `<p class="pricing-quantity-note">Với ${model.quantity} sản phẩm: lãi dự kiến ${money.format(result.expectedProfit * model.quantity)}.</p>` : ""}
-        ${result.warnings.length ? `<div class="pricing-warnings">${result.warnings.map(message => `<span>${icon("alertTriangle")} ${escapeHtml(message)}</span>`).join("")}</div>` : ""}
-        <footer><button class="button primary" type="button" data-apply-pricing-scenario="${escapeAttribute(scenario.id)}" data-apply-pricing-target="offline">${icon("check")} Áp dụng giá shop</button><button class="button channel-action" type="button" data-apply-pricing-scenario="${escapeAttribute(scenario.id)}" data-apply-pricing-target="channel">${icon("truck")} Áp dụng giá kênh</button></footer>
-      </article>`;
-    }).join("") : `<p class="content-empty">Thêm ít nhất một kịch bản giá để xem gợi ý.</p>`;
-    refreshPricingBuilderState(form);
-  }
-
-  function teamApiCollection(type) {
-    return {
-      meeting: ["teamMeetings", normalizeTeamMeeting],
-      plan: ["teamPlans", normalizeTeamPlan],
-      pricing: ["teamPricingModels", normalizePricingModel],
-      decision: ["teamDecisions", normalizeTeamDecision]
-    }[type] || ["teamMeetings", normalizeTeamMeeting];
-  }
-
-  function teamApiItemType(type) {
-    return {
-      meeting: "meeting",
-      plan: "plan",
-      pricing: "pricing",
-      decision: "decision"
-    }[type] || "meeting";
-  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   async function saveTeamItem(type, form, existing) {
     const data = Object.fromEntries(new FormData(form));
@@ -5178,35 +3614,9 @@
     return saved;
   }
 
-  function pricingModelFromForm(form) {
-    const priceTarget = form.priceTarget?.value || "offline";
-    return normalizePricingModel({
-      title: form.title?.value || "",
-      productId: form.productId?.value || "",
-      status: form.status?.value || "draft",
-      owner: form.owner?.value || "",
-      baseCost: form.baseCost?.value || 0,
-      quantity: form.quantity?.value || 1,
-      priceTarget,
-      channelId: priceTarget === "channel" ? form.channelId?.value || "" : "",
-      selectedScenarioId: form.querySelector("[data-selected-pricing-scenario]")?.value || "",
-      note: form.note?.value || "",
-      lines: collectPricingLines(form),
-      scenarios: collectPricingScenarios(form)
-    });
-  }
 
-  function validatePricingModel(model) {
-    if (model.baseCost < 0 || !Number.isFinite(model.baseCost)) throw new Error("Giá vốn chưa hợp lệ.");
-    model.lines.forEach(line => {
-      if (!Number.isFinite(line.value) || line.value < 0) throw new Error(`Giá trị chi phí “${line.name || "chưa đặt tên"}” chưa hợp lệ.`);
-      if (["cost_percent", "price_percent"].includes(line.type) && line.value >= 100) throw new Error(`Tỷ lệ “${line.name || "chi phí"}” phải nhỏ hơn 100%.`);
-    });
-    if (!model.scenarios.length) throw new Error("Cần có ít nhất một kịch bản giá.");
-    model.scenarios.forEach(scenario => {
-      if (scenario.targetMargin < 0 || scenario.targetMargin > 95) throw new Error(`Biên lãi của “${scenario.name}” phải từ 0% đến 95%.`);
-    });
-  }
+
+
 
   async function persistAppliedPricingModel(form, model) {
     const existingId = form.dataset.pricingExistingId || "";
@@ -5334,8 +3744,8 @@
     if (!els.customersTable) return;
     const rows = filtered(state.customers, ["name", "phone", "email", "group"]);
     els.customersTable.innerHTML = rows.length ? rows.map(customer => `
-      <tr>
-        <td><strong>${customer.name}</strong></td>
+      <tr class="data-row-clickable" data-view-customer="${customer.id}" tabindex="0" aria-label="Xem chi tiết khách hàng ${escapeAttribute(customer.name)}">
+        <td><strong>${escapeHtml(customer.name)}</strong><br><small>${escapeHtml(customer.email || "Chưa có email")}</small></td>
         <td>${customer.phone}</td>
         <td><span class="badge">${customer.group}</span></td>
         <td>${money.format(customer.totalSpent)}</td>
@@ -5348,6 +3758,29 @@
         </td>
       </tr>
     `).join("") : `<tr><td colspan="7" class="empty">Chưa có khách hàng. Hãy thêm khách hàng đầu tiên.</td></tr>`;
+  }
+
+  function renderCustomerDetail(customer) {
+    const orders = (state.orders || [])
+      .filter(order => order.customerId === customer.id && order.status !== "cancelled")
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    const points = loyaltyPointsForCustomer(customer);
+    const latestOrders = orders.slice(0, 5);
+    return `
+      <section class="customer-detail-hero full">
+        <div class="customer-avatar" aria-hidden="true">${escapeHtml(String(customer.name || "K").trim().charAt(0).toUpperCase())}</div>
+        <div><span class="badge ${customer.status}">${statusLabel(customer.status)}</span><h3>${escapeHtml(customer.name)}</h3><p>${escapeHtml(customer.group || "Khách hàng")}</p></div>
+      </section>
+      <section class="detail-metric-grid full">
+        <article><span>Tổng đã mua</span><strong>${money.format(customer.totalSpent || 0)}</strong></article>
+        <article><span>Điểm thành viên</span><strong>${Number(points || 0).toLocaleString("vi-VN")}</strong></article>
+        <article><span>Số đơn</span><strong>${orders.length}</strong></article>
+      </section>
+      <section class="detail-section full"><h3>Liên hệ</h3><dl class="detail-list"><div><dt>Điện thoại</dt><dd>${escapeHtml(customer.phone || "—")}</dd></div><div><dt>Email</dt><dd>${escapeHtml(customer.email || "—")}</dd></div><div><dt>Lần mua cuối</dt><dd>${customer.lastOrderAt ? formatDateTime(customer.lastOrderAt) : "—"}</dd></div></dl></section>
+      <section class="detail-section full"><div class="detail-section-header"><h3>Đơn gần đây</h3><a href="./orders.html?customer=${encodeURIComponent(customer.id)}">Xem danh sách</a></div>${latestOrders.length ? `<div class="detail-activity-list">${latestOrders.map(order => `<button type="button" data-view-order="${order.id}"><span><strong>${escapeHtml(order.code)}</strong><small>${formatDateTimeShort(order.createdAt)}</small></span><b>${money.format(order.netTotal)}</b></button>`).join("")}</div>` : `<p class="resource-empty-copy">Khách hàng chưa có đơn mua.</p>`}</section>
+      <section class="detail-section full"><h3>Ghi chú</h3><p>${escapeHtml(customer.note || "Chưa có ghi chú.").replace(/\n/g, "<br>")}</p></section>
+      ${canManageCustomers() ? `<footer class="detail-sticky-actions"><button class="button primary" type="button" data-edit-customer="${customer.id}">${icon("edit")} Sửa khách hàng</button></footer>` : ""}
+    `;
   }
 
   function renderUsers() {
@@ -5609,924 +4042,36 @@
     renderStockMovements();
   }
 
-  function ensureCommerceAccountingLayout() {
-    const switcher = document.querySelector(".accounting-view-switch");
-    const layout = document.querySelector(".accounting-layout");
-    if (!switcher || !layout || layout.dataset.commerceReady) return;
-    switcher.innerHTML = [
-      ["overview", "Tổng quan"], ["payouts", "Đối soát sàn"], ["ledger", "Dòng tiền"],
-      ["receivables", "Công nợ"], ["profit", "Lãi lỗ"],
-      ["tax", "Thuế & chứng từ"], ["settings", "Cài đặt kế toán"]
-    ].map(([value, label]) => `<button type="button" role="tab" data-accounting-view-filter="${value}">${label}</button>`).join("");
-    layout.insertAdjacentHTML("afterbegin", `
-      <section class="accounting-workspace accounting-commerce-overview" data-accounting-section="overview">
-        <div class="accounting-overview-kpis" data-accounting-commerce-kpis></div>
-        <div class="accounting-overview-grid">
-          <section class="panel"><div class="panel-header"><div><p class="section-kicker">Ưu tiên hôm nay</p><h2>Việc cần xử lý</h2><p>Các khoản có thể làm lệch tiền hoặc thiếu hồ sơ cuối kỳ.</p></div></div><div class="accounting-action-list" data-accounting-action-list></div></section>
-          <section class="panel"><div class="panel-header"><div><p class="section-kicker">Tiền đang ở đâu</p><h2>Số dư theo tài khoản</h2><p>Số dư sổ và tình trạng đối soát gần nhất.</p></div></div><div class="accounting-balance-list" data-accounting-balance-list></div></section>
-        </div>
-      </section>
-      <section class="panel accounting-workspace accounting-payout-workspace" data-accounting-section="payouts" hidden>
-        <div class="panel-header split"><div><p class="section-kicker">Sàn thương mại điện tử</p><h2>Đối soát tiền sàn</h2><p>Ghép đơn, kiểm tra phí và ghi nhận tiền thực nhận vào sổ quỹ.</p></div><div class="panel-header-actions"><button class="button primary" type="button" data-open-platform-payout>${icon("plus")} Tạo phiếu</button><button class="button export" type="button" data-open-accounting-export data-accounting-export-scope="payouts">${icon("download")} Xuất đối soát</button></div></div>
-        <div class="accounting-payout-kpis" data-accounting-payout-kpis></div>
-        <div class="accounting-toolbar accounting-payout-toolbar"><select data-payout-channel-filter aria-label="Lọc sàn"><option value="all">Tất cả sàn</option></select><select data-payout-status-filter aria-label="Lọc trạng thái"><option value="all">Tất cả trạng thái</option><option value="draft">Chờ đối soát</option><option value="matched">Đã khớp</option><option value="mismatch">Đang lệch</option><option value="posted">Đã ghi sổ</option></select><select data-payout-range-filter aria-label="Lọc kỳ"><option value="30">30 ngày</option><option value="90">90 ngày</option><option value="all">Toàn bộ</option></select></div>
-        <div class="table-wrap"><table><thead><tr><th>Sàn / payout</th><th>Kỳ</th><th>Dự kiến</th><th>Thực nhận</th><th>Chênh lệch</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody data-platform-payout-table></tbody></table></div>
-      </section>
-      <section class="accounting-workspace accounting-expense-workspace" data-accounting-section="expenses" hidden><div class="accounting-overview-grid expenses-grid"><section class="panel"><div class="panel-header split"><div><p class="section-kicker">Cơ cấu tiền ra</p><h2>Chi phí vận hành</h2><p>Phân nhóm chi phí để nhìn ra nơi đang tiêu nhiều nhất.</p></div><button class="button primary" type="button" data-open-cash-transaction>${icon("plus")} Ghi chi</button></div><div class="accounting-expense-summary" data-accounting-expense-summary></div><div class="accounting-expense-groups" data-accounting-expense-groups></div></section><section class="panel"><div class="panel-header"><div><p class="section-kicker">Cần bổ sung</p><h2>Thiếu chứng từ</h2><p>Giao dịch chi chưa có liên kết file chứng từ.</p></div></div><div class="accounting-action-list" data-missing-document-list></div></section></div></section>
-      <section class="accounting-workspace accounting-tax-workspace" data-accounting-section="tax" hidden><section class="panel"><div class="panel-header split"><div><p class="section-kicker">Dữ liệu tham khảo</p><h2>Thuế & chứng từ cuối kỳ</h2><p>Số liệu phục vụ đối chiếu và kê khai; không tự xác định nghĩa vụ thuế.</p></div><button class="button export" type="button" data-open-accounting-export data-accounting-export-scope="tax">${icon("download")} Xuất gói cuối kỳ</button></div><div class="accounting-tax-summary" data-accounting-tax-summary></div><div class="accounting-overview-grid"><div><h3>Doanh thu theo kênh</h3><div class="accounting-balance-list" data-accounting-channel-revenue></div></div><div><h3>Chứng từ còn thiếu</h3><div class="accounting-action-list" data-accounting-tax-documents></div></div></div></section></section>
-    `);
-    layout.insertAdjacentHTML("beforeend", `<section class="panel accounting-workspace accounting-operation-settings" data-accounting-section="settings" hidden><div class="panel-header"><div><p class="section-kicker">Quy tắc vận hành</p><h2>Cấu hình kế toán TMĐT</h2><p>Ngưỡng chênh lệch và tài khoản nhận tiền mặc định theo sàn.</p></div></div><form class="accounting-settings-form" data-accounting-settings-form><div class="field"><label>Ngưỡng lệch cho phép</label><input name="tolerance" type="number" min="0" step="1" value="1000" /></div><label class="toggle-row"><input name="autoAdjustment" type="checkbox" /><span><strong>Tự tạo giao dịch điều chỉnh</strong><small>Chỉ thực hiện khi có lý do đối soát rõ ràng.</small></span></label><div class="field full"><label>Quy tắc nhận diện payroll</label><input name="payrollKeywords" value="lương, cộng tác viên, payroll" /></div><div class="field"><label>Tài khoản nhận Shopee</label><select name="shopeeAccountId" data-accounting-setting-account></select></div><div class="field"><label>Tài khoản nhận TikTok Shop</label><select name="tiktokAccountId" data-accounting-setting-account></select></div><button class="button primary" type="submit">${icon("check")} Lưu cấu hình</button></form></section>`);
-    const operationsSettings = layout.querySelector("[data-accounting-section='settings']");
-    const payrollSection = layout.querySelector("[data-accounting-section='payroll']");
-    if (operationsSettings && payrollSection) {
-      layout.insertBefore(operationsSettings, payrollSection);
-      operationsSettings.insertAdjacentHTML("beforebegin", `<div class="segmented-control accounting-settings-switch" data-accounting-section="settings" hidden><button class="active" type="button" data-accounting-settings-view="operations">Quy tắc TMĐT</button><button type="button" data-accounting-settings-view="accounts">Tài khoản tiền</button><button type="button" data-accounting-settings-view="categories">Danh mục thu chi</button><button type="button" data-accounting-settings-view="payroll">Tiền lương</button></div>`);
-    }
-    const debtSection = layout.querySelector("[data-accounting-section='receivables']");
-    if (debtSection) {
-      debtSection.querySelector(".panel-header")?.insertAdjacentHTML("afterend", `<div class="segmented-control accounting-debt-switch"><button class="active" type="button" data-accounting-debt-view="platform">Sàn phải trả</button><button type="button" data-accounting-debt-view="customer">Khách phải thu</button><button type="button" data-accounting-debt-view="supplier">Phải trả nhà cung cấp</button></div><div class="accounting-debt-operations" data-accounting-debt-operations></div>`);
-    }
-    const profitSection = layout.querySelector("[data-accounting-section='profit']");
-    if (profitSection) {
-      profitSection.insertAdjacentHTML("beforebegin", `<div class="segmented-control accounting-profit-switch" data-accounting-section="profit" hidden><button class="active" type="button" data-accounting-profit-view="overview">Tổng quan</button><button type="button" data-accounting-profit-view="channel">Theo sàn</button><button type="button" data-accounting-profit-view="sku">Theo SKU</button><button type="button" data-accounting-profit-view="campaign">Theo campaign</button></div>`);
-      profitSection.insertAdjacentHTML("beforeend", `<section class="panel accounting-commerce-profit-detail" data-accounting-commerce-profit-detail hidden></section>`);
-    }
-    const ledgerTable = layout.querySelector("[data-accounting-transactions-table]")?.closest("table");
-    if (ledgerTable) ledgerTable.querySelector("thead").innerHTML = `<tr><th>Ngày</th><th>Loại</th><th>Danh mục / tài khoản</th><th>Nội dung</th><th>Chứng từ</th><th>Số tiền</th><th>Thao tác</th></tr>`;
-    layout.querySelector("[data-accounting-section='expenses']")?.remove();
-    const missingExpensePanel = layout.querySelector("[data-missing-document-list]")?.closest("section");
-    if (missingExpensePanel) missingExpensePanel.remove();
-    const taxMissingBlock = layout.querySelector("[data-accounting-tax-documents]")?.parentElement;
-    if (taxMissingBlock) taxMissingBlock.remove();
-    layout.querySelector("[data-accounting-channel-revenue]")?.parentElement?.classList.add("full");
-    layout.dataset.commerceReady = "true";
-  }
 
-  function syncAccountingView() {
-    ensureCommerceAccountingLayout();
-    document.querySelectorAll("[data-accounting-view-filter]").forEach(button => {
-      const active = button.dataset.accountingViewFilter === accountingFilters.view;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
-    });
-    document.querySelectorAll("[data-accounting-section]").forEach(section => {
-      const settingsSections = ["settings", "accounts", "categories", "payroll"];
-      section.hidden = accountingFilters.view === "settings"
-        ? !settingsSections.includes(section.dataset.accountingSection)
-        : section.dataset.accountingSection !== accountingFilters.view;
-    });
-    if (accountingFilters.view === "settings") {
-      const sectionMap = { operations:"settings", accounts:"accounts", categories:"categories", payroll:"payroll" };
-      document.querySelectorAll("[data-accounting-section='settings'], [data-accounting-section='accounts'], [data-accounting-section='categories'], [data-accounting-section='payroll']").forEach(section => {
-        if (section.classList.contains("accounting-settings-switch")) { section.hidden = false; return; }
-        section.hidden = section.dataset.accountingSection !== sectionMap[accountingFilters.settingsView];
-      });
-    }
-  }
 
-  function commerceChannelLabel(codeOrId) {
-    const channel = channelByIdOrCode(codeOrId);
-    return channel?.name || channels[codeOrId] || codeOrId || "Chưa rõ sàn";
-  }
 
-  function payoutStatusMeta(status) {
-    return {
-      draft: ["Chờ đối soát", "neutral"], matched: ["Đã khớp", "success"],
-      mismatch: ["Đang lệch", "warning"], posted: ["Đã ghi sổ", "success"]
-    }[status] || [status || "Chưa rõ", "neutral"];
-  }
 
-  function renderCommerceAccounting() {
-    const payouts = state.platformPayouts || [];
-    const transactions = state.cashTransactions || [];
-    const currentMonth = localDateValue().slice(0, 7);
-    const monthTransactions = transactions.filter(item => String(item.transactionDate || item.createdAt).slice(0, 7) === currentMonth);
-    const monthIncome = monthTransactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
-    const monthExpense = monthTransactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
-    const pendingPayout = payouts.filter(item => item.status !== "posted").reduce((sum, item) => sum + item.actualAmount, 0);
-    const mismatchTotal = payouts.filter(item => item.status === "mismatch").reduce((sum, item) => sum + Math.abs(item.difference), 0);
-    const missingDocuments = transactions.filter(item => item.type === "expense" && !item.documentUrl);
-    const postedOrderIds = new Set(payouts.filter(item => item.status === "posted").flatMap(item => item.items.map(line => line.orderId).filter(Boolean)));
-    const platformOrders = (state.orders || []).filter(order => ["shopee","tiktok","lazada","facebook","website"].includes(order.channel) && ["paid","completed"].includes(order.status) && !postedOrderIds.has(order.id));
-    const kpiNode = document.querySelector("[data-accounting-commerce-kpis]");
-    if (kpiNode) {
-      const cards = [
-        ["Tiền hiện có", money.format((state.accountingAccounts || []).reduce((sum, item) => sum + item.currentBalance, 0)), "Tổng số dư sổ"],
-        ["Tiền sàn chờ về", money.format(pendingPayout), `${payouts.filter(item => item.status !== "posted").length} payout`],
-        ["Đơn chưa đối soát", String(platformOrders.length), "Đơn sàn đã hoàn tất"],
-        ["Chênh lệch", money.format(mismatchTotal), "Cần xác minh"],
-        ["Doanh thu tháng", money.format(monthIncome), currentMonth],
-        ["Lãi tạm tính", money.format(monthIncome - monthExpense), "Thu trừ chi đã ghi sổ"],
-        ["Chi phí tháng", money.format(monthExpense), currentMonth],
-        ["Giao dịch tháng", String(monthTransactions.length), "Thu và chi đã ghi sổ"]
-      ];
-      kpiNode.innerHTML = cards.map(([label,value,note]) => `<article class="accounting-commerce-kpi"><small>${label}</small><strong>${value}</strong><span>${note}</span></article>`).join("");
-    }
-    const actionNode = document.querySelector("[data-accounting-action-list]");
-    if (actionNode) {
-      const actions = [
-        [platformOrders.length, "Đơn sàn chưa đối soát", "payouts"],
-        [payouts.filter(item => item.status === "mismatch").length, "Payout lệch tiền", "payouts"],
-        [transactions.filter(item => !item.categoryId).length, "Giao dịch chưa phân loại", "ledger"],
-        [(state.accountingAccounts || []).filter(account => !(state.accountingReconciliations || []).some(item => item.accountId === account.id)).length, "Tài khoản chưa từng đối soát", "settings"]
-      ].filter(item => item[0] > 0);
-      actionNode.innerHTML = actions.length ? actions.map(([count,label,view]) => `<button type="button" class="accounting-action-item" data-accounting-jump="${view}"><span>${label}</span><strong>${count}</strong>${icon("external")}</button>`).join("") : `<div class="empty compact">Không có việc kế toán cần xử lý ngay.</div>`;
-    }
-    const balanceNode = document.querySelector("[data-accounting-balance-list]");
-    if (balanceNode) balanceNode.innerHTML = (state.accountingAccounts || []).map(account => {
-      const recent = (state.accountingReconciliations || []).filter(item => item.accountId === account.id).sort((a,b) => String(b.reconciledAt).localeCompare(String(a.reconciledAt)))[0];
-      return `<article><span><strong>${escapeHtml(account.name)}</strong><small>${recent ? `Đối soát ${formatDate(recent.reconciledAt)}` : "Chưa đối soát"}</small></span><b>${money.format(account.currentBalance)}</b></article>`;
-    }).join("") || `<div class="empty compact">Chưa có tài khoản tiền.</div>`;
 
-    const channelFilter = document.querySelector("[data-payout-channel-filter]");
-    if (channelFilter) {
-      channelFilter.innerHTML = `<option value="all">Tất cả sàn</option>${["shopee","tiktok","lazada","facebook","website"].map(code => `<option value="${code}">${commerceChannelLabel(code)}</option>`).join("")}`;
-      channelFilter.value = accountingFilters.payoutChannel;
-    }
-    const statusFilter = document.querySelector("[data-payout-status-filter]"); if (statusFilter) statusFilter.value = accountingFilters.payoutStatus;
-    const rangeFilter = document.querySelector("[data-payout-range-filter]"); if (rangeFilter) rangeFilter.value = accountingFilters.payoutRange;
-    const payoutCutoff = accountingFilters.payoutRange === "all" ? "" : shiftDateValue(localDateValue(), -Number(accountingFilters.payoutRange));
-    const visiblePayouts = payouts.filter(item => (accountingFilters.payoutChannel === "all" || [item.channelCode,item.channelId].includes(accountingFilters.payoutChannel)) && (accountingFilters.payoutStatus === "all" || item.status === accountingFilters.payoutStatus) && (!payoutCutoff || item.payoutDate >= payoutCutoff));
-    const payoutKpis = document.querySelector("[data-accounting-payout-kpis]");
-    if (payoutKpis) payoutKpis.innerHTML = [
-      ["Chờ đối soát", payouts.filter(item => item.status === "draft").length], ["Đã khớp", payouts.filter(item => item.status === "matched").length],
-      ["Đang lệch", payouts.filter(item => item.status === "mismatch").length], ["Tiền chưa về", money.format(pendingPayout)]
-    ].map(([label,value]) => `<article><small>${label}</small><strong>${value}</strong></article>`).join("");
-    const payoutTable = document.querySelector("[data-platform-payout-table]");
-    if (payoutTable) payoutTable.innerHTML = visiblePayouts.length ? visiblePayouts.map(item => {
-      const meta = payoutStatusMeta(item.status);
-      return `<tr><td><strong>${escapeHtml(commerceChannelLabel(item.channelId || item.channelCode))}</strong><small>${escapeHtml(item.payoutCode)} · ${item.items.length} đơn</small></td><td>${formatDate(item.periodStart)} - ${formatDate(item.periodEnd)}</td><td>${money.format(item.expectedAmount)}</td><td><strong>${money.format(item.actualAmount)}</strong></td><td class="${item.difference ? "negative" : "positive"}">${money.format(item.difference)}</td><td><span class="badge ${meta[1]}">${meta[0]}</span></td><td><div class="table-actions"><button class="link-button icon-only" type="button" data-view-platform-payout="${item.id}" title="Chi tiết">${icon("eye")}</button>${item.status !== "posted" ? `<button class="link-button icon-only" type="button" data-match-platform-payout="${item.id}" title="Ghép đơn">${icon("refresh")}</button><button class="button small primary icon-only" type="button" data-post-platform-payout="${item.id}" title="Ghi nhận tiền về">${icon("wallet")}</button>` : ""}</div></td></tr>`;
-    }).join("") : `<tr><td colspan="7" class="empty">Chưa có payout phù hợp bộ lọc.</td></tr>`;
 
-    const expenseGroups = { platform_fee:"Phí sàn", marketing:"Marketing", packaging:"Bao bì", payroll:"Lương", operation:"Vận hành", inventory_loss:"Hao hụt kho", other:"Khác" };
-    const expenseTotals = {};
-    monthTransactions.filter(item => item.type === "expense").forEach(item => { const group = getAccountingCategory(item.categoryId).group || "other"; expenseTotals[group] = (expenseTotals[group] || 0) + item.amount; });
-    const expenseSummary = document.querySelector("[data-accounting-expense-summary]"); if (expenseSummary) expenseSummary.innerHTML = `<strong>${money.format(monthExpense)}</strong><span>Tổng chi tháng ${currentMonth}</span>`;
-    const expenseNode = document.querySelector("[data-accounting-expense-groups]"); if (expenseNode) expenseNode.innerHTML = Object.entries(expenseTotals).sort((a,b)=>b[1]-a[1]).map(([group,total]) => `<article><span>${expenseGroups[group] || group}</span><b>${money.format(total)}</b><i style="--share:${monthExpense ? Math.round(total/monthExpense*100) : 0}%"></i></article>`).join("") || `<div class="empty compact">Chưa có chi phí trong tháng.</div>`;
 
-    const taxSummary = document.querySelector("[data-accounting-tax-summary]"); if (taxSummary) taxSummary.innerHTML = [["Doanh thu tháng",monthIncome],["Tiền sàn đã chuyển",payouts.filter(item=>item.status==="posted").reduce((s,i)=>s+i.actualAmount,0)],["Tổng phí sàn",payouts.reduce((s,i)=>s+i.totalFees,0)],["Chi phí tháng",monthExpense]].map(([label,value])=>`<article><small>${label}</small><strong>${money.format(value)}</strong></article>`).join("");
-    const channelRevenue = document.querySelector("[data-accounting-channel-revenue]"); if (channelRevenue) { const totals={}; (state.orders||[]).filter(order=>String(order.createdAt).slice(0,7)===currentMonth).forEach(order=>totals[order.channel]=(totals[order.channel]||0)+order.netTotal); channelRevenue.innerHTML=Object.entries(totals).map(([channel,total])=>`<article><span>${commerceChannelLabel(channel)}</span><b>${money.format(total)}</b></article>`).join("")||`<div class="empty compact">Chưa có doanh thu tháng này.</div>`; }
-    document.querySelectorAll("[data-accounting-debt-view]").forEach(button => button.classList.toggle("active", button.dataset.accountingDebtView === accountingFilters.debtView));
-    const debtSection = document.querySelector("[data-accounting-section='receivables']");
-    if (debtSection) {
-      const titles = {
-        platform: ["SÀN THƯƠNG MẠI ĐIỆN TỬ", "Công nợ sàn", "Các đơn sàn đã hoàn tất nhưng chưa nằm trong payout đã ghi sổ."],
-        customer: ["PHẢI THU KHÁCH HÀNG", "Công nợ khách hàng", "Theo dõi đơn còn thiếu tiền và ưu tiên khoản quá hạn."],
-        supplier: ["PHẢI TRẢ NHÀ CUNG CẤP", "Công nợ nhà cung cấp", "Theo dõi từng phiếu đã nhận hàng còn phải thanh toán."]
-      }[accountingFilters.debtView];
-      const kicker = debtSection.querySelector(".panel-header .section-kicker");
-      const heading = debtSection.querySelector(".panel-header h2");
-      const note = debtSection.querySelector(".panel-header h2 + p");
-      if (kicker) kicker.textContent = titles[0];
-      if (heading) heading.textContent = titles[1];
-      if (note) note.textContent = titles[2];
-    }
-    const debtOps = document.querySelector("[data-accounting-debt-operations]");
-    document.querySelectorAll("[data-accounting-debt-summary], .accounting-local-toolbar, [data-accounting-receivables]").forEach(node => { node.hidden = accountingFilters.debtView !== "customer"; });
-    if (debtOps) {
-      debtOps.hidden = accountingFilters.debtView === "customer";
-      if (accountingFilters.debtView === "platform") {
-        const grouped = {};
-        platformOrders.forEach(order => { const key=order.channel||"other"; grouped[key] ||= {count:0,total:0,oldest:0}; grouped[key].count+=1; grouped[key].total+=Number(order.netTotal||order.total||0); grouped[key].oldest=Math.max(grouped[key].oldest,orderAgeDays(order)); });
-        debtOps.innerHTML = Object.entries(grouped).map(([channel,item])=>`<article class="accounting-debt-row"><span><strong>${commerceChannelLabel(channel)}</strong><small>${item.count} đơn · tuổi nợ cao nhất ${item.oldest} ngày</small></span><b>${money.format(item.total)}</b><span class="badge ${item.oldest>7?"warning":"neutral"}">${item.oldest>7?"Cần kiểm tra":"Chờ kỳ trả"}</span></article>`).join("") || `<div class="empty">Không có đơn sàn đang chờ payout.</div>`;
-      } else if (accountingFilters.debtView === "supplier") {
-        const payableOrders = (state.purchaseOrders || [])
-          .filter(order => order.status === "received" && order.paymentStatus !== "paid" && order.outstanding > 0)
-          .sort((a,b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")) || String(b.receivedAt).localeCompare(String(a.receivedAt)));
-        debtOps.innerHTML = payableOrders.map(order => {
-          const supplier = getSupplier(order);
-          const receivedTime = new Date(order.receivedAt || order.createdAt).getTime();
-          const age = isFinite(receivedTime) ? Math.max(0, Math.floor((Date.now() - receivedTime) / 86400000)) : 0;
-          const dueDays = purchaseDueDays(order);
-          const statusText = order.paidAmount > 0 || order.creditAppliedAmount > 0 ? "Trả một phần" : "Chưa thanh toán";
-          return `<article class="supplier-payable-card ${dueDays !== null && dueDays > 0 ? "overdue" : ""}" data-supplier-payable-order="${order.id}">
-            <div class="supplier-payable-head"><div><strong>${escapeHtml(order.code)}</strong><small>${escapeHtml(supplier.name)} · nhận ${formatDate(order.receivedAt)}</small></div><span class="badge ${order.paidAmount > 0 ? "pending" : "neutral"}">${statusText}</span></div>
-            <div class="supplier-payable-values"><span><small>Tổng phiếu</small><b>${money.format(order.netTotal)}</b></span><span><small>Đã trả</small><b>${money.format(order.paidAmount)}</b></span><span><small>Đã bù trừ</small><b>${money.format(order.creditAppliedAmount)}</b></span><span class="outstanding"><small>Còn phải trả</small><b>${money.format(order.outstanding)}</b></span></div>
-            <div class="supplier-payable-foot"><span>${order.dueDate ? `Hạn ${formatDate(order.dueDate)}${dueDays > 0 ? ` · quá ${dueDays} ngày` : ""}` : "Chưa đặt hạn"} · tuổi nợ ${age} ngày</span><div class="row-actions"><a class="link-button" href="./purchasing.html?purchaseOrderId=${encodeURIComponent(order.id)}">Xem phiếu mua</a>${canManageAccounting() ? `<button class="button primary compact-button" type="button" data-accounting-pay-purchase="${order.id}">${icon("receipt")} Thanh toán</button>` : ""}</div></div>
-          </article>`;
-        }).join("") || `<div class="empty">Không có phiếu mua đã nhận hàng còn phải trả.</div>`;
-      }
-    }
-    const settingsForm = document.querySelector("[data-accounting-settings-form]");
-    if (settingsForm) {
-      const settings = state.accountingSettings || {};
-      settingsForm.tolerance.value = Number(settings.tolerance ?? 1000);
-      settingsForm.autoAdjustment.checked = Boolean(settings.autoAdjustment);
-      settingsForm.payrollKeywords.value = settings.payrollKeywords || "lương, cộng tác viên, payroll";
-      settingsForm.querySelectorAll("[data-accounting-setting-account]").forEach(select => {
-        const selected = select.name === "shopeeAccountId" ? settings.shopeeAccountId : settings.tiktokAccountId;
-        select.innerHTML = `<option value="">Chưa chọn</option>${(state.accountingAccounts || []).filter(item=>item.status==="active").map(account=>`<option value="${account.id}" ${selected===account.id?"selected":""}>${escapeHtml(account.name)}</option>`).join("")}`;
-      });
-    }
-    document.querySelectorAll("[data-accounting-profit-view]").forEach(button => button.classList.toggle("active", button.dataset.accountingProfitView === accountingFilters.profitView));
-    document.querySelectorAll("[data-accounting-settings-view]").forEach(button => button.classList.toggle("active", button.dataset.accountingSettingsView === accountingFilters.settingsView));
-    const profitOverview = document.querySelector(".accounting-profit-overview");
-    const profitSku = document.querySelector(".accounting-product-profit-panel");
-    const profitDetail = document.querySelector("[data-accounting-commerce-profit-detail]");
-    if (profitOverview) profitOverview.hidden = accountingFilters.profitView !== "overview";
-    if (profitSku) profitSku.hidden = accountingFilters.profitView !== "sku";
-    if (profitDetail) {
-      profitDetail.hidden = ["overview","sku"].includes(accountingFilters.profitView);
-      if (accountingFilters.profitView === "channel") {
-        const channelCodes = [...new Set((state.orders || []).map(order => order.channel).filter(Boolean))];
-        const rows = channelCodes.map(code => {
-          const snapshot = profitSnapshot(accountingFilters.range, code);
-          const platformFees = payouts.filter(item => [item.channelCode,item.channelId].includes(code)).reduce((sum,item)=>sum+item.totalFees,0);
-          const realProfit = snapshot.grossProfit - platformFees;
-          return { code, revenue:snapshot.revenue, gross:snapshot.grossProfit, fees:platformFees, profit:realProfit, margin:snapshot.revenue?realProfit/snapshot.revenue:0 };
-        }).sort((a,b)=>b.profit-a.profit);
-        profitDetail.innerHTML = `<div class="panel-header"><div><p class="section-kicker">Hiệu quả từng nơi bán</p><h2>Lãi theo sàn</h2><p>Lãi gộp trừ phí sàn đã có trong payout; chưa phân bổ chi phí chung.</p></div></div><div class="table-wrap"><table><thead><tr><th>Kênh/sàn</th><th>Doanh thu</th><th>Lãi gộp</th><th>Phí sàn</th><th>Lãi sau phí</th><th>Biên</th></tr></thead><tbody>${rows.length?rows.map(row=>`<tr><td><strong>${commerceChannelLabel(row.code)}</strong></td><td>${money.format(row.revenue)}</td><td>${money.format(row.gross)}</td><td>${money.format(row.fees)}</td><td><strong>${money.format(row.profit)}</strong></td><td>${(row.margin*100).toFixed(1)}%</td></tr>`).join(""):`<tr><td colspan="6" class="empty">Chưa có dữ liệu bán hàng theo kênh.</td></tr>`}</tbody></table></div>`;
-      } else if (accountingFilters.profitView === "campaign") {
-        profitDetail.innerHTML = `<div class="panel-header"><div><p class="section-kicker">Chiến dịch bán hàng</p><h2>Lãi theo campaign</h2><p>Chỉ tổng hợp khi đơn hoặc chi phí đã được liên kết campaign.</p></div></div><div class="empty">Dữ liệu đơn hiện tại chưa có liên kết campaign đủ để phân bổ lợi nhuận. Hệ thống không tự suy đoán để tránh báo cáo sai.</div>`;
-      }
-    }
-  }
 
-  function renderAccounting() {
-    if (!els.accountingKpis && !els.accountingTransactionsTable) return;
-    syncAccountingView();
-    renderCommerceAccounting();
-    const term = searchTerm.trim().toLowerCase();
-    if (els.accountingTypeSelect) els.accountingTypeSelect.value = accountingFilters.type;
-    if (els.accountingAccountFilter) {
-      const current = accountingFilters.accountId;
-      els.accountingAccountFilter.innerHTML = `<option value="all">Tất cả tài khoản</option>${(state.accountingAccounts || []).map(account => `<option value="${account.id}">${account.name}</option>`).join("")}`;
-      els.accountingAccountFilter.value = current;
-    }
-    if (els.accountingRangeFilter) els.accountingRangeFilter.value = accountingFilters.range;
-    if (els.accountingProfitRange) els.accountingProfitRange.value = accountingFilters.range;
 
-    const cutoff = accountingFilters.range === "all" ? null : (() => {
-      return shiftDateValue(localDateValue(), -Number(accountingFilters.range));
-    })();
-    const transactions = [...(state.cashTransactions || [])]
-      .filter(transaction => {
-        if (accountingFilters.type !== "all" && transaction.type !== accountingFilters.type) return false;
-        if (accountingFilters.accountId !== "all" && transaction.accountId !== accountingFilters.accountId) return false;
-        if (cutoff && String(transaction.transactionDate || transaction.createdAt).slice(0, 10) < cutoff) return false;
-        if (!term) return true;
-        const account = getAccountingAccount(transaction.accountId);
-        const category = getAccountingCategory(transaction.categoryId);
-        return [
-          transaction.type,
-          accountingTypeLabel(transaction.type),
-          transaction.description,
-          transaction.referenceType,
-          transaction.referenceId,
-          account.name,
-          category.name
-        ].join(" ").toLowerCase().includes(term);
-      })
-      .sort((a, b) => String(b.transactionDate || b.createdAt).localeCompare(String(a.transactionDate || a.createdAt)));
-    const income = transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
-    const expense = transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
-    const totalBalance = (state.accountingAccounts || []).reduce((sum, account) => sum + account.currentBalance, 0);
-    const receivableOrders = state.orders
-      .map(order => ({
-        order,
-        customer: getCustomer(order),
-        collected: collectedForOrder(order),
-        outstanding: outstandingForOrder(order),
-        ageDays: orderAgeDays(order)
-      }))
-      .filter(item => item.outstanding > 0);
-    const pendingReceivable = receivableOrders.reduce((sum, item) => sum + item.outstanding, 0);
-    const overdueReceivable = receivableOrders.filter(item => item.ageDays > 7).reduce((sum, item) => sum + item.outstanding, 0);
-    const dueSoonReceivable = receivableOrders.filter(item => item.ageDays > 3 && item.ageDays <= 7).reduce((sum, item) => sum + item.outstanding, 0);
-    const netCash = income - expense;
-    if (els.accountingLedgerCount) {
-      els.accountingLedgerCount.innerHTML = `<strong>${transactions.length}</strong><span>giao dịch phù hợp</span>`;
-    }
 
-    if (els.accountingLedgerSummary) {
-      const activeAccount = accountingFilters.accountId === "all"
-        ? null
-        : (state.accountingAccounts || []).find(account => account.id === accountingFilters.accountId);
-      const filteredBalance = activeAccount ? activeAccount.currentBalance : totalBalance;
-      const cards = [
-        ["Số dư", money.format(filteredBalance), activeAccount ? activeAccount.name : "Tất cả tài khoản"],
-        ["Thu", money.format(income), accountingRangeLabel(accountingFilters.range)],
-        ["Chi", money.format(expense), accountingRangeLabel(accountingFilters.range)],
-        ["Ròng", money.format(netCash), netCash >= 0 ? "Dòng tiền dương" : "Dòng tiền âm"]
-      ];
-      els.accountingLedgerSummary.innerHTML = cards.map(([label, value, note], index) => `
-        <article data-tone="${index}">
-          <span>${label}</span>
-          <strong>${value}</strong>
-          <small>${note}</small>
-        </article>
-      `).join("");
-    }
-    if (els.accountingKpis) {
-      const cards = [
-        ["Số dư quỹ", money.format(totalBalance), "Tổng số dư các tài khoản tiền."],
-        ["Tổng thu", money.format(income), "Theo sổ quỹ đang lọc."],
-        ["Dòng tiền ròng", money.format(netCash), "Tổng thu trừ tổng chi đang lọc."],
-        ["Công nợ bán hàng", money.format(pendingReceivable), "Số còn phải thu sau các phiếu thu."]
-      ];
-      els.accountingKpis.innerHTML = cards.map(([label, value, note]) => `
-        <article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>
-      `).join("");
-    }
 
-    if (els.accountingAccounts) {
-      els.accountingAccounts.innerHTML = (state.accountingAccounts || []).length ? state.accountingAccounts.map(account => {
-        const accountTransactions = (state.cashTransactions || []).filter(transaction => transaction.accountId === account.id && transaction.status !== "deleted");
-        const latestReconciliation = (state.accountingReconciliations || [])
-          .filter(item => item.accountId === account.id)
-          .sort((a, b) => String(b.reconciledAt || b.createdAt).localeCompare(String(a.reconciledAt || a.createdAt)))[0];
-        const isArchived = account.status === "archived";
-        const differenceClass = latestReconciliation && latestReconciliation.difference !== 0 ? "has-difference" : "is-balanced";
-        return `
-          <article class="account-card ${isArchived ? "archived" : ""}">
-            <div class="account-card-head">
-              <div><strong>${account.name}</strong><span>${accountTypeLabel(account.type)} · ${isArchived ? "Đang ẩn" : "Đang dùng"}</span></div>
-              <b>${money.format(account.currentBalance)}</b>
-            </div>
-            <div class="account-card-meta">
-              <span><small>Đầu kỳ</small><b>${money.format(account.openingBalance)}</b></span>
-              <span><small>Giao dịch</small><b>${accountTransactions.length}</b></span>
-              <span class="${differenceClass}"><small>Chênh lệch gần nhất</small><b>${latestReconciliation ? money.format(latestReconciliation.difference) : "Chưa đối soát"}</b></span>
-            </div>
-            <div class="account-card-actions">
-              <button class="link-button icon-only" type="button" data-edit-accounting-account="${account.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button>
-              ${isArchived ? "" : `<button class="link-button icon-only" type="button" data-reconcile-account="${account.id}" aria-label="Đối soát" title="Đối soát">${icon("calculator")}</button>`}
-              <button class="link-button icon-only ${isArchived ? "" : "danger-link"}" type="button" data-archive-accounting-account="${account.id}" data-next-status="${isArchived ? "active" : "archived"}" aria-label="${isArchived ? "Kích hoạt" : "Ẩn"}" title="${isArchived ? "Kích hoạt" : "Ẩn"}">${icon(isArchived ? "check" : "archive")}</button>
-            </div>
-          </article>
-        `;
-      }).join("") : `<div class="empty">Chưa có tài khoản tiền.</div>`;
-      els.accountingAccounts.scrollTop = 0;
-    }
 
-    if (els.accountingReconciliations) {
-      const recentReconciliations = [...(state.accountingReconciliations || [])]
-        .sort((a, b) => String(b.reconciledAt || b.createdAt).localeCompare(String(a.reconciledAt || a.createdAt)))
-        .slice(0, 6);
-      els.accountingReconciliations.innerHTML = recentReconciliations.length ? recentReconciliations.map(item => {
-        const account = getAccountingAccount(item.accountId);
-        const differenceClass = item.difference === 0 ? "is-balanced" : "has-difference";
-        return `
-          <article class="reconciliation-item ${differenceClass}">
-            <div><strong>${account.name}</strong><small>${formatDate(item.reconciledAt)} · Sổ ${money.format(item.systemBalance)} · Thực tế ${money.format(item.actualBalance)}</small></div>
-            <div><b>${item.difference > 0 ? "+" : ""}${money.format(item.difference)}</b><small>${item.note || (item.difference === 0 ? "Đã khớp" : "Cần kiểm tra")}</small></div>
-          </article>
-        `;
-      }).join("") : `<div class="empty compact-empty">Chưa có lần đối soát nào.</div>`;
-    }
 
-    if (els.accountingReceivables) {
-      if (els.accountingDebtSummary) {
-        els.accountingDebtSummary.innerHTML = `
-          <article><span>Phải thu</span><strong>${money.format(pendingReceivable)}</strong></article>
-          <article><span>4-7 ngày</span><strong>${money.format(dueSoonReceivable)}</strong></article>
-          <article><span>Quá 7 ngày</span><strong>${money.format(overdueReceivable)}</strong></article>
-        `;
-      }
-      const receivables = receivableOrders
-        .filter(item => {
-          if (accountingFilters.receivable === "overdue") return item.ageDays > 7;
-          if (accountingFilters.receivable === "watch") return item.ageDays > 3 && item.ageDays <= 7;
-          if (accountingFilters.receivable === "new") return item.ageDays <= 3;
-          if (accountingFilters.receivable === "high") return item.outstanding >= 1000000;
-          return true;
-        })
-        .sort((a, b) => b.ageDays - a.ageDays || String(a.order.createdAt).localeCompare(String(b.order.createdAt)))
-        .slice(0, 8);
-      els.accountingReceivables.innerHTML = receivables.length ? receivables.map(item => {
-        const order = item.order;
-        const ageLabel = item.ageDays === 0 ? "Hôm nay" : `${item.ageDays} ngày`;
-        const ageClass = item.ageDays > 7 ? "danger" : item.ageDays > 3 ? "warning" : "";
-        return `
-          <article class="todo-item ${ageClass}">
-            <div>
-              <strong>${order.code}</strong>
-              <small>${item.customer.name} · ${formatDate(order.createdAt)} · ${ageLabel}</small>
-              <small>Đã thu ${money.format(item.collected)}</small>
-            </div>
-            <div>
-              <b>${money.format(item.outstanding)}</b>
-              ${canManageAccounting() ? `<button class="link-button icon-only" type="button" data-record-order-payment="${order.id}" aria-label="Ghi thu" title="Ghi thu">${icon("receipt")}</button>` : ""}
-            </div>
-          </article>
-        `;
-      }).join("") : `<div class="empty">Không còn khoản phải thu phù hợp bộ lọc.</div>`;
-    }
 
-    if (els.accountingPayrollTable) {
-      if (els.accountingPayrollRange) els.accountingPayrollRange.value = accountingFilters.payrollRange;
-      if (els.accountingPayrollSearch && els.accountingPayrollSearch.value !== accountingFilters.payrollSearch) {
-        els.accountingPayrollSearch.value = accountingFilters.payrollSearch;
-      }
-      const payrollRows = accountingPayrollRows();
-      const payrollTotal = payrollRows.reduce((sum, transaction) => sum + transaction.amount, 0);
-      const latestPayroll = payrollRows[0];
-      const payrollAccounts = new Set(payrollRows.map(transaction => transaction.accountId)).size;
-      if (els.accountingPayrollSummary) {
-        const cards = [
-          ["Tổng đã trả", money.format(payrollTotal), accountingRangeLabel(accountingFilters.payrollRange)],
-          ["Lần chi", String(payrollRows.length), payrollRows.length ? `Bình quân ${money.format(payrollTotal / payrollRows.length)}` : "Chưa phát sinh"],
-          ["Tài khoản chi", String(payrollAccounts), "Số nguồn tiền đã sử dụng"],
-          ["Gần nhất", latestPayroll ? formatDate(latestPayroll.transactionDate || latestPayroll.createdAt) : "—", latestPayroll ? latestPayroll.description : "Chưa ghi lương"]
-        ];
-        els.accountingPayrollSummary.innerHTML = cards.map(([label, value, note], index) => `
-          <article data-tone="${index}"><span>${label}</span><strong>${value}</strong><small>${escapeHtml(note)}</small></article>
-        `).join("");
-      }
-      els.accountingPayrollTable.innerHTML = payrollRows.length ? payrollRows.map(transaction => `
-        <tr>
-          <td>${formatDate(transaction.transactionDate || transaction.createdAt)}</td>
-          <td><strong>${escapeHtml(transaction.description || "Chi lương")}</strong><small>${escapeHtml(getAccountingCategory(transaction.categoryId).name)}</small></td>
-          <td>${escapeHtml(getAccountingAccount(transaction.accountId).name)}</td>
-          <td>${escapeHtml(transaction.referenceId || "—")}</td>
-          <td><strong class="danger-text">${money.format(transaction.amount)}</strong></td>
-        </tr>
-      `).join("") : `<tr><td colspan="5" class="empty">Chưa có khoản lương phù hợp bộ lọc.</td></tr>`;
-    }
 
-    if (els.accountingCategories || els.accountingCategoriesIncome || els.accountingCategoriesExpense) {
-      const categoryTotalsByType = (state.cashTransactions || []).reduce((totals, transaction) => {
-        if (transaction.status === "deleted") return totals;
-        totals[transaction.type] = (totals[transaction.type] || 0) + transaction.amount;
-        return totals;
-      }, {});
-      const renderCategoryColumn = (target, type) => {
-        if (!target) return;
-        const categories = (state.accountingCategories || []).filter(category => {
-          if (type) return category.type === type;
-          return accountingFilters.categoryType === "all" || category.type === accountingFilters.categoryType;
-        });
-        target.innerHTML = categories.length ? categories.map(category => {
-        const relatedTransactions = (state.cashTransactions || []).filter(transaction => transaction.categoryId === category.id && transaction.status !== "deleted");
-        const totalAmount = relatedTransactions.reduce((sum, transaction) => sum + transaction.amount, 0);
-        const categoryTotal = categoryTotalsByType[category.type] || 0;
-        const share = categoryTotal > 0 ? Math.round((totalAmount / categoryTotal) * 1000) / 10 : 0;
-        const lastUsed = relatedTransactions
-          .map(transaction => transaction.transactionDate || transaction.createdAt)
-          .filter(Boolean)
-          .sort()
-          .pop();
-        const isArchived = category.status === "archived";
-        return `
-          <article class="category-chip ${category.type} ${isArchived ? "archived" : ""}">
-            <div class="category-chip-main">
-              <div>
-                <strong>${category.name}</strong>
-                <small>${accountingTypeLabel(category.type)} · ${isArchived ? "Đang ẩn" : "Đang dùng"}</small>
-              </div>
-              <span>${relatedTransactions.length} GD</span>
-            </div>
-            <div class="category-chip-stats">
-              <span><small>Phát sinh</small><b>${money.format(totalAmount)}</b></span>
-              <span><small>Tỷ trọng</small><b>${share}% ${accountingTypeLabel(category.type)}</b></span>
-              <span><small>Gần nhất</small><b>${lastUsed ? formatDate(lastUsed) : "Chưa dùng"}</b></span>
-            </div>
-            <div class="category-share-bar" aria-label="Tỷ trọng ${share}%"><span style="width: ${Math.min(100, share)}%"></span></div>
-            ${canManageAccounting() ? `
-              <div class="category-chip-actions">
-                <button class="link-button icon-only" type="button" data-edit-accounting-category="${category.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button>
-                <button class="link-button icon-only ${isArchived ? "" : "danger-link"}" type="button" data-archive-accounting-category="${category.id}" data-next-status="${isArchived ? "active" : "archived"}" aria-label="${isArchived ? "Kích hoạt" : "Ẩn"}" title="${isArchived ? "Kích hoạt" : "Ẩn"}">${icon(isArchived ? "check" : "archive")}</button>
-              </div>
-            ` : ""}
-          </article>
-        `;
-        }).join("") : `<div class="empty">Chưa có danh mục ${type === "income" ? "thu" : type === "expense" ? "chi" : "thu/chi"}.</div>`;
-      };
-      renderCategoryColumn(els.accountingCategories, "");
-      renderCategoryColumn(els.accountingCategoriesIncome, "income");
-      renderCategoryColumn(els.accountingCategoriesExpense, "expense");
-    }
 
-    if (els.accountingTransactionsTable) {
-      els.accountingTransactionsTable.innerHTML = transactions.length ? transactions.map(transaction => {
-        const category = getAccountingCategory(transaction.categoryId);
-        const account = getAccountingAccount(transaction.accountId);
-        const signedAmount = transaction.type === "income" ? transaction.amount : -transaction.amount;
-        return `
-          <tr data-transaction-row="${transaction.id}" class="${transaction.id === accountingTransactionTarget ? "deep-link-highlight" : ""}">
-            <td><strong>${formatDate(transaction.transactionDate)}</strong><br><small>${transaction.referenceType || "manual"}</small></td>
-            <td><span class="badge ${transaction.type === "income" ? "active" : "pending"}">${accountingTypeLabel(transaction.type)}</span></td>
-            <td><strong>${category.name}</strong><br><small>${account.name}</small></td>
-            <td>${escapeHtml(transaction.description)}${transaction.referenceType === "purchase_order" && transaction.referenceId ? `<br><a class="reference-link" href="./purchasing.html?purchaseOrderId=${encodeURIComponent(transaction.referenceId)}">${icon("external")} Phiếu mua ${escapeHtml(transaction.referenceId)}</a>` : ""}</td>
-            <td>${transaction.documentUrl ? `<a class="document-link" href="${escapeAttribute(transaction.documentUrl)}" target="_blank" rel="noopener" title="Mở chứng từ">${icon("file")} <span>Mở file</span></a>` : `<span class="badge warning">Chưa có</span>`}</td>
-            <td class="money-cell ${transaction.type === "income" ? "positive-money" : "negative-money"}"><strong>${money.format(signedAmount)}</strong></td>
-            <td><div class="row-actions">${canManageAccounting() ? `<button class="link-button icon-only" data-edit-cash-transaction="${transaction.id}" aria-label="${transaction.documentUrl ? "Sửa giao dịch / chứng từ" : "Bổ sung chứng từ"}" title="${transaction.documentUrl ? "Sửa giao dịch / chứng từ" : "Bổ sung chứng từ"}">${icon(transaction.documentUrl ? "edit" : "folderPlus")}</button>${(!transaction.referenceType || transaction.referenceType === "manual") ? `<button class="link-button danger-link icon-only" data-archive-cash-transaction="${transaction.id}" aria-label="Xóa" title="Xóa">${icon("trash")}</button>` : ""}` : ""}</div></td>
-          </tr>
-        `;
-      }).join("") : `<tr><td colspan="7" class="empty">Chưa có giao dịch thu/chi.</td></tr>`;
-    }
 
-    renderAccountingProfit();
-  }
 
-  function syncPurchasingView() {
-    document.querySelectorAll("[data-purchasing-view-filter]").forEach(button => {
-      button.classList.toggle("active", button.dataset.purchasingViewFilter === purchasingFilters.view);
-    });
-    document.querySelectorAll("[data-purchasing-section]").forEach(section => {
-      section.hidden = section.dataset.purchasingSection !== purchasingFilters.view;
-    });
-  }
 
-  function renderPurchasing() {
-    if (!els.purchasingKpis && !els.purchaseOrdersTable && !els.suppliersList && !els.purchaseAgingTable) return;
-    syncPurchasingView();
-    const term = searchTerm.trim().toLowerCase();
-    const today = localDateValue();
-    const monthPrefix = today.slice(0, 7);
-    const activeOrders = (state.purchaseOrders || []).filter(order => order.status !== "cancelled");
-    const payableOrders = activeOrders.filter(order => order.status === "received");
-    const outstanding = payableOrders.reduce((sum, order) => sum + order.outstanding, 0);
-    const overdue = payableOrders.filter(order => order.outstanding > 0 && order.dueDate && order.dueDate < today).reduce((sum, order) => sum + order.outstanding, 0);
-    const monthPurchases = activeOrders.filter(order => order.status === "received" && String(order.receivedAt || order.createdAt).slice(0, 7) === monthPrefix).reduce((sum, order) => sum + order.netTotal, 0);
-    const activeSuppliers = (state.suppliers || []).filter(supplier => supplier.status === "active").length;
 
-    if (els.purchasingKpis) {
-      const cards = [
-        ["Phải trả", money.format(outstanding), "Công nợ nhà cung cấp hiện tại."],
-        ["Quá hạn", money.format(overdue), "Khoản đã vượt ngày thanh toán."],
-        ["Mua trong tháng", money.format(monthPurchases), "Giá trị phiếu đã nhận hàng."],
-        ["Nhà cung cấp", String(activeSuppliers), "Đang hoạt động."]
-      ];
-      els.purchasingKpis.innerHTML = cards.map(([label, value, note]) => `<article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>`).join("");
-    }
 
-    const orders = [...(state.purchaseOrders || [])]
-      .filter(order => {
-        if (purchasingFilters.status !== "all" && order.status !== purchasingFilters.status) return false;
-        if (purchasingFilters.paymentStatus !== "all" && order.paymentStatus !== purchasingFilters.paymentStatus) return false;
-        if (!term) return true;
-        const supplier = getSupplier(order);
-        return [order.code, order.invoiceNumber, supplier.name, supplier.code, ...(order.items || []).flatMap(item => [item.name, item.sku])].join(" ").toLowerCase().includes(term);
-      })
-      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 
-    if (els.purchaseOrdersTable) {
-      els.purchaseOrdersTable.innerHTML = orders.length ? orders.map(order => {
-        const supplier = getSupplier(order);
-        const isOverdue = order.outstanding > 0 && order.dueDate && order.dueDate < today;
-        const actions = [];
-        actions.push(`<button class="link-button icon-only action-export" type="button" data-export-purchase-order="${order.id}" aria-label="Xuất Excel phiếu mua" title="Xuất Excel phiếu mua">${icon("download")}</button>`);
-        actions.push(`<button class="link-button icon-only action-print" type="button" data-print-purchase-order="${order.id}" aria-label="In/PDF phiếu mua" title="In/PDF phiếu mua">${icon("printer")}</button>`);
-        if (canManagePurchasing() && order.status === "draft") actions.push(`<a class="link-button icon-only action-edit" href="./purchase-create.html?edit=${order.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</a><button class="link-button icon-only action-receive" type="button" data-receive-purchase="${order.id}" aria-label="Nhận hàng" title="Nhận hàng">${icon("truck")}</button>`);
-        if (canReturnPurchaseOrder(order)) actions.push(`<button class="link-button icon-only action-return" type="button" data-return-purchase="${order.id}" aria-label="Trả hàng" title="Trả hàng">${icon("rotateCcw")}</button>`);
-        if (canPayPurchases() && order.status === "received" && order.outstanding > 0) actions.push(`<button class="link-button icon-only action-pay" type="button" data-pay-purchase="${order.id}" aria-label="Thanh toán" title="Thanh toán">${icon("receipt")}</button>`);
-        if (canPayPurchases() && order.status === "received" && order.outstanding > 0 && supplier.creditBalance > 0) actions.push(`<button class="link-button icon-only action-credit" type="button" data-apply-supplier-credit="${order.id}" aria-label="Bù trừ" title="Bù trừ">${icon("calculator")}</button>`);
-        if (canManagePurchasing() && ["draft", "received"].includes(order.status) && order.paidAmount <= 0 && order.creditAppliedAmount <= 0 && order.returnedAmount <= 0) actions.push(`<button class="link-button danger-link icon-only" type="button" data-cancel-purchase="${order.id}" aria-label="Hủy" title="Hủy">${icon("close")}</button>`);
-        return `
-          <tr data-purchase-order-row="${order.id}" class="${isOverdue ? "overdue-row " : ""}${[order.id, order.code].includes(purchasingOrderTarget) ? "deep-link-highlight" : ""}">
-            <td><strong>${order.code}</strong><br><small>${order.invoiceNumber || "Chưa có số hóa đơn"}</small></td>
-            <td><strong>${supplier.name}</strong><br><small>${supplier.code}</small></td>
-            <td>${purchaseItemSummary(order)}${order.returnedAmount > 0 ? `<br><small>Đã trả ${money.format(order.returnedAmount)}</small>` : ""}</td>
-            <td><span class="badge ${order.status === "received" ? "active" : order.status === "cancelled" ? "cancelled" : "pending"}">${statusLabel(order.status)}</span><br><small>${statusLabel(order.paymentStatus)}</small></td>
-            <td><strong>${money.format(order.status === "draft" ? order.total : order.outstanding)}</strong><br><small>${order.status === "draft" ? "Dự kiến, chưa ghi công nợ" : order.creditAmount > 0 ? `Dư có ${money.format(order.creditAmount)}` : `Tiền ${money.format(order.paidAmount)} · Bù ${money.format(order.creditAppliedAmount)}`}</small></td>
-            <td><span class="${isOverdue ? "danger-text" : ""}">${order.dueDate ? formatDate(order.dueDate) : "Chưa đặt hạn"}</span></td>
-            <td><div class="row-actions">${actions.join("") || "—"}</div></td>
-          </tr>
-        `;
-      }).join("") : `<tr><td colspan="7" class="empty">Chưa có phiếu mua phù hợp.</td></tr>`;
-    }
 
-    if (els.suppliersList) {
-      const suppliers = (state.suppliers || []).filter(supplier => {
-        if (!term) return true;
-        return [supplier.code, supplier.name, supplier.phone, supplier.email, supplier.taxCode].join(" ").toLowerCase().includes(term);
-      });
-      const totalPurchased = suppliers.reduce((sum, supplier) => sum + supplier.totalPurchased, 0);
-      els.suppliersList.innerHTML = suppliers.length ? suppliers.map(supplier => {
-        const share = totalPurchased > 0 ? Math.round((supplier.totalPurchased / totalPurchased) * 1000) / 10 : 0;
-        const isArchived = supplier.status === "archived";
-        return `
-          <article class="supplier-card ${isArchived ? "archived" : ""}">
-            <div class="supplier-card-head"><div><strong>${supplier.name}</strong><small>${supplier.code} · ${supplier.phone}</small></div><span class="badge ${supplier.outstanding > 0 ? "pending" : "active"}">${supplier.outstanding > 0 ? "Còn nợ" : supplier.creditBalance > 0 ? "Dư có" : "Đã cân"}</span></div>
-            <div class="supplier-card-stats"><span><small>Đã mua</small><b>${money.format(supplier.totalPurchased)}</b></span><span><small>Phải trả</small><b>${money.format(supplier.outstanding)}</b></span><span><small>Tỷ trọng</small><b>${share}%</b></span></div>
-            <div class="category-share-bar"><span style="width:${Math.min(100, share)}%"></span></div>
-            <div class="supplier-card-foot"><small>${supplier.taxCode ? `MST ${supplier.taxCode}` : "Chưa có mã số thuế"} · ${supplier.creditBalance > 0 ? `Dư có ${money.format(supplier.creditBalance)}` : supplier.lastPurchaseAt ? `Mua gần nhất ${formatDate(supplier.lastPurchaseAt)}` : "Chưa phát sinh mua"}</small><div class="row-actions"><button class="link-button icon-only" type="button" data-supplier-statement="${supplier.id}" aria-label="Lịch sử" title="Lịch sử">${icon("history")}</button>${canManagePurchasing() ? `<button class="link-button icon-only" type="button" data-edit-supplier="${supplier.id}" aria-label="Sửa" title="Sửa">${icon("edit")}</button><button class="link-button icon-only ${isArchived ? "" : "danger-link"}" type="button" data-archive-supplier="${supplier.id}" data-next-status="${isArchived ? "active" : "archived"}" ${!isArchived && (supplier.outstanding > 0 || supplier.creditBalance > 0) ? 'disabled title="Cần tất toán công nợ và dư có trước khi ẩn"' : `aria-label="${isArchived ? "Kích hoạt" : "Ẩn"}" title="${isArchived ? "Kích hoạt" : "Ẩn"}"`}>${icon(isArchived ? "check" : "archive")}</button>` : ""}</div></div>
-          </article>
-        `;
-      }).join("") : `<div class="empty">Chưa có nhà cung cấp phù hợp.</div>`;
-    }
 
-    const agingOrders = payableOrders
-      .filter(order => order.outstanding > 0)
-      .sort((a, b) => {
-        const aDays = purchaseDueDays(a);
-        const bDays = purchaseDueDays(b);
-        return (bDays === null ? -Infinity : bDays) - (aDays === null ? -Infinity : aDays);
-      });
-    if (els.purchaseAgingSummary) {
-      const buckets = [
-        ["current", "Chưa đến hạn"],
-        ["1-30", "Quá hạn 1–30"],
-        ["31-60", "Quá hạn 31–60"],
-        ["60+", "Quá hạn trên 60"]
-      ];
-      els.purchaseAgingSummary.innerHTML = buckets.map(([key, label]) => {
-        const bucketOrders = agingOrders.filter(order => purchaseAgingBucket(order).key === key);
-        const amount = bucketOrders.reduce((sum, order) => sum + order.outstanding, 0);
-        return `<article><small>${label}</small><strong>${money.format(amount)}</strong><span>${bucketOrders.length} phiếu</span></article>`;
-      }).join("");
-    }
-    if (els.purchaseAgingTable) {
-      els.purchaseAgingTable.innerHTML = agingOrders.length ? agingOrders.map(order => {
-        const supplier = getSupplier(order);
-        const bucket = purchaseAgingBucket(order);
-        const dueText = bucket.days === null ? "Chưa đặt hạn" : bucket.days > 0 ? `${bucket.days} ngày quá hạn` : bucket.days === 0 ? "Đến hạn hôm nay" : `Còn ${Math.abs(bucket.days)} ngày`;
-        return `<tr class="${bucket.days > 0 ? "overdue-row" : ""}"><td><span class="badge ${bucket.tone}">${bucket.label}</span></td><td><strong>${order.code}</strong></td><td>${supplier.name}</td><td>${order.dueDate ? formatDate(order.dueDate) : "—"}</td><td class="${bucket.days > 0 ? "danger-text" : ""}">${dueText}</td><td><strong>${money.format(order.outstanding)}</strong></td><td><div class="row-actions">${canPayPurchases() ? `<button class="link-button icon-only action-pay" type="button" data-pay-purchase="${order.id}" aria-label="Thanh toán" title="Thanh toán">${icon("receipt")}</button>${supplier.creditBalance > 0 ? `<button class="link-button icon-only action-credit" type="button" data-apply-supplier-credit="${order.id}" aria-label="Bù trừ" title="Bù trừ">${icon("calculator")}</button>` : ""}` : "—"}</div></td></tr>`;
-      }).join("") : `<tr><td colspan="7" class="empty">Không có công nợ phải trả.</td></tr>`;
-    }
-  }
 
-  function productProfitRowsFromSnapshot(snapshot) {
-    const productRows = {};
-    snapshot.orders.forEach(order => {
-      const remainingItems = (order.items || []).map(item => ({
-        item,
-        quantity: Math.max(0, item.quantity - returnedOrderItemQuantity(item.id))
-      })).filter(entry => entry.quantity > 0);
-      const lineRevenue = remainingItems.reduce((sum, entry) => sum + entry.quantity * entry.item.unitPrice, 0);
-      remainingItems.forEach(entry => {
-        const row = productRows[entry.item.productId] || { name: entry.item.name, sku: entry.item.sku, quantity: 0, revenue: 0, cost: 0 };
-        const rawRevenue = entry.quantity * entry.item.unitPrice;
-        row.quantity += entry.quantity;
-        row.revenue += lineRevenue > 0 ? rawRevenue * order.netTotal / lineRevenue : 0;
-        row.cost += entry.quantity * entry.item.costPrice;
-        productRows[entry.item.productId] = row;
-      });
-    });
-    return Object.values(productRows).sort((a, b) => (b.revenue - b.cost) - (a.revenue - a.cost));
-  }
 
-  function renderAccountingProfit() {
-    if (!els.accountingProfitSummary && !els.accountingProductProfitTable) return;
-    const range = els.accountingProfitRange ? els.accountingProfitRange.value || accountingFilters.range : accountingFilters.range;
-    const snapshot = profitSnapshot(range, "all");
-    const previous = profitSnapshot(range, "all", true);
-    const payrollExpense = snapshot.transactions.reduce((sum, transaction) => {
-      const category = byId("accountingCategories", transaction.categoryId);
-      return /lương|luong|cộng tác viên|cong tac vien|payroll/i.test(String(category ? category.name : "") + " " + String(transaction.description || ""))
-        ? sum + transaction.amount
-        : sum;
-    }, 0);
-    if (els.accountingProfitSummary) {
-      const netMargin = snapshot.revenue > 0 ? snapshot.netProfit / snapshot.revenue : 0;
-      const cards = [
-        ["Doanh thu thuần", money.format(snapshot.revenue), range === "all" ? "Toàn bộ dữ liệu" : comparisonText(snapshot, previous, "revenue", "Doanh thu")],
-        ["Lãi gộp", money.format(snapshot.grossProfit), `${(snapshot.grossMargin * 100).toFixed(1)}% biên lãi gộp`],
-        ["Lãi ròng", money.format(snapshot.netProfit), `${(netMargin * 100).toFixed(1)}% biên lãi ròng`]
-      ];
-      els.accountingProfitSummary.innerHTML = cards.map(([label, value, note], index) => `
-        <article class="accounting-profit-card" data-tone="${index}">
-          <span>${label}</span>
-          <strong>${value}</strong>
-          <small>${note}</small>
-        </article>
-      `).join("");
-    }
-    if (els.accountingProfitInsights) {
-      const products = productProfitRowsFromSnapshot(snapshot);
-      const topProduct = products[0];
-      const expenseRatio = snapshot.revenue > 0 ? snapshot.operatingExpenses / snapshot.revenue : 0;
-      const negativeProducts = products.filter(row => row.revenue - row.cost < 0).length;
-      const insights = [
-        {
-          icon: "package",
-          title: topProduct ? `Dẫn đầu: ${topProduct.name}` : "Chưa có sản phẩm dẫn đầu",
-          note: topProduct ? `Lãi gộp ${money.format(topProduct.revenue - topProduct.cost)}` : "Cần thêm đơn đã thanh toán."
-        },
-        {
-          icon: "calculator",
-          title: `Chi phí chiếm ${(expenseRatio * 100).toFixed(1)}% doanh thu`,
-          note: payrollExpense > 0 ? `Tiền lương trong kỳ: ${money.format(payrollExpense)}` : "Chưa phát sinh chi phí lương."
-        },
-        {
-          icon: negativeProducts ? "alertTriangle" : "check",
-          title: negativeProducts ? `${negativeProducts} sản phẩm đang bán lỗ` : "Không có sản phẩm bán lỗ",
-          note: negativeProducts ? "Mở bảng sản phẩm để kiểm tra giá vốn và giá bán." : "Biên lãi sản phẩm trong kỳ đang dương."
-        }
-      ];
-      els.accountingProfitInsights.innerHTML = insights.map(item => `
-        <article><span>${icon(item.icon)}</span><div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.note)}</small></div></article>
-      `).join("");
-    }
-    if (els.accountingExpenseBreakdown) {
-      const byCategory = snapshot.transactions.reduce((map, transaction) => {
-        const category = byId("accountingCategories", transaction.categoryId);
-        const label = category ? category.name : "Chưa phân loại";
-        map[label] = (map[label] || 0) + transaction.amount * snapshot.expenseRatio;
-        return map;
-      }, {});
-      const expenses = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
-      const maxExpense = Math.max(...expenses.map(entry => entry[1]), 1);
-      els.accountingExpenseBreakdown.innerHTML = expenses.length ? expenses.map(([label, amount]) => {
-        const share = snapshot.operatingExpenses > 0 ? amount / snapshot.operatingExpenses * 100 : 0;
-        return `
-          <div class="expense-row accounting-expense-row">
-            <div><strong>${escapeHtml(label)}</strong><span>${money.format(amount)} · ${share.toFixed(1)}%</span></div>
-            <i style="--expense-width:${Math.round(amount / maxExpense * 100)}%"></i>
-          </div>
-        `;
-      }).join("") : `<div class="empty">Chưa phát sinh chi phí vận hành trong kỳ.</div>`;
-    }
-    if (els.accountingProductProfitTable) {
-      const products = productProfitRowsFromSnapshot(snapshot);
-      if (els.accountingProfitCount) els.accountingProfitCount.textContent = `${products.length} sản phẩm`;
-      els.accountingProductProfitTable.innerHTML = products.length ? products.slice(0, 12).map(row => {
-        const profit = row.revenue - row.cost;
-        const margin = row.revenue > 0 ? profit / row.revenue : 0;
-        return `<tr><td><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.sku)} · ${row.quantity} SP</small></td><td>${money.format(row.revenue)}</td><td><strong>${money.format(profit)}</strong></td><td><span class="margin-value ${margin < 0 ? "negative" : ""}">${(margin * 100).toFixed(1)}%</span></td></tr>`;
-      }).join("") : `<tr><td colspan="4" class="empty">Chưa có dữ liệu sản phẩm trong kỳ.</td></tr>`;
-    }
-    if (els.accountingProfitChart) {
-      const dayMap = {};
-      snapshot.orders.forEach(order => {
-        const day = reportDayKey(order.createdAt);
-        const row = dayMap[day] || { revenue: 0, profit: 0 };
-        row.revenue += order.netTotal;
-        row.profit += order.netTotal - orderCost(order);
-        dayMap[day] = row;
-      });
-      const days = Object.keys(dayMap).sort();
-      const maxValue = Math.max(...days.map(day => Math.max(dayMap[day].revenue, Math.max(0, dayMap[day].profit))), 1);
-      els.accountingProfitChart.innerHTML = days.length ? days.map(day => {
-        const row = dayMap[day];
-        return `<div class="profit-chart-day"><div class="profit-bars"><i class="revenue" style="--value:${Math.max(3, Math.round(row.revenue / maxValue * 100))}%" title="Doanh thu ${money.format(row.revenue)}"></i><i class="profit" style="--value:${Math.max(3, Math.round(Math.max(0, row.profit) / maxValue * 100))}%" title="Lãi gộp ${money.format(row.profit)}"></i></div><span>${day.slice(5).replace("-", "/")}</span></div>`;
-      }).join("") : `<div class="empty">Chưa có doanh thu trong kỳ.</div>`;
-    }
-  }
 
-  function renderAccountingLedgerAnalysis() {
-    const cutoff = accountingFilters.range === "all"
-      ? ""
-      : shiftDateValue(localDateValue(), -Number(accountingFilters.range));
-    const transactions = (state.cashTransactions || []).filter(transaction => {
-      if (transaction.status === "deleted") return false;
-      if (accountingFilters.accountId !== "all" && transaction.accountId !== accountingFilters.accountId) return false;
-      return !cutoff || String(transaction.transactionDate || transaction.createdAt).slice(0, 10) >= cutoff;
-    });
-    const income = transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
-    const expenses = transactions.filter(item => item.type === "expense");
-    const expense = expenses.reduce((sum, item) => sum + item.amount, 0);
-    const missingDocuments = expenses.filter(item => !item.documentUrl).length;
-    const byCategory = expenses.reduce((groups, transaction) => {
-      const category = getAccountingCategory(transaction.categoryId);
-      const label = category.name || "Chưa phân loại";
-      groups[label] = (groups[label] || 0) + transaction.amount;
-      return groups;
-    }, {});
-    const categories = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
-    const maxExpense = Math.max(...categories.map(item => item[1]), 1);
-    const account = accountingFilters.accountId === "all"
-      ? "Tất cả tài khoản"
-      : getAccountingAccount(accountingFilters.accountId).name;
-    return `
-      <div class="modal-summary full"><strong>${escapeHtml(accountingRangeLabel(accountingFilters.range))}</strong><span>${escapeHtml(account)} · phân tích theo bộ lọc Dòng tiền hiện tại.</span></div>
-      <div class="profit-detail-flow ledger-analysis-metrics full">
-        <article><span>Tổng thu</span><strong>${money.format(income)}</strong><small>${transactions.filter(item => item.type === "income").length} giao dịch</small></article>
-        <article><span>Tổng chi</span><strong>${money.format(expense)}</strong><small>${expenses.length} giao dịch</small></article>
-        <article><span>Dòng tiền ròng</span><strong>${money.format(income - expense)}</strong><small>Thu trừ chi</small></article>
-        <article><span>Thiếu chứng từ</span><strong>${missingDocuments}</strong><small>Khoản chi cần bổ sung</small></article>
-      </div>
-      <div class="modal-section full">
-        <div class="modal-section-heading"><h3>Cơ cấu khoản chi</h3><p>Xếp từ danh mục chi lớn nhất trong phạm vi đang chọn.</p></div>
-        <div class="expense-breakdown compact">
-          ${categories.length ? categories.map(([label, amount]) => {
-            const share = expense > 0 ? amount / expense * 100 : 0;
-            return `<div class="expense-row"><div><strong>${escapeHtml(label)}</strong><span>${money.format(amount)} · ${share.toFixed(1)}%</span></div><i style="--expense-width:${Math.round(amount / maxExpense * 100)}%"></i></div>`;
-          }).join("") : `<div class="empty">Chưa phát sinh khoản chi trong phạm vi đang chọn.</div>`}
-        </div>
-      </div>
-    `;
-  }
 
-  function renderAccountingProfitDetails() {
-    const range = accountingExportRange();
-    const snapshot = profitSnapshot(range, "all");
-    const payrollExpense = snapshot.transactions.filter(isPayrollTransaction).reduce((sum, transaction) => sum + transaction.amount, 0);
-    const netMargin = snapshot.revenue > 0 ? snapshot.netProfit / snapshot.revenue : 0;
-    const byCategory = snapshot.transactions.reduce((map, transaction) => {
-      const category = getAccountingCategory(transaction.categoryId);
-      const label = category.name || "Chưa phân loại";
-      map[label] = (map[label] || 0) + transaction.amount * snapshot.expenseRatio;
-      return map;
-    }, {});
-    const expenses = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
-    const maxExpense = Math.max(...expenses.map(entry => entry[1]), 1);
-    const metrics = [
-      ["Doanh thu thuần", snapshot.revenue, "Doanh thu đơn đã thanh toán sau hàng trả"],
-      ["Giá vốn", snapshot.cost, "Giá vốn thực tế của sản phẩm đã bán"],
-      ["Lãi gộp", snapshot.grossProfit, `${(snapshot.grossMargin * 100).toFixed(1)}% doanh thu`],
-      ["Chi phí vận hành", snapshot.operatingExpenses, payrollExpense ? `Gồm ${money.format(payrollExpense)} tiền lương` : "Không gồm nhập hàng và hoàn tiền"],
-      ["Lãi ròng", snapshot.netProfit, `${(netMargin * 100).toFixed(1)}% doanh thu`]
-    ];
-    return `
-      <div class="modal-summary full"><strong>${escapeHtml(accountingRangeLabel(range))}</strong><span>Cấu thành lợi nhuận và các khoản chi ảnh hưởng trực tiếp đến kết quả kinh doanh.</span></div>
-      <div class="profit-detail-flow full">
-        ${metrics.map(([label, value, note], index) => `<article data-tone="${index}"><span>${label}</span><strong>${money.format(value)}</strong><small>${note}</small></article>`).join("")}
-      </div>
-      <div class="modal-section full">
-        <div class="modal-section-heading"><h3>Chi phí theo danh mục</h3><p>Tỷ trọng được tính trên tổng chi phí vận hành trong kỳ.</p></div>
-        <div class="expense-breakdown compact">
-          ${expenses.length ? expenses.map(([label, amount]) => {
-            const share = snapshot.operatingExpenses > 0 ? amount / snapshot.operatingExpenses * 100 : 0;
-            return `<div class="expense-row"><div><strong>${escapeHtml(label)}</strong><span>${money.format(amount)} · ${share.toFixed(1)}%</span></div><i style="--expense-width:${Math.round(amount / maxExpense * 100)}%"></i></div>`;
-          }).join("") : `<div class="empty">Chưa phát sinh chi phí vận hành trong kỳ.</div>`}
-        </div>
-      </div>
-    `;
-  }
 
-  function renderReports() {
-    if (!els.reportCards) return;
-    const snapshot = profitSnapshot(reportFilters.range, reportFilters.channel);
-    const previous = profitSnapshot(reportFilters.range, reportFilters.channel, true);
-    const cards = [
-      ["Doanh thu thuần", money.format(snapshot.revenue), reportFilters.range === "all" ? "Toàn bộ dữ liệu" : comparisonText(snapshot, previous, "revenue", "Doanh thu")],
-      ["Giá vốn thực", money.format(snapshot.cost), "Đã trừ giá vốn hàng trả"],
-      ["Lãi gộp", money.format(snapshot.grossProfit), reportFilters.range === "all" ? "Doanh thu trừ giá vốn" : comparisonText(snapshot, previous, "grossProfit", "Lãi gộp")],
-      ["Biên lãi gộp", `${(snapshot.grossMargin * 100).toFixed(1)}%`, "Lãi gộp / doanh thu thuần"],
-      ["Chi phí vận hành", money.format(snapshot.operatingExpenses), reportFilters.channel === "all" ? "Không gồm nhập hàng và hoàn tiền" : "Phân bổ theo tỷ trọng doanh thu kênh"],
-      ["Lãi ròng", money.format(snapshot.netProfit), reportFilters.range === "all" ? "Sau chi phí vận hành" : comparisonText(snapshot, previous, "netProfit", "Lãi ròng")]
-    ];
-    els.reportCards.innerHTML = cards.map(([title, value, note]) => `
-      <article class="report-card"><h3>${title}</h3><strong>${value}</strong><p>${note}</p></article>
-    `).join("");
 
-    if (els.reportComparison) {
-      els.reportComparison.textContent = reportFilters.range === "all"
-        ? `${snapshot.orders.length} đơn đã ghi nhận`
-        : comparisonText(snapshot, previous, "netProfit", "Lãi ròng");
-    }
-
-    const productRows = {};
-    snapshot.orders.forEach(order => {
-      const remainingItems = (order.items || []).map(item => ({
-        item,
-        quantity: Math.max(0, item.quantity - returnedOrderItemQuantity(item.id))
-      })).filter(entry => entry.quantity > 0);
-      const lineRevenue = remainingItems.reduce((sum, entry) => sum + entry.quantity * entry.item.unitPrice, 0);
-      remainingItems.forEach(entry => {
-        const row = productRows[entry.item.productId] || { name: entry.item.name, sku: entry.item.sku, quantity: 0, revenue: 0, cost: 0 };
-        const rawRevenue = entry.quantity * entry.item.unitPrice;
-        row.quantity += entry.quantity;
-        row.revenue += lineRevenue > 0 ? rawRevenue * order.netTotal / lineRevenue : 0;
-        row.cost += entry.quantity * entry.item.costPrice;
-        productRows[entry.item.productId] = row;
-      });
-    });
-    const products = Object.values(productRows).sort((a, b) => (b.revenue - b.cost) - (a.revenue - a.cost));
-    if (els.productProfitTable) {
-      els.productProfitTable.innerHTML = products.length ? products.map(row => {
-        const profit = row.revenue - row.cost;
-        const margin = row.revenue > 0 ? profit / row.revenue : 0;
-        return `<tr><td><strong>${row.name}</strong><small>${row.sku}</small></td><td>${row.quantity}</td><td>${money.format(row.revenue)}</td><td>${money.format(row.cost)}</td><td><strong>${money.format(profit)}</strong></td><td><span class="margin-value ${margin < 0 ? "negative" : ""}">${(margin * 100).toFixed(1)}%</span></td></tr>`;
-      }).join("") : `<tr><td colspan="6" class="empty">Chưa có dữ liệu sản phẩm trong kỳ.</td></tr>`;
-    }
-
-    const channelRows = Object.keys(channels).map(channel => {
-      const orders = snapshot.orders.filter(order => order.channel === channel);
-      const revenue = orders.reduce((sum, order) => sum + order.netTotal, 0);
-      const cost = orders.reduce((sum, order) => sum + orderCost(order), 0);
-      return { channel, orders: orders.length, revenue, profit: revenue - cost };
-    }).filter(row => row.orders > 0).sort((a, b) => b.profit - a.profit);
-    if (els.channelProfitTable) {
-      els.channelProfitTable.innerHTML = channelRows.length ? channelRows.map(row => {
-        const margin = row.revenue > 0 ? row.profit / row.revenue : 0;
-        return `<tr><td><span class="badge">${channelLabel(row.channel)}</span></td><td>${row.orders}</td><td>${money.format(row.revenue)}</td><td><strong>${money.format(row.profit)}</strong></td><td><span class="margin-value ${margin < 0 ? "negative" : ""}">${(margin * 100).toFixed(1)}%</span></td></tr>`;
-      }).join("") : `<tr><td colspan="5" class="empty">Chưa có dữ liệu kênh trong kỳ.</td></tr>`;
-    }
-
-    if (els.expenseBreakdown) {
-      const byCategory = snapshot.transactions.reduce((map, transaction) => {
-        const category = byId("accountingCategories", transaction.categoryId);
-        const label = category ? category.name : "Chưa phân loại";
-        map[label] = (map[label] || 0) + transaction.amount * snapshot.expenseRatio;
-        return map;
-      }, {});
-      const expenses = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
-      const maxExpense = Math.max(...expenses.map(entry => entry[1]), 1);
-      els.expenseBreakdown.innerHTML = expenses.length ? expenses.map(([label, amount]) => `
-        <div class="expense-row"><div><strong>${label}</strong><span>${money.format(amount)}</span></div><i style="--expense-width:${Math.round(amount / maxExpense * 100)}%"></i></div>
-      `).join("") : `<div class="empty">Chưa phát sinh chi phí vận hành trong kỳ.</div>`;
-    }
-
-    if (els.profitChart) {
-      const dayMap = {};
-      snapshot.orders.forEach(order => {
-        const day = reportDayKey(order.createdAt);
-        const row = dayMap[day] || { revenue: 0, profit: 0 };
-        row.revenue += order.netTotal;
-        row.profit += order.netTotal - orderCost(order);
-        dayMap[day] = row;
-      });
-      const days = Object.keys(dayMap).sort();
-      const maxValue = Math.max(...days.map(day => Math.max(dayMap[day].revenue, dayMap[day].profit)), 1);
-      els.profitChart.innerHTML = days.length ? days.map(day => {
-        const row = dayMap[day];
-        return `<div class="profit-chart-day"><div class="profit-bars"><i class="revenue" style="--value:${Math.max(3, Math.round(row.revenue / maxValue * 100))}%" title="Doanh thu ${money.format(row.revenue)}"></i><i class="profit" style="--value:${Math.max(3, Math.round(Math.max(0, row.profit) / maxValue * 100))}%" title="Lãi gộp ${money.format(row.profit)}"></i></div><span>${day.slice(5).replace("-", "/")}</span></div>`;
-      }).join("") : `<div class="empty">Chưa có doanh thu trong kỳ.</div>`;
-    }
-  }
 
   function enhanceResponsiveTables() {
     document.querySelectorAll(".table-wrap table").forEach(table => {
@@ -6539,23 +4084,10 @@
     });
   }
 
-  function activeSalesChannels() {
-    const list = (state.salesChannels || []).map(normalizeSalesChannel).filter(channel => channel.status !== "deleted");
-    if (list.length) return list;
-    return Object.entries(channels).map(([code, name]) => normalizeSalesChannel({
-      id: `channel-${code}`,
-      code,
-      name,
-      type: code === "pos" ? "pos" : (code === "facebook" ? "social" : "marketplace"),
-      status: "active",
-      syncMode: "manual"
-    }));
-  }
 
-  function channelByIdOrCode(value) {
-    const key = String(value || "");
-    return activeSalesChannels().find(channel => channel.id === key || channel.code === key) || null;
-  }
+
+
+
 
   function ownerName(ownerId) {
     const id = String(ownerId || "");
@@ -6563,117 +4095,15 @@
     return user ? user.name : id;
   }
 
-  function reservedStockForProduct(productId) {
-    return (state.inventoryReservations || [])
-      .map(normalizeInventoryReservation)
-      .filter(item => item.productId === productId && item.status === "active")
-      .reduce((sum, item) => sum + item.quantity, 0);
-  }
 
-  function channelProductRows() {
-    const mappings = (state.channelProducts || []).map(normalizeChannelProduct).filter(item => item.status !== "deleted");
-    const products = (state.products || []).map(normalizeProduct).filter(product => product.status !== "deleted");
-    return products.map(product => {
-      const productMappings = mappings.filter(item => item.productId === product.id);
-      const channelStocks = productMappings.map(item => item.channelStock);
-      const mismatch = productMappings.some(item => Number(item.channelStock || 0) !== Number(product.stock || 0));
-      return {
-        product,
-        mappings: productMappings,
-        mappedCount: productMappings.length,
-        reserved: reservedStockForProduct(product.id),
-        available: Math.max(0, Number(product.stock || 0) - reservedStockForProduct(product.id)),
-        mismatch,
-        minChannelStock: channelStocks.length ? Math.min(...channelStocks) : null
-      };
-    });
-  }
 
-  function renderOmniWorkspace() {
-    const rootNode = qs("[data-omni-workspace]");
-    if (!rootNode) return;
-    const channelsList = activeSalesChannels();
-    const rows = channelProductRows();
-    const filteredRows = rows
-      .filter(row => omniFilters.channel === "all" || row.mappings.some(item => item.channelId === omniFilters.channel || (channelByIdOrCode(item.channelId) || {}).code === omniFilters.channel))
-      .filter(row => {
-        if (omniFilters.stock === "all") return true;
-        if (omniFilters.stock === "low") return row.product.stock <= row.product.lowStock;
-        if (omniFilters.stock === "out") return row.product.stock <= 0;
-        if (omniFilters.stock === "reserved") return row.reserved > 0;
-        return true;
-      })
-      .filter(row => {
-        if (omniFilters.issue === "all") return true;
-        if (omniFilters.issue === "missing") return row.mappedCount === 0;
-        if (omniFilters.issue === "mismatch") return row.mismatch;
-        return true;
-      });
-    const mismatches = rows.filter(row => row.mismatch).length;
-    const unmapped = rows.filter(row => row.mappedCount === 0).length;
-    const reserved = rows.reduce((sum, row) => sum + row.reserved, 0);
-    rootNode.innerHTML = `
-      <section class="omni-hero panel">
-        <div>
-          <p class="eyebrow">Omnichannel workspace</p>
-          <h2>Một nơi theo dõi kênh bán, SKU và tồn kho</h2>
-          <p>Ưu tiên kiểm soát tồn trước: map SKU nội bộ với từng kênh, phát hiện lệch tồn và giữ hàng cho đơn đang xử lý.</p>
-        </div>
-        <div class="omni-actions">
-          <button class="button primary" type="button" data-open-channel-form><span data-icon="plus"></span> Kênh</button>
-          <button class="button ghost" type="button" data-open-channel-product-form><span data-icon="package"></span> Map SKU</button>
-        </div>
-      </section>
-      <section class="omni-kpis">
-        <article><span>Kênh đang quản lý</span><strong>${channelsList.filter(item => item.status === "active").length}</strong><small>POS, sàn, social, website</small></article>
-        <article><span>SKU chưa map</span><strong>${unmapped}</strong><small>Cần map trước khi đồng bộ tồn</small></article>
-        <article><span>Lệch tồn</span><strong>${mismatches}</strong><small>So tồn nội bộ với tồn kênh</small></article>
-        <article><span>Đang giữ hàng</span><strong>${reserved}</strong><small>Từ đơn chờ xử lý</small></article>
-      </section>
-      <section class="panel omni-control-panel">
-        <div class="omni-filter-bar">
-          <label><span>Kênh</span><select data-omni-filter="channel"><option value="all">Tất cả kênh</option>${channelsList.map(channel => `<option value="${channel.id}" ${omniFilters.channel === channel.id ? "selected" : ""}>${escapeHtml(channel.name)}</option>`).join("")}</select></label>
-          <label><span>Tồn kho</span><select data-omni-filter="stock"><option value="all">Tất cả</option><option value="low" ${omniFilters.stock === "low" ? "selected" : ""}>Sắp hết</option><option value="out" ${omniFilters.stock === "out" ? "selected" : ""}>Hết hàng</option><option value="reserved" ${omniFilters.stock === "reserved" ? "selected" : ""}>Đang giữ hàng</option></select></label>
-          <label><span>Cần xử lý</span><select data-omni-filter="issue"><option value="all">Tất cả</option><option value="missing" ${omniFilters.issue === "missing" ? "selected" : ""}>Chưa map SKU</option><option value="mismatch" ${omniFilters.issue === "mismatch" ? "selected" : ""}>Lệch tồn</option></select></label>
-        </div>
-      </section>
-      <section class="omni-layout">
-        <section class="panel">
-          <div class="panel-header split"><div><h2>Đối soát SKU và tồn</h2><p>${filteredRows.length} sản phẩm phù hợp.</p></div><button class="button ghost icon-only" type="button" data-export-omni title="Xuất Excel"><span data-icon="download"></span></button></div>
-          <div class="table-wrap omni-table-wrap">
-            <table class="omni-table"><thead><tr><th>Sản phẩm</th><th>Tồn nội bộ</th><th>Khả dụng</th><th>Kênh đã map</th><th>Vấn đề</th><th>Thao tác</th></tr></thead><tbody>
-              ${filteredRows.length ? filteredRows.map(row => {
-                const issue = row.mappedCount === 0 ? "Chưa map" : row.mismatch ? "Lệch tồn" : row.product.stock <= row.product.lowStock ? "Sắp hết" : "Ổn";
-                const issueClass = row.mappedCount === 0 || row.mismatch ? "danger" : row.product.stock <= row.product.lowStock ? "warning" : "success";
-                return `<tr>
-                  <td><strong>${escapeHtml(row.product.name)}</strong><small>${escapeHtml(row.product.sku)} · ${escapeHtml(row.product.category || "")}</small></td>
-                  <td><strong>${row.product.stock}</strong><small>Ngưỡng ${row.product.lowStock}</small></td>
-                  <td><strong>${row.available}</strong><small>Giữ ${row.reserved}</small></td>
-                  <td>${row.mappings.length ? row.mappings.map(item => {
-                    const channel = channelByIdOrCode(item.channelId);
-                    return `<span class="omni-channel-pill">${escapeHtml(channel ? channel.name : item.channelId)} · tồn ${item.channelStock} · ${Number(item.channelPrice || 0) > 0 ? money.format(item.channelPrice) : "chưa có giá"}</span>`;
-                  }).join("") : `<span class="muted">Chưa map kênh</span>`}</td>
-                  <td><span class="status-chip ${issueClass}">${issue}</span></td>
-                  <td><div class="row-actions"><a class="button ghost icon-only" href="./team-pricing.html?productId=${encodeURIComponent(row.product.id)}" title="Tính giá kênh" aria-label="Tính giá kênh"><span data-icon="calculator"></span></a><button class="button ghost icon-only" type="button" data-open-channel-product-form data-product-id="${row.product.id}" title="Map SKU"><span data-icon="edit"></span></button></div></td>
-                </tr>`;
-              }).join("") : `<tr><td colspan="6" class="empty">Không có sản phẩm phù hợp.</td></tr>`}
-            </tbody></table>
-          </div>
-        </section>
-        <aside class="panel omni-side-panel">
-          <div class="panel-header"><div><h2>Kênh bán</h2><p>Thiết lập nhẹ, ưu tiên đồng bộ tồn.</p></div></div>
-          <div class="omni-channel-list">
-            ${channelsList.map(channel => `<article>
-              <div><strong>${escapeHtml(channel.name)}</strong><small>${escapeHtml(channel.code)} · ${escapeHtml(channel.syncMode || "manual")}</small></div>
-              <span class="status-chip ${channel.status === "active" ? "success" : "warning"}">${channel.status === "active" ? "Đang dùng" : "Tạm ẩn"}</span>
-            </article>`).join("")}
-          </div>
-        </aside>
-      </section>
-    `;
-    hydrateIcons(rootNode);
-    enhanceResponsiveTables();
-  }
+
+
+
+
+
+
+
 
   function dashboardCommandItems() {
     const pendingOrders = (state.orders || [])
@@ -6820,6 +4250,8 @@
       ? `[data-transaction-row="${CSS.escape(accountingTransactionTarget)}"]`
       : page === "purchasing" && purchasingOrderTarget
         ? `[data-purchase-order-row="${CSS.escape(linkedPurchaseOrder?.id || purchasingOrderTarget)}"]`
+        : page === "suppliers" && supplierTarget
+          ? `[data-supplier-card="${CSS.escape(supplierTarget)}"]`
         : "";
     if (!selector) return;
     deepLinkFocusHandled = true;
@@ -6837,6 +4269,7 @@
     els.modalForm.classList.remove("modal-form-wide");
     els.modalForm.classList.remove("modal-form-fullscreen");
     els.modalBackdrop.hidden = true;
+    document.body.classList.remove("overlay-open");
     els.modalForm.innerHTML = "";
   }
 
@@ -8996,6 +6429,7 @@
     const editingTeamPricing = options.teamPricing || null;
     const editingTeamDecision = options.teamDecision || null;
     const editingCustomer = options.customer || null;
+    const viewingCustomer = options.customerDetail || null;
     const editingOrder = options.order || null;
     const viewingOrder = options.orderDetail || null;
     const editingAccountingAccount = options.account || null;
@@ -9024,6 +6458,12 @@
         eyebrow: "Hồ sơ sản phẩm",
         title: editingProduct ? editingProduct.name : "Chi tiết sản phẩm",
         body: editingProduct ? renderProductDetail(editingProduct) : "",
+        readOnly: true
+      },
+      customerDetail: {
+        eyebrow: "Khách hàng",
+        title: viewingCustomer ? viewingCustomer.name : "Chi tiết khách hàng",
+        body: viewingCustomer ? renderCustomerDetail(viewingCustomer) : "",
         readOnly: true
       },
       contentItem: {
@@ -9710,8 +7150,8 @@
     if (!definition) return;
     const modal = els.modalBackdrop.querySelector(".modal");
     if (modal) modal.dataset.modalType = type;
-    els.modalForm.classList.toggle("modal-form-wide", type === "orderDetail" || type === "teamPricing" || type === "pricingProductPicker");
-    els.modalForm.classList.toggle("modal-form-fullscreen", type === "teamPricing");
+    els.modalForm.classList.toggle("modal-form-wide", type === "orderDetail" || type === "productDetail" || type === "customerDetail" || type === "teamPricing" || type === "pricingProductPicker");
+    els.modalForm.classList.toggle("modal-form-fullscreen", type === "product" || type === "contentItem" || type === "teamPricing");
     els.modalEyebrow.textContent = definition.eyebrow;
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
@@ -9737,6 +7177,7 @@
       }
     };
     els.modalBackdrop.hidden = false;
+    document.body.classList.add("overlay-open");
     if (type === "order") updateOrderTotalPreviewV2(els.modalForm);
     if (type === "orderReturn") updateOrderReturnPreview(els.modalForm);
     if (type === "product") updateProductPricingPreview(els.modalForm);
@@ -10010,6 +7451,20 @@
         renderPage();
       });
     }
+    const supplierSearch = qs("[data-supplier-search]");
+    if (supplierSearch) {
+      supplierSearch.addEventListener("input", event => {
+        supplierFilters.search = event.target.value;
+        renderPurchasing();
+      });
+    }
+    const channelSettingsSearch = qs("[data-channel-settings-search]");
+    if (channelSettingsSearch) {
+      channelSettingsSearch.addEventListener("input", event => {
+        channelSettingsFilters.search = event.target.value;
+        renderOmniWorkspace();
+      });
+    }
 
     if (els.accountingAccountFilter) {
       els.accountingAccountFilter.addEventListener("change", event => {
@@ -10136,12 +7591,12 @@
     }
 
     document.addEventListener("click", async event => {
-      const target = event.target.closest("button, a, [data-open-profile]");
+      const target = event.target.closest("button, a, [data-open-profile], [data-supplier-card], [data-purchase-order-row], [data-view-order], [data-view-product], [data-view-customer]");
       if (!target || target.disabled) return;
 
-      if (target.matches("[data-menu-toggle]")) document.body.classList.toggle("menu-open");
+      if (target.matches("[data-menu-toggle]")) document.body.classList.toggle("context-open");
       if (target.matches("[data-menu-close]")) document.body.classList.remove("menu-open");
-      if (target.matches(".nav-link")) document.body.classList.remove("menu-open");
+      if (target.matches(".nav-link")) document.body.classList.remove("menu-open", "context-open");
       if (target.matches("[data-toggle-nav-group]")) {
         const groupId = target.dataset.toggleNavGroup;
         const group = target.closest("[data-nav-group]");
@@ -10160,6 +7615,22 @@
         localStorage.setItem(navStateKey, JSON.stringify(stored));
       }
       if (target.matches("[data-close-modal]")) closeModal();
+      if (target.matches("[data-close-management-drawer]")) closeManagementDrawers();
+      if (target.matches("[data-supplier-card]")) openSupplierDetail(target.dataset.supplierCard);
+      if (target.matches("[data-purchase-order-row]")) openPurchaseDetail(target.dataset.purchaseOrderRow);
+      if (target.matches("[data-purchase-saved-view]")) {
+        purchasingFilters.savedView = target.dataset.purchaseSavedView || "all";
+        purchasingFilters.status = "all";
+        purchasingFilters.paymentStatus = "all";
+        renderPurchasing();
+      }
+      if (target.matches("[data-omni-quick-filter]")) {
+        const value = target.dataset.omniQuickFilter || "all";
+        if (["missing", "mismatch"].includes(value)) omniFilters.issue = value;
+        if (["out", "reserved"].includes(value)) omniFilters.stock = value;
+        window.ArtFlowPageModules.channels?.selectQuickFilter(value);
+        renderOmniWorkspace();
+      }
       if (target.matches("[data-open-profile]")) openModal("profile");
       if (target.matches("[data-incense-kind-choice]")) {
         const kind = target.dataset.incenseKindChoice || "sales";
@@ -10234,7 +7705,10 @@
       if (target.matches("[data-choose-customer-file]")) els.customerCsvFile?.click();
       if (target.matches("[data-open-product]")) openModal("product");
       if (target.matches("[data-open-content-item]")) openModal("contentItem");
-      if (target.matches("[data-open-channel-form]")) openModal("salesChannel");
+      if (target.matches("[data-open-channel-form]")) {
+        const channel = (state.salesChannels || []).find(item => item.id === target.dataset.channelId);
+        openModal("salesChannel", channel ? { channel } : {});
+      }
       if (target.matches("[data-open-channel-product-form]")) openModal("channelProduct", { productId: target.dataset.productId || "" });
       if (target.matches("[data-export-omni]")) exportOmniReport();
       if (target.matches("[data-copy-content-prompt]")) {
@@ -10278,16 +7752,8 @@
         renderPage();
       }
       if (target.matches("[data-team-primary-action], [data-team-secondary-action]")) {
-        if (teamFilters.view === "meetings") {
-          window.location.href = "./meeting-minutes.html";
-          return;
-        }
-        if (teamFilters.view === "pricing") {
-          window.location.href = "./team-pricing.html";
-          return;
-        }
-        const modalByView = { meetings: "teamMeeting", tasks: "workspaceTask", plans: "teamPlan", pricing: "teamPricing", decisions: "teamDecision" };
-        openModal(modalByView[teamFilters.view] || "teamMeeting");
+        const modalByView = { tasks: "workspaceTask", plans: "teamPlan", decisions: "teamDecision" };
+        openModal(modalByView[teamFilters.view] || "workspaceTask");
       }
       if (target.dataset.editTeamMeeting) {
         window.location.href = `./meeting-minutes.html?id=${encodeURIComponent(target.dataset.editTeamMeeting)}`;
@@ -10557,6 +8023,10 @@
       }
       if (target.dataset.accountingViewFilter) {
         accountingFilters.view = target.dataset.accountingViewFilter;
+        const url = new URL(window.location.href);
+        url.searchParams.set("view", accountingFilters.view);
+        window.history.replaceState({ accountingView: accountingFilters.view }, "", url);
+        renderNav();
         renderPage();
       }
       if (target.dataset.accountingJump) {
@@ -10564,8 +8034,6 @@
         renderPage();
       }
       if (target.dataset.accountingDebtView) { accountingFilters.debtView = target.dataset.accountingDebtView; renderPage(); }
-      if (target.dataset.accountingProfitView) { accountingFilters.profitView = target.dataset.accountingProfitView; renderPage(); }
-      if (target.dataset.accountingSettingsView) { accountingFilters.settingsView = target.dataset.accountingSettingsView; renderPage(); }
       if (target.dataset.editCashTransaction) {
         const transaction = (state.cashTransactions || []).find(item => item.id === target.dataset.editCashTransaction);
         if (transaction) openModal("cashTransaction", { transaction });
@@ -10602,10 +8070,6 @@
         document.querySelectorAll("[data-accounting-category-filter]").forEach(button => {
           button.classList.toggle("active", button.dataset.accountingCategoryFilter === accountingFilters.categoryType);
         });
-        renderPage();
-      }
-      if (target.dataset.purchasingViewFilter) {
-        purchasingFilters.view = target.dataset.purchasingViewFilter;
         renderPage();
       }
       if (target.matches("[data-open-user]") && isAdmin()) openModal("user");
@@ -10697,6 +8161,10 @@
       if (target.dataset.viewProduct) {
         const product = byId("products", target.dataset.viewProduct);
         if (product) openModal("productDetail", { product });
+      }
+      if (target.dataset.viewCustomer) {
+        const customer = byId("customers", target.dataset.viewCustomer);
+        if (customer) openModal("customerDetail", { customerDetail: customer });
       }
       if (target.dataset.provisionProduct) {
         try {
@@ -10948,6 +8416,10 @@
         omniFilters[event.target.dataset.omniFilter] = event.target.value;
         renderOmniWorkspace();
       }
+      if (event.target.matches("[data-channel-settings-status]")) {
+        channelSettingsFilters.status = event.target.value;
+        renderOmniWorkspace();
+      }
       if (event.target.matches("[data-content-filter]")) {
         contentFilters[event.target.dataset.contentFilter] = event.target.value;
         renderContentWorkspace();
@@ -10985,6 +8457,14 @@
           updateTeamPricingPreview(form);
         }
       }
+      if (event.target.matches("[data-supplier-status-filter]")) {
+        supplierFilters.status = event.target.value;
+        renderPurchasing();
+      }
+      if (event.target.matches("[data-supplier-balance-filter]")) {
+        supplierFilters.balance = event.target.value;
+        renderPurchasing();
+      }
       if (event.target.matches("[data-order-product], #customerId, #roundingStep, #paymentMethod")) updateOrderTotalPreviewV2(event.target.closest("form") || els.orderCreateForm || els.modalForm);
       if (event.target.matches("[data-cash-type]")) {
         const category = (event.target.closest("form") || els.modalForm).querySelector("[data-cash-category]");
@@ -11020,6 +8500,12 @@
       if (event.target.matches("[data-order-product-popup]")) event.target.hidden = true;
     });
   }
+
+  const { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, renderStaticOmniWorkspace, renderChannelSettings, renderOmniWorkspace } = window.ArtFlowPageModules.channels ? window.ArtFlowPageModules.channels.create({ normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, hydrateIcons, icon, money, omniFilters, qs, state }) : Object.fromEntries(["activeSalesChannels","channelByIdOrCode","reservedStockForProduct","channelProductRows","renderStaticOmniWorkspace","renderChannelSettings","renderOmniWorkspace"].map(name => [name, function () {}]));
+  const { teamOwners, teamDateInRange, teamSearchText, currentTeamItems, setTeamOptions, renderTeamFilters, teamKpis, renderTeamHub, selectedIncenseOfferings, syncIncenseOfferings, renderOfferingTray, renderIncense, submitIncenseWish, teamStatusBadge, renderTeamTasks, renderTeamMeetings, renderTeamPlans, pricingLineAmount, roundedPricingValue, calculatePricingScenario, pricingTotals, renderTeamPricing, teamPricingPageContext, renderTeamPricingPage, submitTeamPricingPageForm, renderTeamDecisions, teamOwnerOptions, teamProductOptions, teamChannelOptions, pricingMarketplaceChannels, pricingChannelOptions, pricingTargetLabel, pricingSuggestedTitle, renderTeamSourceAndComments, appendTeamCommentLog, actionRowsFromText, textFromActionRows, localDateTimeValue, meetingTypeOptions, meetingStatusOptions, actionStatusOptions, splitListText, meetingMinutesIdFromUrl, setMeetingMinutesUrl, renderMinutesTextRows, renderMinutesActions, renderMinutesAttendees, renderMeetingMinutesForm, renderMeetingMinutesList, renderMeetingMinutesPage, valuesFromMinutesRows, syncMeetingMinutesForm, addMinutesTextRow, addMinutesAction, applyMeetingTemplate, parseQuickMeetingNote, cleanMeetingMinutesText, submitMeetingMinutesForm, renderMeetingForm, renderPlanForm, renderPricingForm, renderPricingSelectedProduct, renderPricingProductPicker, renderPricingProductPickerCard, selectPricingProduct, renderPricingLineInput, renderPricingScenarioInput, renderDecisionForm, collectPricingLines, collectPricingScenarios, refreshPricingBuilderState, updatePricingScopeFields, syncPricingTitle, updatePricingLineState, selectPricingScenario, updateTeamPricingPreview, teamApiCollection, teamApiItemType, pricingModelFromForm, validatePricingModel } = window.ArtFlowPageModules.team ? window.ArtFlowPageModules.team.create({ normalizeIncenseWish, normalizePricingLine, normalizePricingModel, normalizePricingScenario, normalizeSalesChannel, normalizeTeamAction, normalizeTeamDecision, normalizeTeamMeeting, normalizeTeamPlan, normalizeWorkspaceTask, apiRequest, byId, channelByIdOrCode, closeModal, currentUser, els, enhanceMoneyInputs, enhanceResponsiveTables, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, hydrateIcons, icon, incenseKinds, incenseOfferings, localDateValue, money, ownerName, productHasShopPrice, productSearchText, qs, renderProductThumb, saveTeamItem, searchTerm, setBusy, showToast, state, teamFilters, teamStatuses, teamViews }) : Object.fromEntries(["teamOwners","teamDateInRange","teamSearchText","currentTeamItems","setTeamOptions","renderTeamFilters","teamKpis","renderTeamHub","selectedIncenseOfferings","syncIncenseOfferings","renderOfferingTray","renderIncense","submitIncenseWish","teamStatusBadge","renderTeamTasks","renderTeamMeetings","renderTeamPlans","pricingLineAmount","roundedPricingValue","calculatePricingScenario","pricingTotals","renderTeamPricing","teamPricingPageContext","renderTeamPricingPage","submitTeamPricingPageForm","renderTeamDecisions","teamOwnerOptions","teamProductOptions","teamChannelOptions","pricingMarketplaceChannels","pricingChannelOptions","pricingTargetLabel","pricingSuggestedTitle","renderTeamSourceAndComments","appendTeamCommentLog","actionRowsFromText","textFromActionRows","localDateTimeValue","meetingTypeOptions","meetingStatusOptions","actionStatusOptions","splitListText","meetingMinutesIdFromUrl","setMeetingMinutesUrl","renderMinutesTextRows","renderMinutesActions","renderMinutesAttendees","renderMeetingMinutesForm","renderMeetingMinutesList","renderMeetingMinutesPage","valuesFromMinutesRows","syncMeetingMinutesForm","addMinutesTextRow","addMinutesAction","applyMeetingTemplate","parseQuickMeetingNote","cleanMeetingMinutesText","submitMeetingMinutesForm","renderMeetingForm","renderPlanForm","renderPricingForm","renderPricingSelectedProduct","renderPricingProductPicker","renderPricingProductPickerCard","selectPricingProduct","renderPricingLineInput","renderPricingScenarioInput","renderDecisionForm","collectPricingLines","collectPricingScenarios","refreshPricingBuilderState","updatePricingScopeFields","syncPricingTitle","updatePricingLineState","selectPricingScenario","updateTeamPricingPreview","teamApiCollection","teamApiItemType","pricingModelFromForm","validatePricingModel"].map(name => [name, function () {}]));
+  const { syncAccountingView, commerceChannelLabel, payoutStatusMeta, renderCommerceAccounting, renderAccounting, productProfitRowsFromSnapshot, renderAccountingProfit, renderAccountingLedgerAnalysis, renderAccountingProfitDetails } = window.ArtFlowPageModules.accounting ? window.ArtFlowPageModules.accounting.create({ accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, comparisonText, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state }) : Object.fromEntries(["syncAccountingView","commerceChannelLabel","payoutStatusMeta","renderCommerceAccounting","renderAccounting","productProfitRowsFromSnapshot","renderAccountingProfit","renderAccountingLedgerAnalysis","renderAccountingProfitDetails"].map(name => [name, function () {}]));
+  const { renderPurchasing, closeManagementDrawers, openSupplierDetail, openPurchaseDetail } = window.ArtFlowPageModules.purchasing ? window.ArtFlowPageModules.purchasing.create({ byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseAgingBucket, purchaseDueDays, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, searchTerm, state, statusLabel, supplierFilters, supplierTarget }) : Object.fromEntries(["renderPurchasing","closeManagementDrawers","openSupplierDetail","openPurchaseDetail"].map(name => [name, function () {}]));
+  const { renderReports } = window.ArtFlowPageModules.reports ? window.ArtFlowPageModules.reports.create({ byId, channelLabel, channels, comparisonText, els, money, orderCost, profitSnapshot, reportDayKey, reportFilters, returnedOrderItemQuantity }) : Object.fromEntries(["renderReports"].map(name => [name, function () {}]));
 
   injectSharedUi();
   hydrateIcons(document);

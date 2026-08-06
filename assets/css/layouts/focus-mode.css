@@ -1,0 +1,13 @@
+body[data-page="orderCreate"] .app-navigation,
+body[data-page="purchaseCreate"] .app-navigation,
+body[data-page="teamPricing"] .app-navigation { display: none; }
+body[data-page="orderCreate"] .app-shell,
+body[data-page="purchaseCreate"] .app-shell,
+body[data-page="teamPricing"] .app-shell { display: block; }
+body[data-page="orderCreate"] .workspace,
+body[data-page="purchaseCreate"] .workspace,
+body[data-page="teamPricing"] .workspace { padding-inline: clamp(12px, 2vw, 28px); }
+body[data-page="orderCreate"] .command-bar,
+body[data-page="purchaseCreate"] .command-bar,
+body[data-page="teamPricing"] .command-bar { margin-inline: calc(clamp(12px, 2vw, 28px) * -1); }
+.focus-workflow { max-width: 1600px; margin: 0 auto; }

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nhà cung cấp | ArtFlow POS</title>
+  <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/app.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <link rel="stylesheet" href="../assets/css/operations.css" />
+  <link rel="stylesheet" href="../assets/css/v3.css" />
+</head>
+<body data-page="suppliers" data-root="..">
+  <div class="app-shell" data-app-shell hidden>
+    <aside class="app-navigation" aria-label="Điều hướng ứng dụng">
+      <nav class="app-rail" aria-label="Không gian làm việc">
+        <a class="rail-brand" href="./dashboard.html" aria-label="ArtFlow POS"><img src="../assets/images/artflow-pos-logo.svg" alt="" /></a>
+        <div class="rail-spaces" data-space-nav></div>
+        <div class="rail-footer"><button class="rail-control" type="button" data-rail-collapse aria-label="Thu gọn điều hướng" title="Thu gọn điều hướng"><span data-icon="menu"></span></button></div>
+      </nav>
+      <aside class="context-sidebar">
+        <header class="context-header"><div class="context-brand"><small>Không gian</small><strong data-context-title>ArtFlow POS</strong></div><button class="icon-button context-close" type="button" data-context-close aria-label="Đóng điều hướng"><span data-icon="close"></span></button></header>
+        <nav class="context-nav" aria-label="Điều hướng theo nghiệp vụ" data-nav-list></nav>
+        <footer class="context-footer"><div class="context-connection"><span class="status-dot"></span><span>Đã kết nối qua Worker</span></div></footer>
+      </aside>
+    </aside>
+    <main class="workspace">
+      <header class="command-bar"><button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div><p class="eyebrow">Hàng hóa & cung ứng</p><h1 data-page-title>Nhà cung cấp</h1></div><div class="command-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm tên, mã, điện thoại, mã số thuế..." /></label><button class="button primary" type="button" data-open-supplier><span data-icon="userPlus"></span> Thêm mới</button><button class="icon-button" type="button" data-popover-trigger="#quick-create-popover" aria-label="Tạo nhanh" title="Tạo nhanh"><span data-icon="plus"></span></button><button class="icon-button" type="button" data-popover-trigger="#work-queue-popover" aria-label="Việc cần xử lý" title="Việc cần xử lý"><span data-icon="clipboard"></span></button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
+      <section class="view active management-page supplier-page">
+        <header class="management-header workspace-heading"><div><p class="section-kicker">Danh mục cung ứng</p><h2>Đối tác nhập hàng</h2><p>Quản lý hồ sơ, giao dịch gần nhất và số dư của từng nhà cung cấp.</p></div><a class="button ghost" href="./accounting.html?view=receivables&debt=supplier"><span data-icon="calculator"></span> Công nợ phải trả</a></header>
+        <section class="management-summary supplier-summary" data-supplier-summary></section>
+        <section class="management-content panel">
+          <div class="management-toolbar supplier-filter-bar"><label class="search-box compact"><span data-icon="search"></span><input data-supplier-search type="search" placeholder="Tìm nhanh nhà cung cấp..." /></label><label><span>Trạng thái</span><select data-supplier-status-filter><option value="all">Tất cả</option><option value="active">Đang hoạt động</option><option value="archived">Đã ẩn</option></select></label><label><span>Số dư</span><select data-supplier-balance-filter><option value="all">Tất cả</option><option value="payable">Còn phải trả</option><option value="credit">Có dư có</option><option value="settled">Đã cân</option></select></label><span class="result-indicator" data-supplier-result-count></span></div>
+          <div class="table-wrap supplier-table-wrap"><table class="management-table supplier-table"><thead><tr><th>Nhà cung cấp</th><th>Liên hệ</th><th>Tổng mua</th><th>Phải trả</th><th>Dư có</th><th>Mua gần nhất</th><th>Trạng thái</th><th></th></tr></thead><tbody data-suppliers-list></tbody></table></div>
+        </section>
+        <aside class="management-drawer" data-supplier-detail hidden aria-label="Chi tiết nhà cung cấp"></aside>
+      </section>
+    </main>
+  </div>
+  <div data-shared-ui></div>
+  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/core/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/vendor/xlsx.bundle.js"></script><script src="../assets/js/core/ui.js"></script><script src="../assets/js/core/navigation.js"></script><script src="../assets/js/pages/channels.js"></script><script src="../assets/js/pages/team.js"></script><script src="../assets/js/pages/accounting.js"></script><script src="../assets/js/pages/purchasing.js"></script><script src="../assets/js/pages/suppliers.js"></script><script src="../assets/js/pages/reports.js"></script><script src="../assets/js/ui/app-shell.js"></script><script src="../assets/js/ui/side-sheet.js"></script><script src="../assets/js/ui/modal.js"></script><script src="../assets/js/ui/popover.js"></script><script src="../assets/js/ui/bottom-sheet.js"></script><script src="../assets/js/ui/command-menu.js"></script><script src="../assets/js/ui/data-table.js"></script><script src="../assets/js/ui/filter-bar.js"></script><script src="../assets/js/ui/toast.js"></script><script src="../assets/js/ui/confirm-dialog.js"></script><script src="../assets/js/app.js"></script>
+</body>
+</html>

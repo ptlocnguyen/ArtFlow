@@ -1,0 +1,8 @@
+.button, .icon-button { border-radius: var(--v3-radius-sm); transition: background var(--v3-fast), border-color var(--v3-fast), color var(--v3-fast), transform var(--v3-fast); }
+.button.primary { color: #fff; border-color: var(--v3-primary); background: var(--v3-primary); }
+.button.primary:hover { border-color: var(--v3-primary-hover); background: var(--v3-primary-hover); }
+.button.ghost, .icon-button { color: #344054; border-color: var(--v3-border); background: var(--v3-surface); }
+.button.danger { color: var(--v3-danger); border-color: #f3c6ca; background: var(--v3-danger-soft); }
+.icon-button:hover, .button.ghost:hover { background: var(--v3-surface-soft); }
+.button:active, .icon-button:active { transform: translateY(1px); }
+.action-overflow { margin-left: auto; }

@@ -1,0 +1,43 @@
+.command-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--command-height);
+  margin: 0 -20px 18px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--v3-border);
+  background: rgba(245,246,248,.94);
+  backdrop-filter: blur(12px);
+}
+.command-bar > .command-mobile-toggle { display: none; }
+.command-bar > div:not(.command-actions) { display: grid; min-width: 0; gap: 1px; }
+.command-bar > div:not(.command-actions) h1 { margin: 0; overflow: hidden; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.command-bar > div:not(.command-actions) .eyebrow { margin: 0; color: var(--v3-muted); font-size: 11px; }
+.command-actions .search-box { width: clamp(190px, 24vw, 360px); min-width: 190px; }
+.command-context { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.command-context h1 { margin: 0; overflow: hidden; font-size: 20px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.command-context .eyebrow { margin: 0; color: var(--v3-muted); font-size: 11px; }
+.command-search { position: relative; min-width: 0; }
+.command-search .search-box { width: 100%; }
+.command-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.command-primary .button { min-height: 42px; }
+.command-mobile-toggle { display: none; }
+@media (max-width: 1240px) { .command-actions .user-chip { display: none; } }
+@media (max-width: 1100px) { .command-bar { grid-template-columns: minmax(150px,1fr) auto; } .command-actions .search-box { width: 220px; } .command-primary .button span:last-child { display: none; } }
+@media (max-width: 900px) { .command-bar { margin-inline: -14px; padding-inline: 14px; } }
+@media (max-width: 700px) {
+  .command-bar { grid-template-columns: minmax(0,1fr) auto; margin-inline: -14px; padding-inline: 14px; }
+  .command-search { grid-column: 1 / -1; grid-row: 2; }
+  .command-context .eyebrow { display: none; }
+  .command-context h1 { font-size: 19px; }
+  .command-bar > .command-mobile-toggle { display: grid; }
+  .command-actions { grid-column: 1 / -1; width: 100%; justify-content: flex-start; overflow: hidden; }
+  .command-actions .user-chip, .command-actions [data-logout] { display: none; }
+  .command-actions:has(.button.primary) [data-popover-trigger="#quick-create-popover"] { display: none; }
+  .command-actions .search-box { order: 10; width: 44px; min-width: 44px; padding: 0; justify-content: center; }
+  .command-actions .search-box input { display: none; }
+}

@@ -1,0 +1,2 @@
+.empty, .management-empty { padding: 32px 20px; color: var(--v3-muted); text-align: center; }
+.empty-state { display: grid; min-height: 180px; place-items: center; gap: 8px; padding: 28px; border: 1px dashed var(--v3-border); border-radius: var(--v3-radius); color: var(--v3-muted); background: var(--v3-surface-soft); }

@@ -7,20 +7,28 @@
   <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="../assets/css/base.css" />
   <link rel="stylesheet" href="../assets/css/app.css" />
+  <link rel="stylesheet" href="../assets/css/v3.css" />
 </head>
 <body data-page="incense" data-root="..">
   <div class="app-shell" data-app-shell hidden>
-    <aside class="sidebar">
-      <a class="brand" href="./dashboard.html"><img class="brand-logo" src="../assets/images/artflow-pos-logo.svg" alt="" /><span><strong>ArtFlow POS</strong><small>Sales workspace</small></span></a>
-      <nav class="nav-list" aria-label="Điều hướng chính" data-nav-list></nav>
-      <div class="sidebar-card"><span class="status-dot"></span><p><strong>Đã kết nối</strong>Phiên làm việc được xác thực qua Worker.</p></div>
+    <aside class="app-navigation" aria-label="Điều hướng ứng dụng">
+      <nav class="app-rail" aria-label="Không gian làm việc">
+        <a class="rail-brand" href="./dashboard.html" aria-label="ArtFlow POS"><img src="../assets/images/artflow-pos-logo.svg" alt="" /></a>
+        <div class="rail-spaces" data-space-nav></div>
+        <div class="rail-footer"><button class="rail-control" type="button" data-rail-collapse aria-label="Thu gọn điều hướng" title="Thu gọn điều hướng"><span data-icon="menu"></span></button></div>
+      </nav>
+      <aside class="context-sidebar">
+        <header class="context-header"><div class="context-brand"><small>Không gian</small><strong data-context-title>ArtFlow POS</strong></div><button class="icon-button context-close" type="button" data-context-close aria-label="Đóng điều hướng"><span data-icon="close"></span></button></header>
+        <nav class="context-nav" aria-label="Điều hướng theo nghiệp vụ" data-nav-list></nav>
+        <footer class="context-footer"><div class="context-connection"><span class="status-dot"></span><span>Đã kết nối qua Worker</span></div></footer>
+      </aside>
     </aside>
     <main class="workspace">
-      <header class="topbar">
-        <button class="icon-button menu-button" type="button" data-menu-toggle aria-label="Mở menu"><span data-icon="menu"></span></button>
+      <header class="command-bar">
+        <button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button>
         <div><p class="eyebrow">Góc vui</p><h1 data-page-title>Xin vía</h1></div>
-        <div class="topbar-actions">
-          <div class="user-chip" data-current-user></div>
+        <div class="command-actions">
+          <button class="icon-button" type="button" data-popover-trigger="#quick-create-popover" aria-label="Tạo nhanh" title="Tạo nhanh"><span data-icon="plus"></span></button><button class="icon-button" type="button" data-popover-trigger="#work-queue-popover" aria-label="Việc cần xử lý" title="Việc cần xử lý"><span data-icon="clipboard"></span></button><div class="user-chip" data-current-user></div>
           <button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button>
         </div>
       </header>
@@ -93,8 +101,8 @@
   </div>
   <div data-shared-ui></div>
   <script src="../assets/js/config.js"></script>
-  <script src="../assets/js/data.js"></script>
+  <script src="../assets/js/data.js"></script><script src="../assets/js/core/data.js"></script>
   <script src="../assets/js/storage.js"></script>
-  <script src="../assets/js/app.js"></script>
+<script src="../assets/js/core/ui.js"></script><script src="../assets/js/core/navigation.js"></script><script src="../assets/js/pages/channels.js"></script><script src="../assets/js/pages/team.js"></script><script src="../assets/js/pages/accounting.js"></script><script src="../assets/js/pages/purchasing.js"></script><script src="../assets/js/pages/suppliers.js"></script><script src="../assets/js/pages/reports.js"></script><script src="../assets/js/ui/app-shell.js"></script><script src="../assets/js/ui/side-sheet.js"></script><script src="../assets/js/ui/modal.js"></script><script src="../assets/js/ui/popover.js"></script><script src="../assets/js/ui/bottom-sheet.js"></script><script src="../assets/js/ui/command-menu.js"></script><script src="../assets/js/ui/data-table.js"></script><script src="../assets/js/ui/filter-bar.js"></script><script src="../assets/js/ui/toast.js"></script><script src="../assets/js/ui/confirm-dialog.js"></script><script src="../assets/js/app.js"></script>
 </body>
 </html>

@@ -28,8 +28,8 @@ try {
 
   const result = await page.evaluate(() => ({
     href: location.href,
-    status: document.querySelector(".sidebar-card")?.dataset.connectionStatus || "",
-    sidebarText: document.querySelector(".sidebar-card")?.textContent || ""
+    status: document.querySelector(".context-connection")?.dataset.connectionStatus || "",
+    sidebarText: document.querySelector(".context-connection")?.textContent || ""
   }));
 
   if (result.href.includes("index.html")) {
