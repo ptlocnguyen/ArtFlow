@@ -30,5 +30,6 @@
     }, { passive: false });
   }
 
-  window.ArtFlowUI = Object.freeze({ bindHorizontalWheel, closeDrawers, setDrawerState, syncPressedState });
+  const root = window.ArtFlowUI = window.ArtFlowUI || {};
+  Object.assign(root, { bindHorizontalWheel, closeDrawers, setDrawerState, syncPressedState });
 }());

@@ -23,7 +23,7 @@ try {
     }));
   });
   await page.route("https://artflow-pos-api.ptlocnguyen.workers.dev/", route => route.abort("failed"));
-  await page.goto(pathToFileURL(path.join(root, "pages", "dashboard.html")).href, { waitUntil: "domcontentloaded" });
+  await page.goto(pathToFileURL(path.join(root, "pages", "products.html")).href, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(5000);
 
   const result = await page.evaluate(() => ({

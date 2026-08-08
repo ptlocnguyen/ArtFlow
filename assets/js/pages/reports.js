@@ -3,21 +3,8 @@
     const { byId, channelLabel, channels, comparisonText, els, money, orderCost, profitSnapshot, reportDayKey, reportFilters, returnedOrderItemQuantity } = runtime;
 
     function renderReports() {
-      if (!els.reportCards) return;
       const snapshot = profitSnapshot(reportFilters.range, reportFilters.channel);
       const previous = profitSnapshot(reportFilters.range, reportFilters.channel, true);
-      const cards = [
-        ["Doanh thu thuần", money.format(snapshot.revenue), reportFilters.range === "all" ? "Toàn bộ dữ liệu" : comparisonText(snapshot, previous, "revenue", "Doanh thu")],
-        ["Lãi gộp", money.format(snapshot.grossProfit), reportFilters.range === "all" ? "Doanh thu trừ giá vốn" : comparisonText(snapshot, previous, "grossProfit", "Lãi gộp")],
-        ["Chi phí vận hành", money.format(snapshot.operatingExpenses), `Giá vốn ${money.format(snapshot.cost)} · không gồm nhập hàng và hoàn tiền`],
-        ["Lãi ròng", money.format(snapshot.netProfit), reportFilters.range === "all"
-          ? `Biên lãi gộp ${(snapshot.grossMargin * 100).toFixed(1)}%`
-          : comparisonText(snapshot, previous, "netProfit", "Lãi ròng")]
-      ];
-      els.reportCards.innerHTML = cards.map(([title, value, note]) => `
-        <article class="report-card"><h3>${title}</h3><strong>${value}</strong><p>${note}</p></article>
-      `).join("");
-    
       if (els.reportComparison) {
         els.reportComparison.textContent = reportFilters.range === "all"
           ? `${snapshot.orders.length} đơn đã ghi nhận`
@@ -98,7 +85,7 @@
   }
 
   function selectReportView(view) {
-    const selected = ["overview", "products", "channels", "expenses"].includes(view) ? view : "overview";
+    const selected = ["business", "products", "channels", "expenses"].includes(view) ? view : "business";
     document.querySelectorAll("[data-report-view]").forEach(button => button.classList.toggle("active", button.dataset.reportView === selected));
     document.querySelectorAll("[data-report-view-panel]").forEach(panel => { panel.hidden = panel.dataset.reportViewPanel !== selected; });
   }

@@ -52,28 +52,6 @@
         .filter(row => omniFilters.channel === "all" || row.mappings.some(item => item.channelId === omniFilters.channel || (channelByIdOrCode(item.channelId) || {}).code === omniFilters.channel))
         .filter(row => omniFilters.stock === "low" ? row.product.stock <= row.product.lowStock : omniFilters.stock === "out" ? row.product.stock <= 0 : omniFilters.stock === "reserved" ? row.reserved > 0 : true)
         .filter(row => omniFilters.issue === "missing" ? row.mappedCount === 0 : omniFilters.issue === "mismatch" ? row.mismatch : true);
-      const kpis = rootNode.querySelector("[data-omni-kpis]");
-      if (kpis) kpis.innerHTML = [
-        ["Kênh hoạt động", channelsList.filter(item => item.status === "active").length, "Đang theo dõi"],
-        ["SKU chưa map", rows.filter(row => row.mappedCount === 0).length, "Cần liên kết"],
-        ["Lệch tồn", rows.filter(row => row.mismatch).length, "Cần kiểm tra"],
-        ["Đang giữ hàng", rows.reduce((sum, row) => sum + row.reserved, 0), "Từ đơn đang xử lý"]
-      ].map(([label, value, note]) => `<article><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`).join("");
-      const queue = rootNode.querySelector("[data-omni-work-queue]");
-      if (queue) {
-        const items = [
-          [rows.filter(row => row.mappedCount === 0).length, "SKU chưa được ánh xạ", "missing"],
-          [rows.filter(row => row.mismatch).length, "SKU đang lệch tồn", "mismatch"],
-          [rows.filter(row => row.product.stock <= 0).length, "SKU đã hết hàng", "out"],
-          [rows.reduce((sum, row) => sum + row.reserved, 0), "Sản phẩm đang giữ cho đơn", "reserved"]
-        ].filter(item => item[0] > 0);
-        queue.innerHTML = items.length ? items.map(([count, label, filter]) => `<button class="channel-work-item" type="button" data-omni-quick-filter="${filter}"><span><strong>${label}</strong><small>Bấm để lọc danh sách</small></span><b>${count}</b></button>`).join("") : `<div class="empty compact">Không có vấn đề cần xử lý.</div>`;
-      }
-      const health = rootNode.querySelector("[data-omni-channel-health]");
-      if (health) health.innerHTML = channelsList.map(channel => {
-        const mapped = (state.channelProducts || []).filter(item => item.channelId === channel.id && item.status !== "deleted").length;
-        return `<article class="channel-health-item"><span><strong>${escapeHtml(channel.name)}</strong><small>${mapped} SKU · ${escapeHtml(channel.syncMode || "manual")}</small></span><i class="status-dot ${channel.status === "active" ? "" : "offline"}"></i></article>`;
-      }).join("") || `<div class="empty compact">Chưa có kênh bán.</div>`;
       const channelFilter = rootNode.querySelector("[data-omni-channel-filter]");
       if (channelFilter) {
         channelFilter.innerHTML = `<option value="all">Tất cả kênh</option>${channelsList.map(channel => `<option value="${channel.id}">${escapeHtml(channel.name)}</option>`).join("")}`;
@@ -98,8 +76,6 @@
       if (!settingsNode) return;
       const term = channelSettingsFilters.search.trim().toLowerCase();
       const visible = channelsList.filter(channel => (channelSettingsFilters.status === "all" || channel.status === channelSettingsFilters.status) && (!term || [channel.name, channel.code, channel.type].join(" ").toLowerCase().includes(term)));
-      const summary = document.querySelector("[data-channel-settings-summary]");
-      if (summary) summary.innerHTML = [["Đang hoạt động", channelsList.filter(item => item.status === "active").length], ["Đồng bộ tự động", channelsList.filter(item => item.syncMode && item.syncMode !== "manual").length], ["Tạm ngừng", channelsList.filter(item => item.status !== "active").length]].map(([label, value]) => `<article><small>${label}</small><strong>${value}</strong></article>`).join("");
       settingsNode.innerHTML = visible.length ? visible.map(channel => `<article class="channel-setting-row"><span><strong>${escapeHtml(channel.name)}</strong><small>${escapeHtml(channel.code)} · ${escapeHtml(channel.type || "marketplace")}</small></span><span><small>Chế độ đồng bộ</small><b>${escapeHtml(channel.syncMode || "manual")}</b></span><span class="status-chip ${channel.status === "active" ? "success" : "warning"}">${channel.status === "active" ? "Đang dùng" : "Tạm ngừng"}</span><button class="button ghost icon-only" type="button" data-open-channel-form data-channel-id="${channel.id}" aria-label="Sửa ${escapeAttribute(channel.name)}" title="Sửa">${icon("edit")}</button></article>`).join("") : `<div class="management-empty">Không có kênh phù hợp bộ lọc.</div>`;
       hydrateIcons(settingsNode);
     }

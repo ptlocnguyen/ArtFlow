@@ -14,22 +14,15 @@
 <body data-page="purchasing" data-root="..">
   <div class="app-shell" data-app-shell hidden>
     <aside class="app-navigation" aria-label="Điều hướng ứng dụng">
-      <nav class="app-rail" aria-label="Không gian làm việc">
-        <a class="rail-brand" href="./dashboard.html" aria-label="ArtFlow POS"><img src="../assets/images/artflow-pos-logo.svg" alt="" /></a>
-        <div class="rail-spaces" data-space-nav></div>
-        <div class="rail-footer"><button class="rail-control" type="button" data-rail-collapse aria-label="Thu gọn điều hướng" title="Thu gọn điều hướng"><span data-icon="menu"></span></button></div>
-      </nav>
       <aside class="context-sidebar">
-        <header class="context-header"><div class="context-brand"><small>Không gian</small><strong data-context-title>ArtFlow POS</strong></div><button class="icon-button context-close" type="button" data-context-close aria-label="Đóng điều hướng"><span data-icon="close"></span></button></header>
+        <header class="context-header"><div class="context-brand"><small>Sales workspace</small><strong data-context-title>ArtFlow POS</strong></div><button class="icon-button context-close" type="button" data-context-close aria-label="Đóng điều hướng"><span data-icon="close"></span></button></header>
         <nav class="context-nav" aria-label="Điều hướng theo nghiệp vụ" data-nav-list></nav>
         <footer class="context-footer"><div class="context-connection"><span class="status-dot"></span><span>Đã kết nối qua Worker</span></div></footer>
       </aside>
     </aside>
     <main class="workspace">
-      <header class="command-bar"><button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div><p class="eyebrow">Hàng hóa & cung ứng</p><h1 data-page-title>Mua hàng</h1></div><div class="command-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm mã phiếu, hóa đơn, nhà cung cấp..." /></label><a class="button primary" href="./purchase-create.html"><span data-icon="plus"></span> Tạo phiếu</a><button class="icon-button" type="button" data-popover-trigger="#quick-create-popover" aria-label="Tạo nhanh" title="Tạo nhanh"><span data-icon="plus"></span></button><button class="icon-button" type="button" data-popover-trigger="#work-queue-popover" aria-label="Việc cần xử lý" title="Việc cần xử lý"><span data-icon="clipboard"></span></button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
+      <header class="command-bar"><button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div><p class="eyebrow">Hàng hóa & cung ứng</p><h1 data-page-title>Mua hàng</h1></div><div class="command-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm mã phiếu, hóa đơn, nhà cung cấp..." /></label><a class="button primary" href="./purchase-create.html"><span data-icon="plus"></span> Tạo phiếu</a><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
       <section class="view active operation-page purchasing-view">
-        <header class="workspace-heading"><div><p class="section-kicker">Hàng cần xử lý</p><h2>Điều phối phiếu mua</h2><p>Theo dõi từ lúc lập phiếu đến nhận hàng và thanh toán.</p></div><div class="workspace-heading-actions"><a class="button ghost" href="./suppliers.html"><span data-icon="users"></span> Nhà cung cấp</a><a class="button ghost" href="./accounting.html?view=receivables&debt=supplier"><span data-icon="receipt"></span> Công nợ</a></div></header>
-        <section class="operation-status-strip purchasing-summary" data-purchasing-kpis></section>
         <section class="operation-toolbar purchasing-workbar">
           <div class="saved-views" aria-label="Lọc nhanh phiếu mua">
             <button class="active" type="button" data-purchase-saved-view="all">Tất cả</button>
@@ -40,7 +33,7 @@
           <div class="toolbar-fields"><label><span>Trạng thái phiếu</span><select data-purchase-status-filter><option value="all">Tất cả</option><option value="draft">Nháp</option><option value="received">Đã nhận hàng</option><option value="cancelled">Đã hủy</option></select></label><label><span>Thanh toán</span><select data-purchase-payment-filter><option value="all">Tất cả</option><option value="unpaid">Chưa thanh toán</option><option value="partial">Một phần</option><option value="paid">Đã thanh toán</option><option value="credit">Dư có</option></select></label></div>
         </section>
         <section class="operation-queue panel purchasing-panel" data-purchasing-section="orders">
-          <div class="panel-header split"><div><h2>Danh sách phiếu mua</h2><p>Chọn một phiếu để xem nhanh và thực hiện bước tiếp theo.</p></div><span class="result-indicator" data-purchase-result-count></span></div>
+          <div class="panel-header split"><div><h2>Danh sách phiếu mua</h2><p><span class="result-indicator" data-purchase-result-count></span> Chọn một phiếu để xem và xử lý.</p></div><div class="panel-header-actions"><a class="button ghost" href="./suppliers.html"><span data-icon="users"></span> Nhà cung cấp</a><a class="button ghost" href="./accounting.html?view=receivables&debt=supplier"><span data-icon="receipt"></span> Công nợ</a></div></div>
           <div class="table-wrap"><table class="purchase-table"><thead><tr><th>Mã phiếu</th><th>Nhà cung cấp</th><th>Hàng hóa</th><th>Trạng thái</th><th>Phải trả</th><th>Hạn trả</th><th>Thao tác</th></tr></thead><tbody data-purchase-orders-table></tbody></table></div>
         </section>
         <aside class="management-drawer operation-detail" data-purchase-detail hidden aria-label="Chi tiết phiếu mua"></aside>

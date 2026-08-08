@@ -1,8 +1,6 @@
 .operation-page, .workspace-page, .analytics-page, .management-page { align-content: start; gap: 14px; }
 .workspace-heading { padding: 0; border: 0; background: transparent; }
 .workspace-heading h2 { font-size: 24px; }
-.operation-status-strip, .analytics-kpi-grid, .management-summary { gap: 10px; }
-.operation-status-strip article, .analytics-kpi-grid article, .management-summary article { border-color: var(--v3-border); border-radius: var(--v3-radius); box-shadow: none; }
 .panel { border-color: var(--v3-border); border-radius: var(--v3-radius); box-shadow: none; }
 .panel-header { padding: 16px 18px 10px; }
 .panel-header h2 { font-size: 18px; }

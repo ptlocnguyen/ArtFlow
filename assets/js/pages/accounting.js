@@ -1,6 +1,6 @@
 (function () {
   function create(runtime) {
-    const { accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, comparisonText, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state } = runtime;
+    const { accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state } = runtime;
 
     function syncAccountingView() {
       document.querySelectorAll("[data-accounting-view-filter]").forEach(button => {
@@ -27,62 +27,9 @@
     
     function renderCommerceAccounting() {
       const payouts = state.platformPayouts || [];
-      const transactions = state.cashTransactions || [];
       const currentMonth = localDateValue().slice(0, 7);
-      const monthTransactions = transactions.filter(item => String(item.transactionDate || item.createdAt).slice(0, 7) === currentMonth);
-      const monthIncome = monthTransactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
-      const monthExpense = monthTransactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
-      const pendingPayout = payouts.filter(item => item.status !== "posted").reduce((sum, item) => sum + item.actualAmount, 0);
-      const mismatchTotal = payouts.filter(item => item.status === "mismatch").reduce((sum, item) => sum + Math.abs(item.difference), 0);
-      const missingDocuments = transactions.filter(item => item.type === "expense" && !item.documentUrl);
       const postedOrderIds = new Set(payouts.filter(item => item.status === "posted").flatMap(item => item.items.map(line => line.orderId).filter(Boolean)));
       const platformOrders = (state.orders || []).filter(order => ["shopee","tiktok","lazada","facebook","website"].includes(order.channel) && ["paid","completed"].includes(order.status) && !postedOrderIds.has(order.id));
-      const kpiNode = document.querySelector("[data-accounting-commerce-kpis]");
-      if (kpiNode) {
-        const customerReceivable = (state.orders || []).filter(order => order.paymentStatus === "unpaid" && order.status !== "cancelled").reduce((sum, order) => sum + Number(order.netTotal || order.total || 0), 0);
-        const supplierPayable = (state.purchaseOrders || []).filter(order => order.status === "received").reduce((sum, order) => sum + Number(order.outstanding || 0), 0);
-        const cards = [
-          ["Tiền hiện có", money.format((state.accountingAccounts || []).reduce((sum, item) => sum + item.currentBalance, 0)), "Tổng số dư sổ"],
-          ["Tiền sàn chờ về", money.format(pendingPayout), `${payouts.filter(item => item.status !== "posted").length} kỳ chưa ghi sổ`],
-          ["Phải thu", money.format(customerReceivable), "Đơn khách chưa thanh toán"],
-          ["Phải trả", money.format(supplierPayable), "Công nợ nhà cung cấp"]
-        ];
-        kpiNode.innerHTML = cards.map(([label,value,note]) => `<article class="accounting-commerce-kpi"><small>${label}</small><strong>${value}</strong><span>${note}</span></article>`).join("");
-      }
-      const secondaryNode = document.querySelector("[data-accounting-secondary-metrics]");
-      if (secondaryNode) secondaryNode.innerHTML = [
-        ["Chưa phân loại", transactions.filter(item => !item.categoryId).length],
-        ["Thiếu chứng từ", missingDocuments.length],
-        ["Đơn chưa đối soát", platformOrders.length],
-        ["Chênh lệch payout", money.format(mismatchTotal)]
-      ].map(([label, value]) => `<article><small>${label}</small><strong>${value}</strong></article>`).join("");
-      const periodLabel = document.querySelector("[data-accounting-period-label]");
-      if (periodLabel) periodLabel.textContent = `tháng ${currentMonth.slice(5, 7)}/${currentMonth.slice(0, 4)}`;
-      const navBadges = {
-        overview: platformOrders.length + missingDocuments.length + payouts.filter(item => item.status === "mismatch").length,
-        ledger: transactions.filter(item => !item.categoryId || (item.type === "expense" && !item.documentUrl)).length,
-        receivables: (state.orders || []).filter(order => order.paymentStatus === "unpaid" && order.status !== "cancelled").length + (state.purchaseOrders || []).filter(order => order.status === "received" && order.outstanding > 0).length,
-        payouts: payouts.filter(item => item.status !== "posted").length,
-        tax: missingDocuments.length
-      };
-      document.querySelectorAll("[data-accounting-nav-badge]").forEach(node => { node.textContent = navBadges[node.dataset.accountingNavBadge] || ""; });
-      const actionNode = document.querySelector("[data-accounting-action-list]");
-      if (actionNode) {
-        const actions = [
-          [platformOrders.length, "Đơn sàn chưa đối soát", "payouts"],
-          [payouts.filter(item => item.status === "mismatch").length, "Payout lệch tiền", "payouts"],
-          [transactions.filter(item => !item.categoryId).length, "Giao dịch chưa phân loại", "ledger"],
-          [(state.accountingAccounts || []).filter(account => !(state.accountingReconciliations || []).some(item => item.accountId === account.id)).length, "Tài khoản chưa từng đối soát", "accountingSettings"]
-        ].filter(item => item[0] > 0);
-        actionNode.innerHTML = actions.length ? actions.map(([count,label,view]) => view === "accountingSettings"
-          ? `<a class="accounting-action-item" href="./accounting-settings.html#accounts"><span>${label}</span><strong>${count}</strong>${icon("external")}</a>`
-          : `<button type="button" class="accounting-action-item" data-accounting-jump="${view}"><span>${label}</span><strong>${count}</strong>${icon("external")}</button>`).join("") : `<div class="empty compact">Không có việc kế toán cần xử lý ngay.</div>`;
-      }
-      const balanceNode = document.querySelector("[data-accounting-balance-list]");
-      if (balanceNode) balanceNode.innerHTML = (state.accountingAccounts || []).map(account => {
-        const recent = (state.accountingReconciliations || []).filter(item => item.accountId === account.id).sort((a,b) => String(b.reconciledAt).localeCompare(String(a.reconciledAt)))[0];
-        return `<article><span><strong>${escapeHtml(account.name)}</strong><small>${recent ? `Đối soát ${formatDate(recent.reconciledAt)}` : "Chưa đối soát"}</small></span><b>${money.format(account.currentBalance)}</b></article>`;
-      }).join("") || `<div class="empty compact">Chưa có tài khoản tiền.</div>`;
     
       const channelFilter = document.querySelector("[data-payout-channel-filter]");
       if (channelFilter) {
@@ -93,24 +40,12 @@
       const rangeFilter = document.querySelector("[data-payout-range-filter]"); if (rangeFilter) rangeFilter.value = accountingFilters.payoutRange;
       const payoutCutoff = accountingFilters.payoutRange === "all" ? "" : shiftDateValue(localDateValue(), -Number(accountingFilters.payoutRange));
       const visiblePayouts = payouts.filter(item => (accountingFilters.payoutChannel === "all" || [item.channelCode,item.channelId].includes(accountingFilters.payoutChannel)) && (accountingFilters.payoutStatus === "all" || item.status === accountingFilters.payoutStatus) && (!payoutCutoff || item.payoutDate >= payoutCutoff));
-      const payoutKpis = document.querySelector("[data-accounting-payout-kpis]");
-      if (payoutKpis) payoutKpis.innerHTML = [
-        ["Chờ đối soát", payouts.filter(item => item.status === "draft").length], ["Đã khớp", payouts.filter(item => item.status === "matched").length],
-        ["Đang lệch", payouts.filter(item => item.status === "mismatch").length], ["Tiền chưa về", money.format(pendingPayout)]
-      ].map(([label,value]) => `<article><small>${label}</small><strong>${value}</strong></article>`).join("");
       const payoutTable = document.querySelector("[data-platform-payout-table]");
       if (payoutTable) payoutTable.innerHTML = visiblePayouts.length ? visiblePayouts.map(item => {
         const meta = payoutStatusMeta(item.status);
         return `<tr><td><strong>${escapeHtml(commerceChannelLabel(item.channelId || item.channelCode))}</strong><small>${escapeHtml(item.payoutCode)} · ${item.items.length} đơn</small></td><td>${formatDate(item.periodStart)} - ${formatDate(item.periodEnd)}</td><td>${money.format(item.expectedAmount)}</td><td><strong>${money.format(item.actualAmount)}</strong></td><td class="${item.difference ? "negative" : "positive"}">${money.format(item.difference)}</td><td><span class="badge ${meta[1]}">${meta[0]}</span></td><td><div class="table-actions"><button class="link-button icon-only" type="button" data-view-platform-payout="${item.id}" title="Chi tiết">${icon("eye")}</button>${item.status !== "posted" ? `<button class="link-button icon-only" type="button" data-match-platform-payout="${item.id}" title="Ghép đơn">${icon("refresh")}</button><button class="button small primary icon-only" type="button" data-post-platform-payout="${item.id}" title="Ghi nhận tiền về">${icon("wallet")}</button>` : ""}</div></td></tr>`;
       }).join("") : `<tr><td colspan="7" class="empty">Chưa có payout phù hợp bộ lọc.</td></tr>`;
     
-      const expenseGroups = { platform_fee:"Phí sàn", marketing:"Marketing", packaging:"Bao bì", payroll:"Lương", operation:"Vận hành", inventory_loss:"Hao hụt kho", other:"Khác" };
-      const expenseTotals = {};
-      monthTransactions.filter(item => item.type === "expense").forEach(item => { const group = getAccountingCategory(item.categoryId).group || "other"; expenseTotals[group] = (expenseTotals[group] || 0) + item.amount; });
-      const expenseSummary = document.querySelector("[data-accounting-expense-summary]"); if (expenseSummary) expenseSummary.innerHTML = `<strong>${money.format(monthExpense)}</strong><span>Tổng chi tháng ${currentMonth}</span>`;
-      const expenseNode = document.querySelector("[data-accounting-expense-groups]"); if (expenseNode) expenseNode.innerHTML = Object.entries(expenseTotals).sort((a,b)=>b[1]-a[1]).map(([group,total]) => `<article><span>${expenseGroups[group] || group}</span><b>${money.format(total)}</b><i style="--share:${monthExpense ? Math.round(total/monthExpense*100) : 0}%"></i></article>`).join("") || `<div class="empty compact">Chưa có chi phí trong tháng.</div>`;
-    
-      const taxSummary = document.querySelector("[data-accounting-tax-summary]"); if (taxSummary) taxSummary.innerHTML = [["Doanh thu tháng",monthIncome],["Tiền sàn đã chuyển",payouts.filter(item=>item.status==="posted").reduce((s,i)=>s+i.actualAmount,0)],["Tổng phí sàn",payouts.reduce((s,i)=>s+i.totalFees,0)],["Chi phí tháng",monthExpense]].map(([label,value])=>`<article><small>${label}</small><strong>${money.format(value)}</strong></article>`).join("");
       const channelRevenue = document.querySelector("[data-accounting-channel-revenue]"); if (channelRevenue) { const totals={}; (state.orders||[]).filter(order=>String(order.createdAt).slice(0,7)===currentMonth).forEach(order=>totals[order.channel]=(totals[order.channel]||0)+order.netTotal); channelRevenue.innerHTML=Object.entries(totals).map(([channel,total])=>`<article><span>${commerceChannelLabel(channel)}</span><b>${money.format(total)}</b></article>`).join("")||`<div class="empty compact">Chưa có doanh thu tháng này.</div>`; }
       document.querySelectorAll("[data-accounting-debt-view]").forEach(button => button.classList.toggle("active", button.dataset.accountingDebtView === accountingFilters.debtView));
       const debtSection = document.querySelector("[data-accounting-section='receivables']");
@@ -128,7 +63,7 @@
         if (note) note.textContent = titles[2];
       }
       const debtOps = document.querySelector("[data-accounting-debt-operations]");
-      document.querySelectorAll("[data-accounting-debt-summary], .accounting-local-toolbar, [data-accounting-receivables]").forEach(node => { node.hidden = accountingFilters.debtView !== "customer"; });
+      document.querySelectorAll(".accounting-local-toolbar, [data-accounting-receivables]").forEach(node => { node.hidden = accountingFilters.debtView !== "customer"; });
       if (debtOps) {
         debtOps.hidden = accountingFilters.debtView === "customer";
         if (accountingFilters.debtView === "platform") {
@@ -203,9 +138,6 @@
           ].join(" ").toLowerCase().includes(term);
         })
         .sort((a, b) => String(b.transactionDate || b.createdAt).localeCompare(String(a.transactionDate || a.createdAt)));
-      const income = transactions.filter(item => item.type === "income").reduce((sum, item) => sum + item.amount, 0);
-      const expense = transactions.filter(item => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
-      const totalBalance = (state.accountingAccounts || []).reduce((sum, account) => sum + account.currentBalance, 0);
       const receivableOrders = state.orders
         .map(order => ({
           order,
@@ -215,43 +147,8 @@
           ageDays: orderAgeDays(order)
         }))
         .filter(item => item.outstanding > 0);
-      const pendingReceivable = receivableOrders.reduce((sum, item) => sum + item.outstanding, 0);
-      const overdueReceivable = receivableOrders.filter(item => item.ageDays > 7).reduce((sum, item) => sum + item.outstanding, 0);
-      const dueSoonReceivable = receivableOrders.filter(item => item.ageDays > 3 && item.ageDays <= 7).reduce((sum, item) => sum + item.outstanding, 0);
-      const netCash = income - expense;
       if (els.accountingLedgerCount) {
         els.accountingLedgerCount.innerHTML = `<strong>${transactions.length}</strong><span>giao dịch phù hợp</span>`;
-      }
-    
-      if (els.accountingLedgerSummary) {
-        const activeAccount = accountingFilters.accountId === "all"
-          ? null
-          : (state.accountingAccounts || []).find(account => account.id === accountingFilters.accountId);
-        const filteredBalance = activeAccount ? activeAccount.currentBalance : totalBalance;
-        const cards = [
-          ["Số dư", money.format(filteredBalance), activeAccount ? activeAccount.name : "Tất cả tài khoản"],
-          ["Thu", money.format(income), accountingRangeLabel(accountingFilters.range)],
-          ["Chi", money.format(expense), accountingRangeLabel(accountingFilters.range)],
-          ["Ròng", money.format(netCash), netCash >= 0 ? "Dòng tiền dương" : "Dòng tiền âm"]
-        ];
-        els.accountingLedgerSummary.innerHTML = cards.map(([label, value, note], index) => `
-          <article data-tone="${index}">
-            <span>${label}</span>
-            <strong>${value}</strong>
-            <small>${note}</small>
-          </article>
-        `).join("");
-      }
-      if (els.accountingKpis) {
-        const cards = [
-          ["Số dư quỹ", money.format(totalBalance), "Tổng số dư các tài khoản tiền."],
-          ["Tổng thu", money.format(income), "Theo sổ quỹ đang lọc."],
-          ["Dòng tiền ròng", money.format(netCash), "Tổng thu trừ tổng chi đang lọc."],
-          ["Công nợ bán hàng", money.format(pendingReceivable), "Số còn phải thu sau các phiếu thu."]
-        ];
-        els.accountingKpis.innerHTML = cards.map(([label, value, note]) => `
-          <article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>
-        `).join("");
       }
     
       if (els.accountingAccounts) {
@@ -301,13 +198,6 @@
       }
     
       if (els.accountingReceivables) {
-        if (els.accountingDebtSummary) {
-          els.accountingDebtSummary.innerHTML = `
-            <article><span>Phải thu</span><strong>${money.format(pendingReceivable)}</strong></article>
-            <article><span>4-7 ngày</span><strong>${money.format(dueSoonReceivable)}</strong></article>
-            <article><span>Quá 7 ngày</span><strong>${money.format(overdueReceivable)}</strong></article>
-          `;
-        }
         const receivables = receivableOrders
           .filter(item => {
             if (accountingFilters.receivable === "overdue") return item.ageDays > 7;
@@ -344,20 +234,6 @@
           els.accountingPayrollSearch.value = accountingFilters.payrollSearch;
         }
         const payrollRows = accountingPayrollRows();
-        const payrollTotal = payrollRows.reduce((sum, transaction) => sum + transaction.amount, 0);
-        const latestPayroll = payrollRows[0];
-        const payrollAccounts = new Set(payrollRows.map(transaction => transaction.accountId)).size;
-        if (els.accountingPayrollSummary) {
-          const cards = [
-            ["Tổng đã trả", money.format(payrollTotal), accountingRangeLabel(accountingFilters.payrollRange)],
-            ["Lần chi", String(payrollRows.length), payrollRows.length ? `Bình quân ${money.format(payrollTotal / payrollRows.length)}` : "Chưa phát sinh"],
-            ["Tài khoản chi", String(payrollAccounts), "Số nguồn tiền đã sử dụng"],
-            ["Gần nhất", latestPayroll ? formatDate(latestPayroll.transactionDate || latestPayroll.createdAt) : "—", latestPayroll ? latestPayroll.description : "Chưa ghi lương"]
-          ];
-          els.accountingPayrollSummary.innerHTML = cards.map(([label, value, note], index) => `
-            <article data-tone="${index}"><span>${label}</span><strong>${value}</strong><small>${escapeHtml(note)}</small></article>
-          `).join("");
-        }
         els.accountingPayrollTable.innerHTML = payrollRows.length ? payrollRows.map(transaction => `
           <tr>
             <td>${formatDate(transaction.transactionDate || transaction.createdAt)}</td>
@@ -465,31 +341,15 @@
     }
     
     function renderAccountingProfit() {
-      if (!els.accountingProfitSummary && !els.accountingProductProfitTable) return;
+      if (!els.accountingProductProfitTable && !els.accountingProfitChart && !els.accountingProfitInsights) return;
       const range = els.accountingProfitRange ? els.accountingProfitRange.value || accountingFilters.range : accountingFilters.range;
       const snapshot = profitSnapshot(range, "all");
-      const previous = profitSnapshot(range, "all", true);
       const payrollExpense = snapshot.transactions.reduce((sum, transaction) => {
         const category = byId("accountingCategories", transaction.categoryId);
         return /lương|luong|cộng tác viên|cong tac vien|payroll/i.test(String(category ? category.name : "") + " " + String(transaction.description || ""))
           ? sum + transaction.amount
           : sum;
       }, 0);
-      if (els.accountingProfitSummary) {
-        const netMargin = snapshot.revenue > 0 ? snapshot.netProfit / snapshot.revenue : 0;
-        const cards = [
-          ["Doanh thu thuần", money.format(snapshot.revenue), range === "all" ? "Toàn bộ dữ liệu" : comparisonText(snapshot, previous, "revenue", "Doanh thu")],
-          ["Lãi gộp", money.format(snapshot.grossProfit), `${(snapshot.grossMargin * 100).toFixed(1)}% biên lãi gộp`],
-          ["Lãi ròng", money.format(snapshot.netProfit), `${(netMargin * 100).toFixed(1)}% biên lãi ròng`]
-        ];
-        els.accountingProfitSummary.innerHTML = cards.map(([label, value, note], index) => `
-          <article class="accounting-profit-card" data-tone="${index}">
-            <span>${label}</span>
-            <strong>${value}</strong>
-            <small>${note}</small>
-          </article>
-        `).join("");
-      }
       if (els.accountingProfitInsights) {
         const products = productProfitRowsFromSnapshot(snapshot);
         const topProduct = products[0];

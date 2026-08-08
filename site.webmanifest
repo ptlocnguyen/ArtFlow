@@ -1,7 +1,7 @@
 {
   "name": "ArtFlow POS",
   "short_name": "ArtFlow POS",
-  "description": "Personal sales management dashboard for small teams.",
+  "description": "Sales and operations management for small teams.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f6f8fb",

@@ -49,7 +49,7 @@
   let pageDataReady = false;
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
   const accountingFilters = {
-    view: accountingTransactionTarget ? "ledger" : (["overview", "ledger", "receivables", "payouts", "payroll", "tax"].includes(routeParams.get("view")) ? routeParams.get("view") : "overview"),
+    view: accountingTransactionTarget ? "ledger" : (["ledger", "receivables", "payouts", "payroll", "tax"].includes(routeParams.get("view")) ? routeParams.get("view") : "ledger"),
     type: "all",
     accountId: "all",
     range: "30",
@@ -69,7 +69,7 @@
     accountingFilters.view = "ledger";
     accountingFilters.range = "all";
   }
-  if (page === "accounting" && !accountingTransactionTarget && ["overview", "ledger", "receivables", "payouts", "payroll", "tax"].includes(routeParams.get("view"))) {
+  if (page === "accounting" && !accountingTransactionTarget && ["ledger", "receivables", "payouts", "payroll", "tax"].includes(routeParams.get("view"))) {
     accountingFilters.view = routeParams.get("view");
   }
   const reportFilters = { range: "30", channel: "all" };
@@ -123,7 +123,6 @@
     chevronDown: '<path d="m6 9 6 6 6-6"/>',
     clipboard: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M8 11h8M8 16h5"/>',
     close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-    dashboard: '<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
     download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',
     edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
     external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
@@ -175,7 +174,6 @@
   }
 
   const pages = {
-    dashboard: { title: "Tổng quan", href: "./dashboard.html", icon: "dashboard", roles: ["admin", "sales", "inventory", "viewer"], modes: ["simple", "standard", "advanced"] },
     orderCreate: { title: "Tạo đơn", href: "./order-create.html", icon: "shoppingCart", roles: ["admin", "sales"], modes: ["simple", "standard", "advanced"], hidden: true },
     orders: { title: "Đơn hàng", href: "./orders.html", icon: "clipboard", roles: ["admin", "sales", "viewer"], modes: ["simple", "standard", "advanced"] },
     customers: { title: "Khách hàng", href: "./customers.html", icon: "users", roles: ["admin", "sales", "viewer"], modes: ["simple", "standard", "advanced"] },
@@ -191,16 +189,15 @@
     channels: { title: "Kênh bán", href: "./channels.html", icon: "truck", roles: ["admin"], modes: ["advanced"] },
     channelSettings: { title: "Thiết lập kênh", href: "./channel-settings.html", icon: "settings", roles: ["admin"], modes: ["advanced"], hidden: true, parent: "channels" },
     team: { title: "Team Hub", href: "./team.html", icon: "briefcase", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
-    teamPricing: { title: "Tính giá", href: "./team-pricing.html", icon: "calculator", roles: ["admin", "inventory"], modes: ["standard", "advanced"] },
-    meetingMinutes: { title: "Biên bản họp", href: "./meeting-minutes.html", icon: "clipboard", roles: ["admin"], modes: ["advanced"] },
-    incense: { title: "Xin vía", href: "./incense.html", icon: "sparkles", roles: ["admin", "sales", "inventory"], modes: ["advanced"] },
+    teamPricing: { title: "Tính giá", href: "./team-pricing.html", icon: "calculator", roles: ["admin", "inventory"], modes: ["standard", "advanced"], hidden: true },
+    meetingMinutes: { title: "Biên bản họp", href: "./meeting-minutes.html", icon: "clipboard", roles: ["admin"], modes: ["advanced"], hidden: true },
+    incense: { title: "Xin vía", href: "./incense.html", icon: "sparkles", roles: ["admin", "sales", "inventory"], modes: ["advanced"], hidden: true },
     users: { title: "Nhân viên", href: "./users.html", icon: "userPlus", roles: ["admin"], modes: ["standard", "advanced"], adminOnly: true },
     settings: { title: "Cài đặt", href: "./settings.html", icon: "settings", roles: ["admin"], modes: ["standard", "advanced"], adminOnly: true },
     activity: { title: "Lịch sử hoạt động", href: "./activity.html", icon: "history", roles: ["admin"], modes: ["advanced"], adminOnly: true }
   };
 
   const navGroups = [
-    { id: "overview", title: "Tổng quan", defaultOpen: true, items: ["dashboard"] },
     { id: "sales", title: "Bán hàng", defaultOpen: true, items: ["orderCreate", "orders", "customers"] },
     { id: "catalog", title: "Hàng hóa & cung ứng", defaultOpen: true, items: ["products", "teamPricing", "inventory", "purchasing", "suppliers"] },
     { id: "growth", title: "Kênh bán & tăng trưởng", defaultOpen: false, items: ["channels", "content"] },
@@ -276,10 +273,6 @@
     spaceNav: qs("[data-space-nav]"),
     contextTitle: qs("[data-context-title]"),
     navList: qs("[data-nav-list]"),
-    kpis: qs("[data-kpis]"),
-    lowStock: qs("[data-low-stock]"),
-    revenueChart: qs("[data-revenue-chart]"),
-    recentOrders: qs("[data-recent-orders]"),
     ordersTable: qs("[data-orders-table]"),
     orderCreateForm: qs("[data-order-create-form]"),
     purchaseCreateForm: qs("[data-purchase-create-form]"),
@@ -303,7 +296,6 @@
     contentChannelFilter: qs("[data-content-channel-filter]"),
     contentProductFilter: qs("[data-content-product-filter]"),
     contentScheduleFilter: qs("[data-content-schedule-filter]"),
-    teamKpis: qs("[data-team-kpis]"),
     teamContent: qs("[data-team-content]"),
     teamStatusFilter: qs("[data-team-status-filter]"),
     teamOwnerFilter: qs("[data-team-owner-filter]"),
@@ -336,47 +328,36 @@
     usersTable: qs("[data-users-table]"),
     settingsForm: qs("[data-settings-form]"),
     settingsPreview: qs("[data-settings-preview]"),
-    auditKpis: qs("[data-audit-kpis]"),
     auditTable: qs("[data-audit-table]"),
     auditHealth: qs("[data-audit-health]"),
     auditEntityFilter: qs("[data-audit-entity-filter]"),
     auditRangeFilter: qs("[data-audit-range-filter]"),
-    inventoryCards: qs("[data-inventory-cards]"),
     inventoryProductsTable: qs("[data-inventory-products-table]"),
     stockMovementsTable: qs("[data-stock-movements-table]"),
-    accountingKpis: qs("[data-accounting-kpis]"),
     accountingAccounts: qs("[data-accounting-accounts]"),
     accountingReconciliations: qs("[data-accounting-reconciliations]"),
     accountingCategories: qs("[data-accounting-categories]"),
     accountingCategoriesIncome: qs("[data-accounting-categories-income]"),
     accountingCategoriesExpense: qs("[data-accounting-categories-expense]"),
     accountingTransactionsTable: qs("[data-accounting-transactions-table]"),
-    accountingLedgerSummary: qs("[data-accounting-ledger-summary]"),
     accountingReceivables: qs("[data-accounting-receivables]"),
-    accountingDebtSummary: qs("[data-accounting-debt-summary]"),
     accountingTypeSelect: qs("[data-accounting-type-select]"),
     accountingAccountFilter: qs("[data-accounting-account-filter]"),
     accountingRangeFilter: qs("[data-accounting-range-filter]"),
     accountingLedgerCount: qs("[data-accounting-ledger-count]"),
     accountingProfitRange: qs("[data-accounting-profit-range]"),
-    accountingProfitSummary: qs("[data-accounting-profit-summary]"),
     accountingProfitChart: qs("[data-accounting-profit-chart]"),
     accountingExpenseBreakdown: qs("[data-accounting-expense-breakdown]"),
     accountingProductProfitTable: qs("[data-accounting-product-profit-table]"),
     accountingProfitCount: qs("[data-accounting-profit-count]"),
     accountingProfitInsights: qs("[data-accounting-profit-insights]"),
-    accountingPayrollSummary: qs("[data-accounting-payroll-summary]"),
     accountingPayrollRange: qs("[data-accounting-payroll-range]"),
     accountingPayrollSearch: qs("[data-accounting-payroll-search]"),
     accountingPayrollTable: qs("[data-accounting-payroll-table]"),
-    purchasingKpis: qs("[data-purchasing-kpis]"),
     purchaseOrdersTable: qs("[data-purchase-orders-table]"),
     suppliersList: qs("[data-suppliers-list]"),
-    purchaseAgingSummary: qs("[data-purchase-aging-summary]"),
-    purchaseAgingTable: qs("[data-purchase-aging-table]"),
     purchaseStatusFilter: qs("[data-purchase-status-filter]"),
     purchasePaymentFilter: qs("[data-purchase-payment-filter]"),
-    reportCards: qs("[data-report-cards]"),
     reportRange: qs("[data-report-range]"),
     reportChannel: qs("[data-report-channel]"),
     reportComparison: qs("[data-report-comparison]"),
@@ -407,18 +388,6 @@
         </section>
       </div>
       <button class="menu-scrim" type="button" data-menu-close aria-label="Đóng menu"></button>
-      <div class="popover" id="quick-create-popover" data-popover hidden>
-        <a class="nav-link" href="./order-create.html">${icon("shoppingCart")}<span>Tạo đơn bán</span></a>
-        <a class="nav-link" href="./purchase-create.html">${icon("truck")}<span>Tạo phiếu mua</span></a>
-        <a class="nav-link" href="./accounting.html?view=ledger">${icon("wallet")}<span>Ghi thu hoặc chi</span></a>
-        <a class="nav-link" href="./team.html?view=tasks">${icon("clipboard")}<span>Tạo việc cần làm</span></a>
-      </div>
-      <div class="popover" id="work-queue-popover" data-popover hidden>
-        <strong>Việc cần xử lý</strong>
-        <a class="nav-link" href="./orders.html?status=pending">${icon("clipboard")}<span>Đơn chờ xác nhận</span></a>
-        <a class="nav-link" href="./inventory.html?view=health">${icon("warehouse")}<span>Tồn kho cần chú ý</span></a>
-        <a class="nav-link" href="./accounting.html?view=overview">${icon("calculator")}<span>Việc tài chính hôm nay</span></a>
-      </div>
       <div class="toast" data-toast hidden></div>
       <div class="loading-overlay" data-loading-overlay hidden>
         <div class="loading-card" role="status" aria-live="polite">
@@ -733,8 +702,8 @@
     }, 3000);
   }
 
-  function redirectToDashboard() {
-    window.location.href = page === "auth" ? "./pages/dashboard.html" : "./dashboard.html";
+  function redirectToHome() {
+    window.location.href = page === "auth" ? "./pages/products.html" : "./products.html";
   }
 
   function redirectToLogin() {
@@ -1041,14 +1010,6 @@
     return Math.floor((current.getTime() - due.getTime()) / (24 * 60 * 60 * 1000));
   }
 
-  function purchaseAgingBucket(order) {
-    const days = purchaseDueDays(order);
-    if (days === null || days <= 0) return { key: "current", label: "Chưa đến hạn", tone: "active", days };
-    if (days <= 30) return { key: "1-30", label: "Quá hạn 1–30 ngày", tone: "pending", days };
-    if (days <= 60) return { key: "31-60", label: "Quá hạn 31–60 ngày", tone: "pending", days };
-    return { key: "60+", label: "Quá hạn trên 60 ngày", tone: "cancelled", days };
-  }
-
   function isPaid(order) {
     return order.paymentStatus === "paid" || order.status === "paid";
   }
@@ -1289,7 +1250,6 @@
 
   function dataScopesForPage() {
     const scopesByPage = {
-      dashboard: ["products", "customers", "orders", "accounting", "content", "team", "omni"],
       orders: ["customers", "orders", "accounting", "settings"],
       orderCreate: ["products", "customers", "settings"],
       products: ["products"],
@@ -1509,7 +1469,7 @@
       }));
       setToken(data.token);
       setCachedSessionUser(data.user);
-      redirectToDashboard();
+      redirectToHome();
     } catch (error) {
       if (errorBox) {
         errorBox.textContent = error.message;
@@ -1529,7 +1489,6 @@
     const canShow = ([key, item]) => {
       if (!item || item.hidden) return false;
       if (item.adminOnly && !isAdmin()) return false;
-      if (key !== activeNavPage && item.modes && item.modes.indexOf(UX_MODE) === -1) return false;
       if (item.roles && item.roles.indexOf(role) === -1) return false;
       return true;
     };
@@ -1540,18 +1499,9 @@
         .filter(canShow),
       hasActive: group.items.indexOf(activeNavPage) !== -1
     })).filter(group => group.items.length);
-    const activeGroup = visibleGroups.find(group => group.hasActive) || visibleGroups[0];
-    const spaceIcons = { overview: "dashboard", sales: "shoppingCart", catalog: "package", growth: "chart", finance: "calculator", internal: "users", admin: "settings" };
-
-    if (els.spaceNav) {
-      els.spaceNav.innerHTML = visibleGroups.map(group => {
-        const destination = group.items[0]?.[1]?.href || "./dashboard.html";
-        return `<a class="rail-link ${group.id === activeGroup?.id ? "active" : ""}" href="${destination}" title="${escapeAttribute(group.title)}" aria-label="${escapeAttribute(group.title)}" ${group.id === activeGroup?.id ? "aria-current=\"true\"" : ""}>${icon(spaceIcons[group.id] || "file")}</a>`;
-      }).join("");
-    }
-    if (els.contextTitle) els.contextTitle.textContent = activeGroup?.title || "ArtFlow POS";
+    if (els.spaceNav) els.spaceNav.innerHTML = "";
+    if (els.contextTitle) els.contextTitle.textContent = "ArtFlow POS";
     const financeViews = page === "accounting" ? [
-      ["overview", "dashboard", "Tổng quan", "Ưu tiên hôm nay"],
       ["ledger", "wallet", "Dòng tiền", "Thu, chi và chứng từ"],
       ["receivables", "receipt", "Công nợ", "Các khoản cần thu, trả"],
       ["payouts", "refresh", "Đối soát sàn", "Tiền về và chênh lệch"],
@@ -1561,18 +1511,18 @@
     const financeViewMarkup = financeViews.length ? `<div class="context-view-list">${financeViews.map(([view, viewIcon, label, note]) => `
       <button class="nav-link ${accountingFilters.view === view ? "active" : ""}" type="button" data-accounting-view-filter="${view}">
         <span class="nav-icon">${icon(viewIcon)}</span><span><strong>${label}</strong><small>${note}</small></span><b data-accounting-nav-badge="${view}"></b>
-      </button>`).join("")}<a class="nav-link" href="./accounting-settings.html"><span class="nav-icon">${icon("settings")}</span><span><strong>Thiết lập</strong><small>Tài khoản và quy tắc</small></span></a></div>` : "";
-    els.navList.innerHTML = activeGroup ? `
-      <section class="nav-group open active" data-nav-group="${activeGroup.id}">
-        <p class="context-section-label">${escapeHtml(activeGroup.title)}</p>
+      </button>`).join("")}<a class="nav-link" href="./reports.html"><span class="nav-icon">${icon("chart")}</span><span><strong>Báo cáo</strong><small>Doanh thu và lợi nhuận</small></span></a><a class="nav-link" href="./accounting-settings.html"><span class="nav-icon">${icon("settings")}</span><span><strong>Thiết lập</strong><small>Tài khoản và quy tắc</small></span></a></div>` : "";
+    els.navList.innerHTML = visibleGroups.map(group => `
+      <section class="nav-group open ${group.hasActive ? "active" : ""}" data-nav-group="${group.id}">
+        <p class="context-section-label">${escapeHtml(group.title)}</p>
         <div class="nav-group-items">
-          ${financeViews.length ? financeViewMarkup : activeGroup.items.map(([key, item]) => `
+          ${group.id === "finance" && financeViews.length ? financeViewMarkup : group.items.map(([key, item]) => `
             <a class="nav-link ${key === activeNavPage ? "active" : ""}" href="${item.href}" data-nav-page="${key}" ${key === activeNavPage ? "aria-current=\"page\"" : ""}>
               <span class="nav-icon">${icon(item.icon)}</span><span>${escapeHtml(item.title)}</span>
             </a>`).join("")}
         </div>
-      </section>` : "";
-    hydrateIcons(els.spaceNav || document);
+      </section>`).join("");
+    hydrateIcons(els.navList || document);
   }
 
   function applyPermissions() {
@@ -1664,7 +1614,7 @@
     currentUser = user;
     if (user && user.id !== "offline") setCachedSessionUser(user);
     if (["users", "activity"].includes(page) && !isAdmin()) {
-      window.location.href = "./dashboard.html";
+      window.location.href = "./products.html";
       return;
     }
     if (page === "purchaseCreate" && !canManagePurchasing()) {
@@ -1702,7 +1652,7 @@
     try {
       if (getToken()) {
         await withLoading("Đang kiểm tra phiên đăng nhập...", () => apiRequest("/auth/me", { retries: 1 }));
-        redirectToDashboard();
+        redirectToHome();
         return;
       }
       const status = await withLoading("Đang kiểm tra thiết lập hệ thống...", () => apiRequest("/auth/bootstrap-status", { retries: 1 }));
@@ -2571,85 +2521,6 @@
     showToast(`Đã xuất ${snapshot.orders.length} đơn trong báo cáo.`);
   }
 
-  function renderKpis() {
-    if (!els.kpis) return;
-    const snapshot = profitSnapshot();
-    const cards = [
-      ["Doanh thu thuần", money.format(snapshot.revenue), "Đã trừ hàng khách trả"],
-      ["Lãi gộp", money.format(snapshot.grossProfit), "Doanh thu trừ giá vốn thực"],
-      ["Lãi ròng", money.format(snapshot.netProfit), "Sau chi phí vận hành"],
-      ["Biên lãi gộp", `${(snapshot.grossMargin * 100).toFixed(1)}%`, "Tỷ lệ lãi trên doanh thu thuần"]
-    ];
-    els.kpis.innerHTML = cards.map(([label, value, note]) => `
-      <article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>
-    `).join("");
-  }
-
-  function renderChart() {
-    if (!els.revenueChart) return;
-    const days = Array.from({ length: 7 }, (_, index) => shiftDateValue(localDateValue(), -(6 - index)));
-    const values = days.map(day => state.orders.filter(order => reportDayKey(order.createdAt) === day && isPaid(order)).reduce((sum, order) => sum + order.netTotal, 0));
-    const max = Math.max(...values, 1);
-    els.revenueChart.innerHTML = days.map((day, index) => {
-      const height = Math.max(18, Math.round((values[index] / max) * 140));
-      const label = day.slice(5).replace("-", "/");
-      const value = values[index] ? money.format(values[index]).replace(/\s?₫/, "") : "0";
-      return `<div class="chart-bar" style="--bar-height: ${height}px"><strong>${value}</strong><span>${label}</span></div>`;
-    }).join("");
-  }
-
-  function renderKpis() {
-    if (!els.kpis) return;
-    const snapshot = profitSnapshot();
-    const cards = [
-      ["Doanh thu thuần", money.format(snapshot.revenue), "Đã trừ hàng khách trả", "revenue"],
-      ["Lãi gộp", money.format(snapshot.grossProfit), "Doanh thu trừ giá vốn thực", "gross"],
-      ["Lãi ròng", money.format(snapshot.netProfit), "Sau chi phí vận hành", snapshot.netProfit < 0 ? "danger" : "net"],
-      ["Biên lãi gộp", `${(snapshot.grossMargin * 100).toFixed(1)}%`, "Tỷ lệ lãi trên doanh thu thuần", snapshot.grossMargin < 0.2 ? "warning" : "margin"]
-    ];
-    els.kpis.innerHTML = cards.map(([label, value, note, tone]) => `
-      <article class="kpi-card dashboard-kpi-card" data-kpi-tone="${tone}"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>
-    `).join("");
-  }
-
-  function renderChart() {
-    if (!els.revenueChart) return;
-    const days = Array.from({ length: 7 }, (_, index) => shiftDateValue(localDateValue(), -(6 - index)));
-    const values = days.map(day => state.orders.filter(order => reportDayKey(order.createdAt) === day && isPaid(order)).reduce((sum, order) => sum + order.netTotal, 0));
-    const max = Math.max(...values, 1);
-    const total = values.reduce((sum, value) => sum + value, 0);
-    const bestIndex = values.indexOf(max);
-    const bars = days.map((day, index) => {
-      const height = values[index] ? Math.max(10, Math.round((values[index] / max) * 100)) : 2;
-      const label = day.slice(5).replace("-", "/");
-      const value = values[index] ? compactMoney(values[index]) : "0";
-      const active = index === bestIndex && values[index] > 0 ? " peak" : "";
-      return `
-        <div class="chart-day${active}" title="${label}: ${money.format(values[index])}">
-          <strong>${value}</strong>
-          <div class="chart-track"><span class="chart-bar" style="--bar-height: ${height}%"></span></div>
-          <small>${label}</small>
-        </div>`;
-    }).join("");
-    els.revenueChart.innerHTML = `
-      <div class="chart-headline">
-        <span><b>Tổng 7 ngày</b> ${money.format(total)}</span>
-        <span><b>Cao nhất</b> ${values[bestIndex] ? `${days[bestIndex].slice(5).replace("-", "/")} · ${compactMoney(values[bestIndex])}` : "Chưa có"}</span>
-      </div>
-      <div class="chart-plot">
-        <div class="chart-axis"><span>${compactMoney(max)}</span><span>${compactMoney(max / 2)}</span><span>0</span></div>
-        <div class="chart-bars">${bars}</div>
-      </div>`;
-  }
-
-  function renderLowStock() {
-    if (!els.lowStock) return;
-    const products = filtered(state.products.filter(product => product.status === "active" && product.stock <= product.lowStock), ["sku", "name", "category"]).sort((a, b) => a.stock - b.stock);
-    els.lowStock.innerHTML = products.length ? products.map(product => `
-      <div class="mini-item"><div><strong>${product.name}</strong><small>${product.sku} · Ngưỡng ${product.lowStock}</small></div><span class="badge low">${product.stock} còn</span></div>
-    `).join("") : `<div class="empty">${searchTerm ? "Không tìm thấy cảnh báo kho phù hợp." : "Chưa có cảnh báo tồn kho."}</div>`;
-  }
-
   function renderOrdersRows(target, rows, limit) {
     if (!target) return;
     const selectedRows = limit ? rows.slice(0, limit) : rows;
@@ -2845,21 +2716,6 @@
       [els.productSort, "sort"]
     ].forEach(([select, key]) => {
       if (select) select.value = productFilters[key];
-    });
-
-    const inventoryValue = products.reduce((sum, product) => sum + Number(product.stock || 0) * Number(product.costPrice || 0), 0);
-    const retailValue = products.reduce((sum, product) => sum + Number(product.stock || 0) * Number(product.salePrice || 0), 0);
-    const potentialProfit = products.reduce((sum, product) => sum + Number(product.stock || 0) * productGrossProfit(product), 0);
-    const attentionProducts = products.filter(product => product.status === "active" && (product.stock <= product.lowStock || !productHasShopPrice(product) || (productHasShopPrice(product) && productGrossProfit(product) <= 0) || !productAssetsComplete(product)));
-    const kpiValues = {
-      "[data-product-kpi-total]": products.length,
-      "[data-product-kpi-value]": money.format(inventoryValue),
-      "[data-product-kpi-margin]": `${retailValue > 0 ? (potentialProfit / retailValue * 100).toFixed(1) : "0.0"}%`,
-      "[data-product-kpi-attention]": attentionProducts.length
-    };
-    Object.entries(kpiValues).forEach(([selector, value]) => {
-      const target = qs(selector);
-      if (target) target.textContent = value;
     });
 
     const termFiltered = filtered(products, ["sku", "name", "category", "brand", "barcode", "contentOwner", "seoKeywords", "websiteProductUrl", "shopeeProductUrl", "tiktokProductUrl", "facebookProductUrl", "contentPostLinks"]);
@@ -3185,36 +3041,12 @@
     const items = (state.contentItems || []).filter(item => item.status !== "deleted");
     renderContentFilters(items);
     const visibleItems = filteredContentItems().sort((a, b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
-    const productContent = (state.products || []).filter(product => product.status !== "deleted");
-    const missingProductAssets = productContent.filter(product => !productAssetsComplete(product));
-    if (els.contentKpis) {
-      els.contentKpis.innerHTML = [
-        ["Chủ đề", items.length, "Tất cả topic/content task"],
-        ["Đang xử lý", items.filter(item => ["briefing", "drafting", "review"].includes(item.status)).length, "Brief, viết, chờ duyệt"],
-        ["Sẵn sàng", ready, "Có thể đăng hoặc đã lên lịch"],
-        ["Trễ hạn", overdue, "Cần ưu tiên xử lý"]
-      ].map(([label, value, note], index) => `<article class="content-kpi-card" data-tone="${index}"><span>${label}</span><strong>${value}</strong><small>${note}</small></article>`).join("");
-    }
-    if (els.contentProductList) {
-      const rows = productContent
-        .filter(product => {
-          const term = searchTerm.trim().toLowerCase();
-          return !term || [product.sku, product.name, product.category, product.brand, product.seoKeywords].join(" ").toLowerCase().includes(term);
-        })
-        .sort((a, b) => Number(!productAssetsComplete(b)) - Number(!productAssetsComplete(a)) || a.name.localeCompare(b.name, "vi"))
-        .slice(0, 16);
-      els.contentProductList.innerHTML = rows.map(product => {
-        const related = items.filter(item => item.productId === product.id);
-        return `<article class="content-product-card"><div>${renderProductThumb(product, "content-product-thumb")}<span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}</small></span></div><div><span class="badge content-${product.contentStatus}">${productContentStatuses[product.contentStatus]}</span><small>${related.length} chủ đề · ${productAssetsComplete(product) ? "Đủ tài nguyên" : "Thiếu tài nguyên"}</small></div><div class="row-actions">${product.contentDocUrl ? `<a class="link-button icon-only" href="${escapeAttribute(product.contentDocUrl)}" target="_blank" rel="noopener" title="Mở Docs">${icon("external")}</a>` : ""}${canManageContent() ? `<button class="link-button icon-only" type="button" data-create-product-content="${product.id}" title="Tạo chủ đề">${icon("plus")}</button><button class="link-button icon-only" type="button" data-provision-product="${product.id}" title="Tạo tài nguyên sản phẩm">${icon("folderPlus")}</button>` : ""}</div></article>`;
-      }).join("") || `<p class="content-empty">Không có sản phẩm phù hợp.</p>`;
-    }
     if (els.contentTable) {
       els.contentTable.innerHTML = visibleItems.length ? visibleItems.map(item => {
         const product = getContentProduct(item);
         return `<tr><td><strong>${escapeHtml(item.title)}</strong><br><small>${escapeHtml(contentItemTypes[item.type] || item.type)}${product ? ` · ${escapeHtml(product.sku)}` : ""}</small></td><td><span class="badge content-${item.status}">${contentItemStatuses[item.status] || item.status}</span></td><td>${escapeHtml(contentChannels[item.channel] || item.channel)}</td><td>${escapeHtml(item.owner || "—")}</td><td>${item.dueDate ? formatDate(item.dueDate) : "—"}${item.publishAt ? `<br><small>Đăng: ${escapeHtml(formatDateTimeShort(item.publishAt))}</small>` : ""}</td><td>${contentAssetsComplete(item) ? `<span class="assets-complete">Đủ</span>` : `<span class="assets-missing">Thiếu</span>`}</td><td><div class="row-actions">${item.contentDocUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.contentDocUrl)}" target="_blank" rel="noopener" title="Mở Docs">${icon("external")}</a>` : ""}${item.mediaFolderUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.mediaFolderUrl)}" target="_blank" rel="noopener" title="Mở Drive">${icon("folderPlus")}</a>` : ""}${canManageContent() ? `<button class="link-button icon-only" type="button" data-edit-content="${item.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-content="${item.id}" title="Ẩn">${icon("archive")}</button>` : ""}</div></td></tr>`;
       }).join("") : `<tr><td colspan="7" class="empty">Chưa có chủ đề content phù hợp.</td></tr>`;
     }
-    document.querySelectorAll("[data-content-missing-count]").forEach(node => { node.textContent = missingProductAssets.length; });
   }
 
   function renderContentItemForm(item, defaults = {}) {
@@ -3849,19 +3681,6 @@
       return matchesEntity && matchesDate && (!term || text.includes(term));
     });
 
-    if (els.auditKpis) {
-      const today = reportDayKey(new Date());
-      const todayCount = auditLogs.filter(log => reportDayKey(log.createdAt) === today).length;
-      const actors = new Set(auditLogs.map(log => log.actorId || log.actorEmail || log.actorName).filter(Boolean)).size;
-      const changes = auditLogs.filter(log => !["login", "logout"].includes(log.action)).length;
-      els.auditKpis.innerHTML = [
-        ["Hoạt động hôm nay", todayCount, "Theo giờ Việt Nam"],
-        ["Người thực hiện", actors, "Trong dữ liệu đang lưu"],
-        ["Thay đổi dữ liệu", changes, "Không gồm đăng nhập / đăng xuất"],
-        ["Nhật ký đang xem", rows.length, auditFilters.range === "all" ? "Toàn bộ thời gian" : `${auditFilters.range} ngày gần nhất`]
-      ].map(([label, value, note]) => `<article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>`).join("");
-    }
-
     if (els.auditHealth) {
       const healthy = !Number(auditHealth.pending || 0) && !Number(auditHealth.failed || 0);
       els.auditHealth.classList.toggle("has-warning", !healthy);
@@ -4019,26 +3838,10 @@
   }
 
   function renderInventory() {
-    if (!els.inventoryCards) return;
+    if (!els.inventoryProductsTable) return;
     const activeProducts = state.products.filter(product => product.status === "active");
     renderInventoryFilters(activeProducts);
-    const totalUnits = activeProducts.reduce((sum, product) => sum + product.stock, 0);
-    const inventoryValue = activeProducts.reduce((sum, product) => sum + product.stock * product.costPrice, 0);
-    const lowStockCount = activeProducts.filter(product => product.stock > 0 && product.stock <= product.lowStock).length;
-    const outOfStock = activeProducts.filter(product => product.stock <= 0).length;
-    const suggestedRestock = activeProducts.reduce((sum, product) => sum + inventoryRestockSuggestion(product), 0);
-    const cards = [
-      ["Tổng tồn kho", `${totalUnits} SP`, "Tổng số lượng khả dụng trên toàn bộ SKU."],
-      ["Giá trị tồn", money.format(inventoryValue), "Theo giá vốn hiện tại trong danh mục."],
-      ["Sắp hết", `${lowStockCount} SKU`, "Còn hàng nhưng thấp hơn ngưỡng cảnh báo."],
-      ["Hết hàng", `${outOfStock} SKU`, "Cần ưu tiên xử lý trước khi nhận đơn."],
-      ["Gợi ý nhập", `${suggestedRestock} SP`, "Ước tính để vượt ngưỡng an toàn."]
-    ];
-    els.inventoryCards.innerHTML = cards.map(([title, value, note], index) => `
-      <article class="inventory-card" data-card-tone="${index}"><h3>${title}</h3><strong>${value}</strong><p>${note}</p></article>
-    `).join("");
     renderInventoryProducts(activeProducts);
-    renderLowStock();
     renderStockMovements();
   }
 
@@ -4105,85 +3908,6 @@
 
 
 
-  function dashboardCommandItems() {
-    const pendingOrders = (state.orders || [])
-      .map(normalizeOrder)
-      .filter(order => order.status !== "cancelled" && (order.status === "pending" || order.shippingStatus === "preparing" || order.paymentStatus === "unpaid"))
-      .slice(0, 5)
-      .map(order => ({
-        type: "Đơn",
-        title: order.code,
-        note: `${channelLabel(order.channel)} · ${paymentLabel(order.paymentStatus)} · ${shippingLabel(order.shippingStatus)}`,
-        href: "./orders.html",
-        priority: order.paymentStatus === "unpaid" ? "warning" : "info"
-      }));
-    const stockItems = (state.products || [])
-      .map(normalizeProduct)
-      .filter(product => product.status === "active" && product.stock <= product.lowStock)
-      .sort((a, b) => (a.stock - a.lowStock) - (b.stock - b.lowStock))
-      .slice(0, 5)
-      .map(product => ({
-        type: "Kho",
-        title: product.name,
-        note: `${product.sku} · còn ${product.stock}, ngưỡng ${product.lowStock}`,
-        href: "./inventory.html",
-        priority: product.stock <= 0 ? "danger" : "warning"
-      }));
-    const contentItems = (state.contentItems || [])
-      .map(normalizeContentItem)
-      .filter(item => ["idea", "brief", "drafting", "review", "ready"].includes(item.status))
-      .sort((a, b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")))
-      .slice(0, 5)
-      .map(item => ({
-        type: "Content",
-        title: item.title,
-        note: `${contentChannels[item.channel] || item.channel} · ${contentItemStatuses[item.status] || item.status}${item.dueDate ? " · " + formatDate(item.dueDate) : ""}`,
-        href: "./content.html",
-        priority: item.status === "ready" ? "success" : item.status === "review" ? "info" : "warning"
-      }));
-    const tasks = (state.workspaceTasks || [])
-      .map(normalizeWorkspaceTask)
-      .filter(task => task.status !== "done" && task.status !== "deleted")
-      .sort((a, b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")))
-      .slice(0, 5)
-      .map(task => ({
-        type: "Task",
-        title: task.title,
-        note: `${task.owner ? ownerName(task.owner) : "Chưa giao"}${task.dueDate ? " · " + formatDate(task.dueDate) : ""}`,
-        href: "./team.html",
-        priority: task.priority === "urgent" || task.priority === "high" ? "danger" : "info"
-      }));
-    return { pendingOrders, stockItems, contentItems, tasks };
-  }
-
-  function renderDashboardCommandCenter() {
-    const target = qs("[data-dashboard-command]");
-    if (!target) return;
-    const groups = dashboardCommandItems();
-    const cards = [
-      ["Bán hàng", "Đơn cần xác nhận, thu tiền hoặc giao", groups.pendingOrders, "./orders.html"],
-      ["Kho", "SKU sắp hết, hết hàng hoặc cần nhập", groups.stockItems, "./inventory.html"],
-      ["Content", "Chủ đề cần brief, review hoặc đăng", groups.contentItems, "./content.html"],
-      ["Team", "Việc phát sinh từ họp/kênh/chiến dịch", groups.tasks, "./team.html"]
-    ];
-    target.innerHTML = `
-      <section class="panel dashboard-command-panel">
-        <div class="panel-header split"><div><h2>Việc cần xử lý hôm nay</h2><p>Một màn hình gom bán hàng, kho, content và team task.</p></div><a class="text-link" href="./channels.html">Kiểm tra kênh bán</a></div>
-        <div class="dashboard-command-grid">
-          ${cards.map(([title, note, items, href]) => `
-            <article class="dashboard-command-card">
-              <div class="command-card-head"><div><strong>${title}</strong><small>${note}</small></div><a href="${href}" aria-label="${title}">${icon("external")}</a></div>
-              <div class="command-card-list">
-                ${items.length ? items.map(item => `<a class="command-item ${item.priority}" href="${item.href}"><span>${item.type}</span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.note)}</small></a>`).join("") : `<div class="empty compact-empty">Không có việc gấp.</div>`}
-              </div>
-            </article>
-          `).join("")}
-        </div>
-      </section>
-    `;
-    hydrateIcons(target);
-  }
-
   function renderPage() {
     const sortedOrders = [...state.orders].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     const orderMatches = order => {
@@ -4211,15 +3935,9 @@
       return text.includes(term);
     };
     const orders = sortedOrders.filter(orderMatches);
-    const recentOrders = page === "dashboard" ? sortedOrders.filter(orderMatches) : sortedOrders;
-    renderKpis();
-    renderChart();
-    renderLowStock();
-    renderOrdersRows(els.recentOrders, recentOrders, 5);
     renderOrdersRows(els.ordersTable, orders);
     renderProducts();
     renderOmniWorkspace();
-    renderDashboardCommandCenter();
     renderContentWorkspace();
     renderTeamHub();
     renderTeamPricingPage();
@@ -7751,7 +7469,7 @@
         teamFilters.status = "all";
         renderPage();
       }
-      if (target.matches("[data-team-primary-action], [data-team-secondary-action]")) {
+      if (target.matches("[data-team-primary-action]")) {
         const modalByView = { tasks: "workspaceTask", plans: "teamPlan", decisions: "teamDecision" };
         openModal(modalByView[teamFilters.view] || "workspaceTask");
       }
@@ -8502,9 +8220,9 @@
   }
 
   const { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, renderStaticOmniWorkspace, renderChannelSettings, renderOmniWorkspace } = window.ArtFlowPageModules.channels ? window.ArtFlowPageModules.channels.create({ normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, hydrateIcons, icon, money, omniFilters, qs, state }) : Object.fromEntries(["activeSalesChannels","channelByIdOrCode","reservedStockForProduct","channelProductRows","renderStaticOmniWorkspace","renderChannelSettings","renderOmniWorkspace"].map(name => [name, function () {}]));
-  const { teamOwners, teamDateInRange, teamSearchText, currentTeamItems, setTeamOptions, renderTeamFilters, teamKpis, renderTeamHub, selectedIncenseOfferings, syncIncenseOfferings, renderOfferingTray, renderIncense, submitIncenseWish, teamStatusBadge, renderTeamTasks, renderTeamMeetings, renderTeamPlans, pricingLineAmount, roundedPricingValue, calculatePricingScenario, pricingTotals, renderTeamPricing, teamPricingPageContext, renderTeamPricingPage, submitTeamPricingPageForm, renderTeamDecisions, teamOwnerOptions, teamProductOptions, teamChannelOptions, pricingMarketplaceChannels, pricingChannelOptions, pricingTargetLabel, pricingSuggestedTitle, renderTeamSourceAndComments, appendTeamCommentLog, actionRowsFromText, textFromActionRows, localDateTimeValue, meetingTypeOptions, meetingStatusOptions, actionStatusOptions, splitListText, meetingMinutesIdFromUrl, setMeetingMinutesUrl, renderMinutesTextRows, renderMinutesActions, renderMinutesAttendees, renderMeetingMinutesForm, renderMeetingMinutesList, renderMeetingMinutesPage, valuesFromMinutesRows, syncMeetingMinutesForm, addMinutesTextRow, addMinutesAction, applyMeetingTemplate, parseQuickMeetingNote, cleanMeetingMinutesText, submitMeetingMinutesForm, renderMeetingForm, renderPlanForm, renderPricingForm, renderPricingSelectedProduct, renderPricingProductPicker, renderPricingProductPickerCard, selectPricingProduct, renderPricingLineInput, renderPricingScenarioInput, renderDecisionForm, collectPricingLines, collectPricingScenarios, refreshPricingBuilderState, updatePricingScopeFields, syncPricingTitle, updatePricingLineState, selectPricingScenario, updateTeamPricingPreview, teamApiCollection, teamApiItemType, pricingModelFromForm, validatePricingModel } = window.ArtFlowPageModules.team ? window.ArtFlowPageModules.team.create({ normalizeIncenseWish, normalizePricingLine, normalizePricingModel, normalizePricingScenario, normalizeSalesChannel, normalizeTeamAction, normalizeTeamDecision, normalizeTeamMeeting, normalizeTeamPlan, normalizeWorkspaceTask, apiRequest, byId, channelByIdOrCode, closeModal, currentUser, els, enhanceMoneyInputs, enhanceResponsiveTables, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, hydrateIcons, icon, incenseKinds, incenseOfferings, localDateValue, money, ownerName, productHasShopPrice, productSearchText, qs, renderProductThumb, saveTeamItem, searchTerm, setBusy, showToast, state, teamFilters, teamStatuses, teamViews }) : Object.fromEntries(["teamOwners","teamDateInRange","teamSearchText","currentTeamItems","setTeamOptions","renderTeamFilters","teamKpis","renderTeamHub","selectedIncenseOfferings","syncIncenseOfferings","renderOfferingTray","renderIncense","submitIncenseWish","teamStatusBadge","renderTeamTasks","renderTeamMeetings","renderTeamPlans","pricingLineAmount","roundedPricingValue","calculatePricingScenario","pricingTotals","renderTeamPricing","teamPricingPageContext","renderTeamPricingPage","submitTeamPricingPageForm","renderTeamDecisions","teamOwnerOptions","teamProductOptions","teamChannelOptions","pricingMarketplaceChannels","pricingChannelOptions","pricingTargetLabel","pricingSuggestedTitle","renderTeamSourceAndComments","appendTeamCommentLog","actionRowsFromText","textFromActionRows","localDateTimeValue","meetingTypeOptions","meetingStatusOptions","actionStatusOptions","splitListText","meetingMinutesIdFromUrl","setMeetingMinutesUrl","renderMinutesTextRows","renderMinutesActions","renderMinutesAttendees","renderMeetingMinutesForm","renderMeetingMinutesList","renderMeetingMinutesPage","valuesFromMinutesRows","syncMeetingMinutesForm","addMinutesTextRow","addMinutesAction","applyMeetingTemplate","parseQuickMeetingNote","cleanMeetingMinutesText","submitMeetingMinutesForm","renderMeetingForm","renderPlanForm","renderPricingForm","renderPricingSelectedProduct","renderPricingProductPicker","renderPricingProductPickerCard","selectPricingProduct","renderPricingLineInput","renderPricingScenarioInput","renderDecisionForm","collectPricingLines","collectPricingScenarios","refreshPricingBuilderState","updatePricingScopeFields","syncPricingTitle","updatePricingLineState","selectPricingScenario","updateTeamPricingPreview","teamApiCollection","teamApiItemType","pricingModelFromForm","validatePricingModel"].map(name => [name, function () {}]));
-  const { syncAccountingView, commerceChannelLabel, payoutStatusMeta, renderCommerceAccounting, renderAccounting, productProfitRowsFromSnapshot, renderAccountingProfit, renderAccountingLedgerAnalysis, renderAccountingProfitDetails } = window.ArtFlowPageModules.accounting ? window.ArtFlowPageModules.accounting.create({ accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, comparisonText, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state }) : Object.fromEntries(["syncAccountingView","commerceChannelLabel","payoutStatusMeta","renderCommerceAccounting","renderAccounting","productProfitRowsFromSnapshot","renderAccountingProfit","renderAccountingLedgerAnalysis","renderAccountingProfitDetails"].map(name => [name, function () {}]));
-  const { renderPurchasing, closeManagementDrawers, openSupplierDetail, openPurchaseDetail } = window.ArtFlowPageModules.purchasing ? window.ArtFlowPageModules.purchasing.create({ byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseAgingBucket, purchaseDueDays, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, searchTerm, state, statusLabel, supplierFilters, supplierTarget }) : Object.fromEntries(["renderPurchasing","closeManagementDrawers","openSupplierDetail","openPurchaseDetail"].map(name => [name, function () {}]));
+  const { teamOwners, teamDateInRange, teamSearchText, currentTeamItems, setTeamOptions, renderTeamFilters, renderTeamHub, selectedIncenseOfferings, syncIncenseOfferings, renderOfferingTray, renderIncense, submitIncenseWish, teamStatusBadge, renderTeamTasks, renderTeamMeetings, renderTeamPlans, pricingLineAmount, roundedPricingValue, calculatePricingScenario, pricingTotals, renderTeamPricing, teamPricingPageContext, renderTeamPricingPage, submitTeamPricingPageForm, renderTeamDecisions, teamOwnerOptions, teamProductOptions, teamChannelOptions, pricingMarketplaceChannels, pricingChannelOptions, pricingTargetLabel, pricingSuggestedTitle, renderTeamSourceAndComments, appendTeamCommentLog, actionRowsFromText, textFromActionRows, localDateTimeValue, meetingTypeOptions, meetingStatusOptions, actionStatusOptions, splitListText, meetingMinutesIdFromUrl, setMeetingMinutesUrl, renderMinutesTextRows, renderMinutesActions, renderMinutesAttendees, renderMeetingMinutesForm, renderMeetingMinutesList, renderMeetingMinutesPage, valuesFromMinutesRows, syncMeetingMinutesForm, addMinutesTextRow, addMinutesAction, applyMeetingTemplate, parseQuickMeetingNote, cleanMeetingMinutesText, submitMeetingMinutesForm, renderMeetingForm, renderPlanForm, renderPricingForm, renderPricingSelectedProduct, renderPricingProductPicker, renderPricingProductPickerCard, selectPricingProduct, renderPricingLineInput, renderPricingScenarioInput, renderDecisionForm, collectPricingLines, collectPricingScenarios, refreshPricingBuilderState, updatePricingScopeFields, syncPricingTitle, updatePricingLineState, selectPricingScenario, updateTeamPricingPreview, teamApiCollection, teamApiItemType, pricingModelFromForm, validatePricingModel } = window.ArtFlowPageModules.team ? window.ArtFlowPageModules.team.create({ normalizeIncenseWish, normalizePricingLine, normalizePricingModel, normalizePricingScenario, normalizeSalesChannel, normalizeTeamAction, normalizeTeamDecision, normalizeTeamMeeting, normalizeTeamPlan, normalizeWorkspaceTask, apiRequest, byId, channelByIdOrCode, closeModal, currentUser, els, enhanceMoneyInputs, enhanceResponsiveTables, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, hydrateIcons, icon, incenseKinds, incenseOfferings, localDateValue, money, ownerName, productHasShopPrice, productSearchText, qs, renderProductThumb, saveTeamItem, searchTerm, setBusy, showToast, state, teamFilters, teamStatuses, teamViews }) : Object.fromEntries(["teamOwners","teamDateInRange","teamSearchText","currentTeamItems","setTeamOptions","renderTeamFilters","renderTeamHub","selectedIncenseOfferings","syncIncenseOfferings","renderOfferingTray","renderIncense","submitIncenseWish","teamStatusBadge","renderTeamTasks","renderTeamMeetings","renderTeamPlans","pricingLineAmount","roundedPricingValue","calculatePricingScenario","pricingTotals","renderTeamPricing","teamPricingPageContext","renderTeamPricingPage","submitTeamPricingPageForm","renderTeamDecisions","teamOwnerOptions","teamProductOptions","teamChannelOptions","pricingMarketplaceChannels","pricingChannelOptions","pricingTargetLabel","pricingSuggestedTitle","renderTeamSourceAndComments","appendTeamCommentLog","actionRowsFromText","textFromActionRows","localDateTimeValue","meetingTypeOptions","meetingStatusOptions","actionStatusOptions","splitListText","meetingMinutesIdFromUrl","setMeetingMinutesUrl","renderMinutesTextRows","renderMinutesActions","renderMinutesAttendees","renderMeetingMinutesForm","renderMeetingMinutesList","renderMeetingMinutesPage","valuesFromMinutesRows","syncMeetingMinutesForm","addMinutesTextRow","addMinutesAction","applyMeetingTemplate","parseQuickMeetingNote","cleanMeetingMinutesText","submitMeetingMinutesForm","renderMeetingForm","renderPlanForm","renderPricingForm","renderPricingSelectedProduct","renderPricingProductPicker","renderPricingProductPickerCard","selectPricingProduct","renderPricingLineInput","renderPricingScenarioInput","renderDecisionForm","collectPricingLines","collectPricingScenarios","refreshPricingBuilderState","updatePricingScopeFields","syncPricingTitle","updatePricingLineState","selectPricingScenario","updateTeamPricingPreview","teamApiCollection","teamApiItemType","pricingModelFromForm","validatePricingModel"].map(name => [name, function () {}]));
+  const { syncAccountingView, commerceChannelLabel, payoutStatusMeta, renderCommerceAccounting, renderAccounting, productProfitRowsFromSnapshot, renderAccountingProfit, renderAccountingLedgerAnalysis, renderAccountingProfitDetails } = window.ArtFlowPageModules.accounting ? window.ArtFlowPageModules.accounting.create({ accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state }) : Object.fromEntries(["syncAccountingView","commerceChannelLabel","payoutStatusMeta","renderCommerceAccounting","renderAccounting","productProfitRowsFromSnapshot","renderAccountingProfit","renderAccountingLedgerAnalysis","renderAccountingProfitDetails"].map(name => [name, function () {}]));
+  const { renderPurchasing, closeManagementDrawers, openSupplierDetail, openPurchaseDetail } = window.ArtFlowPageModules.purchasing ? window.ArtFlowPageModules.purchasing.create({ byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, searchTerm, state, statusLabel, supplierFilters, supplierTarget }) : Object.fromEntries(["renderPurchasing","closeManagementDrawers","openSupplierDetail","openPurchaseDetail"].map(name => [name, function () {}]));
   const { renderReports } = window.ArtFlowPageModules.reports ? window.ArtFlowPageModules.reports.create({ byId, channelLabel, channels, comparisonText, els, money, orderCost, profitSnapshot, reportDayKey, reportFilters, returnedOrderItemQuantity }) : Object.fromEntries(["renderReports"].map(name => [name, function () {}]));
 
   injectSharedUi();

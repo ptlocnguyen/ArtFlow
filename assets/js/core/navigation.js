@@ -1,8 +1,8 @@
 (function () {
-  const accountingViews = Object.freeze(["overview", "ledger", "receivables", "payouts", "payroll", "tax"]);
+  const accountingViews = Object.freeze(["ledger", "receivables", "payouts", "payroll", "tax"]);
 
   function normalizeAccountingView(value) {
-    return accountingViews.includes(String(value || "")) ? String(value) : "overview";
+    return accountingViews.includes(String(value || "")) ? String(value) : "ledger";
   }
 
   function closeMobileSidebar() {

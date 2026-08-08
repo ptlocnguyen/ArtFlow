@@ -24,39 +24,6 @@
 .workspace-heading p { margin: 0; color: var(--muted); }
 .workspace-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.management-summary,
-.operation-status-strip,
-.analytics-kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.management-summary article,
-.operation-status-strip article,
-.analytics-kpi-grid article {
-  display: grid;
-  align-content: center;
-  gap: 4px;
-  min-height: 88px;
-  padding: 13px 15px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.management-summary small,
-.operation-status-strip small,
-.analytics-kpi-grid small,
-.management-summary span,
-.operation-status-strip span,
-.analytics-kpi-grid span { color: var(--muted); }
-
-.management-summary strong,
-.operation-status-strip strong,
-.analytics-kpi-grid strong { font-size: 22px; line-height: 1.15; }
-
 .management-content,
 .operation-queue { min-height: 0; overflow: hidden; }
 
@@ -163,9 +130,6 @@
 .analytics-insight { display: grid; gap: 8px; }
 
 @media (max-width: 980px) {
-  .management-summary,
-  .operation-status-strip,
-  .analytics-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analytics-grid { grid-template-columns: 1fr; }
 }
 
@@ -177,12 +141,6 @@
   .workspace-heading h2 { font-size: 21px; }
   .workspace-heading-actions { width: 100%; }
   .workspace-heading-actions .button { flex: 1; }
-  .management-summary article,
-  .operation-status-strip article,
-  .analytics-kpi-grid article { min-height: 76px; padding: 11px 12px; }
-  .management-summary strong,
-  .operation-status-strip strong,
-  .analytics-kpi-grid strong { font-size: 18px; }
   .management-toolbar,
   .operation-toolbar { align-items: stretch; flex-direction: column; }
   .management-toolbar label,

@@ -13,13 +13,8 @@
 <body data-page="inventory" data-root="..">
   <div class="app-shell" data-app-shell hidden>
     <aside class="app-navigation" aria-label="Điều hướng ứng dụng">
-      <nav class="app-rail" aria-label="Không gian làm việc">
-        <a class="rail-brand" href="./dashboard.html" aria-label="ArtFlow POS"><img src="../assets/images/artflow-pos-logo.svg" alt="" /></a>
-        <div class="rail-spaces" data-space-nav></div>
-        <div class="rail-footer"><button class="rail-control" type="button" data-rail-collapse aria-label="Thu gọn điều hướng" title="Thu gọn điều hướng"><span data-icon="menu"></span></button></div>
-      </nav>
       <aside class="context-sidebar">
-        <header class="context-header"><div class="context-brand"><small>Không gian</small><strong data-context-title>ArtFlow POS</strong></div><button class="icon-button context-close" type="button" data-context-close aria-label="Đóng điều hướng"><span data-icon="close"></span></button></header>
+        <header class="context-header"><div class="context-brand"><small>Sales workspace</small><strong data-context-title>ArtFlow POS</strong></div><button class="icon-button context-close" type="button" data-context-close aria-label="Đóng điều hướng"><span data-icon="close"></span></button></header>
         <nav class="context-nav" aria-label="Điều hướng theo nghiệp vụ" data-nav-list></nav>
         <footer class="context-footer"><div class="context-connection"><span class="status-dot"></span><span>Đã kết nối qua Worker</span></div></footer>
       </aside>
@@ -33,12 +28,11 @@
           <button class="button ghost icon-only" type="button" data-open-stock-adjust title="Điều chỉnh tồn" aria-label="Điều chỉnh tồn"><span data-icon="edit"></span></button>
           <button class="button primary icon-only" type="button" data-open-stock-receive title="Nhập kho" aria-label="Nhập kho"><span data-icon="download"></span></button>
           <button class="button ghost icon-only" type="button" data-open-product title="Thêm sản phẩm" aria-label="Thêm sản phẩm"><span data-icon="plus"></span></button>
-          <button class="icon-button" type="button" data-popover-trigger="#quick-create-popover" aria-label="Tạo nhanh" title="Tạo nhanh"><span data-icon="plus"></span></button><button class="icon-button" type="button" data-popover-trigger="#work-queue-popover" aria-label="Việc cần xử lý" title="Việc cần xử lý"><span data-icon="clipboard"></span></button><div class="user-chip" data-current-user></div>
+          <div class="user-chip" data-current-user></div>
           <button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button>
         </div>
       </header>
       <section class="view active operation-page inventory-workspace">
-        <div class="inventory-grid" data-inventory-cards></div>
         <section class="panel inventory-products-panel">
           <div class="panel-header inventory-panel-header">
             <div><h2>Kiểm soát SKU</h2><p>Lọc nhanh tồn kho, xem mức rủi ro và thao tác trực tiếp theo từng sản phẩm.</p></div>
@@ -55,10 +49,6 @@
               <tbody data-inventory-products-table></tbody>
             </table>
           </div>
-        </section>
-        <section class="panel inventory-alert-panel">
-          <div class="panel-header"><div><h2>Cảnh báo tồn kho</h2><p>Các SKU cần ưu tiên nhập thêm.</p></div></div>
-          <div class="mini-list" data-low-stock></div>
         </section>
         <section class="panel inventory-movements-panel">
           <div class="panel-header"><div><h2>Lịch sử biến động kho</h2><p>Theo dõi nhập kho, bán hàng, hủy đơn và điều chỉnh kiểm kho.</p></div></div>

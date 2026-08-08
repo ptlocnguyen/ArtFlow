@@ -7,7 +7,7 @@
 @import url("./components/status.css");
 @import url("./components/empty-state.css");
 @import url("./components/command-bar.css");
-@import url("./layouts/dashboard.css");
+@import url("./crud.css");
 @import url("./layouts/resource-index.css");
 @import url("./layouts/workspace.css");
 @import url("./layouts/settings.css");
@@ -16,11 +16,13 @@
 body[data-page="accounting"] .accounting-local-nav { display: none; }
 body[data-page="accounting"] .accounting-shell { display: block; }
 body[data-page="accounting"] .accounting-layout { min-width: 0; }
-body[data-page="products"] .product-filter-trigger { justify-self: end; }
 body[data-page="content"] .content-workspace-actions { display: flex; justify-content: flex-end; }
 body[data-page="content"] .content-control-panel.popover { width: min(92vw, 560px); }
 body[data-page="content"] .content-filter-bar { grid-template-columns: 1fr 1fr; }
-body[data-page="reports"] .report-view-switch { justify-self: start; }
+body[data-page="reports"] .profit-report-view,
+body[data-page="reports"] .report-view-switch,
+body[data-page="reports"] .report-toolbar { width: 100%; min-width: 0; max-width: 100%; }
+body[data-page="reports"] .report-view-switch { justify-self: stretch; }
 body[data-page="reports"] [data-report-view-panel][hidden] { display: none; }
 body[data-page="reports"] .profit-insight-grid:has(> [data-report-view-panel="expenses"]:not([hidden])) { grid-template-columns: minmax(0, 760px); }
 body[data-page="reports"] .profit-table-grid { grid-template-columns: 1fr; }
@@ -33,4 +35,5 @@ body[data-page="orders"] .filter-bar.popover[hidden] { display: none; }
   body[data-page="orders"] .filter-bar.popover { width: 100%; grid-template-columns: 1fr; }
   body[data-page="content"] .content-control-panel.popover { width: 100%; }
   body[data-page="content"] .content-filter-bar { grid-template-columns: 1fr; }
+  body[data-page="reports"] .report-view-switch { overflow-x: auto; }
 }

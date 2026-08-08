@@ -12,13 +12,8 @@
 <body data-page="content" data-root="..">
   <div class="app-shell" data-app-shell hidden>
     <aside class="app-navigation" aria-label="Điều hướng ứng dụng">
-      <nav class="app-rail" aria-label="Không gian làm việc">
-        <a class="rail-brand" href="./dashboard.html" aria-label="ArtFlow POS"><img src="../assets/images/artflow-pos-logo.svg" alt="" /></a>
-        <div class="rail-spaces" data-space-nav></div>
-        <div class="rail-footer"><button class="rail-control" type="button" data-rail-collapse aria-label="Thu gọn điều hướng" title="Thu gọn điều hướng"><span data-icon="menu"></span></button></div>
-      </nav>
       <aside class="context-sidebar">
-        <header class="context-header"><div class="context-brand"><small>Không gian</small><strong data-context-title>ArtFlow POS</strong></div><button class="icon-button context-close" type="button" data-context-close aria-label="Đóng điều hướng"><span data-icon="close"></span></button></header>
+        <header class="context-header"><div class="context-brand"><small>Sales workspace</small><strong data-context-title>ArtFlow POS</strong></div><button class="icon-button context-close" type="button" data-context-close aria-label="Đóng điều hướng"><span data-icon="close"></span></button></header>
         <nav class="context-nav" aria-label="Điều hướng theo nghiệp vụ" data-nav-list></nav>
         <footer class="context-footer"><div class="context-connection"><span class="status-dot"></span><span>Đã kết nối qua Worker</span></div></footer>
       </aside>
@@ -30,13 +25,12 @@
         <div class="command-actions">
           <label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm chủ đề, sản phẩm, kênh..." /></label>
           <button class="button primary" type="button" data-open-content-item><span data-icon="plus"></span> Tạo chủ đề</button>
-          <button class="icon-button" type="button" data-popover-trigger="#quick-create-popover" aria-label="Tạo nhanh" title="Tạo nhanh"><span data-icon="plus"></span></button><button class="icon-button" type="button" data-popover-trigger="#work-queue-popover" aria-label="Việc cần xử lý" title="Việc cần xử lý"><span data-icon="clipboard"></span></button><div class="user-chip" data-current-user></div>
+          <div class="user-chip" data-current-user></div>
           <button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button>
         </div>
       </header>
 
       <section class="view active content-workspace">
-        <div class="content-workspace-actions"><button class="button ghost" type="button" data-popover-trigger="#content-filter-popover"><span data-icon="filter"></span> Bộ lọc</button></div>
         <section class="popover content-control-panel" id="content-filter-popover" data-popover hidden>
           <div class="content-filter-bar">
             <label><span>Trạng thái</span><select data-content-filter="status" data-content-status-filter></select></label>
@@ -53,8 +47,8 @@
             <div class="panel-header split">
               <div><h2>Danh sách chủ đề</h2><p>Brief, deadline, người phụ trách, Docs/Drive và link đã đăng.</p></div>
               <div class="row-actions">
+                <button class="button ghost" type="button" data-popover-trigger="#content-filter-popover"><span data-icon="filter"></span> Bộ lọc</button>
                 <button class="button ghost" type="button" data-export-content><span data-icon="download"></span> Xuất báo cáo</button>
-                <button class="button ghost" type="button" data-open-content-item><span data-icon="plus"></span> Chủ đề</button>
               </div>
             </div>
             <div class="table-wrap">

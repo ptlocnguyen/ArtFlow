@@ -16,12 +16,12 @@
   --v3-danger-soft: #fff0f1;
   --v3-rail: #101d2f;
   --v3-rail-muted: #9fb1c8;
-  --v3-radius: 12px;
-  --v3-radius-sm: 9px;
-  --v3-shadow: 0 8px 24px rgba(16, 24, 40, .06);
+  --v3-radius: 8px;
+  --v3-radius-sm: 6px;
+  --v3-shadow: 0 4px 14px rgba(16, 24, 40, .06);
   --v3-fast: 160ms ease;
-  --rail-width: 72px;
-  --context-width: 244px;
+  --rail-width: 0px;
+  --context-width: 252px;
   --command-height: 64px;
 }
 

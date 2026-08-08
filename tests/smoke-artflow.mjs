@@ -17,7 +17,6 @@ const requestedViewport = process.argv.find(argument => argument.startsWith("--v
 
 const allPages = [
   ["auth", "index.html"],
-  ["dashboard", "pages/dashboard.html"],
   ["orders", "pages/orders.html"],
   ["order-create", "pages/order-create.html"],
   ["products", "pages/products.html"],
@@ -106,6 +105,10 @@ for (const viewport of viewports) {
       );
       await page.waitForTimeout(250);
       await runPageInteractions(page, name, viewport.name);
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => !document.body.classList.contains("context-open"));
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(60);
       const metrics = await page.evaluate(() => {
         const doc = document.documentElement;
         const body = document.body;
@@ -195,7 +198,7 @@ async function runPageInteractions(page, pageName, viewportName) {
   }
   if (pageName === "team") {
     await page.locator("[data-team-view='tasks']").click().catch(() => {});
-    await page.locator("[data-team-secondary-action]").click().catch(() => {});
+    await page.locator("[data-team-primary-action]").click().catch(() => {});
     await page.locator("#taskTitle").fill("QA kiem tra workflow task").catch(() => {});
     await page.locator("[data-modal-form] button[type='submit']").click().catch(() => {});
     await page.locator("[data-modal-backdrop][hidden], .modal-backdrop[hidden]").waitFor({ timeout: 1500 }).catch(() => {});
@@ -383,7 +386,7 @@ async function runPageInteractions(page, pageName, viewportName) {
   if (pageName === "accounting") {
     const dir = path.join(screenshotRoot, viewportName);
     await mkdir(dir, { recursive: true });
-    for (const view of ["overview", "payouts", "ledger", "receivables", "payroll", "tax"]) {
+    for (const view of ["payouts", "ledger", "receivables", "payroll", "tax"]) {
       await page.locator(`[data-accounting-view-filter='${view}']`).evaluate(element => element.click());
       await page.waitForTimeout(80);
       await page.evaluate(() => window.scrollTo(0, 0));

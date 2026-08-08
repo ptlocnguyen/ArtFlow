@@ -1,6 +1,0 @@
-body[data-page="dashboard"] .view { display: grid; gap: 16px; }
-body[data-page="dashboard"] .kpi-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
-body[data-page="dashboard"] .dashboard-command-center { order: -1; }
-body[data-page="dashboard"] .content-grid { grid-template-columns: minmax(0,1.7fr) minmax(280px,.7fr); }
-@media (max-width: 900px) { body[data-page="dashboard"] .kpi-grid, body[data-page="dashboard"] .content-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 620px) { body[data-page="dashboard"] .kpi-grid, body[data-page="dashboard"] .content-grid { grid-template-columns: 1fr; } }

@@ -53,16 +53,7 @@ Các vai trò hiện có:
 | `inventory` | Quản lý sản phẩm, mua hàng và tồn kho |
 | `viewer` | Chỉ xem dữ liệu được phép truy cập |
 
-### 2.2. Dashboard
-
-- Tổng hợp doanh thu thuần.
-- Tính giá vốn, lãi gộp, lãi ròng và biên lãi.
-- Biểu đồ doanh thu gần đây.
-- Danh sách đơn hàng mới.
-- Cảnh báo tồn kho thấp.
-- Điều hướng nhanh tới các nghiệp vụ liên quan.
-
-### 2.3. Sản phẩm
+### 2.2. Sản phẩm
 
 - Tạo, sửa, ngừng bán và kích hoạt lại sản phẩm.
 - Quản lý SKU, barcode, danh mục, thương hiệu, đơn vị, xuất xứ, chất liệu và kích thước.
@@ -265,7 +256,6 @@ ArtFlow/
 ├── README.md
 │
 ├── pages/
-│   ├── dashboard.html              # Tổng quan
 │   ├── orders.html                 # Danh sách đơn bán
 │   ├── order-create.html           # Tạo đơn bán
 │   ├── products.html               # Sản phẩm và content

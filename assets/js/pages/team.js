@@ -74,19 +74,6 @@
       if (els.teamRangeFilter) els.teamRangeFilter.value = teamFilters.range;
     }
     
-    function teamKpis() {
-      const plans = (state.teamPlans || []).map(normalizeTeamPlan);
-      const decisions = (state.teamDecisions || []).map(normalizeTeamDecision);
-      const tasks = (state.workspaceTasks || []).map(normalizeWorkspaceTask);
-      const openTasks = tasks.filter(task => task.status !== "done").length;
-      return [
-        ["Việc đang mở", openTasks, "Cần tiếp tục xử lý"],
-        ["Việc quá hạn", tasks.filter(task => task.status !== "done" && task.dueDate && task.dueDate < localDateValue()).length, "Ưu tiên hôm nay"],
-        ["Kế hoạch", plans.filter(plan => ["idea", "active"].includes(plan.status)).length, "Đang theo dõi"],
-        ["Quyết định", decisions.filter(decision => decision.status === "active").length, "Đang có hiệu lực"]
-      ];
-    }
-    
     function renderTeamHub() {
       if (!els.teamContent) return;
       renderTeamFilters();
@@ -97,13 +84,7 @@
       if (els.teamPanelTitle) els.teamPanelTitle.textContent = view.title;
       if (els.teamPanelNote) els.teamPanelNote.textContent = view.note;
       const primary = qs("[data-team-primary-action]");
-      const secondary = qs("[data-team-secondary-action]");
-      [primary, secondary].forEach(button => {
-        if (button) button.innerHTML = `${icon("plus")} ${button === primary ? "Tạo " : ""}${view.action}`;
-      });
-      if (els.teamKpis) {
-        els.teamKpis.innerHTML = teamKpis().map(([label, value, note]) => `<article><span>${escapeHtml(label)}</span><strong>${value}</strong><small>${escapeHtml(note)}</small></article>`).join("");
-      }
+      if (primary) primary.innerHTML = `${icon("plus")} Tạo ${view.action}`;
       const renderers = {
         tasks: renderTeamTasks,
         plans: renderTeamPlans,
@@ -1192,7 +1173,7 @@
       });
     }
 
-    return { teamOwners, teamDateInRange, teamSearchText, currentTeamItems, setTeamOptions, renderTeamFilters, teamKpis, renderTeamHub, selectedIncenseOfferings, syncIncenseOfferings, renderOfferingTray, renderIncense, submitIncenseWish, teamStatusBadge, renderTeamTasks, renderTeamMeetings, renderTeamPlans, pricingLineAmount, roundedPricingValue, calculatePricingScenario, pricingTotals, renderTeamPricing, teamPricingPageContext, renderTeamPricingPage, submitTeamPricingPageForm, renderTeamDecisions, teamOwnerOptions, teamProductOptions, teamChannelOptions, pricingMarketplaceChannels, pricingChannelOptions, pricingTargetLabel, pricingSuggestedTitle, renderTeamSourceAndComments, appendTeamCommentLog, actionRowsFromText, textFromActionRows, localDateTimeValue, meetingTypeOptions, meetingStatusOptions, actionStatusOptions, splitListText, meetingMinutesIdFromUrl, setMeetingMinutesUrl, renderMinutesTextRows, renderMinutesActions, renderMinutesAttendees, renderMeetingMinutesForm, renderMeetingMinutesList, renderMeetingMinutesPage, valuesFromMinutesRows, syncMeetingMinutesForm, addMinutesTextRow, addMinutesAction, applyMeetingTemplate, parseQuickMeetingNote, cleanMeetingMinutesText, submitMeetingMinutesForm, renderMeetingForm, renderPlanForm, renderPricingForm, renderPricingSelectedProduct, renderPricingProductPicker, renderPricingProductPickerCard, selectPricingProduct, renderPricingLineInput, renderPricingScenarioInput, renderDecisionForm, collectPricingLines, collectPricingScenarios, refreshPricingBuilderState, updatePricingScopeFields, syncPricingTitle, updatePricingLineState, selectPricingScenario, updateTeamPricingPreview, teamApiCollection, teamApiItemType, pricingModelFromForm, validatePricingModel };
+    return { teamOwners, teamDateInRange, teamSearchText, currentTeamItems, setTeamOptions, renderTeamFilters, renderTeamHub, selectedIncenseOfferings, syncIncenseOfferings, renderOfferingTray, renderIncense, submitIncenseWish, teamStatusBadge, renderTeamTasks, renderTeamMeetings, renderTeamPlans, pricingLineAmount, roundedPricingValue, calculatePricingScenario, pricingTotals, renderTeamPricing, teamPricingPageContext, renderTeamPricingPage, submitTeamPricingPageForm, renderTeamDecisions, teamOwnerOptions, teamProductOptions, teamChannelOptions, pricingMarketplaceChannels, pricingChannelOptions, pricingTargetLabel, pricingSuggestedTitle, renderTeamSourceAndComments, appendTeamCommentLog, actionRowsFromText, textFromActionRows, localDateTimeValue, meetingTypeOptions, meetingStatusOptions, actionStatusOptions, splitListText, meetingMinutesIdFromUrl, setMeetingMinutesUrl, renderMinutesTextRows, renderMinutesActions, renderMinutesAttendees, renderMeetingMinutesForm, renderMeetingMinutesList, renderMeetingMinutesPage, valuesFromMinutesRows, syncMeetingMinutesForm, addMinutesTextRow, addMinutesAction, applyMeetingTemplate, parseQuickMeetingNote, cleanMeetingMinutesText, submitMeetingMinutesForm, renderMeetingForm, renderPlanForm, renderPricingForm, renderPricingSelectedProduct, renderPricingProductPicker, renderPricingProductPickerCard, selectPricingProduct, renderPricingLineInput, renderPricingScenarioInput, renderDecisionForm, collectPricingLines, collectPricingScenarios, refreshPricingBuilderState, updatePricingScopeFields, syncPricingTitle, updatePricingLineState, selectPricingScenario, updateTeamPricingPreview, teamApiCollection, teamApiItemType, pricingModelFromForm, validatePricingModel };
   }
 
   function init() {

@@ -1,27 +1,11 @@
 (function () {
   function create(runtime) {
-    const { byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseAgingBucket, purchaseDueDays, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, searchTerm, state, statusLabel, supplierFilters, supplierTarget } = runtime;
+    const { byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, searchTerm, state, statusLabel, supplierFilters, supplierTarget } = runtime;
 
     function renderPurchasing() {
-      if (!els.purchasingKpis && !els.purchaseOrdersTable && !els.suppliersList && !els.purchaseAgingTable) return;
+      if (!els.purchaseOrdersTable && !els.suppliersList) return;
       const term = searchTerm.trim().toLowerCase();
       const today = localDateValue();
-      const activeOrders = (state.purchaseOrders || []).filter(order => order.status !== "cancelled");
-      const payableOrders = activeOrders.filter(order => order.status === "received");
-      const outstanding = payableOrders.reduce((sum, order) => sum + order.outstanding, 0);
-      const overdue = payableOrders.filter(order => order.outstanding > 0 && order.dueDate && order.dueDate < today).reduce((sum, order) => sum + order.outstanding, 0);
-      const activeSuppliers = (state.suppliers || []).filter(supplier => supplier.status === "active").length;
-    
-      if (els.purchasingKpis) {
-        const cards = [
-          ["Chờ nhận hàng", String(activeOrders.filter(order => order.status === "draft").length), "Phiếu cần nhập kho."],
-          ["Chưa thanh toán", money.format(outstanding), "Công nợ đã nhận hàng."],
-          ["Quá hạn", money.format(overdue), "Đã vượt ngày thanh toán."],
-          ["Tổng cần trả", money.format(outstanding), `${activeSuppliers} nhà cung cấp đang hoạt động.`]
-        ];
-        els.purchasingKpis.innerHTML = cards.map(([label, value, note]) => `<article class="kpi-card"><div class="kpi-label">${label}</div><div class="kpi-value">${value}</div><div class="kpi-note">${note}</div></article>`).join("");
-      }
-    
       const orders = [...(state.purchaseOrders || [])]
         .filter(order => {
           if (purchasingFilters.savedView === "draft" && order.status !== "draft") return false;
@@ -79,15 +63,6 @@
           if (!supplierTerm) return true;
           return [supplier.code, supplier.name, supplier.phone, supplier.email, supplier.taxCode].join(" ").toLowerCase().includes(supplierTerm);
         });
-        const summary = document.querySelector("[data-supplier-summary]");
-        if (summary) {
-          const allSuppliers = state.suppliers || [];
-          summary.innerHTML = [
-            ["Đang hoạt động", allSuppliers.filter(item => item.status === "active").length],
-            ["Còn phải trả", money.format(allSuppliers.reduce((sum, item) => sum + item.outstanding, 0))],
-            ["Dư có", money.format(allSuppliers.reduce((sum, item) => sum + item.creditBalance, 0))]
-          ].map(([label, value]) => `<article><small>${label}</small><strong>${value}</strong></article>`).join("");
-        }
         const supplierCount = document.querySelector("[data-supplier-result-count]");
         if (supplierCount) supplierCount.textContent = `${suppliers.length} nhà cung cấp`;
         els.suppliersList.innerHTML = suppliers.length ? suppliers.map(supplier => {
@@ -108,34 +83,6 @@
         enhanceResponsiveTables(document.querySelector(".supplier-table-wrap"));
       }
     
-      const agingOrders = payableOrders
-        .filter(order => order.outstanding > 0)
-        .sort((a, b) => {
-          const aDays = purchaseDueDays(a);
-          const bDays = purchaseDueDays(b);
-          return (bDays === null ? -Infinity : bDays) - (aDays === null ? -Infinity : aDays);
-        });
-      if (els.purchaseAgingSummary) {
-        const buckets = [
-          ["current", "Chưa đến hạn"],
-          ["1-30", "Quá hạn 1–30"],
-          ["31-60", "Quá hạn 31–60"],
-          ["60+", "Quá hạn trên 60"]
-        ];
-        els.purchaseAgingSummary.innerHTML = buckets.map(([key, label]) => {
-          const bucketOrders = agingOrders.filter(order => purchaseAgingBucket(order).key === key);
-          const amount = bucketOrders.reduce((sum, order) => sum + order.outstanding, 0);
-          return `<article><small>${label}</small><strong>${money.format(amount)}</strong><span>${bucketOrders.length} phiếu</span></article>`;
-        }).join("");
-      }
-      if (els.purchaseAgingTable) {
-        els.purchaseAgingTable.innerHTML = agingOrders.length ? agingOrders.map(order => {
-          const supplier = getSupplier(order);
-          const bucket = purchaseAgingBucket(order);
-          const dueText = bucket.days === null ? "Chưa đặt hạn" : bucket.days > 0 ? `${bucket.days} ngày quá hạn` : bucket.days === 0 ? "Đến hạn hôm nay" : `Còn ${Math.abs(bucket.days)} ngày`;
-          return `<tr class="${bucket.days > 0 ? "overdue-row" : ""}"><td><span class="badge ${bucket.tone}">${bucket.label}</span></td><td><strong>${order.code}</strong></td><td>${supplier.name}</td><td>${order.dueDate ? formatDate(order.dueDate) : "—"}</td><td class="${bucket.days > 0 ? "danger-text" : ""}">${dueText}</td><td><strong>${money.format(order.outstanding)}</strong></td><td><div class="row-actions">${canPayPurchases() ? `<button class="link-button icon-only action-pay" type="button" data-pay-purchase="${order.id}" aria-label="Thanh toán" title="Thanh toán">${icon("receipt")}</button>${supplier.creditBalance > 0 ? `<button class="link-button icon-only action-credit" type="button" data-apply-supplier-credit="${order.id}" aria-label="Bù trừ" title="Bù trừ">${icon("calculator")}</button>` : ""}` : "—"}</div></td></tr>`;
-        }).join("") : `<tr><td colspan="7" class="empty">Không có công nợ phải trả.</td></tr>`;
-      }
     }
     
     function closeManagementDrawers() {
