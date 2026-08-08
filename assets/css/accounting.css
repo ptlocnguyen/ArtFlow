@@ -1,5 +1,41 @@
 body[data-page="accounting"] .accounting-view,
 body[data-page="accountingSettings"] .accounting-settings-page { min-height: 0; }
+body[data-page="accounting"] .accounting-view,
+body[data-page="accounting"] .accounting-shell,
+body[data-page="accounting"] .accounting-layout,
+body[data-page="accounting"] .accounting-ledger {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.accounting-title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.accounting-title-line > span { color: var(--muted); font-size: 16px; }
+.accounting-title-line > strong {
+  overflow: hidden;
+  color: var(--primary);
+  font-size: 16px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .accounting-shell {
   display: grid;
@@ -90,7 +126,33 @@ body[data-page="accountingSettings"] .accounting-settings-page { min-height: 0; 
 .accounting-receivables-workspace,
 .accounting-payout-workspace,
 .accounting-payroll-workspace { display: flex; flex-direction: column; min-height: calc(100vh - 172px); }
-.accounting-ledger-header { flex: 0 0 auto; padding: 14px 16px 10px; }
+.accounting-ledger {
+  height: calc(100dvh - var(--command-height) - 42px);
+  min-height: 430px;
+  overflow: hidden;
+}
+.accounting-ledger-controls {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.accounting-ledger-filters {
+  display: grid;
+  grid-template-columns: minmax(150px, .75fr) minmax(190px, 1fr) minmax(150px, .75fr);
+  gap: 8px;
+  min-width: 0;
+}
+.accounting-ledger-filters label { display: grid; gap: 3px; min-width: 0; }
+.accounting-ledger-filters label > span { color: var(--muted); font-size: 10px; font-weight: 800; }
+.accounting-ledger-filters select { min-width: 0; min-height: 36px; height: 36px; padding-block: 5px; font-size: 13px; }
+.accounting-ledger-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; min-width: 0; }
+.accounting-ledger-actions .button { min-height: 36px; height: 36px; }
 .accounting-ledger-summary,
 .accounting-tax-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft); }
 .accounting-ledger-summary article,
@@ -107,10 +169,11 @@ body[data-page="accountingSettings"] .accounting-settings-page { min-height: 0; 
 .accounting-payout-toolbar { grid-template-columns: repeat(3, minmax(150px, 220px)); }
 .accounting-toolbar label { display: grid; gap: 4px; }
 .accounting-toolbar label > span { color: var(--muted); font-size: 11px; font-weight: 800; }
-.ledger-result-count { display: flex; min-height: 38px; align-items: center; justify-content: flex-end; color: var(--muted); white-space: nowrap; }
+.ledger-result-count { display: flex; min-height: 36px; align-items: center; justify-content: flex-end; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .accounting-ledger-table,
 .accounting-payout-workspace .table-wrap,
 .accounting-payroll-workspace .table-wrap { flex: 1; min-height: 250px; max-height: calc(100vh - 380px); overflow: auto; }
+.accounting-ledger-table { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
 .accounting-ledger-table thead,
 .accounting-payout-workspace thead,
 .accounting-payroll-workspace thead { position: sticky; z-index: 2; top: 0; background: var(--surface); }
@@ -152,7 +215,8 @@ body[data-page="accountingSettings"] .accounting-settings-page { min-height: 0; 
 @media (max-width: 1050px) {
   .accounting-shell { grid-template-columns: 190px minmax(0, 1fr); }
   .accounting-local-nav small { display: none; }
-  .accounting-ledger-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .accounting-ledger-controls { grid-template-columns: 1fr; align-items: stretch; }
+  .accounting-ledger-actions { justify-content: flex-end; }
   .ledger-result-count { justify-content: flex-start; }
 }
 
@@ -173,6 +237,18 @@ body[data-page="accountingSettings"] .accounting-settings-page { min-height: 0; 
   .accounting-receivables-workspace,
   .accounting-payout-workspace,
   .accounting-payroll-workspace { min-height: 0; }
+  .accounting-ledger { height: auto; min-height: calc(100dvh - 150px); overflow: visible; }
+  .accounting-title-line { gap: 6px; }
+  .accounting-title-line > span { display: none; }
+  .accounting-title-line > strong { font-size: 14px; }
+  .accounting-ledger-controls { gap: 8px; padding-inline: 10px; }
+  .accounting-ledger-filters { grid-template-columns: 1fr 1fr; }
+  .accounting-ledger-filters label:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .accounting-ledger-actions { justify-content: stretch; }
+  .accounting-ledger-actions { flex-wrap: wrap; }
+  .accounting-ledger-actions .ledger-result-count { flex: 1 0 100%; min-height: 20px; margin-right: auto; }
+  .accounting-ledger-actions .button:not(.icon-only) { padding-inline: 9px; }
+  .accounting-ledger-table { max-height: none; }
   .accounting-ledger-summary,
 .accounting-tax-summary { grid-template-columns: 1fr 1fr; margin-inline: 12px; }
   .accounting-ledger-summary article:nth-child(2),

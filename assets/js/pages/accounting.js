@@ -3,6 +3,15 @@
     const { accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state } = runtime;
 
     function syncAccountingView() {
+      const viewTitles = {
+        ledger: "Dòng tiền",
+        receivables: "Công nợ",
+        payouts: "Đối soát sàn",
+        payroll: "Tiền lương",
+        tax: "Thuế & chứng từ"
+      };
+      const currentTitle = document.querySelector("[data-accounting-current-title]");
+      if (currentTitle) currentTitle.textContent = viewTitles[accountingFilters.view] || viewTitles.ledger;
       document.querySelectorAll("[data-accounting-view-filter]").forEach(button => {
         const active = button.dataset.accountingViewFilter === accountingFilters.view;
         button.classList.toggle("active", active);
