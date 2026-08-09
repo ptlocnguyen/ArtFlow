@@ -74,6 +74,7 @@
   }
   const reportFilters = { range: "30", channel: "all" };
   const auditFilters = { entityType: "all", range: "30" };
+  const userFilters = { role: "all", status: "all" };
   const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" };
   const inventoryFilters = { category: "all", stock: "all", sort: "risk" };
   const contentFilters = { status: "all", type: "all", owner: "all", channel: "all", product: "all", schedule: "all" };
@@ -329,6 +330,9 @@
     customersTable: qs("[data-customers-table]"),
     customerCsvFile: qs("[data-customer-csv-file]"),
     usersTable: qs("[data-users-table]"),
+    userRoleFilter: qs("[data-user-role-filter]"),
+    userStatusFilter: qs("[data-user-status-filter]"),
+    userResultCount: qs("[data-user-result-count]"),
     settingsForm: qs("[data-settings-form]"),
     settingsPreview: qs("[data-settings-preview]"),
     auditTable: qs("[data-audit-table]"),
@@ -3630,22 +3634,29 @@
 
   function renderUsers() {
     if (!els.usersTable) return;
-    const rows = filtered(staffUsers, ["name", "email", "role", "status"]);
-    els.usersTable.innerHTML = rows.length ? rows.map(user => `
-      <tr>
-        <td><strong>${user.name}</strong></td>
-        <td>${user.email}</td>
+    const rows = filtered(staffUsers, ["name", "email", "role", "status"]).filter(user => {
+      return (userFilters.role === "all" || user.role === userFilters.role) &&
+        (userFilters.status === "all" || user.status === userFilters.status);
+    });
+    if (els.userResultCount) els.userResultCount.textContent = String(rows.length);
+    els.usersTable.innerHTML = rows.length ? rows.map(user => {
+      const isCurrent = user.id === currentUser.id;
+      return `
+      <tr class="${isCurrent ? "is-current-user" : ""}">
+        <td><strong>${escapeHtml(user.name)}</strong>${isCurrent ? `<small class="current-user-label">Tài khoản của bạn</small>` : ""}</td>
+        <td>${escapeHtml(user.email)}</td>
         <td><span class="badge">${roleLabel(user.role)}</span></td>
         <td><span class="badge ${user.status}">${statusLabel(user.status)}</span></td>
         <td>${formatDate(user.lastLoginAt)}</td>
         <td>
-          <div class="row-actions">
-            <button class="link-button icon-only" data-toggle-user="${user.id}" ${user.id === currentUser.id ? "disabled" : ""} aria-label="${user.status === "active" ? "Khóa" : "Mở"}" title="${user.status === "active" ? "Khóa" : "Mở"}">${icon(user.status === "active" ? "archive" : "check")}</button>
-            <button class="link-button icon-only" data-delete-user="${user.id}" ${user.id === currentUser.id ? "disabled" : ""} aria-label="Xóa" title="Xóa">${icon("trash")}</button>
-          </div>
+          ${isCurrent ? `<span class="current-user-label">Được bảo vệ</span>` : `<div class="row-actions">
+            <button class="link-button icon-only user-action-toggle ${user.status === "active" ? "" : "is-enable"}" data-toggle-user="${escapeAttribute(user.id)}" aria-label="${user.status === "active" ? "Khóa tài khoản" : "Mở tài khoản"}" title="${user.status === "active" ? "Khóa tài khoản" : "Mở tài khoản"}">${icon(user.status === "active" ? "archive" : "check")}</button>
+            <button class="link-button icon-only user-action-delete" data-delete-user="${escapeAttribute(user.id)}" aria-label="Xóa tài khoản" title="Xóa tài khoản">${icon("trash")}</button>
+          </div>`}
         </td>
       </tr>
-    `).join("") : `<tr><td colspan="6" class="empty">Chưa có nhân viên.</td></tr>`;
+    `;
+    }).join("") : `<tr><td colspan="6" class="empty">${staffUsers.length ? "Không có tài khoản phù hợp bộ lọc hiện tại." : "Chưa có tài khoản nhân viên."}</td></tr>`;
   }
 
   function auditEntityLabel(type) {
@@ -5880,6 +5891,7 @@
       <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" placeholder="staff@artflow.vn" required /></div>
       <div class="field"><label for="password">Mật khẩu tạm</label><input id="password" name="password" type="password" placeholder="Ít nhất 8 ký tự" minlength="8" autocomplete="new-password" required /></div>
       <div class="field"><label for="role">Vai trò</label><select id="role" name="role" required><option value="sales">Bán hàng</option><option value="inventory">Kho</option><option value="viewer">Chỉ xem</option><option value="admin">Admin</option></select></div>
+      <p class="user-role-note"><strong>Chọn quyền tối thiểu cần thiết.</strong> Bán hàng quản lý đơn và khách; Kho quản lý hàng hóa và mua hàng; Chỉ xem không được thay đổi dữ liệu; Admin có toàn quyền hệ thống.</p>
     `;
   }
 
@@ -7278,6 +7290,18 @@
       els.auditRangeFilter.addEventListener("change", event => {
         auditFilters.range = event.target.value;
         renderPage();
+      });
+    }
+    if (els.userRoleFilter) {
+      els.userRoleFilter.addEventListener("change", event => {
+        userFilters.role = event.target.value;
+        renderUsers();
+      });
+    }
+    if (els.userStatusFilter) {
+      els.userStatusFilter.addEventListener("change", event => {
+        userFilters.status = event.target.value;
+        renderUsers();
       });
     }
 

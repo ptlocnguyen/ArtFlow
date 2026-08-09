@@ -305,6 +305,55 @@ async function runPageInteractions(page, pageName, viewportName) {
       if (tableHeight < 500) throw new Error("Activity table must expand into the remaining desktop workspace.");
     }
   }
+  if (pageName === "users") {
+    const resultCount = page.locator("[data-user-result-count]");
+    if ((await resultCount.innerText()).trim() !== "3") throw new Error("Staff workspace must show the loaded account count.");
+    const currentRow = page.locator("[data-users-table] tr", { hasText: "admin@artflow.local" });
+    if (await currentRow.locator("[data-toggle-user], [data-delete-user]").count()) throw new Error("The current admin account must not expose destructive actions.");
+    await page.locator("[data-global-search]").fill("Minh Anh");
+    await page.waitForTimeout(60);
+    if ((await resultCount.innerText()).trim() !== "1") throw new Error("Staff search must filter accounts by name.");
+    await page.locator("[data-global-search]").fill("");
+    await page.locator("[data-user-role-filter]").selectOption("inventory");
+    await page.waitForTimeout(60);
+    if ((await resultCount.innerText()).trim() !== "1") throw new Error("Staff role filter must isolate inventory accounts.");
+    await page.locator("[data-user-role-filter]").selectOption("all");
+
+    await page.locator("[data-open-user]").click();
+    const userModal = page.locator("[data-modal-type='user']");
+    await userModal.waitFor();
+    if (!(await userModal.innerText()).includes("Chọn quyền tối thiểu cần thiết")) throw new Error("Staff creation must explain role permissions.");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "users-create.png"), fullPage: false });
+    }
+    await page.locator("#name").fill("QA Staff");
+    await page.locator("#email").fill("qa.staff@artflow.local");
+    await page.locator("#password").fill("QaStaff123!");
+    await page.locator("#role").selectOption("viewer");
+    await page.locator("[data-modal-form] button[type='submit']").click();
+    await page.waitForTimeout(120);
+    if ((await resultCount.innerText()).trim() !== "4") throw new Error("Creating a staff account must refresh the account list.");
+
+    const salesRow = page.locator("[data-users-table] tr", { hasText: "content@artflow.local" });
+    await salesRow.locator("[data-toggle-user]").click();
+    await page.waitForTimeout(120);
+    await page.locator("[data-user-status-filter]").selectOption("disabled");
+    await page.waitForTimeout(60);
+    if ((await resultCount.innerText()).trim() !== "1") throw new Error("Locking an account must update the status filter immediately.");
+    await page.locator("[data-user-status-filter]").selectOption("all");
+
+    const qaRow = page.locator("[data-users-table] tr", { hasText: "qa.staff@artflow.local" });
+    page.once("dialog", dialog => dialog.accept());
+    await qaRow.locator("[data-delete-user]").click();
+    await page.waitForTimeout(120);
+    if ((await resultCount.innerText()).trim() !== "3") throw new Error("Deleting a staff account must remove it from the list.");
+    if (viewportName === "desktop") {
+      const tableHeight = await page.locator(".users-table-wrap").evaluate(element => element.getBoundingClientRect().height);
+      if (tableHeight < 500) throw new Error("Staff table must expand into the remaining desktop workspace.");
+    }
+  }
   if (pageName === "team") {
     await page.locator("[data-team-view='tasks']").click().catch(() => {});
     await page.locator("[data-team-primary-action]").click().catch(() => {});
@@ -618,6 +667,27 @@ function handleAction(state, payload) {
       return pageData(state, payload.scopes || []);
     case "listUsers":
       return { ok: true, users: state.users };
+    case "createUser": {
+      const user = {
+        id: `qa-user-${Date.now()}`,
+        name: payload.name,
+        email: payload.email,
+        role: payload.role || "sales",
+        status: "active",
+        lastLoginAt: ""
+      };
+      state.users.push(user);
+      return { ok: true, user };
+    }
+    case "toggleUser": {
+      const user = state.users.find(item => item.id === payload.id);
+      if (!user) return { ok: false, error: "User not found" };
+      user.status = user.status === "active" ? "disabled" : "active";
+      return { ok: true, user };
+    }
+    case "deleteUser":
+      state.users = state.users.filter(item => item.id !== payload.id);
+      return { ok: true };
     case "listAuditLogs":
       return { ok: true, logs: state.auditLogs };
     case "createTeamItem":

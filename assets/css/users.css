@@ -1,0 +1,112 @@
+body[data-page="users"] .view.active.users-workspace {
+  display: block;
+  width: 100%;
+  height: calc(100dvh - var(--command-height) - 38px);
+  min-height: 430px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.users-title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.users-title-line > span { color: var(--v3-muted); font-size: 16px; }
+.users-title-line > strong {
+  overflow: hidden;
+  color: var(--v3-primary);
+  font-size: 16px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body[data-page="users"] .users-panel {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.users-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-height: 62px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--v3-border);
+  background: var(--v3-surface);
+}
+
+.users-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 240px));
+  gap: 8px;
+  min-width: 0;
+}
+
+.users-filters label { display: grid; gap: 3px; min-width: 0; }
+.users-filters label > span { color: var(--v3-muted); font-size: 10px; font-weight: 800; }
+.users-filters select { min-width: 0; min-height: 38px; height: 38px; padding-block: 5px; font-size: 13px; }
+.users-result-count { align-self: center; color: var(--v3-muted); font-size: 12px; white-space: nowrap; }
+.users-result-count strong { color: var(--v3-ink); }
+
+body[data-page="users"] .users-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+}
+
+body[data-page="users"] .users-table { width: 100%; min-width: 840px; }
+body[data-page="users"] .users-table thead { position: sticky; top: 0; z-index: 2; }
+body[data-page="users"] .users-table tbody tr:last-child td { border-bottom: 0; }
+body[data-page="users"] .users-table .is-current-user { background: #f8fbff; }
+.current-user-label { display: inline-flex; align-items: center; color: var(--v3-muted); font-size: 11px; font-weight: 700; white-space: nowrap; }
+body[data-page="users"] .users-table td:first-child .current-user-label { margin-left: 6px; }
+body[data-page="users"] .users-table td:nth-child(2) { overflow-wrap: anywhere; }
+.user-action-toggle { color: #b54708; border-color: #fedf89; background: #fffaeb; }
+.user-action-toggle.is-enable { color: #067647; border-color: #a6f4c5; background: #ecfdf3; }
+.user-action-delete { color: #b42318; border-color: #fecdca; background: #fef3f2; }
+
+body[data-page="users"] .modal[data-modal-type="user"] { width: min(720px, calc(100vw - 36px)); }
+body[data-page="users"] .modal[data-modal-type="user"] .user-role-note {
+  grid-column: 1 / -1;
+  margin: -2px 0 0;
+  padding: 10px 12px;
+  color: var(--v3-muted);
+  background: var(--v3-primary-soft);
+  border: 1px solid #b2ddff;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (max-width: 700px) {
+  body[data-page="users"] .view.active.users-workspace { height: auto; min-height: 0; overflow: visible; }
+  .users-title-line { gap: 6px; }
+  .users-title-line > span { font-size: 13px; }
+  .users-title-line > strong { font-size: 14px; }
+  body[data-page="users"] .users-panel { height: auto; min-height: calc(100dvh - 166px); overflow: visible; }
+  .users-toolbar { gap: 8px; padding: 10px; }
+  .users-filters { grid-template-columns: 1fr 1fr; }
+  body[data-page="users"] .users-table-wrap { max-height: none; overflow: visible; padding: 0 10px 10px; }
+  body[data-page="users"] .users-table { min-width: 0; }
+  body[data-page="users"] .users-table tbody { gap: 8px; }
+  body[data-page="users"] .users-table tr { gap: 8px 12px; padding: 11px; }
+  body[data-page="users"] .users-table td { padding-block: 0; }
+  body[data-page="users"] .users-table td:first-child .current-user-label { margin-left: 6px; }
+  body[data-page="users"] .users-table .row-actions { justify-content: flex-start; }
+}
+
+@media (max-width: 430px) {
+  .users-toolbar { grid-template-columns: 1fr; }
+  .users-result-count { justify-self: start; }
+}

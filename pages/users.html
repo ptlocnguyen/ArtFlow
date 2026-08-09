@@ -7,6 +7,7 @@
   <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="../assets/css/base.css" />
   <link rel="stylesheet" href="../assets/css/app.css" />
+  <link rel="stylesheet" href="../assets/css/users.css" />
   <link rel="stylesheet" href="../assets/css/v3.css" />
 </head>
 <body data-page="users" data-root="..">
@@ -19,11 +20,15 @@
       </aside>
     </aside>
     <main class="workspace">
-      <header class="command-bar"><button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div><p class="eyebrow">Phân quyền</p><h1 data-page-title>Nhân viên</h1></div><div class="command-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm tên, email, vai trò..." /></label><button class="button primary" type="button" data-open-user><span data-icon="userPlus"></span> Thêm nhân viên</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
-      <section class="view active">
-        <section class="panel">
-          <div class="panel-header"><div><h2>Tài khoản nội bộ</h2><p>Chỉ admin được cấp, khóa hoặc xóa tài khoản nhân viên.</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Nhân viên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th>Lần đăng nhập</th><th>Thao tác</th></tr></thead><tbody data-users-table></tbody></table></div>
+      <header class="command-bar"><button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div class="users-command-title"><p class="eyebrow">Quản trị</p><div class="users-title-line"><h1 data-page-title>Nhân viên</h1><span aria-hidden="true">/</span><strong>Tài khoản nội bộ</strong></div></div><div class="command-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm tên, email, vai trò..." /></label><button class="button primary" type="button" data-open-user><span data-icon="userPlus"></span> Thêm nhân viên</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
+      <section class="view active users-workspace">
+        <section class="panel users-panel">
+          <h2 class="visually-hidden">Danh sách tài khoản nhân viên nội bộ</h2>
+          <div class="users-toolbar">
+            <div class="users-filters"><label><span>Vai trò</span><select data-user-role-filter><option value="all">Tất cả vai trò</option><option value="admin">Admin</option><option value="sales">Bán hàng</option><option value="inventory">Kho</option><option value="viewer">Chỉ xem</option></select></label><label><span>Trạng thái</span><select data-user-status-filter><option value="all">Tất cả trạng thái</option><option value="active">Đang hoạt động</option><option value="disabled">Đã khóa</option></select></label></div>
+            <span class="users-result-count"><strong data-user-result-count>0</strong> tài khoản</span>
+          </div>
+          <div class="table-wrap users-table-wrap"><table class="users-table"><thead><tr><th>Nhân viên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th>Lần đăng nhập</th><th>Thao tác</th></tr></thead><tbody data-users-table></tbody></table></div>
         </section>
       </section>
     </main>
