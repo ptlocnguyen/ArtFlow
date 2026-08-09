@@ -196,6 +196,26 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector("[data-modal-backdrop]")?.hidden === true);
   }
+  if (pageName === "products") {
+    const productCount = page.locator("[data-product-result-count]");
+    await page.locator("[data-global-search]").fill("ART002");
+    await page.waitForTimeout(60);
+    if ((await productCount.innerText()).trim() !== "1") throw new Error("Product search must filter the catalog by SKU.");
+    await page.locator("[data-global-search]").fill("");
+    await page.locator("[data-product-stock-filter]").selectOption("low");
+    await page.waitForTimeout(60);
+    if (Number(await productCount.innerText()) < 1) throw new Error("Product stock filter must return low-stock products.");
+    await page.locator("[data-product-stock-filter]").selectOption("all");
+    await page.locator("[data-popover-trigger='#product-filter-popover']").click();
+    if (!(await page.locator("#product-filter-popover").isVisible())) throw new Error("Advanced product filters must open from the catalog toolbar.");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "products-advanced-filters.png"), fullPage: false });
+    }
+    await page.locator("[data-reset-product-filters]").click();
+    await page.keyboard.press("Escape");
+  }
   if (pageName === "team") {
     await page.locator("[data-team-view='tasks']").click().catch(() => {});
     await page.locator("[data-team-primary-action]").click().catch(() => {});

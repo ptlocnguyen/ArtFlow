@@ -9,17 +9,6 @@ body[data-page="accounting"] .accounting-ledger {
   margin-inline: 0;
 }
 
-.visually-hidden {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
-}
-
 .accounting-title-line {
   display: flex;
   align-items: baseline;
@@ -30,7 +19,7 @@ body[data-page="accounting"] .accounting-ledger {
 .accounting-title-line > span { color: var(--muted); font-size: 16px; }
 .accounting-title-line > strong {
   overflow: hidden;
-  color: var(--primary);
+  color: var(--v3-primary, var(--primary));
   font-size: 16px;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -239,7 +228,7 @@ body[data-page="accounting"] .accounting-ledger {
   .accounting-payroll-workspace { min-height: 0; }
   .accounting-ledger { height: auto; min-height: calc(100dvh - 150px); overflow: visible; }
   .accounting-title-line { gap: 6px; }
-  .accounting-title-line > span { display: none; }
+  .accounting-title-line > span { font-size: 13px; }
   .accounting-title-line > strong { font-size: 14px; }
   .accounting-ledger-controls { gap: 8px; padding-inline: 10px; }
   .accounting-ledger-filters { grid-template-columns: 1fr 1fr; }

@@ -1,0 +1,114 @@
+body[data-page="products"] .management-page,
+body[data-page="products"] .resource-index {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
+body[data-page="products"] .management-page {
+  height: calc(100dvh - var(--command-height) - 42px);
+  min-height: 430px;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+body[data-page="products"] .resource-index {
+  display: flex;
+  height: calc(100dvh - var(--command-height) - 42px);
+  min-height: 430px;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.product-title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.product-title-line > span { color: var(--muted); font-size: 16px; }
+.product-title-line > strong {
+  overflow: hidden;
+  color: var(--v3-primary, var(--primary));
+  font-size: 16px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-catalog-toolbar {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.product-primary-filters {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.15fr) repeat(2, minmax(125px, .8fr)) minmax(145px, .9fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.product-primary-filters label { display: grid; gap: 3px; min-width: 0; }
+.product-primary-filters label > span { color: var(--muted); font-size: 10px; font-weight: 800; }
+.product-primary-filters select { min-width: 0; min-height: 36px; height: 36px; padding-block: 5px; font-size: 13px; }
+
+.product-catalog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 0;
+}
+
+.product-catalog-actions .button { min-height: 36px; height: 36px; }
+.product-result-count { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.product-result-count b { color: var(--ink); }
+
+body[data-page="products"] .product-filter-bar.popover {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(92vw, 430px);
+  padding: 12px;
+}
+
+body[data-page="products"] .product-filter-bar .product-filter-reset { align-self: end; }
+body[data-page="products"] .product-quick-filters { flex: 0 0 auto; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+body[data-page="products"] .resource-content { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
+body[data-page="products"] .products-table { min-width: 860px; table-layout: fixed; }
+body[data-page="products"] .products-table th:first-child { width: 32%; }
+body[data-page="products"] .products-table th:nth-child(2) { width: 13%; }
+body[data-page="products"] .products-table th:nth-child(3) { width: 12%; }
+body[data-page="products"] .products-table th:nth-child(4) { width: 15%; }
+body[data-page="products"] .products-table th:nth-child(5) { width: 14%; }
+body[data-page="products"] .products-table th:nth-child(6) { width: 14%; }
+body[data-page="products"] .products-table thead { position: sticky; z-index: 2; top: 0; background: var(--surface); }
+
+@media (max-width: 1180px) {
+  .product-catalog-toolbar { grid-template-columns: 1fr; align-items: stretch; }
+  .product-catalog-actions { justify-content: flex-end; }
+}
+
+@media (max-width: 700px) {
+  body[data-page="products"] .management-page { height: auto; min-height: calc(100dvh - 150px); overflow: visible; }
+  body[data-page="products"] .resource-index { height: auto; min-height: 0; overflow: visible; }
+  .product-title-line { gap: 6px; }
+  .product-title-line > span { font-size: 13px; }
+  .product-title-line > strong { font-size: 14px; }
+  .product-catalog-toolbar { gap: 8px; padding: 10px; }
+  .product-primary-filters { grid-template-columns: 1fr 1fr; }
+  .product-catalog-actions { flex-wrap: wrap; justify-content: flex-start; }
+  .product-catalog-actions .product-result-count { flex: 1 0 100%; }
+  .product-catalog-actions .button:not(.icon-only) { padding-inline: 9px; }
+  .product-catalog-actions .button.icon-only { width: 36px; min-width: 36px; padding: 0; }
+  body[data-page="products"] .product-quick-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  body[data-page="products"] .product-quick-filters > * { flex: 0 0 auto; }
+  body[data-page="products"] .resource-content { overflow: visible; }
+  body[data-page="products"] .products-table { min-width: 0; table-layout: auto; }
+}
