@@ -1,5 +1,6 @@
-body[data-page="inventory"] .inventory-workspace {
+body[data-page="inventory"] .view.active.inventory-workspace {
   display: block;
+  grid-template-rows: none;
   width: 100%;
   height: calc(100dvh - var(--command-height) - 38px);
   min-height: 430px;
@@ -148,7 +149,7 @@ body[data-page="inventory"] .inventory-table tbody tr:last-child td { border-bot
   .inventory-title-line > span { font-size: 13px; }
   .inventory-title-line > strong { font-size: 14px; }
 
-  body[data-page="inventory"] .inventory-workspace {
+  body[data-page="inventory"] .view.active.inventory-workspace {
     height: auto;
     min-height: 0;
     overflow: visible;
