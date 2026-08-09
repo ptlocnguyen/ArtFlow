@@ -398,10 +398,36 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("[data-close-management-drawer]").click();
   }
   if (pageName === "purchasing") {
-    await page.locator("[data-purchase-saved-view='unpaid']").click();
-    await page.locator("[data-purchase-order-row]").first().click();
+    const count = page.locator("[data-purchase-result-count]");
+    if ((await count.innerText()).trim() !== "2 phiếu") throw new Error("Purchasing workspace must show the initial purchase order count.");
+    await page.locator("[data-global-search]").fill("PO-DRAFT-001");
+    await page.waitForTimeout(60);
+    if ((await count.innerText()).trim() !== "1 phiếu") throw new Error("Purchase search must find an order by code.");
+    await page.locator("[data-global-search]").fill("");
+    await page.locator("[data-purchase-saved-view='draft']").click();
+    if ((await count.innerText()).trim() !== "1 phiếu") throw new Error("Draft purchase saved view must only show waiting orders.");
+    await page.locator("[data-purchase-saved-view='all']").click();
+    await page.locator("[data-purchase-status-filter]").selectOption("received");
+    if ((await count.innerText()).trim() !== "1 phiếu") throw new Error("Purchase status filter must show received orders.");
+    await page.locator("[data-purchase-payment-filter]").selectOption("partial");
+    if ((await count.innerText()).trim() !== "1 phiếu") throw new Error("Purchase payment filter must combine with status filtering.");
+    await page.locator("[data-purchase-status-filter]").selectOption("all");
+    await page.locator("[data-purchase-payment-filter]").selectOption("all");
+    const tableWrap = page.locator(".purchasing-table-wrap");
+    const tableMetrics = await tableWrap.evaluate(element => ({ height: element.getBoundingClientRect().height, overflowY: getComputedStyle(element).overflowY, scrollTop: element.scrollTop }));
+    if (viewportName === "desktop" && tableMetrics.height < 500) throw new Error(`Purchase table must use the remaining desktop workspace height (actual: ${Math.round(tableMetrics.height)}px).`);
+    if (viewportName === "mobile" && ["auto", "scroll"].includes(tableMetrics.overflowY)) throw new Error("Purchase cards must use natural page scrolling on mobile.");
+    await page.locator("[data-purchase-order-row='po-001']").click();
     await page.locator("[data-purchase-detail]:not([hidden])").waitFor();
+    const detailText = await page.locator("[data-purchase-detail]:not([hidden])").innerText();
+    if (!detailText.includes("1.800.000") || !detailText.includes("ART")) throw new Error("Purchase detail must show totals and purchased item information.");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "purchasing-detail.png"), fullPage: false });
+    }
     await page.locator("[data-close-management-drawer]").click();
+    if (viewportName === "mobile" && await tableWrap.evaluate(element => element.scrollTop !== 0)) throw new Error("Closing purchase detail must not leave the mobile list internally scrolled.");
   }
   if (pageName === "order-create") {
     await page.locator("[data-open-product-picker], [data-show-product-picker], [data-product-picker-open]").first().click({ timeout: 1200 }).catch(() => {});

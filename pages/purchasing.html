@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../assets/css/app.css" />
   <link rel="stylesheet" href="../assets/css/components.css" />
   <link rel="stylesheet" href="../assets/css/operations.css" />
+  <link rel="stylesheet" href="../assets/css/purchasing.css" />
   <link rel="stylesheet" href="../assets/css/v3.css" />
 </head>
 <body data-page="purchasing" data-root="..">
@@ -21,20 +22,28 @@
       </aside>
     </aside>
     <main class="workspace">
-      <header class="command-bar"><button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div><p class="eyebrow">Hàng hóa & cung ứng</p><h1 data-page-title>Mua hàng</h1></div><div class="command-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm mã phiếu, hóa đơn, nhà cung cấp..." /></label><a class="button primary" href="./purchase-create.html"><span data-icon="plus"></span> Tạo phiếu</a><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
+      <header class="command-bar"><button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div class="purchasing-command-title"><p class="eyebrow">Hàng hóa & cung ứng</p><div class="purchasing-title-line"><h1 data-page-title>Mua hàng</h1><span aria-hidden="true">/</span><strong>Phiếu mua</strong></div></div><div class="command-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm mã phiếu, hóa đơn, nhà cung cấp..." /></label><a class="button primary" href="./purchase-create.html"><span data-icon="plus"></span> Tạo phiếu</a><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
       <section class="view active operation-page purchasing-view">
-        <section class="operation-toolbar purchasing-workbar">
-          <div class="saved-views" aria-label="Lọc nhanh phiếu mua">
-            <button class="active" type="button" data-purchase-saved-view="all">Tất cả</button>
-            <button type="button" data-purchase-saved-view="draft">Chờ nhận</button>
-            <button type="button" data-purchase-saved-view="unpaid">Chưa thanh toán</button>
-            <button type="button" data-purchase-saved-view="overdue">Quá hạn</button>
-          </div>
-          <div class="toolbar-fields"><label><span>Trạng thái phiếu</span><select data-purchase-status-filter><option value="all">Tất cả</option><option value="draft">Nháp</option><option value="received">Đã nhận hàng</option><option value="cancelled">Đã hủy</option></select></label><label><span>Thanh toán</span><select data-purchase-payment-filter><option value="all">Tất cả</option><option value="unpaid">Chưa thanh toán</option><option value="partial">Một phần</option><option value="paid">Đã thanh toán</option><option value="credit">Dư có</option></select></label></div>
-        </section>
         <section class="operation-queue panel purchasing-panel" data-purchasing-section="orders">
-          <div class="panel-header split"><div><h2>Danh sách phiếu mua</h2><p><span class="result-indicator" data-purchase-result-count></span> Chọn một phiếu để xem và xử lý.</p></div><div class="panel-header-actions"><a class="button ghost" href="./suppliers.html"><span data-icon="users"></span> Nhà cung cấp</a><a class="button ghost" href="./accounting.html?view=receivables&debt=supplier"><span data-icon="receipt"></span> Công nợ</a></div></div>
-          <div class="table-wrap"><table class="purchase-table"><thead><tr><th>Mã phiếu</th><th>Nhà cung cấp</th><th>Hàng hóa</th><th>Trạng thái</th><th>Phải trả</th><th>Hạn trả</th><th>Thao tác</th></tr></thead><tbody data-purchase-orders-table></tbody></table></div>
+          <h2 class="visually-hidden">Danh sách phiếu mua</h2>
+          <div class="purchasing-catalog-toolbar">
+            <div class="saved-views purchasing-saved-views" aria-label="Lọc nhanh phiếu mua">
+              <button class="active" type="button" data-purchase-saved-view="all">Tất cả</button>
+              <button type="button" data-purchase-saved-view="draft">Chờ nhận</button>
+              <button type="button" data-purchase-saved-view="unpaid">Chưa thanh toán</button>
+              <button type="button" data-purchase-saved-view="overdue">Quá hạn</button>
+            </div>
+            <div class="purchasing-filter-fields">
+              <label><span>Trạng thái</span><select data-purchase-status-filter><option value="all">Tất cả trạng thái</option><option value="draft">Nháp</option><option value="received">Đã nhận hàng</option><option value="cancelled">Đã hủy</option></select></label>
+              <label><span>Thanh toán</span><select data-purchase-payment-filter><option value="all">Tất cả thanh toán</option><option value="unpaid">Chưa thanh toán</option><option value="partial">Một phần</option><option value="paid">Đã thanh toán</option><option value="credit">Dư có</option></select></label>
+            </div>
+            <div class="purchasing-toolbar-actions">
+              <span class="result-indicator" data-purchase-result-count></span>
+              <a class="icon-button" href="./suppliers.html" aria-label="Mở nhà cung cấp" title="Nhà cung cấp"><span data-icon="users"></span></a>
+              <a class="icon-button" href="./accounting.html?view=receivables&amp;debt=supplier" aria-label="Mở công nợ nhà cung cấp" title="Công nợ nhà cung cấp"><span data-icon="receipt"></span></a>
+            </div>
+          </div>
+          <div class="table-wrap purchasing-table-wrap"><table class="purchase-table"><thead><tr><th>Mã phiếu</th><th>Nhà cung cấp</th><th>Hàng hóa</th><th>Trạng thái</th><th>Phải trả</th><th>Hạn trả</th><th>Thao tác</th></tr></thead><tbody data-purchase-orders-table></tbody></table></div>
         </section>
         <aside class="management-drawer operation-detail" data-purchase-detail hidden aria-label="Chi tiết phiếu mua"></aside>
       </section>

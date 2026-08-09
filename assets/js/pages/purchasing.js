@@ -1,10 +1,10 @@
 (function () {
   function create(runtime) {
-    const { byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, searchTerm, state, statusLabel, supplierFilters, supplierTarget } = runtime;
+    const { byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSearchTerm, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, state, statusLabel, supplierFilters, supplierTarget } = runtime;
 
     function renderPurchasing() {
       if (!els.purchaseOrdersTable && !els.suppliersList) return;
-      const term = searchTerm.trim().toLowerCase();
+      const term = getSearchTerm().trim().toLowerCase();
       const today = localDateValue();
       const orders = [...(state.purchaseOrders || [])]
         .filter(order => {
