@@ -7,6 +7,7 @@
   <link rel="icon" href="../assets/images/artflow-pos-logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="../assets/css/base.css" />
   <link rel="stylesheet" href="../assets/css/app.css" />
+  <link rel="stylesheet" href="../assets/css/content.css" />
   <link rel="stylesheet" href="../assets/css/v3.css" />
 </head>
 <body data-page="content" data-root="..">
@@ -21,7 +22,7 @@
     <main class="workspace">
       <header class="command-bar">
         <button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button>
-        <div><p class="eyebrow">Content workspace</p><h1 data-page-title>Content</h1></div>
+        <div class="content-command-title"><p class="eyebrow">Tăng trưởng</p><div class="content-title-line"><h1 data-page-title>Content</h1><span aria-hidden="true">/</span><strong>Danh sách chủ đề</strong></div></div>
         <div class="command-actions">
           <label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm chủ đề, sản phẩm, kênh..." /></label>
           <button class="button primary" type="button" data-open-content-item><span data-icon="plus"></span> Tạo chủ đề</button>
@@ -33,26 +34,30 @@
       <section class="view active content-workspace">
         <section class="popover content-control-panel" id="content-filter-popover" data-popover hidden>
           <div class="content-filter-bar">
-            <label><span>Trạng thái</span><select data-content-filter="status" data-content-status-filter></select></label>
             <label><span>Loại</span><select data-content-filter="type" data-content-type-filter></select></label>
-            <label><span>Kênh</span><select data-content-filter="channel" data-content-channel-filter></select></label>
             <label><span>Phụ trách</span><select data-content-filter="owner" data-content-owner-filter></select></label>
             <label><span>Sản phẩm</span><select data-content-filter="product" data-content-product-filter></select></label>
-            <label><span>Lịch đăng</span><select data-content-filter="schedule" data-content-schedule-filter></select></label>
+            <button class="button ghost content-filter-reset" type="button" data-reset-content-filters><span data-icon="refresh"></span> Đặt lại tất cả</button>
           </div>
         </section>
 
         <section class="content-layout">
           <section class="panel content-table-panel content-main-panel">
-            <div class="panel-header split">
-              <div><h2>Danh sách chủ đề</h2><p>Brief, deadline, người phụ trách, Docs/Drive và link đã đăng.</p></div>
-              <div class="row-actions">
-                <button class="button ghost" type="button" data-popover-trigger="#content-filter-popover"><span data-icon="filter"></span> Bộ lọc</button>
+            <h2 class="visually-hidden">Danh sách chủ đề content</h2>
+            <div class="content-catalog-toolbar">
+              <div class="content-primary-filters">
+                <label><span>Trạng thái</span><select data-content-filter="status" data-content-status-filter></select></label>
+                <label><span>Kênh</span><select data-content-filter="channel" data-content-channel-filter></select></label>
+                <label><span>Lịch đăng</span><select data-content-filter="schedule" data-content-schedule-filter></select></label>
+              </div>
+              <div class="content-catalog-actions">
+                <span class="content-result-count"><strong data-content-result-count>0</strong> chủ đề</span>
+                <button class="button ghost" type="button" data-popover-trigger="#content-filter-popover" data-content-advanced-filter-button><span data-icon="filter"></span> <span data-content-advanced-filter-label>Bộ lọc</span></button>
                 <button class="button ghost" type="button" data-export-content><span data-icon="download"></span> Xuất báo cáo</button>
               </div>
             </div>
-            <div class="table-wrap">
-              <table>
+            <div class="table-wrap content-table-wrap">
+              <table class="content-table">
                 <thead>
                   <tr><th>Chủ đề</th><th>Trạng thái</th><th>Kênh</th><th>Phụ trách</th><th>Deadline</th><th>Tài nguyên</th><th>Thao tác</th></tr>
                 </thead>

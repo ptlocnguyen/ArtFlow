@@ -296,6 +296,9 @@
     contentChannelFilter: qs("[data-content-channel-filter]"),
     contentProductFilter: qs("[data-content-product-filter]"),
     contentScheduleFilter: qs("[data-content-schedule-filter]"),
+    contentResultCount: qs("[data-content-result-count]"),
+    contentAdvancedFilterButton: qs("[data-content-advanced-filter-button]"),
+    contentAdvancedFilterLabel: qs("[data-content-advanced-filter-label]"),
     teamContent: qs("[data-team-content]"),
     teamStatusFilter: qs("[data-team-status-filter]"),
     teamOwnerFilter: qs("[data-team-owner-filter]"),
@@ -2829,7 +2832,7 @@
     setOptions(els.contentStatusFilter, Object.entries(contentItemStatuses), contentFilters.status, "Tất cả trạng thái");
     setOptions(els.contentTypeFilter, Object.entries(contentItemTypes), contentFilters.type, "Tất cả loại");
     setOptions(els.contentChannelFilter, Object.entries(contentChannels), contentFilters.channel, "Tất cả kênh");
-    const owners = [...new Set(items.map(item => item.owner).filter(Boolean))].sort((a, b) => a.localeCompare(b, "vi")).map(name => [name, name]);
+    const owners = [...new Set(items.map(item => item.owner).filter(Boolean))].sort((a, b) => ownerName(a).localeCompare(ownerName(b), "vi")).map(name => [name, ownerName(name)]);
     setOptions(els.contentOwnerFilter, owners, contentFilters.owner, "Tất cả phụ trách");
     const products = (state.products || []).filter(product => product.status !== "deleted").map(product => [product.id, `${product.sku} · ${product.name}`]);
     setOptions(els.contentProductFilter, products, contentFilters.product, "Tất cả sản phẩm");
@@ -3046,10 +3049,14 @@
     const items = (state.contentItems || []).filter(item => item.status !== "deleted");
     renderContentFilters(items);
     const visibleItems = filteredContentItems().sort((a, b) => String(a.dueDate || "9999").localeCompare(String(b.dueDate || "9999")) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    if (els.contentResultCount) els.contentResultCount.textContent = String(visibleItems.length);
+    const advancedFilterCount = ["type", "owner", "product"].filter(key => contentFilters[key] !== "all").length;
+    if (els.contentAdvancedFilterButton) els.contentAdvancedFilterButton.classList.toggle("has-active-filters", advancedFilterCount > 0);
+    if (els.contentAdvancedFilterLabel) els.contentAdvancedFilterLabel.textContent = advancedFilterCount ? `Bộ lọc (${advancedFilterCount})` : "Bộ lọc";
     if (els.contentTable) {
       els.contentTable.innerHTML = visibleItems.length ? visibleItems.map(item => {
         const product = getContentProduct(item);
-        return `<tr><td><strong>${escapeHtml(item.title)}</strong><br><small>${escapeHtml(contentItemTypes[item.type] || item.type)}${product ? ` · ${escapeHtml(product.sku)}` : ""}</small></td><td><span class="badge content-${item.status}">${contentItemStatuses[item.status] || item.status}</span></td><td>${escapeHtml(contentChannels[item.channel] || item.channel)}</td><td>${escapeHtml(item.owner || "—")}</td><td>${item.dueDate ? formatDate(item.dueDate) : "—"}${item.publishAt ? `<br><small>Đăng: ${escapeHtml(formatDateTimeShort(item.publishAt))}</small>` : ""}</td><td>${contentAssetsComplete(item) ? `<span class="assets-complete">Đủ</span>` : `<span class="assets-missing">Thiếu</span>`}</td><td><div class="row-actions">${item.contentDocUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.contentDocUrl)}" target="_blank" rel="noopener" title="Mở Docs">${icon("external")}</a>` : ""}${item.mediaFolderUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.mediaFolderUrl)}" target="_blank" rel="noopener" title="Mở Drive">${icon("folderPlus")}</a>` : ""}${canManageContent() ? `<button class="link-button icon-only" type="button" data-edit-content="${item.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-content="${item.id}" title="Ẩn">${icon("archive")}</button>` : ""}</div></td></tr>`;
+        return `<tr><td><strong>${escapeHtml(item.title)}</strong><br><small>${escapeHtml(contentItemTypes[item.type] || item.type)}${product ? ` · ${escapeHtml(product.sku)}` : ""}</small></td><td><span class="badge content-${item.status}">${contentItemStatuses[item.status] || item.status}</span></td><td>${escapeHtml(contentChannels[item.channel] || item.channel)}</td><td>${escapeHtml(ownerName(item.owner) || "—")}</td><td>${item.dueDate ? formatDate(item.dueDate) : "—"}${item.publishAt ? `<br><small>Đăng: ${escapeHtml(formatDateTimeShort(item.publishAt))}</small>` : ""}</td><td>${contentAssetsComplete(item) ? `<span class="assets-complete">Đủ</span>` : `<span class="assets-missing">Thiếu</span>`}</td><td><div class="row-actions">${item.contentDocUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.contentDocUrl)}" target="_blank" rel="noopener" aria-label="Mở Docs" title="Mở Docs">${icon("external")}</a>` : ""}${item.mediaFolderUrl ? `<a class="link-button icon-only" href="${escapeAttribute(item.mediaFolderUrl)}" target="_blank" rel="noopener" aria-label="Mở Drive" title="Mở Drive">${icon("folderPlus")}</a>` : ""}${canManageContent() ? `<button class="link-button icon-only" type="button" data-edit-content="${item.id}" aria-label="Sửa chủ đề" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-content="${item.id}" aria-label="Ẩn chủ đề" title="Ẩn">${icon("archive")}</button>` : ""}</div></td></tr>`;
       }).join("") : `<tr><td colspan="7" class="empty">Chưa có chủ đề content phù hợp.</td></tr>`;
     }
   }
@@ -7433,6 +7440,13 @@
       if (target.matches("[data-export-profit-report]")) exportProfitReport(page === "accounting" ? { range: accountingExportRange(), channel: "all" } : {});
       if (target.matches("[data-export-products]")) exportProductsCsv();
       if (target.matches("[data-export-content]")) exportContentReport();
+      if (target.matches("[data-reset-content-filters]")) {
+        Object.assign(contentFilters, { status: "all", type: "all", owner: "all", channel: "all", product: "all", schedule: "all" });
+        searchTerm = "";
+        const contentSearch = qs("[data-global-search]");
+        if (contentSearch) contentSearch.value = "";
+        renderContentWorkspace();
+      }
       if (target.matches("[data-export-team]")) exportTeamReport();
       if (target.matches("[data-import-products]")) openModal("productImport");
       if (target.matches("[data-export-customers]")) exportCustomersCsv();

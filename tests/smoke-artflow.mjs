@@ -238,6 +238,42 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.keyboard.press("Escape");
     if (await movementOverlay.isVisible()) throw new Error("Inventory movement history must close with Escape.");
   }
+  if (pageName === "content") {
+    const resultCount = page.locator("[data-content-result-count]");
+    await page.locator("[data-global-search]").fill("chu de khong ton tai QA");
+    await page.waitForTimeout(60);
+    if ((await resultCount.innerText()).trim() !== "0") throw new Error("Content search must filter the topic table.");
+    await page.locator("[data-global-search]").fill("");
+    await page.locator("[data-popover-trigger='#content-filter-popover']").click();
+    const filterPopover = page.locator("#content-filter-popover");
+    if (!(await filterPopover.isVisible())) throw new Error("Advanced content filters must open from the catalog toolbar.");
+    await page.locator('[data-content-filter="type"]').selectOption("campaign");
+    await page.waitForTimeout(60);
+    if (Number(await resultCount.innerText()) < 1) throw new Error("Content type filter must return matching topics.");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "content-filters.png"), fullPage: false });
+    }
+    await page.locator("[data-reset-content-filters]").click();
+    await page.keyboard.press("Escape");
+    await page.locator("[data-open-content-item]").click();
+    const contentModal = page.locator("[data-modal-type='contentItem']");
+    await contentModal.waitFor();
+    if (!(await page.locator("#contentTitle").isVisible())) throw new Error("Content creation workspace must expose the topic title field.");
+    if (!(await page.locator("[data-content-template]").isVisible())) throw new Error("Content creation workspace must expose brief automation templates.");
+    const modalMetrics = await contentModal.evaluate(element => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth }));
+    if (modalMetrics.scrollWidth > modalMetrics.clientWidth + 2) throw new Error("Content creation workspace must not overflow horizontally.");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "content-create.png"), fullPage: false });
+    }
+    await page.locator("[data-close-modal]").first().click();
+    const download = page.waitForEvent("download", { timeout: 3000 });
+    await page.locator("[data-export-content]").click();
+    await download;
+  }
   if (pageName === "team") {
     await page.locator("[data-team-view='tasks']").click().catch(() => {});
     await page.locator("[data-team-primary-action]").click().catch(() => {});
