@@ -334,6 +334,8 @@
     auditRangeFilter: qs("[data-audit-range-filter]"),
     inventoryProductsTable: qs("[data-inventory-products-table]"),
     stockMovementsTable: qs("[data-stock-movements-table]"),
+    inventoryResultCount: qs("[data-inventory-result-count]"),
+    inventoryMovementsOverlay: qs("[data-inventory-movements-overlay]"),
     accountingAccounts: qs("[data-accounting-accounts]"),
     accountingReconciliations: qs("[data-accounting-reconciliations]"),
     accountingCategories: qs("[data-accounting-categories]"),
@@ -922,8 +924,11 @@
       initial: "Tồn ban đầu",
       receive: "Nhập kho",
       adjustment: "Điều chỉnh",
+      low_stock_audit: "Kiểm kho",
       product_edit: "Sửa sản phẩm",
       sale: "Bán hàng",
+      sales_return: "Khách trả hàng",
+      csv_import: "Nhập từ file",
       order_cancel: "Hủy đơn",
       purchase_receive: "Nhận hàng mua",
       purchase_cancel: "Hủy nhập hàng",
@@ -3743,12 +3748,12 @@
       const deltaClass = movement.quantityDelta < 0 ? "cancelled" : "active";
       return `
         <tr>
-          <td><strong>${movement.sku}</strong><br><small>${movement.productName}</small></td>
-          <td><span class="badge ${movement.type === "sale" ? "pending" : "active"}">${statusLabel(movement.type)}</span></td>
-          <td><span class="badge ${deltaClass}">${delta}</span></td>
-          <td>${movement.stockBefore} → ${movement.stockAfter}</td>
-          <td>${movement.reason || "Không có ghi chú"}</td>
-          <td>${formatDate(movement.createdAt)}</td>
+          <td data-label="Sản phẩm"><strong>${movement.sku}</strong><br><small>${movement.productName}</small></td>
+          <td data-label="Loại"><span class="badge ${movement.type === "sale" ? "pending" : "active"}">${statusLabel(movement.type)}</span></td>
+          <td data-label="Thay đổi"><span class="badge ${deltaClass}">${delta}</span></td>
+          <td data-label="Tồn trước/sau">${movement.stockBefore} → ${movement.stockAfter}</td>
+          <td data-label="Lý do">${movement.reason || "Không có ghi chú"}</td>
+          <td data-label="Thời gian">${formatDateTime(movement.createdAt)}</td>
         </tr>
       `;
     }).join("") : `<tr><td colspan="6" class="empty">Chưa có biến động kho.</td></tr>`;
@@ -3808,25 +3813,26 @@
   function renderInventoryProducts(products) {
     if (!els.inventoryProductsTable) return;
     const rows = inventoryFilteredProducts(products);
+    if (els.inventoryResultCount) els.inventoryResultCount.textContent = String(rows.length);
     els.inventoryProductsTable.innerHTML = rows.length ? rows.map(product => {
       const stateInfo = inventoryStockState(product);
       const suggestion = inventoryRestockSuggestion(product);
       const value = Number(product.stock || 0) * Number(product.costPrice || 0);
       return `
         <tr class="inventory-product-row" data-stock-state="${stateInfo.key}">
-          <td>
+          <td data-label="Sản phẩm">
             <div class="inventory-product-cell">
               ${renderProductThumb(product, "product-thumb inventory-thumb")}
               <span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)}${product.barcode ? ` · ${escapeHtml(product.barcode)}` : ""}</small></span>
             </div>
           </td>
-          <td><strong>${escapeHtml(product.category || "Chưa phân loại")}</strong><small>${escapeHtml(product.brand || "Chưa có hãng")}</small></td>
-          <td><span class="badge ${stateInfo.badge}">${Number(product.stock || 0)} ${escapeHtml(product.unit || "")}</span></td>
-          <td>${Number(product.lowStock || 0)}</td>
-          <td>${money.format(product.costPrice)}</td>
-          <td>${money.format(value)}</td>
-          <td>${suggestion ? `Nhập thêm ${suggestion}` : "Đủ an toàn"}</td>
-          <td>
+          <td data-label="Phân loại"><strong>${escapeHtml(product.category || "Chưa phân loại")}</strong><small>${escapeHtml(product.brand || "Chưa có hãng")}</small></td>
+          <td data-label="Tồn kho"><span class="badge ${stateInfo.badge}">${Number(product.stock || 0)} ${escapeHtml(product.unit || "")}</span></td>
+          <td data-label="Ngưỡng">${Number(product.lowStock || 0)}</td>
+          <td data-label="Giá vốn">${money.format(product.costPrice)}</td>
+          <td data-label="Giá trị">${money.format(value)}</td>
+          <td data-label="Gợi ý">${suggestion ? `Nhập thêm ${suggestion}` : "Đủ an toàn"}</td>
+          <td data-label="Thao tác">
             <div class="table-actions">
               <button class="button small primary icon-only" type="button" data-stock-receive-product="${product.id}" aria-label="Nhập kho" title="Nhập kho">${icon("download")}</button>
               <button class="button small ghost icon-only" type="button" data-stock-adjust-product="${product.id}" aria-label="Kiểm kho" title="Kiểm kho">${icon("edit")}</button>
@@ -3843,6 +3849,20 @@
     renderInventoryFilters(activeProducts);
     renderInventoryProducts(activeProducts);
     renderStockMovements();
+  }
+
+  function openInventoryMovements() {
+    if (!els.inventoryMovementsOverlay) return;
+    renderStockMovements();
+    els.inventoryMovementsOverlay.hidden = false;
+    document.body.classList.add("overlay-open");
+    requestAnimationFrame(() => els.inventoryMovementsOverlay.querySelector("[data-close-inventory-movements]")?.focus());
+  }
+
+  function closeInventoryMovements() {
+    if (!els.inventoryMovementsOverlay || els.inventoryMovementsOverlay.hidden) return;
+    els.inventoryMovementsOverlay.hidden = true;
+    if (!els.modalBackdrop || els.modalBackdrop.hidden) document.body.classList.remove("overlay-open");
   }
 
 
@@ -7704,6 +7724,8 @@
       if (target.matches("[data-open-supplier]")) openModal("supplier");
       if (target.matches("[data-open-stock-receive]")) openModal("stockReceive");
       if (target.matches("[data-open-stock-adjust]")) openModal("stockAdjust");
+      if (target.matches("[data-open-inventory-movements]")) openInventoryMovements();
+      if (target.matches("[data-close-inventory-movements]")) closeInventoryMovements();
       if (target.matches("[data-stock-receive-product]")) openModal("stockReceive", { productId: target.dataset.stockReceiveProduct });
       if (target.matches("[data-stock-adjust-product]")) openModal("stockAdjust", { productId: target.dataset.stockAdjustProduct });
       if (target.matches("[data-reset-inventory-filters]")) {
@@ -8066,8 +8088,17 @@
     });
 
     document.addEventListener("keydown", event => {
-      if (event.key === "Escape") closeModal();
+      if (event.key === "Escape") {
+        closeInventoryMovements();
+        closeModal();
+      }
     });
+
+    if (els.inventoryMovementsOverlay) {
+      els.inventoryMovementsOverlay.addEventListener("click", event => {
+        if (event.target === els.inventoryMovementsOverlay) closeInventoryMovements();
+      });
+    }
 
     document.addEventListener("input", event => {
       if (event.target.matches("#costPrice, #salePrice")) updateProductPricingPreview(event.target.closest("form") || els.modalForm);

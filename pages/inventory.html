@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../assets/css/base.css" />
   <link rel="stylesheet" href="../assets/css/app.css" />
   <link rel="stylesheet" href="../assets/css/components.css" />
+  <link rel="stylesheet" href="../assets/css/inventory.css" />
   <link rel="stylesheet" href="../assets/css/v3.css" />
 </head>
 <body data-page="inventory" data-root="..">
@@ -22,11 +23,11 @@
     <main class="workspace">
       <header class="command-bar">
         <button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button>
-        <div><p class="eyebrow">Tồn kho</p><h1 data-page-title>Kho hàng</h1></div>
+        <div class="inventory-command-title"><p class="eyebrow">Tồn kho</p><div class="inventory-title-line"><h1 data-page-title>Kho hàng</h1><span aria-hidden="true">/</span><strong>Kiểm soát SKU</strong></div></div>
         <div class="command-actions">
-          <label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm SKU, sản phẩm, lý do biến động..." /></label>
+          <label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm SKU, tên, danh mục..." /></label>
           <button class="button ghost icon-only" type="button" data-open-stock-adjust title="Điều chỉnh tồn" aria-label="Điều chỉnh tồn"><span data-icon="edit"></span></button>
-          <button class="button primary icon-only" type="button" data-open-stock-receive title="Nhập kho" aria-label="Nhập kho"><span data-icon="download"></span></button>
+          <button class="button primary" type="button" data-open-stock-receive><span data-icon="download"></span><span>Nhập kho</span></button>
           <button class="button ghost icon-only" type="button" data-open-product title="Thêm sản phẩm" aria-label="Thêm sản phẩm"><span data-icon="plus"></span></button>
           <div class="user-chip" data-current-user></div>
           <button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button>
@@ -34,13 +35,17 @@
       </header>
       <section class="view active operation-page inventory-workspace">
         <section class="panel inventory-products-panel">
-          <div class="panel-header inventory-panel-header">
-            <div><h2>Kiểm soát SKU</h2><p>Lọc nhanh tồn kho, xem mức rủi ro và thao tác trực tiếp theo từng sản phẩm.</p></div>
+          <h2 class="visually-hidden">Danh sách kiểm soát SKU</h2>
+          <div class="inventory-control-bar">
             <div class="inventory-toolbar">
               <select data-inventory-filter="category" aria-label="Lọc danh mục"><option value="all">Tất cả danh mục</option></select>
               <select data-inventory-filter="stock" aria-label="Lọc tồn kho"><option value="all">Tất cả tồn kho</option><option value="out">Hết hàng</option><option value="low">Sắp hết</option><option value="healthy">Đủ hàng</option><option value="overstock">Tồn cao</option></select>
               <select data-inventory-filter="sort" aria-label="Sắp xếp tồn kho"><option value="risk">Ưu tiên rủi ro</option><option value="stockAsc">Tồn thấp trước</option><option value="stockDesc">Tồn cao trước</option><option value="valueDesc">Giá trị tồn cao</option><option value="name">Tên A-Z</option></select>
-              <button class="button ghost" type="button" data-reset-inventory-filters>Đặt lại</button>
+            </div>
+            <div class="inventory-toolbar-actions">
+              <span class="inventory-result-count"><strong data-inventory-result-count>0</strong> SKU</span>
+              <button class="button ghost" type="button" data-open-inventory-movements><span data-icon="history"></span><span>Biến động</span></button>
+              <button class="button ghost" type="button" data-reset-inventory-filters><span data-icon="refresh"></span><span>Đặt lại</span></button>
             </div>
           </div>
           <div class="table-wrap inventory-table-wrap">
@@ -50,12 +55,28 @@
             </table>
           </div>
         </section>
-        <section class="panel inventory-movements-panel">
-          <div class="panel-header"><div><h2>Lịch sử biến động kho</h2><p>Theo dõi nhập kho, bán hàng, hủy đơn và điều chỉnh kiểm kho.</p></div></div>
-          <div class="table-wrap"><table><thead><tr><th>Sản phẩm</th><th>Loại</th><th>Thay đổi</th><th>Tồn trước/sau</th><th>Lý do</th><th>Thời gian</th></tr></thead><tbody data-stock-movements-table></tbody></table></div>
-        </section>
       </section>
     </main>
+  </div>
+  <div class="ui-overlay inventory-movements-overlay" data-inventory-movements-overlay hidden>
+    <section class="inventory-movements-dialog" role="dialog" aria-modal="true" aria-labelledby="inventory-movements-title">
+      <header class="inventory-movements-header">
+        <div>
+          <p class="eyebrow">Kho hàng</p>
+          <h2 id="inventory-movements-title">Lịch sử biến động</h2>
+          <p>Nhập kho, bán hàng, trả hàng và điều chỉnh tồn được ghi nhận tại đây.</p>
+        </div>
+        <button class="icon-button" type="button" data-close-inventory-movements aria-label="Đóng lịch sử biến động" title="Đóng"><span data-icon="close"></span></button>
+      </header>
+      <div class="inventory-movements-body">
+        <div class="table-wrap inventory-movements-table-wrap">
+          <table class="inventory-movements-table">
+            <thead><tr><th>Sản phẩm</th><th>Loại</th><th>Thay đổi</th><th>Tồn trước/sau</th><th>Lý do</th><th>Thời gian</th></tr></thead>
+            <tbody data-stock-movements-table></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </div>
   <div data-shared-ui></div>
   <script src="../assets/js/config.js"></script>

@@ -216,6 +216,28 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("[data-reset-product-filters]").click();
     await page.keyboard.press("Escape");
   }
+  if (pageName === "inventory") {
+    const resultCount = page.locator("[data-inventory-result-count]");
+    await page.locator("[data-global-search]").fill("ART002");
+    await page.waitForTimeout(60);
+    if ((await resultCount.innerText()).trim() !== "1") throw new Error("Inventory search must filter the SKU control table.");
+    await page.locator("[data-global-search]").fill("");
+    await page.locator('[data-inventory-filter="stock"]').selectOption("low");
+    await page.waitForTimeout(60);
+    if (Number(await resultCount.innerText()) < 1) throw new Error("Inventory risk filter must return low-stock SKUs.");
+    await page.locator("[data-reset-inventory-filters]").click();
+    await page.locator("[data-open-inventory-movements]").click();
+    const movementOverlay = page.locator("[data-inventory-movements-overlay]");
+    if (!(await movementOverlay.isVisible())) throw new Error("Inventory movement history must open in a modal overlay.");
+    if (await page.locator("[data-stock-movements-table] tr").count() < 1) throw new Error("Inventory movement modal must render history rows.");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "inventory-movements.png"), fullPage: false });
+    }
+    await page.keyboard.press("Escape");
+    if (await movementOverlay.isVisible()) throw new Error("Inventory movement history must close with Escape.");
+  }
   if (pageName === "team") {
     await page.locator("[data-team-view='tasks']").click().catch(() => {});
     await page.locator("[data-team-primary-action]").click().catch(() => {});
