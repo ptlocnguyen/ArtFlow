@@ -465,7 +465,34 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("[data-channel-settings-search]").fill("");
   }
   if (pageName === "accounting-settings") {
-    await page.locator("a[href='#categories']").click().catch(() => {});
+    const anchors = page.locator(".settings-anchor-nav a");
+    if (await anchors.count() !== 3) throw new Error("Accounting settings must expose all three configuration groups.");
+    for (const link of await anchors.all()) {
+      if (!(await link.isVisible())) throw new Error("Every accounting settings group must remain visible without horizontal scrolling.");
+    }
+    if (viewportName === "desktop") {
+      const fit = await page.evaluate(() => {
+        const workspace = document.querySelector(".workspace").getBoundingClientRect();
+        const settings = document.querySelector(".accounting-settings-page").getBoundingClientRect();
+        return workspace.width - settings.width;
+      });
+      if (fit > 50) throw new Error("Accounting settings must use the full available desktop width.");
+    }
+
+    await page.locator("a[href='#categories']").click();
+    await page.waitForTimeout(80);
+    if (!(await page.locator("a[href='#categories']").getAttribute("class") || "").includes("active")) throw new Error("Accounting settings navigation must mark the selected group.");
+
+    await page.locator("a[href='#commerce-rules']").click();
+    await page.waitForTimeout(80);
+    const settingsForm = page.locator("[data-accounting-settings-form]");
+    await settingsForm.locator("input[name='tolerance']").fill("2500");
+    await settingsForm.locator("input[name='payrollKeywords']").fill("lương, cộng tác viên, payroll, thưởng");
+    await settingsForm.locator("button[type='submit']").click();
+    await page.waitForTimeout(120);
+    if (!(await page.locator("[data-toast]").innerText()).includes("Đã lưu cấu hình")) throw new Error("Accounting rules must save through the backend flow.");
+
+    await page.locator("a[href='#accounts']").click();
     await page.waitForTimeout(80);
   }
   if (pageName === "suppliers") {
@@ -717,6 +744,38 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.goto(deepLinkUrl.toString(), { waitUntil: "networkidle" });
     if (!(await page.locator("[data-accounting-view-filter='ledger']").getAttribute("class") || "").includes("active")) throw new Error("Accounting deep link must open the ledger view.");
     if (!(await page.locator("[data-transaction-row='tx-002']").getAttribute("class") || "").includes("deep-link-highlight")) throw new Error("Accounting deep link must highlight the transaction.");
+
+    const accountingUrl = page.url();
+    const menuToggle = page.locator("[data-context-toggle]");
+    if (await menuToggle.isVisible()) {
+      await menuToggle.click();
+      await page.waitForTimeout(250);
+      if (!(await page.locator("body").getAttribute("class") || "").includes("context-open")) {
+        throw new Error("Accounting context menu must remain open after the menu action.");
+      }
+    }
+    const accountingSettingsLink = page.locator(".context-nav a[href='./accounting-settings.html']");
+    if (!(await accountingSettingsLink.isVisible())) throw new Error("Accounting menu must expose the settings action.");
+    await accountingSettingsLink.scrollIntoViewIfNeeded();
+    const settingsLinkLayout = await accountingSettingsLink.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const nav = element.closest(".context-nav");
+      const sidebar = element.closest(".context-sidebar");
+      return {
+        rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+        nav: nav ? { clientHeight: nav.clientHeight, scrollHeight: nav.scrollHeight, scrollTop: nav.scrollTop } : null,
+        sidebarTransform: sidebar ? getComputedStyle(sidebar).transform : "",
+        contextOpen: document.body.classList.contains("context-open")
+      };
+    });
+    if (settingsLinkLayout.rect.right <= 0 || settingsLinkLayout.rect.left >= await page.evaluate(() => innerWidth)) {
+      throw new Error(`Accounting settings action must enter the viewport: ${JSON.stringify(settingsLinkLayout)}`);
+    }
+    await accountingSettingsLink.click();
+    await page.waitForURL(/accounting-settings\.html/);
+    await page.locator("[data-page-title]").waitFor();
+    if (!(await page.locator("[data-page-title]").innerText()).includes("Thiết lập kế toán")) throw new Error("Accounting settings menu action must open the correct workspace.");
+    await page.goto(accountingUrl, { waitUntil: "networkidle" });
   }
   if (pageName === "purchasing") {
     const deepLinkUrl = new URL(page.url());

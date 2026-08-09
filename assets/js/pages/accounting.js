@@ -517,7 +517,19 @@
 
   function init() {
     document.querySelectorAll(".accounting-local-nav").forEach(nav => window.ArtFlowNavigation?.bindLocalNavigation(nav));
-    document.querySelectorAll(".settings-local-nav").forEach(nav => window.ArtFlowUI?.bindHorizontalWheel(nav));
+    document.querySelectorAll(".settings-anchor-nav").forEach(nav => {
+      window.ArtFlowUI?.bindHorizontalWheel(nav);
+      const syncActiveAnchor = hash => {
+        const selectedHash = hash || "#accounts";
+        nav.querySelectorAll("a[href^='#']").forEach(link => link.classList.toggle("active", link.getAttribute("href") === selectedHash));
+      };
+      nav.addEventListener("click", event => {
+        const link = event.target.closest("a[href^='#']");
+        if (link) syncActiveAnchor(link.getAttribute("href"));
+      });
+      window.addEventListener("hashchange", () => syncActiveAnchor(window.location.hash));
+      syncActiveAnchor(window.location.hash);
+    });
   }
   document.addEventListener("DOMContentLoaded", init, { once: true });
 

@@ -33,7 +33,10 @@
   .command-actions .search-box { order: 10; width: 100%; min-width: 260px; }
   .command-primary .button span:last-child { display: none; }
 }
-@media (max-width: 900px) { .command-bar { margin-inline: -14px; padding-inline: 14px; } }
+@media (max-width: 900px) {
+  .command-bar { grid-template-columns: auto minmax(150px, 1fr) auto; margin-inline: -14px; padding-inline: 14px; }
+  .command-bar > .command-mobile-toggle { display: grid; }
+}
 @media (max-width: 700px) {
   .command-bar { grid-template-columns: auto minmax(0, 1fr); margin-inline: -14px; padding-inline: 14px; }
   .command-bar > .command-mobile-toggle { display: grid; grid-column: 1; grid-row: 1; }

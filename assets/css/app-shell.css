@@ -49,6 +49,7 @@
 
 .context-nav {
   display: grid;
+  flex: 1 1 auto;
   align-content: start;
   gap: 16px;
   min-height: 0;
