@@ -333,6 +333,7 @@
     settingsPreview: qs("[data-settings-preview]"),
     auditTable: qs("[data-audit-table]"),
     auditHealth: qs("[data-audit-health]"),
+    auditResultCount: qs("[data-audit-result-count]"),
     auditEntityFilter: qs("[data-audit-entity-filter]"),
     auditRangeFilter: qs("[data-audit-range-filter]"),
     inventoryProductsTable: qs("[data-inventory-products-table]"),
@@ -3678,7 +3679,11 @@
       archiveTeamItem: "Lưu trữ nội dung Team Hub", createIncenseWish: "Thắp hương xin vía",
       updateAppSettings: "Cập nhật cài đặt hệ thống", updateMyProfile: "Cập nhật hồ sơ cá nhân",
       changeMyPassword: "Đổi mật khẩu", createOrderReceiptPdf: "Tạo PDF hóa đơn",
-      provisionContentItemAssets: "Tạo tài nguyên Drive cho content"
+      provisionContentItemAssets: "Tạo tài nguyên Drive cho content",
+      createWorkspaceTask: "Tạo việc cần làm", updateWorkspaceTask: "Cập nhật việc cần làm",
+      archiveWorkspaceTask: "Lưu trữ việc cần làm", createSalesChannel: "Tạo kênh bán",
+      updateSalesChannel: "Cập nhật kênh bán", createCampaign: "Tạo chiến dịch",
+      updateCampaign: "Cập nhật chiến dịch", updateTeamPricing: "Cập nhật bảng tính giá"
     }[action] || action || "Hoạt động hệ thống";
   }
 
@@ -3689,9 +3694,11 @@
     const rows = auditLogs.filter(log => {
       const matchesEntity = auditFilters.entityType === "all" || log.entityType === auditFilters.entityType;
       const matchesDate = !cutoff || new Date(log.createdAt).getTime() >= cutoff;
-      const text = [log.description, log.action, log.actorName, log.actorEmail, log.entityType, log.entityId].join(" ").toLowerCase();
+      const text = [log.description, auditActionLabel(log.action), log.action, log.actorName, log.actorEmail, auditEntityLabel(log.entityType), log.entityType, log.entityId].join(" ").toLowerCase();
       return matchesEntity && matchesDate && (!term || text.includes(term));
     });
+
+    if (els.auditResultCount) els.auditResultCount.textContent = String(rows.length);
 
     if (els.auditHealth) {
       const healthy = !Number(auditHealth.pending || 0) && !Number(auditHealth.failed || 0);
@@ -3701,16 +3708,19 @@
         : `${icon("alertTriangle")} ${Number(auditHealth.pending || 0)} đang chờ · ${Number(auditHealth.failed || 0)} lỗi`;
     }
 
-    els.auditTable.innerHTML = rows.length ? rows.map(log => `
+    els.auditTable.innerHTML = rows.length ? rows.map(log => {
+      const actionLabel = log.description && log.description !== log.action ? log.description : auditActionLabel(log.action);
+      return `
       <tr>
         <td><strong>${escapeHtml(formatDateTime(log.createdAt))}</strong><small>Giờ Việt Nam</small></td>
-        <td><strong>${escapeHtml(log.description)}</strong><small>${escapeHtml(log.action)}</small></td>
+        <td><strong>${escapeHtml(actionLabel)}</strong><small>${escapeHtml(log.action)}</small></td>
         <td><span class="badge">${escapeHtml(auditEntityLabel(log.entityType))}</span></td>
         <td><strong>${escapeHtml(log.actorName)}</strong><small>${escapeHtml(log.actorEmail)}</small></td>
         <td><code class="audit-reference">${escapeHtml(log.entityId || "—")}</code></td>
         <td><button class="link-button icon-only" type="button" data-view-audit="${escapeAttribute(log.id)}" aria-label="Xem chi tiết" title="Xem chi tiết">${icon("eye")}</button></td>
       </tr>
-    `).join("") : `<tr><td colspan="6" class="empty">Chưa có hoạt động phù hợp bộ lọc.</td></tr>`;
+    `;
+    }).join("") : `<tr><td colspan="6" class="empty">${auditLogs.length ? "Không có hoạt động phù hợp bộ lọc hiện tại." : "Chưa có hoạt động nào được ghi nhận."}</td></tr>`;
   }
 
   function renderAuditDetail(log) {

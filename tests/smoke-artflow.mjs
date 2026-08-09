@@ -274,6 +274,37 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("[data-export-content]").click();
     await download;
   }
+  if (pageName === "activity") {
+    const resultCount = page.locator("[data-audit-result-count]");
+    await page.locator("[data-audit-range-filter]").selectOption("all");
+    await page.waitForTimeout(60);
+    if (Number(await resultCount.innerText()) < 1) throw new Error("Activity history must expose older records when the full range is selected.");
+    await page.locator("[data-audit-entity-filter]").selectOption("order");
+    await page.waitForTimeout(60);
+    if ((await resultCount.innerText()).trim() !== "1") throw new Error("Activity entity filter must isolate order history.");
+    await page.locator("[data-global-search]").fill("createOrder");
+    await page.waitForTimeout(60);
+    if ((await resultCount.innerText()).trim() !== "1") throw new Error("Activity search must find records by action code.");
+    await page.locator("[data-view-audit]").first().click();
+    const detailModal = page.locator("[data-modal-type='auditDetail']");
+    await detailModal.waitFor();
+    if (!(await detailModal.innerText()).includes("Dữ liệu ghi nhận")) throw new Error("Activity details must expose the recorded payload.");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "activity-detail.png"), fullPage: false });
+    }
+    await page.locator("[data-close-modal]").first().click();
+    await page.locator("[data-global-search]").fill("");
+    await page.locator("[data-audit-entity-filter]").selectOption("all");
+    await page.locator("[data-refresh-audit]").click();
+    await page.waitForTimeout(100);
+    if (Number(await resultCount.innerText()) < 1) throw new Error("Refreshing activity history must preserve loaded records.");
+    if (viewportName === "desktop") {
+      const tableHeight = await page.locator(".audit-table-wrap").evaluate(element => element.getBoundingClientRect().height);
+      if (tableHeight < 500) throw new Error("Activity table must expand into the remaining desktop workspace.");
+    }
+  }
   if (pageName === "team") {
     await page.locator("[data-team-view='tasks']").click().catch(() => {});
     await page.locator("[data-team-primary-action]").click().catch(() => {});
