@@ -1,6 +1,6 @@
 (function () {
   function create(runtime) {
-    const { normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, hydrateIcons, icon, money, omniFilters, qs, state } = runtime;
+    const { normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, getSearchTerm, hydrateIcons, icon, money, omniFilters, qs, state } = runtime;
 
     function activeSalesChannels() {
       const list = (state.salesChannels || []).map(normalizeSalesChannel).filter(channel => channel.status !== "deleted");
@@ -14,12 +14,12 @@
         syncMode: "manual"
       }));
     }
-    
+
     function channelByIdOrCode(value) {
       const key = String(value || "");
       return activeSalesChannels().find(channel => channel.id === key || channel.code === key) || null;
     }
-    
+
     function reservedStockForProduct(productId) {
       return (state.inventoryReservations || [])
         .map(normalizeInventoryReservation)
@@ -45,13 +45,28 @@
         };
       });
     }
-    
-    function renderStaticOmniWorkspace(rootNode, channelsList) {
-      const rows = channelProductRows();
-      const filteredRows = rows
+
+    function filteredChannelProductRows() {
+      const term = getSearchTerm().trim().toLowerCase();
+      return channelProductRows()
         .filter(row => omniFilters.channel === "all" || row.mappings.some(item => item.channelId === omniFilters.channel || (channelByIdOrCode(item.channelId) || {}).code === omniFilters.channel))
         .filter(row => omniFilters.stock === "low" ? row.product.stock <= row.product.lowStock : omniFilters.stock === "out" ? row.product.stock <= 0 : omniFilters.stock === "reserved" ? row.reserved > 0 : true)
-        .filter(row => omniFilters.issue === "missing" ? row.mappedCount === 0 : omniFilters.issue === "mismatch" ? row.mismatch : true);
+        .filter(row => omniFilters.issue === "missing" ? row.mappedCount === 0 : omniFilters.issue === "mismatch" ? row.mismatch : true)
+        .filter(row => {
+          if (!term) return true;
+          const mappingText = row.mappings.flatMap(item => {
+            const channel = channelByIdOrCode(item.channelId);
+            return [item.channelSku, item.channelName, channel?.name, channel?.code];
+          });
+          return [row.product.sku, row.product.name, row.product.category, row.product.brand, row.product.barcode, ...mappingText]
+            .join(" ")
+            .toLowerCase()
+            .includes(term);
+        });
+    }
+
+    function renderStaticOmniWorkspace(rootNode, channelsList) {
+      const filteredRows = filteredChannelProductRows();
       const channelFilter = rootNode.querySelector("[data-omni-channel-filter]");
       if (channelFilter) {
         channelFilter.innerHTML = `<option value="all">Tất cả kênh</option>${channelsList.map(channel => `<option value="${channel.id}">${escapeHtml(channel.name)}</option>`).join("")}`;
@@ -61,7 +76,16 @@
         if (select.dataset.omniFilter !== "channel") select.value = omniFilters[select.dataset.omniFilter];
       });
       const count = rootNode.querySelector("[data-omni-result-count]");
-      if (count) count.textContent = `${filteredRows.length} sản phẩm phù hợp.`;
+      if (count) count.textContent = `${filteredRows.length} SKU`;
+      rootNode.querySelectorAll("[data-omni-quick-filter]").forEach(button => {
+        const value = button.dataset.omniQuickFilter;
+        const active = value === "all"
+          ? omniFilters.stock === "all" && omniFilters.issue === "all"
+          : ["missing", "mismatch"].includes(value)
+            ? omniFilters.issue === value && omniFilters.stock === "all"
+            : omniFilters.stock === value && omniFilters.issue === "all";
+        button.classList.toggle("active", active);
+      });
       const table = rootNode.querySelector("[data-omni-table]");
       if (table) table.innerHTML = filteredRows.length ? filteredRows.map(row => {
         const issue = row.mappedCount === 0 ? "Chưa map" : row.mismatch ? "Lệch tồn" : row.product.stock <= row.product.lowStock ? "Sắp hết" : "Ổn";
@@ -87,7 +111,7 @@
       if (rootNode) renderStaticOmniWorkspace(rootNode, channelsList);
     }
 
-    return { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, renderStaticOmniWorkspace, renderChannelSettings, renderOmniWorkspace };
+    return { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, filteredChannelProductRows, renderStaticOmniWorkspace, renderChannelSettings, renderOmniWorkspace };
   }
 
   function selectQuickFilter(value) {

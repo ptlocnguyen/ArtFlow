@@ -371,14 +371,46 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.waitForTimeout(100);
   }
   if (pageName === "channels") {
-    await page.locator("[data-omni-quick-filter]").first().click().catch(() => {});
-    await page.waitForTimeout(60);
-    await page.locator("[data-open-channel-product-form]").first().click().catch(() => {});
-    await page.waitForTimeout(80);
-    await page.locator("#channelSku").fill("QA-SKU-001").catch(() => {});
-    await page.locator("[data-modal-form] button[type='submit']").click().catch(() => {});
-    await page.locator("[data-modal-backdrop][hidden], .modal-backdrop[hidden]").waitFor({ timeout: 1500 }).catch(() => {});
-    await page.waitForTimeout(120);
+    const count = page.locator("[data-omni-result-count]");
+    if ((await count.innerText()).trim() !== "5 SKU") throw new Error("Channel workspace must show the initial product count.");
+    await page.locator("[data-global-search]").fill("SHP-ART001");
+    if ((await count.innerText()).trim() !== "1 SKU") throw new Error("Channel search must find mappings by marketplace SKU.");
+    await page.locator("[data-global-search]").fill("Shopee ArtFlow");
+    if ((await count.innerText()).trim() !== "1 SKU") throw new Error("Channel search must find mappings by channel name.");
+    await page.locator("[data-global-search]").fill("");
+    await page.locator("[data-omni-quick-filter='missing']").click();
+    if ((await count.innerText()).trim() !== "3 SKU") throw new Error("Unmapped quick filter must show products without channel mappings.");
+    await page.locator("[data-omni-quick-filter='mismatch']").click();
+    if ((await count.innerText()).trim() !== "2 SKU") throw new Error("Stock mismatch quick filter must show inconsistent channel stock.");
+    await page.locator("[data-omni-quick-filter='reserved']").click();
+    if ((await count.innerText()).trim() !== "1 SKU") throw new Error("Reserved stock quick filter must show reserved products.");
+    await page.locator("[data-omni-quick-filter='all']").click();
+    await page.locator("[data-omni-channel-filter]").selectOption("channel-shopee");
+    if ((await count.innerText()).trim() !== "1 SKU") throw new Error("Channel selector must filter products mapped to the selected channel.");
+    await page.locator("[data-omni-channel-filter]").selectOption("all");
+    const tableWrap = page.locator(".channels-table-wrap");
+    const tableMetrics = await tableWrap.evaluate(element => ({ height: element.getBoundingClientRect().height, overflowY: getComputedStyle(element).overflowY }));
+    if (viewportName === "desktop" && tableMetrics.height < 500) throw new Error(`Channel table must use the remaining desktop workspace height (actual: ${Math.round(tableMetrics.height)}px).`);
+    if (viewportName === "mobile" && ["auto", "scroll"].includes(tableMetrics.overflowY)) throw new Error("Channel cards must use natural page scrolling on mobile.");
+    await page.locator("[data-omni-table] [data-open-channel-product-form][data-product-id='prod-001']").click();
+    const mappingModal = page.locator("[data-modal-type='channelProduct']");
+    await mappingModal.waitFor();
+    if (await page.locator("#productId").inputValue() !== "prod-001") throw new Error("Mapping action must open the selected internal product.");
+    if (await page.locator("#channelId").inputValue() !== "channel-shopee") throw new Error("Mapping action must load the product's existing channel mapping.");
+    await page.locator("#channelId").selectOption("channel-tiktok");
+    if (await page.locator("[data-modal-form] input[name='id']").inputValue()) throw new Error("Changing to an unmapped channel must prepare a new product-channel pair.");
+    await page.locator("#channelSku").fill("QA-SKU-001");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "channels-mapping.png"), fullPage: false });
+    }
+    await page.locator("[data-modal-form] button[type='submit']").click();
+    await page.waitForFunction(() => document.querySelector("[data-modal-backdrop]")?.hidden === true);
+    if (!(await page.locator("[data-omni-table] [data-open-channel-product-form][data-product-id='prod-001']").count())) throw new Error("Saved channel mapping must keep the product available in the workspace.");
+    const download = page.waitForEvent("download", { timeout: 3000 });
+    await page.locator("[data-export-omni]").click();
+    await download;
   }
   if (pageName === "channel-settings") {
     if (!(await page.locator("[data-channel-settings-list] .channel-setting-row").count())) throw new Error("Channel settings must render configured sales channels.");

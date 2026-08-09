@@ -2129,7 +2129,7 @@
   function exportOmniReport() {
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
-    const rows = channelProductRows().map(row => [
+    const rows = filteredChannelProductRows().map(row => [
       row.product.sku,
       row.product.name,
       row.product.category,
@@ -5910,17 +5910,40 @@
     const products = (state.products || []).map(normalizeProduct).filter(product => product.status === "active");
     const channelsList = activeSalesChannels().filter(channel => channel.status === "active");
     const selectedProduct = byId("products", productId) || products[0] || {};
+    const mappings = (state.channelProducts || []).map(normalizeChannelProduct).filter(item => item.status !== "deleted");
+    const selectedMapping = mappings.find(item => item.productId === selectedProduct.id) || {};
+    const selectedChannelId = selectedMapping.channelId || (channelsList[0] || {}).id || "";
     return `
-      <div class="field"><label for="channelId">Kênh bán</label><select id="channelId" name="channelId" required>${channelsList.map(channel => `<option value="${channel.id}">${escapeHtml(channel.name)}</option>`).join("")}</select></div>
+      <input type="hidden" name="id" value="${escapeAttribute(selectedMapping.id || "")}" />
+      <div class="field"><label for="channelId">Kênh bán</label><select id="channelId" name="channelId" required>${channelsList.map(channel => `<option value="${channel.id}" ${selectedChannelId === channel.id ? "selected" : ""}>${escapeHtml(channel.name)}</option>`).join("")}</select></div>
       <div class="field"><label for="productId">Sản phẩm nội bộ</label><select id="productId" name="productId" required>${products.map(product => `<option value="${product.id}" ${selectedProduct.id === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}</select></div>
-      <div class="field"><label for="channelSku">SKU trên kênh</label><input id="channelSku" name="channelSku" placeholder="SKU Shopee/TikTok/Lazada" value="${escapeAttribute(selectedProduct.sku || "")}" /></div>
-      <div class="field"><label for="channelName">Tên trên kênh</label><input id="channelName" name="channelName" placeholder="Tên sản phẩm trên sàn" value="${escapeAttribute(selectedProduct.name || "")}" /></div>
-      <div class="field"><label for="channelPrice">Giá trên kênh</label><input id="channelPrice" name="channelPrice" type="text" data-money-input="true" value="${selectedProduct.salePrice || 0}" /></div>
-      <div class="field"><label for="channelStock">Tồn trên kênh</label><input id="channelStock" name="channelStock" type="number" min="0" step="1" value="${selectedProduct.stock || 0}" /></div>
-      <label class="checkbox-row full"><input type="checkbox" name="syncStock" checked /> Đồng bộ/cảnh báo tồn kho cho SKU này</label>
-      <label class="checkbox-row full"><input type="checkbox" name="syncPrice" /> Đồng bộ/cảnh báo giá bán</label>
-      <div class="field full"><label for="mappingNote">Ghi chú</label><input id="mappingNote" name="note" placeholder="Link sản phẩm, tên shop, lưu ý flash sale..." /></div>
+      <div class="field"><label for="channelSku">SKU trên kênh</label><input id="channelSku" name="channelSku" placeholder="SKU Shopee/TikTok/Lazada" value="${escapeAttribute(selectedMapping.channelSku || selectedProduct.sku || "")}" /></div>
+      <div class="field"><label for="channelName">Tên trên kênh</label><input id="channelName" name="channelName" placeholder="Tên sản phẩm trên sàn" value="${escapeAttribute(selectedMapping.channelName || selectedProduct.name || "")}" /></div>
+      <div class="field"><label for="channelPrice">Giá trên kênh</label><input id="channelPrice" name="channelPrice" type="text" data-money-input="true" value="${selectedMapping.channelPrice ?? selectedProduct.salePrice ?? 0}" /></div>
+      <div class="field"><label for="channelStock">Tồn trên kênh</label><input id="channelStock" name="channelStock" type="number" min="0" step="1" value="${selectedMapping.channelStock ?? selectedProduct.stock ?? 0}" /></div>
+      <label class="checkbox-row full"><input type="checkbox" name="syncStock" ${selectedMapping.syncStock === false ? "" : "checked"} /> Đồng bộ/cảnh báo tồn kho cho SKU này</label>
+      <label class="checkbox-row full"><input type="checkbox" name="syncPrice" ${selectedMapping.syncPrice ? "checked" : ""} /> Đồng bộ/cảnh báo giá bán</label>
+      <div class="field full"><label for="mappingNote">Ghi chú</label><input id="mappingNote" name="note" value="${escapeAttribute(selectedMapping.note || "")}" placeholder="Link sản phẩm, tên shop, lưu ý flash sale..." /></div>
     `;
+  }
+
+  function syncChannelProductForm(form) {
+    if (!form) return;
+    const product = byId("products", form.elements.productId?.value);
+    const channelId = form.elements.channelId?.value || "";
+    if (!product) return;
+    const mapping = (state.channelProducts || [])
+      .map(normalizeChannelProduct)
+      .find(item => item.productId === product.id && item.channelId === channelId && item.status !== "deleted");
+    form.elements.id.value = mapping?.id || "";
+    form.elements.channelSku.value = mapping?.channelSku || product.sku || "";
+    form.elements.channelName.value = mapping?.channelName || product.name || "";
+    form.elements.channelPrice.value = String(mapping?.channelPrice ?? product.salePrice ?? 0);
+    form.elements.channelStock.value = String(mapping?.channelStock ?? product.stock ?? 0);
+    form.elements.syncStock.checked = mapping?.syncStock !== false;
+    form.elements.syncPrice.checked = Boolean(mapping?.syncPrice);
+    form.elements.note.value = mapping?.note || "";
+    form.elements.channelPrice.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
   function renderWorkspaceTaskForm(task) {
@@ -7405,6 +7428,8 @@
       }
       if (target.matches("[data-omni-quick-filter]")) {
         const value = target.dataset.omniQuickFilter || "all";
+        omniFilters.stock = "all";
+        omniFilters.issue = "all";
         if (["missing", "mismatch"].includes(value)) omniFilters.issue = value;
         if (["out", "reserved"].includes(value)) omniFilters.stock = value;
         window.ArtFlowPageModules.channels?.selectQuickFilter(value);
@@ -8209,6 +8234,9 @@
         inventoryFilters[event.target.dataset.inventoryFilter] = event.target.value;
         renderInventory();
       }
+      if (event.target.matches("#channelId, #productId") && event.target.closest("[data-modal-type='channelProduct']")) {
+        syncChannelProductForm(event.target.closest("form"));
+      }
       if (event.target.matches("[data-omni-filter]")) {
         omniFilters[event.target.dataset.omniFilter] = event.target.value;
         renderOmniWorkspace();
@@ -8298,7 +8326,7 @@
     });
   }
 
-  const { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, renderStaticOmniWorkspace, renderChannelSettings, renderOmniWorkspace } = window.ArtFlowPageModules.channels ? window.ArtFlowPageModules.channels.create({ normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, hydrateIcons, icon, money, omniFilters, qs, state }) : Object.fromEntries(["activeSalesChannels","channelByIdOrCode","reservedStockForProduct","channelProductRows","renderStaticOmniWorkspace","renderChannelSettings","renderOmniWorkspace"].map(name => [name, function () {}]));
+  const { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, filteredChannelProductRows, renderStaticOmniWorkspace, renderChannelSettings, renderOmniWorkspace } = window.ArtFlowPageModules.channels ? window.ArtFlowPageModules.channels.create({ normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, getSearchTerm: () => searchTerm, hydrateIcons, icon, money, omniFilters, qs, state }) : Object.fromEntries(["activeSalesChannels","channelByIdOrCode","reservedStockForProduct","channelProductRows","filteredChannelProductRows","renderStaticOmniWorkspace","renderChannelSettings","renderOmniWorkspace"].map(name => [name, function () {}]));
   const { teamOwners, teamDateInRange, teamSearchText, currentTeamItems, setTeamOptions, renderTeamFilters, renderTeamHub, selectedIncenseOfferings, syncIncenseOfferings, renderOfferingTray, renderIncense, submitIncenseWish, teamStatusBadge, renderTeamTasks, renderTeamMeetings, renderTeamPlans, pricingLineAmount, roundedPricingValue, calculatePricingScenario, pricingTotals, renderTeamPricing, teamPricingPageContext, renderTeamPricingPage, submitTeamPricingPageForm, renderTeamDecisions, teamOwnerOptions, teamProductOptions, teamChannelOptions, pricingMarketplaceChannels, pricingChannelOptions, pricingTargetLabel, pricingSuggestedTitle, renderTeamSourceAndComments, appendTeamCommentLog, actionRowsFromText, textFromActionRows, localDateTimeValue, meetingTypeOptions, meetingStatusOptions, actionStatusOptions, splitListText, meetingMinutesIdFromUrl, setMeetingMinutesUrl, renderMinutesTextRows, renderMinutesActions, renderMinutesAttendees, renderMeetingMinutesForm, renderMeetingMinutesList, renderMeetingMinutesPage, valuesFromMinutesRows, syncMeetingMinutesForm, addMinutesTextRow, addMinutesAction, applyMeetingTemplate, parseQuickMeetingNote, cleanMeetingMinutesText, submitMeetingMinutesForm, renderMeetingForm, renderPlanForm, renderPricingForm, renderPricingSelectedProduct, renderPricingProductPicker, renderPricingProductPickerCard, selectPricingProduct, renderPricingLineInput, renderPricingScenarioInput, renderDecisionForm, collectPricingLines, collectPricingScenarios, refreshPricingBuilderState, updatePricingScopeFields, syncPricingTitle, updatePricingLineState, selectPricingScenario, updateTeamPricingPreview, teamApiCollection, teamApiItemType, pricingModelFromForm, validatePricingModel } = window.ArtFlowPageModules.team ? window.ArtFlowPageModules.team.create({ normalizeIncenseWish, normalizePricingLine, normalizePricingModel, normalizePricingScenario, normalizeSalesChannel, normalizeTeamAction, normalizeTeamDecision, normalizeTeamMeeting, normalizeTeamPlan, normalizeWorkspaceTask, apiRequest, byId, channelByIdOrCode, closeModal, currentUser, els, enhanceMoneyInputs, enhanceResponsiveTables, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, hydrateIcons, icon, incenseKinds, incenseOfferings, localDateValue, money, ownerName, productHasShopPrice, productSearchText, qs, renderProductThumb, saveTeamItem, searchTerm, setBusy, showToast, state, teamFilters, teamStatuses, teamViews }) : Object.fromEntries(["teamOwners","teamDateInRange","teamSearchText","currentTeamItems","setTeamOptions","renderTeamFilters","renderTeamHub","selectedIncenseOfferings","syncIncenseOfferings","renderOfferingTray","renderIncense","submitIncenseWish","teamStatusBadge","renderTeamTasks","renderTeamMeetings","renderTeamPlans","pricingLineAmount","roundedPricingValue","calculatePricingScenario","pricingTotals","renderTeamPricing","teamPricingPageContext","renderTeamPricingPage","submitTeamPricingPageForm","renderTeamDecisions","teamOwnerOptions","teamProductOptions","teamChannelOptions","pricingMarketplaceChannels","pricingChannelOptions","pricingTargetLabel","pricingSuggestedTitle","renderTeamSourceAndComments","appendTeamCommentLog","actionRowsFromText","textFromActionRows","localDateTimeValue","meetingTypeOptions","meetingStatusOptions","actionStatusOptions","splitListText","meetingMinutesIdFromUrl","setMeetingMinutesUrl","renderMinutesTextRows","renderMinutesActions","renderMinutesAttendees","renderMeetingMinutesForm","renderMeetingMinutesList","renderMeetingMinutesPage","valuesFromMinutesRows","syncMeetingMinutesForm","addMinutesTextRow","addMinutesAction","applyMeetingTemplate","parseQuickMeetingNote","cleanMeetingMinutesText","submitMeetingMinutesForm","renderMeetingForm","renderPlanForm","renderPricingForm","renderPricingSelectedProduct","renderPricingProductPicker","renderPricingProductPickerCard","selectPricingProduct","renderPricingLineInput","renderPricingScenarioInput","renderDecisionForm","collectPricingLines","collectPricingScenarios","refreshPricingBuilderState","updatePricingScopeFields","syncPricingTitle","updatePricingLineState","selectPricingScenario","updateTeamPricingPreview","teamApiCollection","teamApiItemType","pricingModelFromForm","validatePricingModel"].map(name => [name, function () {}]));
   const { syncAccountingView, commerceChannelLabel, payoutStatusMeta, renderCommerceAccounting, renderAccounting, productProfitRowsFromSnapshot, renderAccountingProfit, renderAccountingLedgerAnalysis, renderAccountingProfitDetails } = window.ArtFlowPageModules.accounting ? window.ArtFlowPageModules.accounting.create({ accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state }) : Object.fromEntries(["syncAccountingView","commerceChannelLabel","payoutStatusMeta","renderCommerceAccounting","renderAccounting","productProfitRowsFromSnapshot","renderAccountingProfit","renderAccountingLedgerAnalysis","renderAccountingProfitDetails"].map(name => [name, function () {}]));
   const { renderPurchasing, closeManagementDrawers, openSupplierDetail, openPurchaseDetail } = window.ArtFlowPageModules.purchasing ? window.ArtFlowPageModules.purchasing.create({ byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSearchTerm: () => searchTerm, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, state, statusLabel, supplierFilters, supplierTarget }) : Object.fromEntries(["renderPurchasing","closeManagementDrawers","openSupplierDetail","openPurchaseDetail"].map(name => [name, function () {}]));
