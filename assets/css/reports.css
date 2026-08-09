@@ -4,8 +4,11 @@ body[data-page="reports"] .workspace {
 }
 
 body[data-page="reports"] .report-workspace {
+  width: 100%;
+  max-width: none;
   min-height: 0;
   height: 100%;
+  margin-inline: 0;
   padding-bottom: 16px;
 }
 

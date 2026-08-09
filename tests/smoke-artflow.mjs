@@ -343,6 +343,12 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (viewportName === "desktop") {
       const tableHeight = await page.locator(".report-table-panel:not([hidden]) .table-wrap").evaluate(element => element.getBoundingClientRect().height);
       if (tableHeight < 500) throw new Error("Report table must expand into the remaining desktop workspace.");
+      const workspaceFit = await page.evaluate(() => {
+        const workspace = document.querySelector(".workspace").getBoundingClientRect();
+        const report = document.querySelector(".report-workspace").getBoundingClientRect();
+        return { available: workspace.width, report: report.width };
+      });
+      if (workspaceFit.available - workspaceFit.report > 50) throw new Error("Report workspace must use the full available desktop width.");
     }
   }
   if (pageName === "users") {
