@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../assets/css/base.css" />
   <link rel="stylesheet" href="../assets/css/app.css" />
   <link rel="stylesheet" href="../assets/css/components.css" />
+  <link rel="stylesheet" href="../assets/css/reports.css" />
   <link rel="stylesheet" href="../assets/css/v3.css" />
 </head>
 <body data-page="reports" data-root="..">
@@ -20,33 +21,42 @@
       </aside>
     </aside>
     <main class="workspace">
-      <header class="command-bar"><button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div><p class="eyebrow">Hiệu quả bán hàng</p><h1 data-page-title>Báo cáo</h1></div><div class="command-actions"><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
-      <section class="view active analytics-page profit-report-view">
-        <nav class="segmented-control report-view-switch" aria-label="Loại báo cáo">
-          <button class="active" type="button" data-report-view="business">Kinh doanh</button>
-          <button type="button" data-report-view="products">Sản phẩm</button>
-          <button type="button" data-report-view="channels">Kênh bán</button>
-          <button type="button" data-report-view="expenses">Chi phí</button>
-        </nav>
-        <section class="report-toolbar" aria-label="Bộ lọc báo cáo">
-          <div><strong>Hiệu quả kinh doanh</strong><small data-report-comparison>So với kỳ trước</small><button class="button icon-only report-export-button" type="button" data-export-profit-report title="Xuất Excel" aria-label="Xuất Excel"><span data-icon="download"></span></button></div>
-          <label><span>Thời gian</span><select data-report-range><option value="7">7 ngày</option><option value="30" selected>30 ngày</option><option value="90">90 ngày</option><option value="all">Toàn bộ</option></select></label>
-          <label><span>Kênh bán</span><select data-report-channel><option value="all">Tất cả kênh</option><option value="pos">POS</option><option value="website">Website</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok Shop</option><option value="facebook">Facebook</option></select></label>
+      <header class="command-bar">
+        <button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button>
+        <div><p class="eyebrow">Hiệu quả bán hàng</p><h1><span data-page-title>Báo cáo</span><span class="report-heading-separator">/</span><span data-report-heading>Kinh doanh</span></h1></div>
+        <div class="command-actions"><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div>
+      </header>
+
+      <section class="view active report-workspace">
+        <section class="resource-index report-index">
+          <div class="report-control-bar">
+            <nav class="segmented-control report-view-switch" aria-label="Loại báo cáo">
+              <button class="active" type="button" data-report-view="business">Kinh doanh</button>
+              <button type="button" data-report-view="products">Sản phẩm</button>
+              <button type="button" data-report-view="channels">Kênh bán</button>
+              <button type="button" data-report-view="expenses">Chi phí</button>
+            </nav>
+            <div class="report-filters">
+              <label><span>Thời gian</span><select data-report-range><option value="7">7 ngày</option><option value="30" selected>30 ngày</option><option value="90">90 ngày</option><option value="all">Toàn bộ</option></select></label>
+              <label><span>Kênh bán</span><select data-report-channel><option value="all">Tất cả kênh</option><option value="pos">POS</option><option value="website">Website</option><option value="shopee">Shopee</option><option value="lazada">Lazada</option><option value="tiktok">TikTok Shop</option><option value="facebook">Facebook</option></select></label>
+            </div>
+            <div class="report-toolbar-meta"><span class="status-badge neutral" data-report-result-count>0 dòng</span><small data-report-comparison>So với kỳ trước</small></div>
+            <button class="button primary report-export-button" type="button" data-export-profit-report title="Xuất báo cáo Excel"><span data-icon="download"></span><span>Xuất Excel</span></button>
+          </div>
+
+          <section class="report-table-panel" data-report-view-panel="business">
+            <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Đơn đã thanh toán</th><th>Doanh thu thuần</th><th>Giá vốn</th><th>Lãi gộp</th><th>Biên lãi</th></tr></thead><tbody data-business-report-table></tbody></table></div>
+          </section>
+          <section class="report-table-panel" data-report-view-panel="products" hidden>
+            <div class="table-wrap"><table><thead><tr><th>Sản phẩm</th><th>Đã bán</th><th>Doanh thu</th><th>Giá vốn</th><th>Lãi gộp</th><th>Biên lãi</th></tr></thead><tbody data-product-profit-table></tbody></table></div>
+          </section>
+          <section class="report-table-panel" data-report-view-panel="channels" hidden>
+            <div class="table-wrap"><table><thead><tr><th>Kênh</th><th>Đơn</th><th>Doanh thu</th><th>Giá vốn</th><th>Lãi gộp</th><th>Biên lãi</th></tr></thead><tbody data-channel-profit-table></tbody></table></div>
+          </section>
+          <section class="report-table-panel" data-report-view-panel="expenses" hidden>
+            <div class="table-wrap"><table><thead><tr><th>Danh mục chi</th><th>Số giao dịch</th><th>Tổng chi</th><th>Tỷ trọng</th></tr></thead><tbody data-expense-report-table></tbody></table></div>
+          </section>
         </section>
-        <div class="profit-insight-grid">
-          <section class="panel" data-report-view-panel="business">
-            <div class="panel-header"><div><h2>Doanh thu và lãi gộp</h2><p>Diễn biến theo ngày trong kỳ đã chọn.</p></div><div class="chart-legend"><span><i class="revenue"></i>Doanh thu</span><span><i class="profit"></i>Lãi gộp</span></div></div>
-            <div class="profit-chart" data-profit-chart></div>
-          </section>
-          <section class="panel" data-report-view-panel="expenses" hidden>
-            <div class="panel-header"><div><h2>Chi phí vận hành</h2><p>Không gồm nhập hàng và hoàn tiền khách.</p></div></div>
-            <div class="expense-breakdown" data-expense-breakdown></div>
-          </section>
-        </div>
-        <div class="profit-table-grid">
-          <section class="panel" data-report-view-panel="products" hidden><div class="panel-header"><div><h2>Lợi nhuận theo sản phẩm</h2><p>Doanh thu được phân bổ sau giảm giá và trả hàng.</p></div></div><div class="table-wrap"><table><thead><tr><th>Sản phẩm</th><th>Đã bán</th><th>Doanh thu</th><th>Giá vốn</th><th>Lãi gộp</th><th>Biên lãi</th></tr></thead><tbody data-product-profit-table></tbody></table></div></section>
-          <section class="panel" data-report-view-panel="channels" hidden><div class="panel-header"><div><h2>Hiệu quả theo kênh</h2><p>So sánh doanh thu và khả năng sinh lời.</p></div></div><div class="table-wrap"><table><thead><tr><th>Kênh</th><th>Đơn</th><th>Doanh thu</th><th>Lãi gộp</th><th>Biên lãi</th></tr></thead><tbody data-channel-profit-table></tbody></table></div></section>
-        </div>
       </section>
     </main>
   </div>

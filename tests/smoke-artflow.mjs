@@ -305,6 +305,46 @@ async function runPageInteractions(page, pageName, viewportName) {
       if (tableHeight < 500) throw new Error("Activity table must expand into the remaining desktop workspace.");
     }
   }
+  if (pageName === "reports") {
+    const resultCount = page.locator("[data-report-result-count]");
+    await page.locator("[data-report-range]").selectOption("all");
+    await page.waitForTimeout(80);
+    if ((await resultCount.innerText()).trim() !== "1 dòng") throw new Error("Business report must list paid sales in the selected period.");
+
+    await page.locator('[data-report-view="products"]').click();
+    if (await page.evaluate(() => window.scrollX !== 0)) throw new Error("Switching report tabs must not move the page horizontally.");
+    if (Number.parseInt(await resultCount.innerText(), 10) < 1) throw new Error("Product report must show sold products.");
+    if (!(await page.locator("[data-product-profit-table] tr").first().innerText()).includes("ART")) throw new Error("Product report must include SKU details.");
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "reports-products.png"), fullPage: false });
+    }
+
+    await page.locator('[data-report-view="channels"]').click();
+    if (Number.parseInt(await resultCount.innerText(), 10) < 1) throw new Error("Channel report must show active sales channels.");
+
+    await page.locator('[data-report-view="expenses"]').click();
+    if (await page.evaluate(() => window.scrollX !== 0)) throw new Error("Expense report must remain aligned with the viewport.");
+    if (Number.parseInt(await resultCount.innerText(), 10) < 1) throw new Error("Expense report must show operating expenses.");
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "reports-expenses.png"), fullPage: false });
+    }
+
+    const download = page.waitForEvent("download", { timeout: 3000 });
+    await page.locator("[data-export-profit-report]").click();
+    await download;
+    if (!(await page.locator("[data-export-profit-report]").isVisible())) throw new Error("Report export action must remain visible after download.");
+
+    await page.locator('[data-report-view="business"]').click();
+    if (!(await page.locator("[data-report-heading]").innerText()).includes("Kinh doanh")) throw new Error("Report heading must follow the selected report type.");
+    if (viewportName === "desktop") {
+      const tableHeight = await page.locator(".report-table-panel:not([hidden]) .table-wrap").evaluate(element => element.getBoundingClientRect().height);
+      if (tableHeight < 500) throw new Error("Report table must expand into the remaining desktop workspace.");
+    }
+  }
   if (pageName === "users") {
     const resultCount = page.locator("[data-user-result-count]");
     if ((await resultCount.innerText()).trim() !== "3") throw new Error("Staff workspace must show the loaded account count.");
