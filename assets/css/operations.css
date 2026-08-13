@@ -13,10 +13,21 @@ body[data-page="teamPricing"] .team-pricing-page { min-height: 0; overflow: auto
 .purchase-table td small { color: var(--muted); }
 .purchase-table .overdue-row { background: #fff8f7; }
 
-.supplier-page { position: relative; }
+.supplier-page {
+  position: relative;
+  display: flex !important;
+  width: 100%;
+  max-width: none !important;
+  height: calc(100dvh - 90px);
+  min-height: 460px;
+  overflow: hidden !important;
+  padding-bottom: 0;
+}
+.supplier-page .management-content { display: flex; width: 100%; height: 100%; min-height: 0; flex-direction: column; }
 .supplier-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.supplier-filter-bar { display: flex; margin: 0; }
-.supplier-table-wrap { min-height: 360px; max-height: calc(100vh - 350px); overflow: auto; }
+.supplier-filter-bar { display: grid; grid-template-columns: minmax(180px, 240px) minmax(180px, 240px) minmax(120px, 1fr); align-items: end; margin: 0; }
+.supplier-filter-bar .result-indicator { justify-self: end; }
+.supplier-table-wrap { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; border: 0; }
 .supplier-table { min-width: 1040px; }
 .supplier-table thead { position: sticky; z-index: 2; top: 0; background: var(--surface); }
 .supplier-identity,
@@ -25,7 +36,17 @@ body[data-page="teamPricing"] .team-pricing-page { min-height: 0; overflow: auto
 .supplier-contact small { color: var(--muted); }
 .supplier-row.archived { opacity: .65; }
 .supplier-detail-orders { display: grid; gap: 7px; }
-.supplier-detail-orders a { display: flex; justify-content: space-between; gap: 10px; padding: 10px; border-radius: 6px; background: var(--surface-soft); color: var(--ink); text-decoration: none; }
+.supplier-detail-orders a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border: 1px solid transparent; border-radius: 6px; background: var(--surface-soft); color: var(--ink); text-decoration: none; }
+.supplier-detail-orders a:hover { border-color: var(--primary); }
+.supplier-detail-orders a > span { display: grid; min-width: 0; gap: 3px; }
+.supplier-detail-orders a small { color: var(--muted); }
+.supplier-contact-detail span { display: grid; gap: 3px; }
+.supplier-contact-detail small { color: var(--muted); }
+.supplier-contact-detail strong { overflow-wrap: anywhere; }
+.drawer-metrics article.has-payable { background: #fff4df; }
+.drawer-metrics article.has-payable strong { color: #a54800; }
+.supplier-drawer-actions { position: sticky; bottom: -22px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: auto -22px -22px; padding: 14px 22px 18px; border-top: 1px solid var(--border); background: var(--surface); }
+.supplier-drawer-actions .button { min-width: 0; }
 
 .channel-operation-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr); gap: 12px; margin-bottom: 12px; }
 .channel-work-queue,
@@ -56,29 +77,35 @@ body[data-page="teamPricing"] .team-pricing-page { min-height: 0; overflow: auto
 @media (max-width: 980px) {
   .channel-operation-grid { grid-template-columns: 1fr; }
   .supplier-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .supplier-page { display: block !important; height: auto; min-height: calc(100dvh - 150px); overflow: visible !important; }
+  .supplier-page .management-content { height: auto; min-height: 0; }
+  .supplier-table-wrap { max-height: none; overflow: visible !important; }
+  .supplier-table-wrap .supplier-table { width: 100%; min-width: 0; }
+  .supplier-table thead { display: none; }
+  .supplier-table,
+  .supplier-table tbody { display: block; width: 100%; }
+  .supplier-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px; }
+  .supplier-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+  .supplier-table td { display: grid; grid-template-columns: 1fr; align-content: start; justify-content: stretch; gap: 3px; min-width: 0; padding: 8px 0; border: 0; text-align: left; }
+  .supplier-table td::before { content: attr(data-label); color: var(--muted); font-size: 11px; font-weight: 800; }
+  .supplier-table td:first-child { display: block; grid-column: 1 / -1; padding: 0 0 10px; border-bottom: 1px solid var(--border); }
+  .supplier-table td:first-child::before { display: none; }
+  .supplier-table .supplier-contact { justify-items: start; }
+  .supplier-table .supplier-contact small { overflow-wrap: anywhere; }
+  .supplier-table td:last-child { display: flex; grid-column: 1 / -1; justify-content: flex-start; padding: 10px 0 0; border-top: 1px solid var(--border); }
+  .supplier-table td:last-child::before { display: none; }
 }
 
 @media (max-width: 700px) {
   .purchasing-workbar { align-items: stretch; }
   .supplier-summary { grid-template-columns: 1fr 1fr; }
   .supplier-summary article:last-child { grid-column: 1 / -1; }
-  .supplier-table-wrap { max-height: none; overflow: visible; }
-  .supplier-table { min-width: 0; }
-  .supplier-table thead { display: none; }
-  .supplier-table,
-  .supplier-table tbody,
-  .supplier-table tr,
-  .supplier-table td { display: block; width: 100%; }
-  .supplier-table tbody { display: grid; gap: 10px; padding: 12px; }
-  .supplier-table tr { padding: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-  .supplier-table td { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border: 0; }
-  .supplier-table td::before { content: attr(data-label); color: var(--muted); font-size: 11px; font-weight: 800; }
-  .supplier-table td:first-child { display: block; padding-top: 0; }
-  .supplier-table td:first-child::before,
-  .supplier-table td:nth-child(2),
-  .supplier-table td:nth-child(3) { display: none; }
-  .supplier-table td:last-child { justify-content: flex-end; padding-bottom: 0; }
-  .supplier-table td:last-child::before { display: none; }
+  .supplier-filter-bar { grid-template-columns: 1fr 1fr; padding: 12px 14px; }
+  .supplier-filter-bar label { min-width: 0; }
+  .supplier-filter-bar .result-indicator { grid-column: 1 / -1; justify-self: start; }
+  .supplier-table tbody { grid-template-columns: 1fr; padding: 10px 14px 14px; }
+  .supplier-table tr { min-height: 0; }
+  .supplier-drawer-actions { bottom: -18px; margin: auto -16px -18px; padding-inline: 16px; }
   .omni-filter-bar { grid-template-columns: 1fr; }
   .omni-table td:nth-child(4) { grid-column: 1 / -1; }
   .omni-channel-pill {

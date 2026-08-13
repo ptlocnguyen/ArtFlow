@@ -496,11 +496,45 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.waitForTimeout(80);
   }
   if (pageName === "suppliers") {
+    const count = page.locator("[data-supplier-result-count]");
+    if ((await count.innerText()).trim() !== "1 nhà cung cấp") throw new Error("Supplier workspace must show the initial result count.");
+    await page.locator("[data-global-search]").fill("không tồn tại");
+    await page.waitForTimeout(80);
+    if ((await count.innerText()).trim() !== "0 nhà cung cấp") throw new Error("Supplier search must update the result list and count.");
+    await page.locator("[data-global-search]").fill("");
     await page.locator("[data-supplier-balance-filter]").selectOption("payable").catch(() => {});
     await page.waitForTimeout(80);
-    await page.locator("[data-supplier-card]").first().click();
-    await page.locator("[data-supplier-detail]:not([hidden])").waitFor();
+    const tableWrap = page.locator(".supplier-table-wrap");
+    const tableMetrics = await tableWrap.evaluate(element => ({ height: element.getBoundingClientRect().height, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, overflowY: getComputedStyle(element).overflowY }));
+    if (viewportName === "desktop" && tableMetrics.height < 600) throw new Error(`Supplier table must use the remaining desktop workspace height (actual: ${Math.round(tableMetrics.height)}px).`);
+    if (viewportName === "mobile" && ["auto", "scroll"].includes(tableMetrics.overflowY)) throw new Error("Supplier cards must use natural page scrolling on mobile.");
+    if (["tablet", "mobile"].includes(viewportName) && tableMetrics.scrollWidth > tableMetrics.clientWidth + 2) throw new Error("Supplier cards must not overflow horizontally.");
+    const supplierRow = page.locator("[data-supplier-card]").first();
+    const supplierText = await supplierRow.innerText();
+    if (!["090000001", "1.800.000", "800.000"].every(value => supplierText.includes(value))) throw new Error("Responsive supplier cards must retain contact, purchase and balance information.");
+    await page.locator("button[data-supplier-card]").first().click();
+    const detail = page.locator("[data-supplier-detail]:not([hidden])");
+    await detail.waitFor();
+    const detailText = await detail.innerText();
+    if (!["Thông tin liên hệ", "sales@supplier.local", "Phiếu mua gần đây", "PO-20260624-0001"].every(value => detailText.includes(value))) throw new Error("Supplier detail must include contact and recent purchasing information.");
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "suppliers-detail.png"), fullPage: false });
+    }
     await page.locator("[data-close-management-drawer]").click();
+    await page.locator("button[data-edit-supplier]").first().click();
+    await page.locator("[data-modal-backdrop]:not([hidden])").waitFor();
+    const supplierForm = page.locator("[data-modal-form]");
+    if (await supplierForm.locator("input[name='name']").inputValue() !== "Art Supplies VN") throw new Error("Supplier edit form must load the selected profile.");
+    const supplierModalOverflow = await page.locator("[data-modal-backdrop] .modal").evaluate(element => element.scrollWidth - element.clientWidth);
+    if (supplierModalOverflow > 2) throw new Error(`Supplier edit form must not overflow horizontally (${supplierModalOverflow}px).`);
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "suppliers-edit.png"), fullPage: false });
+    }
+    await page.locator("[data-close-modal]").first().click();
   }
   if (pageName === "purchasing") {
     const count = page.locator("[data-purchase-result-count]");
