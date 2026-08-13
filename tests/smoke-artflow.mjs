@@ -183,7 +183,7 @@ async function saveScreenshot(page, viewportName, pageName) {
 }
 
 async function runPageInteractions(page, pageName, viewportName) {
-  if (viewportName === "mobile" && pageName !== "auth") {
+  if (viewportName === "mobile" && !["auth", "purchase-create"].includes(pageName)) {
     await page.locator("[data-context-toggle]").click().catch(() => {});
     if (!(await page.locator("body").getAttribute("class") || "").includes("context-open")) throw new Error("Mobile context navigation must open from the command bar.");
     await page.keyboard.press("Escape");
@@ -573,6 +573,37 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.waitForTimeout(100);
   }
   if (pageName === "purchase-create") {
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "purchase-create-top.png"), fullPage: false });
+    }
+    const purchaseScroll = await page.evaluate(() => ({
+      overflowY: getComputedStyle(document.body).overflowY,
+      scrollHeight: document.documentElement.scrollHeight,
+      clientHeight: document.documentElement.clientHeight,
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth
+    }));
+    if (purchaseScroll.overflowY === "hidden") throw new Error("Purchase creation page must not lock vertical scrolling.");
+    if (purchaseScroll.scrollWidth > purchaseScroll.clientWidth + 2) throw new Error("Purchase creation page must not overflow horizontally.");
+    await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.dataset.purchaseScrollProbe = "";
+      probe.style.height = "420px";
+      document.querySelector("[data-purchase-create-form]")?.appendChild(probe);
+    });
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await page.waitForTimeout(80);
+    if (await page.evaluate(() => window.scrollY <= 0)) throw new Error("Purchase creation page must scroll to its supplier and submit sections.");
+    await page.locator("[data-purchase-scroll-probe]").evaluate(element => element.remove());
+    if (!(await page.locator("[data-purchase-create-form] button[type='submit']").isVisible())) throw new Error("Purchase submit action must remain reachable after scrolling.");
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "purchase-create-bottom.png"), fullPage: false });
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.locator("[data-add-product-to-purchase]").first().click();
     const unitCost = page.locator("[data-purchase-cost]").first();
     await unitCost.fill("11200");

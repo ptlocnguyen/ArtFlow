@@ -11,3 +11,72 @@ body[data-page="orderCreate"] .command-bar,
 body[data-page="purchaseCreate"] .command-bar,
 body[data-page="teamPricing"] .command-bar { margin-inline: calc(clamp(12px, 2vw, 28px) * -1); }
 .focus-workflow { max-width: 1600px; margin: 0 auto; }
+
+/* Purchase entry contains several independent work areas, so the document owns
+   vertical scrolling while the product and cart lists keep their own limits. */
+body[data-page="purchaseCreate"] {
+  height: auto;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body[data-page="purchaseCreate"] .app-shell {
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+}
+
+body[data-page="purchaseCreate"] .workspace,
+body[data-page="purchaseCreate"] .view.active,
+body[data-page="purchaseCreate"] .purchase-create-form,
+body[data-page="purchaseCreate"] .order-compose-grid {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+
+body[data-page="purchaseCreate"] .view.active { flex: 0 0 auto; }
+body[data-page="purchaseCreate"] .order-compose-grid { align-items: start; }
+body[data-page="purchaseCreate"] .order-compose-main { grid-template-rows: auto auto; }
+body[data-page="purchaseCreate"] .order-compose-main > .panel:first-child { min-height: min(600px, calc(100dvh - 130px)); }
+body[data-page="purchaseCreate"] .purchase-builder-layout { min-height: 460px; }
+body[data-page="purchaseCreate"] .order-summary-panel { align-self: start; }
+body[data-page="purchaseCreate"] .order-summary-panel > .sticky-summary {
+  position: sticky;
+  top: calc(var(--command-height) + 12px);
+  height: auto;
+  max-height: calc(100dvh - var(--command-height) - 24px);
+  overflow-y: auto;
+}
+
+@media (max-width: 1100px) {
+  body[data-page="purchaseCreate"] .order-compose-main > .panel:first-child { min-height: 560px; }
+  body[data-page="purchaseCreate"] .purchase-builder-layout { min-height: 440px; }
+  body[data-page="purchaseCreate"] .order-summary-panel > .sticky-summary {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 640px) {
+  body[data-page="purchaseCreate"] .command-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  body[data-page="purchaseCreate"] .command-bar > .command-mobile-toggle { display: none; }
+  body[data-page="purchaseCreate"] .command-bar > div:not(.command-actions) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  body[data-page="purchaseCreate"] .command-actions {
+    display: flex;
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+  }
+  body[data-page="purchaseCreate"] .order-compose-main > .panel:first-child,
+  body[data-page="purchaseCreate"] .purchase-builder-layout { min-height: 0; }
+  body[data-page="purchaseCreate"] .product-picker-list,
+  body[data-page="purchaseCreate"] .purchase-items { max-height: 360px; }
+}
