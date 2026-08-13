@@ -695,11 +695,25 @@ async function runPageInteractions(page, pageName, viewportName) {
         await page.locator("[data-accounting-range-filter]").selectOption("all");
         const ledger = page.locator("[data-accounting-transactions-table]");
         if (viewportName === "desktop" && !(await ledger.locator("xpath=ancestor::table").innerText()).toLocaleUpperCase("vi-VN").includes("CHỨNG TỪ")) throw new Error("Cash ledger must include the document column.");
-        await page.locator("[data-edit-cash-transaction]").first().click();
+        const transactionActions = page.locator("[data-edit-cash-transaction]");
+        if (await transactionActions.count() !== await ledger.locator("tr").count()) throw new Error("Every cash transaction must expose one consistent edit action.");
+        if ((await transactionActions.first().getAttribute("title")) !== "Chỉnh sửa giao dịch") throw new Error("Cash transaction action must be labelled as edit, not document upload.");
+
+        await page.locator("[data-edit-cash-transaction='tx-002']").click();
         await page.locator("#documentUrl").fill("https://drive.google.com/file/d/qa-accounting-document/view");
         await page.locator("[data-modal-form] button[type='submit']").click();
         await page.waitForTimeout(120);
         if (!(await ledger.innerText()).includes("Mở file")) throw new Error("Updating a transaction document must refresh the ledger.");
+
+        await page.locator("[data-edit-cash-transaction='tx-003']").click();
+        await page.locator("#amount").fill("125000");
+        await page.locator("#description").fill("QA cập nhật chi phí quảng cáo");
+        await page.locator("#documentUrl").fill("https://drive.google.com/file/d/qa-manual-transaction/view");
+        if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) await page.screenshot({ path: path.join(dir, "accounting-transaction-edit.png"), fullPage: false });
+        await page.locator("[data-modal-form] button[type='submit']").click();
+        await page.waitForTimeout(120);
+        const updatedManualRow = page.locator("[data-transaction-row='tx-003']");
+        if (!(await updatedManualRow.innerText()).includes("125.000") || !(await updatedManualRow.innerText()).includes("QA cập nhật chi phí quảng cáo")) throw new Error("Editing a manual cash transaction must refresh all changed ledger values.");
         await page.locator("[data-accounting-type-select]").selectOption("expense");
         if (!(await page.locator("[data-accounting-ledger-count]").innerText()).includes("giao dịch phù hợp")) throw new Error("Ledger must show the filtered transaction count.");
         if ((await ledger.innerText()).includes("Thu bán hàng")) throw new Error("Expense filter must hide income transactions.");
@@ -775,6 +789,19 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.waitForURL(/accounting-settings\.html/);
     await page.locator("[data-page-title]").waitFor();
     if (!(await page.locator("[data-page-title]").innerText()).includes("Thiết lập kế toán")) throw new Error("Accounting settings menu action must open the correct workspace.");
+    await page.goto(new URL("./activity.html", accountingUrl).toString(), { waitUntil: "networkidle" });
+    await page.locator("[data-audit-range-filter]").selectOption("all");
+    await page.locator("[data-audit-entity-filter]").selectOption("cash_transaction");
+    if (!(await page.locator("[data-audit-table]").innerText()).includes("Cập nhật giao dịch thu chi")) throw new Error("Editing a cash transaction must appear in activity history.");
+    await page.locator("[data-view-audit]").first().click();
+    const cashAuditDetail = page.locator("[data-modal-type='auditDetail']");
+    if (!(await cashAuditDetail.innerText()).includes('"before"') || !(await cashAuditDetail.innerText()).includes('"result"')) throw new Error("Cash transaction audit detail must preserve before and after values.");
+    await page.locator("[data-close-modal]").first().click();
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "accounting-transaction-audit.png"), fullPage: false });
+    }
     await page.goto(accountingUrl, { waitUntil: "networkidle" });
   }
   if (pageName === "purchasing") {
@@ -901,6 +928,7 @@ function handleAction(state, payload) {
     case "updateCashTransaction": {
       const transaction = state.cashTransactions.find(item => item.id === payload.id);
       if (!transaction) return { ok: false, error: "Transaction not found" };
+      const before = structuredClone(transaction);
       if (transaction.referenceType && transaction.referenceType !== "manual") {
         transaction.documentUrl = payload.documentUrl || "";
       } else {
@@ -915,6 +943,20 @@ function handleAction(state, payload) {
           documentUrl: payload.documentUrl || ""
         });
       }
+      transaction.updatedAt = new Date().toISOString();
+      state.auditLogs = [{
+        id: `audit-cash-${Date.now()}`,
+        action: "updateCashTransaction",
+        description: "Cập nhật giao dịch thu chi",
+        entityType: "cash_transaction",
+        entityId: transaction.id,
+        actorId: state.user.id,
+        actorName: state.user.name,
+        actorEmail: state.user.email,
+        detail: { before, request: payload, result: { transaction: structuredClone(transaction) } },
+        createdAt: new Date().toISOString(),
+        timezone: "Asia/Ho_Chi_Minh"
+      }, ...(state.auditLogs || [])];
       return { ok: true, transaction };
     }
     case "createPlatformPayout": {

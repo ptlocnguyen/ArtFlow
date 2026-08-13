@@ -301,8 +301,9 @@ export async function handleAccountingAction(env, body) {
       if(!existing)return {ok:false,error:"Transaction not found"};
       const documentUrl=clean(body.documentUrl??body.document_url);
       if(existing.reference_type&&existing.reference_type!=="manual"){
-        await env.DB.prepare("UPDATE cash_transactions SET document_url=?,updated_at=? WHERE id=?").bind(documentUrl,nowIso(),id).run();
-        return {ok:true,transaction:publicTransaction({...existing,document_url:documentUrl,updated_at:nowIso()})};
+        const updated=nowIso();
+        await env.DB.prepare("UPDATE cash_transactions SET document_url=?,updated_at=? WHERE id=?").bind(documentUrl,updated,id).run();
+        return {ok:true,transaction:publicTransaction({...existing,document_url:documentUrl,updated_at:updated})};
       }
       const type=clean(body.type)==="expense"?"expense":"income",accountId=clean(body.accountId??body.account_id),categoryId=clean(body.categoryId??body.category_id);
       const amount=number(body.amount,NaN),description=clean(body.description);

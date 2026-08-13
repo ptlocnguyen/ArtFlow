@@ -4583,7 +4583,7 @@
     if (linked) return `
       <div class="modal-summary full"><strong>${escapeHtml(transaction.description)}</strong><span>${formatDate(transaction.transactionDate)} · ${money.format(transaction.amount)} · Giao dịch liên kết ${escapeHtml(transaction.referenceType)}</span></div>
       <input type="hidden" name="id" value="${transaction.id}" />
-      <div class="field full"><label for="documentUrl">Link chứng từ</label><input id="documentUrl" name="documentUrl" type="url" value="${escapeAttribute(transaction.documentUrl || "")}" placeholder="https://drive.google.com/..." /><small>Giao dịch liên kết chỉ cho bổ sung chứng từ. Muốn đổi số tiền cần xử lý từ chứng từ nguồn.</small></div>
+      <div class="field full"><label for="documentUrl">Link chứng từ</label><input id="documentUrl" name="documentUrl" type="url" value="${escapeAttribute(transaction.documentUrl || "")}" placeholder="https://drive.google.com/..." /><small>Số liệu của giao dịch liên kết được khóa để khớp chứng từ nguồn. Bạn vẫn có thể thêm hoặc thay link chứng từ tại đây.</small></div>
     `;
     return `
       <input type="hidden" name="id" value="${transaction?.id || ""}" />
@@ -6546,7 +6546,7 @@
       },
       cashTransaction: {
         eyebrow: "Kế toán",
-        title: editingCashTransaction ? (editingCashTransaction.referenceType && editingCashTransaction.referenceType !== "manual" ? "Bổ sung chứng từ" : "Sửa giao dịch thu / chi") : "Ghi thu / chi",
+        title: editingCashTransaction ? "Chỉnh sửa giao dịch thu / chi" : "Ghi thu / chi",
         body: renderCashTransactionForm(editingCashTransaction),
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));

@@ -163,11 +163,22 @@ function sanitizedAuditJson(value, fallback) {
   }
 }
 
+async function loadAuditBeforeSnapshot(env, payload) {
+  if (!env.DB) return null;
+  if (payload.action === "updateCashTransaction") {
+    const id = String(payload.id || "").trim();
+    if (!id) return null;
+    return await env.DB.prepare("SELECT * FROM cash_transactions WHERE id=? AND status<>'deleted'").bind(id).first();
+  }
+  return null;
+}
+
 async function beginAuditEvent(env, payload, requestId) {
   if (!env.DB || !changesCoreData(payload.action)) return null;
   const actor = payload.token
     ? await env.DB.prepare("SELECT id,name,email FROM users WHERE session_token=?").bind(String(payload.token)).first()
     : null;
+  const before = await loadAuditBeforeSnapshot(env, payload);
   await env.DB.prepare(
     `INSERT OR IGNORE INTO audit_events
        (request_id,action,status,actor_id,actor_name,actor_email,request_json,created_at)
@@ -177,7 +188,7 @@ async function beginAuditEvent(env, payload, requestId) {
     actor?.email || "", sanitizedAuditJson(payload, { action: payload.action }),
     new Date().toISOString()
   ).run();
-  return { requestId, actor, action: payload.action };
+  return { requestId, actor, action: payload.action, before };
 }
 
 async function completeAuditEvent(env, payload, response, event) {
@@ -193,7 +204,7 @@ async function completeAuditEvent(env, payload, response, event) {
   const completedAt = new Date().toISOString();
   const actor = event.actor || response.user || null;
   const resultJson = sanitizedAuditJson(response, { ok: true });
-  const detailJson = sanitizedAuditJson({ request: { ...payload, action }, result: response }, { action });
+  const detailJson = sanitizedAuditJson({ before: event.before || null, request: { ...payload, action }, result: response }, { action });
   await env.DB.batch([
     env.DB.prepare(
       `UPDATE audit_events SET status='completed',result_json=?,entity_type=?,entity_id=?,
