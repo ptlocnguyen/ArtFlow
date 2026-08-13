@@ -44,6 +44,17 @@ if (!migration.includes("request_id TEXT PRIMARY KEY") || !migration.includes("i
 }
 
 const purchasingWorker = fs.readFileSync("cloudflare-worker/src/d1-purchasing-actions.js", "utf8");
+const workspaceWorker = fs.readFileSync("cloudflare-worker/src/d1-workspace-actions.js", "utf8");
+const teamReadBlock = workspaceWorker.slice(
+  workspaceWorker.indexOf("async function teamRead"),
+  workspaceWorker.indexOf("async function teamMutation")
+);
+if (!teamReadBlock.includes("team_items") || !teamReadBlock.includes("workspace_tasks")) {
+  throw new Error("Team Hub reads must return both meetings and standalone tasks.");
+}
+if (!teamReadBlock.includes("workspaceTasks:") || !teamReadBlock.includes("teamMeetings:")) {
+  throw new Error("Team Hub API response contract is missing meetings or workspace tasks.");
+}
 const paymentWorkerBlock = purchasingWorker.slice(
   purchasingWorker.indexOf('if(b.action==="payPurchaseOrder")'),
   purchasingWorker.indexOf('if(b.action==="applySupplierCredit")')

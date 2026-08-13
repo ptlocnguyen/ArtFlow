@@ -78,7 +78,13 @@
   const productFilters = { category: "all", status: "all", stock: "all", margin: "all", content: "all", assets: "all", sort: "name", preset: "all" };
   const inventoryFilters = { category: "all", stock: "all", sort: "risk" };
   const contentFilters = { status: "all", type: "all", owner: "all", channel: "all", product: "all", schedule: "all" };
-  const teamFilters = { view: "tasks", status: "all", owner: "all", range: "30" };
+  const requestedTeamView = routeParams.get("view");
+  const teamFilters = {
+    view: ["tasks", "meetings", "plans", "decisions"].includes(requestedTeamView) ? requestedTeamView : "tasks",
+    status: "all",
+    owner: "all",
+    range: "all"
+  };
   const omniFilters = { channel: "all", stock: "all", issue: "all" };
   const channelSettingsFilters = { status: "all", search: "" };
 
@@ -1300,13 +1306,13 @@
       state.contentOwners = data.contentOwners || [];
     }
     if (scopes.includes("team")) {
-      state.teamMeetings = (data.teamMeetings || []).map(normalizeTeamMeeting);
-      state.teamPlans = (data.teamPlans || []).map(normalizeTeamPlan);
-      state.teamPricingModels = (data.teamPricingModels || []).map(normalizePricingModel);
-      state.teamDecisions = (data.teamDecisions || []).map(normalizeTeamDecision);
-      state.workspaceTasks = (data.workspaceTasks || state.workspaceTasks || []).map(normalizeWorkspaceTask);
-      state.campaigns = (data.campaigns || state.campaigns || []).map(normalizeCampaign);
-      state.products = (data.products || state.products || []).map(normalizeProduct);
+      if (Array.isArray(data.teamMeetings)) state.teamMeetings = data.teamMeetings.map(normalizeTeamMeeting);
+      if (Array.isArray(data.teamPlans)) state.teamPlans = data.teamPlans.map(normalizeTeamPlan);
+      if (Array.isArray(data.teamPricingModels)) state.teamPricingModels = data.teamPricingModels.map(normalizePricingModel);
+      if (Array.isArray(data.teamDecisions)) state.teamDecisions = data.teamDecisions.map(normalizeTeamDecision);
+      if (Array.isArray(data.workspaceTasks)) state.workspaceTasks = data.workspaceTasks.map(normalizeWorkspaceTask);
+      if (Array.isArray(data.campaigns)) state.campaigns = data.campaigns.map(normalizeCampaign);
+      if (Array.isArray(data.products)) state.products = data.products.map(normalizeProduct);
       state.contentOwners = data.contentOwners || state.contentOwners || [];
       if (Array.isArray(data.users)) state.users = data.users;
     }
@@ -1379,11 +1385,13 @@
           },
           team: async () => {
             const data = await apiRequest("/team");
-            state.teamMeetings = (data.teamMeetings || []).map(normalizeTeamMeeting);
-            state.teamPlans = (data.teamPlans || []).map(normalizeTeamPlan);
-            state.teamPricingModels = (data.teamPricingModels || []).map(normalizePricingModel);
-            state.teamDecisions = (data.teamDecisions || []).map(normalizeTeamDecision);
-            state.products = (data.products || state.products || []).map(normalizeProduct);
+            if (Array.isArray(data.teamMeetings)) state.teamMeetings = data.teamMeetings.map(normalizeTeamMeeting);
+            if (Array.isArray(data.teamPlans)) state.teamPlans = data.teamPlans.map(normalizeTeamPlan);
+            if (Array.isArray(data.teamPricingModels)) state.teamPricingModels = data.teamPricingModels.map(normalizePricingModel);
+            if (Array.isArray(data.teamDecisions)) state.teamDecisions = data.teamDecisions.map(normalizeTeamDecision);
+            if (Array.isArray(data.workspaceTasks)) state.workspaceTasks = data.workspaceTasks.map(normalizeWorkspaceTask);
+            if (Array.isArray(data.campaigns)) state.campaigns = data.campaigns.map(normalizeCampaign);
+            if (Array.isArray(data.products)) state.products = data.products.map(normalizeProduct);
             state.contentOwners = data.contentOwners || state.contentOwners || [];
             if (Array.isArray(data.users)) state.users = data.users;
             window.ArtFlowPosStore.save(state);
@@ -5950,7 +5958,7 @@
     const products = (state.products || []).map(normalizeProduct).filter(product => product.status !== "deleted");
     const channelsList = activeSalesChannels();
     const campaigns = (state.campaigns || []).map(normalizeCampaign);
-    const hiddenId = `<input type="hidden" name="id" value="${escapeAttribute(item.id)}" />`;
+    const hiddenId = `<input type="hidden" name="id" value="${escapeAttribute(item.id)}" /><input type="hidden" name="sourceId" value="${escapeAttribute(item.sourceId)}" />`;
     return `
       ${hiddenId}
       <div class="field full"><label for="taskTitle">Việc cần làm</label><input id="taskTitle" name="title" value="${escapeAttribute(item.title)}" placeholder="VD: Map SKU Shopee cho sản phẩm bán chạy" required /></div>
@@ -5961,7 +5969,7 @@
       <div class="field"><label for="taskProductId">Sản phẩm</label><select id="taskProductId" name="productId"><option value="">Không gắn</option>${products.map(product => `<option value="${product.id}" ${item.productId === product.id ? "selected" : ""}>${escapeHtml(product.sku)} · ${escapeHtml(product.name)}</option>`).join("")}</select></div>
       <div class="field"><label for="taskChannelId">Kênh bán</label><select id="taskChannelId" name="channelId"><option value="">Không gắn</option>${channelsList.map(channel => `<option value="${channel.id}" ${item.channelId === channel.id ? "selected" : ""}>${escapeHtml(channel.name)}</option>`).join("")}</select></div>
       <div class="field"><label for="taskCampaignId">Chiến dịch</label><select id="taskCampaignId" name="campaignId"><option value="">Không gắn</option>${campaigns.map(campaign => `<option value="${campaign.id}" ${item.campaignId === campaign.id ? "selected" : ""}>${escapeHtml(campaign.name)}</option>`).join("")}</select></div>
-      <div class="field"><label for="taskSourceType">Nguồn</label><select id="taskSourceType" name="sourceType"><option value="manual">Ghi chú riêng</option><option value="meeting">Biên bản họp</option><option value="content">Content</option><option value="channel">Kênh bán</option><option value="inventory">Kho</option><option value="order">Đơn hàng</option></select></div>
+      <div class="field"><label for="taskSourceType">Nguồn</label><select id="taskSourceType" name="sourceType"><option value="manual" ${["", "manual"].includes(item.sourceType) ? "selected" : ""}>Ghi chú riêng</option><option value="meeting" ${item.sourceType === "meeting" ? "selected" : ""}>Biên bản họp</option><option value="content" ${item.sourceType === "content" ? "selected" : ""}>Content</option><option value="channel" ${item.sourceType === "channel" ? "selected" : ""}>Kênh bán</option><option value="inventory" ${item.sourceType === "inventory" ? "selected" : ""}>Kho</option><option value="order" ${item.sourceType === "order" ? "selected" : ""}>Đơn hàng</option></select></div>
       <div class="field full"><label for="taskDescription">Mô tả</label><textarea id="taskDescription" name="description" rows="4" placeholder="Bối cảnh, yêu cầu, link liên quan...">${escapeHtml(item.description)}</textarea></div>
     `;
   }
@@ -6868,7 +6876,7 @@
       },
       workspaceTask: {
         eyebrow: "Team Hub",
-        title: "Tạo việc cần làm",
+        title: options.task ? "Cập nhật việc cần làm" : "Tạo việc cần làm",
         body: renderWorkspaceTaskForm(options.task || null),
         async submit(form) {
           const data = Object.fromEntries(new FormData(form));
@@ -7560,11 +7568,39 @@
       if (target.dataset.teamView) {
         teamFilters.view = target.dataset.teamView;
         teamFilters.status = "all";
+        const url = new URL(window.location.href);
+        if (teamFilters.view === "tasks") url.searchParams.delete("view");
+        else url.searchParams.set("view", teamFilters.view);
+        window.history.replaceState({}, "", url);
         renderPage();
       }
       if (target.matches("[data-team-primary-action]")) {
+        if (teamFilters.view === "meetings") {
+          window.location.href = "./meeting-minutes.html";
+          return;
+        }
         const modalByView = { tasks: "workspaceTask", plans: "teamPlan", decisions: "teamDecision" };
         openModal(modalByView[teamFilters.view] || "workspaceTask");
+      }
+      if (target.dataset.editWorkspaceTask) {
+        const task = (state.workspaceTasks || []).find(item => item.id === target.dataset.editWorkspaceTask);
+        if (task) openModal("workspaceTask", { task });
+      }
+      if (target.dataset.openTaskMeeting) {
+        window.location.href = `./meeting-minutes.html?id=${encodeURIComponent(target.dataset.openTaskMeeting)}`;
+        return;
+      }
+      if (target.dataset.archiveWorkspaceTask) {
+        const id = target.dataset.archiveWorkspaceTask;
+        if (confirm("Lưu trữ việc cần làm này?")) {
+          await withLoading("Đang lưu trữ việc cần làm...", async () => {
+            await apiRequest("/omni/tasks/archive", { method: "POST", body: JSON.stringify({ id }) });
+            state.workspaceTasks = (state.workspaceTasks || []).filter(item => item.id !== id);
+            window.ArtFlowPosStore.save(state);
+            renderPage();
+            showToast("Đã lưu trữ việc cần làm.");
+          });
+        }
       }
       if (target.dataset.editTeamMeeting) {
         window.location.href = `./meeting-minutes.html?id=${encodeURIComponent(target.dataset.editTeamMeeting)}`;

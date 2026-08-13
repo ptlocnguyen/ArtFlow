@@ -1910,7 +1910,7 @@ body[data-page="accounting"] .kpi-note {
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.34fr);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.34fr) auto;
   padding: 14px;
 }
 
@@ -1949,6 +1949,11 @@ body[data-page="accounting"] .kpi-note {
   gap: 6px;
 }
 
+.task-card-actions {
+  align-self: start;
+  flex-wrap: nowrap;
+}
+
 @media (max-width: 1280px) {
 }
 
@@ -1960,6 +1965,10 @@ body[data-page="accounting"] .kpi-note {
 
   .team-task-card {
     grid-template-columns: 1fr;
+  }
+
+  .task-card-actions {
+    justify-content: flex-end;
   }
 }
 

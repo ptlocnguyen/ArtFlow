@@ -444,11 +444,24 @@ async function runPageInteractions(page, pageName, viewportName) {
     }
   }
   if (pageName === "team") {
-    await page.locator("[data-team-view='tasks']").click().catch(() => {});
-    await page.locator("[data-team-primary-action]").click().catch(() => {});
-    await page.locator("#taskTitle").fill("QA kiem tra workflow task").catch(() => {});
-    await page.locator("[data-modal-form] button[type='submit']").click().catch(() => {});
+    if (await page.locator("[data-team-range-filter]").inputValue() !== "all") throw new Error("Team Hub must show all historical records by default.");
+    if (!await page.locator("[data-team-view='meetings']").isVisible()) throw new Error("Meeting workspace tab must remain available.");
+    if (!await page.locator("[data-team-content]").getByText("Map SKU Shopee", { exact: false }).isVisible()) throw new Error("Historical standalone tasks must remain visible.");
+    if (!await page.locator("[data-team-content]").getByText("Chot bang gia combo", { exact: false }).isVisible()) throw new Error("Meeting action items must appear in the shared task workspace.");
+    await page.locator("[data-team-view='meetings']").click();
+    if (!await page.locator("[data-team-content]").getByText("Hop ke hoach thang 7", { exact: false }).isVisible()) throw new Error("Saved meetings must render in Team Hub.");
+    await page.locator("[data-team-view='tasks']").click();
+    await page.locator("[data-team-primary-action]").click();
+    await page.locator("#taskTitle").fill("QA kiem tra workflow task");
+    await page.locator("[data-modal-form] button[type='submit']").click();
     await page.locator("[data-modal-backdrop][hidden], .modal-backdrop[hidden]").waitFor({ timeout: 1500 }).catch(() => {});
+    const createdTask = page.locator(".team-task-card", { hasText: "QA kiem tra workflow task" });
+    await createdTask.locator("[data-edit-workspace-task]").click();
+    if (await page.locator("#taskTitle").inputValue() !== "QA kiem tra workflow task") throw new Error("Editing a task must restore its saved values.");
+    await page.keyboard.press("Escape");
+    page.once("dialog", dialog => dialog.accept());
+    await createdTask.locator("[data-archive-workspace-task]").click();
+    await page.locator(".team-task-card", { hasText: "QA kiem tra workflow task" }).waitFor({ state: "detached", timeout: 1500 });
     await page.waitForTimeout(100);
   }
   if (pageName === "meeting-minutes") {
@@ -1017,6 +1030,9 @@ function handleAction(state, payload) {
       return upsertChannelProduct(state, payload);
     case "upsertWorkspaceTask":
       return upsertWorkspaceTask(state, payload);
+    case "archiveWorkspaceTask":
+      state.workspaceTasks = (state.workspaceTasks || []).filter(task => task.id !== payload.id);
+      return { ok: true };
     case "getIncenseData":
       return incenseData(state);
     case "createIncenseWish":

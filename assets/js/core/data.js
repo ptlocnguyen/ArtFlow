@@ -105,7 +105,7 @@
     function normalizeTeamAction(action) {
       return {
         id: action.id || makeLocalId("action"),
-        title: action.title || "",
+        title: action.title || action.name || action.task || "",
         owner: action.owner || "",
         dueDate: action.dueDate || "",
         status: action.status || "todo"
@@ -113,18 +113,24 @@
     }
     
     function normalizeTeamMeeting(meeting) {
+      const legacyDecisions = Array.isArray(meeting.decisions)
+        ? meeting.decisions
+        : String(meeting.decisions || "").split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+      const legacyActions = Array.isArray(meeting.actions)
+        ? meeting.actions
+        : String(meeting.nextActions || "").split(/\r?\n/).map((title, index) => ({ id: `${meeting.id || "meeting"}-action-${index + 1}`, title }));
       return {
         id: meeting.id || makeLocalId("meeting"),
         title: meeting.title || "",
         type: meeting.type || "weekly",
         status: meeting.status || "draft",
-        meetingAt: meeting.meetingAt || "",
+        meetingAt: meeting.meetingAt || meeting.meetingDate || "",
         owner: meeting.owner || "",
-        attendees: meeting.attendees || "",
+        attendees: meeting.attendees || meeting.participants || "",
         agenda: meeting.agenda || "",
         notes: meeting.notes || "",
-        decisions: Array.isArray(meeting.decisions) ? meeting.decisions : [],
-        actions: Array.isArray(meeting.actions) ? meeting.actions.map(normalizeTeamAction) : [],
+        decisions: legacyDecisions,
+        actions: legacyActions.map(normalizeTeamAction),
         template: meeting.template || "",
         sourceType: meeting.sourceType || "manual",
         sourceId: meeting.sourceId || "",

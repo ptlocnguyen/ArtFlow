@@ -18,6 +18,32 @@
       if (currentUser) values.add(currentUser.name || currentUser.email);
       return [...values].filter(Boolean).sort((a, b) => a.localeCompare(b, "vi"));
     }
+
+    function teamWorkspaceTasks() {
+      const standalone = (state.workspaceTasks || []).map(normalizeWorkspaceTask);
+      const meetingTasks = (state.teamMeetings || []).map(normalizeTeamMeeting).flatMap(meeting =>
+        (meeting.actions || []).map((action, index) => normalizeWorkspaceTask({
+          id: `meeting-action:${meeting.id}:${action.id || index + 1}`,
+          title: action.title,
+          status: action.status,
+          priority: "normal",
+          owner: action.owner,
+          sourceType: "meeting",
+          sourceId: meeting.id,
+          dueDate: action.dueDate,
+          description: `Từ biên bản: ${meeting.title}`,
+          createdAt: meeting.createdAt,
+          updatedAt: meeting.updatedAt || meeting.meetingAt
+        }))
+      );
+      const linkedMeetingKeys = new Set(standalone
+        .filter(task => task.sourceType === "meeting" && task.sourceId)
+        .map(task => `${task.sourceId}:${task.title.trim().toLowerCase()}`));
+      return [
+        ...standalone,
+        ...meetingTasks.filter(task => !linkedMeetingKeys.has(`${task.sourceId}:${task.title.trim().toLowerCase()}`))
+      ];
+    }
     
     function teamDateInRange(value) {
       if (teamFilters.range === "all") return true;
@@ -38,7 +64,7 @@
     function currentTeamItems() {
       const map = {
         meetings: (state.teamMeetings || []).map(normalizeTeamMeeting),
-        tasks: (state.workspaceTasks || []).map(normalizeWorkspaceTask),
+        tasks: teamWorkspaceTasks(),
         plans: (state.teamPlans || []).map(normalizeTeamPlan),
         pricing: (state.teamPricingModels || []).map(normalizePricingModel),
         decisions: (state.teamDecisions || []).map(normalizeTeamDecision)
@@ -62,7 +88,7 @@
     function renderTeamFilters() {
       const items = {
         meetings: state.teamMeetings || [],
-        tasks: state.workspaceTasks || [],
+        tasks: teamWorkspaceTasks(),
         plans: state.teamPlans || [],
         pricing: state.teamPricingModels || [],
         decisions: state.teamDecisions || []
@@ -87,6 +113,7 @@
       if (primary) primary.innerHTML = `${icon("plus")} Tạo ${view.action}`;
       const renderers = {
         tasks: renderTeamTasks,
+        meetings: renderTeamMeetings,
         plans: renderTeamPlans,
         decisions: renderTeamDecisions
       };
@@ -177,6 +204,7 @@
             const product = task.productId ? byId("products", task.productId) : null;
             const channel = task.channelId ? channelByIdOrCode(task.channelId) : null;
             const campaign = task.campaignId ? (state.campaigns || []).find(item => item.id === task.campaignId) : null;
+            const fromMeeting = task.sourceType === "meeting" && task.sourceId;
             return `<article class="team-task-card ${task.priority}">
               <div class="task-card-main">
                 <span class="status-chip ${task.status === "done" ? "success" : task.status === "blocked" ? "danger" : task.status === "doing" ? "info" : "warning"}">${teamStatuses[task.status] || task.status}</span>
@@ -189,6 +217,12 @@
                 ${product ? `<span>${icon("package")} ${escapeHtml(product.sku)}</span>` : ""}
                 ${channel ? `<span>${icon("truck")} ${escapeHtml(channel.name)}</span>` : ""}
                 ${campaign ? `<span>${icon("sparkles")} ${escapeHtml(campaign.name)}</span>` : ""}
+                ${fromMeeting ? `<span>${icon("clipboard")} Từ biên bản họp</span>` : ""}
+              </div>
+              <div class="task-card-actions row-actions">
+                ${fromMeeting
+                  ? `<button class="link-button icon-only" type="button" data-open-task-meeting="${escapeAttribute(task.sourceId)}" title="Mở biên bản" aria-label="Mở biên bản">${icon("externalLink")}</button>`
+                  : `<button class="link-button icon-only action-edit" type="button" data-edit-workspace-task="${escapeAttribute(task.id)}" title="Sửa" aria-label="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-workspace-task="${escapeAttribute(task.id)}" title="Lưu trữ" aria-label="Lưu trữ">${icon("archive")}</button>`}
               </div>
             </article>`;
           }).join("") : `<div class="empty">Chưa có việc cần làm phù hợp.</div>`}
