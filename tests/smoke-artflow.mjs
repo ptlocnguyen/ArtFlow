@@ -215,6 +215,49 @@ async function runPageInteractions(page, pageName, viewportName) {
     }
     await page.locator("[data-reset-product-filters]").click();
     await page.keyboard.press("Escape");
+
+    const assertProductEditorFits = async label => {
+      const modal = page.locator(".modal[data-modal-type='product']");
+      await modal.waitFor();
+      const metrics = await modal.evaluate(element => {
+        const form = element.querySelector("[data-modal-form]");
+        const rect = element.getBoundingClientRect();
+        return {
+          modalClientWidth: element.clientWidth,
+          modalScrollWidth: element.scrollWidth,
+          formClientWidth: form?.clientWidth || 0,
+          formScrollWidth: form?.scrollWidth || 0,
+          left: rect.left,
+          right: rect.right,
+          viewportWidth: window.innerWidth
+        };
+      });
+      if (metrics.modalScrollWidth > metrics.modalClientWidth + 2) throw new Error(`${label} must not overflow its modal horizontally.`);
+      if (metrics.formScrollWidth > metrics.formClientWidth + 2) throw new Error(`${label} form must not overflow horizontally.`);
+      if (metrics.left < -2 || metrics.right > metrics.viewportWidth + 2) throw new Error(`${label} must remain inside the viewport.`);
+      if (["desktop", "desktop-1280"].includes(viewportName) && metrics.modalClientWidth < 1180) throw new Error(`${label} should use the available desktop width.`);
+    };
+
+    await page.locator("[data-open-product]").click();
+    await assertProductEditorFits("Product creation workspace");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "products-create.png"), fullPage: false });
+    }
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector("[data-modal-backdrop]")?.hidden === true);
+
+    await page.locator("[data-edit-product]").first().click();
+    await assertProductEditorFits("Product editing workspace");
+    if (!(await page.locator("[data-modal-form] input[name='sku']").inputValue()).trim()) throw new Error("Product editing workspace must load the selected product.");
+    if (keepScreenshots) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "products-edit.png"), fullPage: false });
+    }
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector("[data-modal-backdrop]")?.hidden === true);
   }
   if (pageName === "inventory") {
     const resultCount = page.locator("[data-inventory-result-count]");

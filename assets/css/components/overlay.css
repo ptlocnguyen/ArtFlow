@@ -9,7 +9,13 @@
 .modal-backdrop { z-index: 85; background: rgba(16,24,40,.36); }
 .modal { max-height: min(86dvh, 760px); border: 0; border-radius: 14px; box-shadow: 0 24px 60px rgba(16,24,40,.18); }
 .modal[data-modal-type="orderDetail"], .modal[data-modal-type="productDetail"], .modal[data-modal-type="customerDetail"] { width: min(92vw, 540px); height: 100dvh; max-height: none; margin-left: auto; border-radius: 0; }
-.modal[data-modal-type="product"], .modal[data-modal-type="contentItem"] { width: min(96vw, 1180px); max-height: 94dvh; }
+body[data-page="products"] .modal[data-modal-type="product"] { width: min(calc(100vw - 32px), 1320px); max-width: none; max-height: 94dvh; overflow-x: hidden; }
+.modal[data-modal-type="contentItem"] { width: min(96vw, 1180px); max-height: 94dvh; }
+.modal[data-modal-type="product"] .modal-form-fullscreen { width: 100%; max-width: 100%; min-width: 0; max-height: none; }
+.modal[data-modal-type="product"] .form-grid,
+.modal[data-modal-type="product"] .field,
+.modal[data-modal-type="product"] .form-grid > * { min-width: 0; }
+.modal[data-modal-type="product"] :is(input, select, textarea) { width: 100%; max-width: 100%; min-width: 0; }
 .customer-detail-hero { display: flex; align-items: center; gap: 14px; padding: 4px 0 16px; border-bottom: 1px solid var(--v3-border); }
 .customer-detail-hero h3, .customer-detail-hero p { margin: 4px 0 0; }
 .customer-avatar { display: grid; width: 52px; height: 52px; flex: 0 0 auto; place-items: center; border-radius: 50%; color: #fff; background: var(--v3-primary); font-size: 22px; font-weight: 800; }
@@ -39,6 +45,8 @@ body.overlay-open { overflow: hidden; }
   .side-sheet { width: 100%; height: min(92dvh, 820px); border-radius: 16px 16px 0 0; animation-name: bottom-sheet-in; }
   .popover { inset: auto 0 64px !important; width: 100%; max-width: none; border-radius: 16px 16px 0 0; }
   .modal { align-self: end; width: 100%; max-width: none; max-height: 92dvh; border-radius: 16px 16px 0 0; }
+  body[data-page="products"] .modal[data-modal-type="product"] { width: 100%; max-height: 94dvh; }
+  .modal[data-modal-type="product"] .form-grid { grid-template-columns: minmax(0, 1fr); padding: 16px; }
   .modal[data-modal-type="orderDetail"], .modal[data-modal-type="productDetail"], .modal[data-modal-type="customerDetail"] { width: 100%; height: 92dvh; border-radius: 16px 16px 0 0; }
   .detail-metric-grid { grid-template-columns: 1fr 1fr; }
 }
