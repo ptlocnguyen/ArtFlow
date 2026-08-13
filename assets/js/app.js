@@ -6938,7 +6938,7 @@
     if (!definition) return;
     const modal = els.modalBackdrop.querySelector(".modal");
     if (modal) modal.dataset.modalType = type;
-    els.modalForm.classList.toggle("modal-form-wide", type === "orderDetail" || type === "productDetail" || type === "customerDetail" || type === "teamPricing" || type === "pricingProductPicker");
+    els.modalForm.classList.toggle("modal-form-wide", type === "orderDetail" || type === "productDetail" || type === "customerDetail" || type === "teamPricing" || type === "pricingProductPicker" || type === "accountingLedgerAnalysis");
     els.modalForm.classList.toggle("modal-form-fullscreen", type === "product" || type === "contentItem" || type === "teamPricing");
     els.modalEyebrow.textContent = definition.eyebrow;
     els.modalTitle.textContent = definition.title;
@@ -6966,6 +6966,8 @@
     };
     els.modalBackdrop.hidden = false;
     document.body.classList.add("overlay-open");
+    if (modal) modal.scrollTop = 0;
+    els.modalForm.scrollTop = 0;
     if (type === "order") updateOrderTotalPreviewV2(els.modalForm);
     if (type === "orderReturn") updateOrderReturnPreview(els.modalForm);
     if (type === "product") updateProductPricingPreview(els.modalForm);

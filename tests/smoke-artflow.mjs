@@ -719,9 +719,24 @@ async function runPageInteractions(page, pageName, viewportName) {
         if ((await ledger.innerText()).includes("Thu bán hàng")) throw new Error("Expense filter must hide income transactions.");
         await page.locator("[data-accounting-type-select]").selectOption("all");
         await page.locator("[data-open-accounting-ledger-analysis]").click();
-        if (!(await page.locator("[data-modal-form]").innerText()).includes("Cơ cấu khoản chi")) throw new Error("Ledger analysis must open outside the primary table workspace.");
+        const availableBalanceText = await page.locator("[data-ledger-available-balance] strong").innerText();
+        const accountBalanceTexts = await page.locator(".ledger-account-balances article > b").allInnerTexts();
+        const parseDisplayedMoney = value => Number(String(value || "").replace(/[^\d-]/g, "")) || 0;
+        const displayedAccountTotal = accountBalanceTexts.reduce((sum, value) => sum + parseDisplayedMoney(value), 0);
+        const hasAnalysisSections = await page.locator("[data-ledger-available-balance], .ledger-account-section, .ledger-expense-section").count() === 3;
+        const parsedAvailableBalance = parseDisplayedMoney(availableBalanceText);
+        if (!hasAnalysisSections || parsedAvailableBalance !== displayedAccountTotal) throw new Error(`Ledger analysis must expose a current available balance equal to the displayed account balances (sections:${hasAnalysisSections}; total:${parsedAvailableBalance}/${displayedAccountTotal}; ${availableBalanceText}; ${accountBalanceTexts.join(" | ")}).`);
+        const analysisOverflow = await page.locator(".modal[data-modal-type='accountingLedgerAnalysis']").evaluate(element => element.scrollWidth - element.clientWidth);
+        if (analysisOverflow > 2) throw new Error(`Ledger analysis must not overflow horizontally (${analysisOverflow}px).`);
         if (keepScreenshots) await page.screenshot({ path: path.join(dir, "accounting-ledger-analysis.png"), fullPage: false });
         await page.locator("[data-close-modal]").first().click();
+        await page.locator("[data-accounting-account-filter]").selectOption("acc-bank");
+        await page.locator("[data-open-accounting-ledger-analysis]").click();
+        const filteredAvailableBalance = parseDisplayedMoney(await page.locator("[data-ledger-available-balance] strong").innerText());
+        const filteredAccountBalance = parseDisplayedMoney(await page.locator(".ledger-account-balances article > b").innerText());
+        if (await page.locator(".ledger-account-balances article").count() !== 1 || filteredAvailableBalance !== filteredAccountBalance) throw new Error("Ledger analysis balance must follow the selected account while remaining independent from the time range.");
+        await page.locator("[data-close-modal]").first().click();
+        await page.locator("[data-accounting-account-filter]").selectOption("all");
       }
       if (view === "receivables") {
         await page.locator("[data-accounting-debt-view='supplier']").click();

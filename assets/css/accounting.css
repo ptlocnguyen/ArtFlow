@@ -167,6 +167,62 @@ body[data-page="accounting"] .accounting-ledger {
 .accounting-payout-workspace thead,
 .accounting-payroll-workspace thead { position: sticky; z-index: 2; top: 0; background: var(--surface); }
 
+.modal[data-modal-type="accountingLedgerAnalysis"] {
+  width: min(980px, calc(100vw - 32px));
+}
+
+.modal[data-modal-type="accountingLedgerAnalysis"] .form-grid {
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.ledger-balance-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, .75fr);
+  align-items: center;
+  gap: 22px;
+  padding: 18px 20px;
+  color: #fff;
+  background: #102a43;
+  border: 1px solid #234d6f;
+  border-radius: 8px;
+}
+
+.ledger-balance-hero > div { display: grid; gap: 4px; }
+.ledger-balance-hero span { color: #bfe3f4; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.ledger-balance-hero strong { font-size: clamp(27px, 4vw, 38px); line-height: 1.1; }
+.ledger-balance-hero small { color: #d8e8f2; }
+.ledger-balance-hero p { margin: 0; padding-left: 20px; border-left: 1px solid rgba(255,255,255,.22); color: #d8e8f2; line-height: 1.55; }
+
+.ledger-analysis-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ledger-analysis-metrics article { border-top: 3px solid #8aa4b8; }
+.ledger-analysis-metrics article[data-tone="positive"] { border-top-color: #0e9f6e; }
+.ledger-analysis-metrics article[data-tone="negative"] { border-top-color: #dc3f3f; }
+.ledger-analysis-metrics article[data-tone="positive"] strong { color: #087855; }
+.ledger-analysis-metrics article[data-tone="negative"] strong { color: #b42318; }
+
+.ledger-analysis-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.ledger-analysis-grid > section {
+  min-width: 0;
+  padding: 16px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.ledger-account-balances { display: grid; gap: 8px; max-height: 300px; overflow: auto; }
+.ledger-account-balances article { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; }
+.ledger-account-balances article > span { display: grid; min-width: 0; gap: 3px; }
+.ledger-account-balances article small { color: var(--muted); overflow-wrap: anywhere; }
+.ledger-account-balances article b { flex: 0 0 auto; font-size: 16px; white-space: nowrap; }
+.ledger-account-balances article b.is-negative { color: #b42318; }
+.ledger-analysis-grid .expense-breakdown.compact { max-height: 300px; }
+
 .accounting-debt-switch { width: fit-content; margin: 0 16px 12px; }
 .accounting-debt-operations,
 .accounting-todo-list { display: grid; gap: 8px; padding: 0 16px 16px; overflow: auto; }
@@ -238,6 +294,13 @@ body[data-page="accounting"] .accounting-ledger {
   .accounting-ledger-actions .ledger-result-count { flex: 1 0 100%; min-height: 20px; margin-right: auto; }
   .accounting-ledger-actions .button:not(.icon-only) { padding-inline: 9px; }
   .accounting-ledger-table { max-height: none; }
+  .ledger-balance-hero { grid-template-columns: 1fr; gap: 12px; padding: 16px; }
+  .ledger-balance-hero p { padding: 12px 0 0; border-top: 1px solid rgba(255,255,255,.22); border-left: 0; }
+  .ledger-analysis-metrics { grid-template-columns: 1fr 1fr; }
+  .ledger-analysis-metrics article:last-child { grid-column: auto; }
+  .ledger-analysis-grid { grid-template-columns: 1fr; }
+  .ledger-account-balances,
+  .ledger-analysis-grid .expense-breakdown.compact { max-height: none; }
   .accounting-ledger-summary,
 .accounting-tax-summary { grid-template-columns: 1fr 1fr; margin-inline: 12px; }
   .accounting-ledger-summary article:nth-child(2),

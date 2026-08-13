@@ -452,26 +452,60 @@
       }, {});
       const categories = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
       const maxExpense = Math.max(...categories.map(item => item[1]), 1);
-      const account = accountingFilters.accountId === "all"
+      const accountLabel = accountingFilters.accountId === "all"
         ? "Tất cả tài khoản"
         : getAccountingAccount(accountingFilters.accountId).name;
+      const accounts = (state.accountingAccounts || [])
+        .filter(item => item.status !== "deleted" && (accountingFilters.accountId === "all" || item.id === accountingFilters.accountId));
+      const availableBalance = accounts.reduce((sum, item) => sum + Number(item.currentBalance || 0), 0);
+      const latestReconciliationByAccount = (state.accountingReconciliations || []).reduce((latest, item) => {
+        const current = latest[item.accountId];
+        if (!current || String(item.reconciledAt || item.createdAt).localeCompare(String(current.reconciledAt || current.createdAt)) > 0) {
+          latest[item.accountId] = item;
+        }
+        return latest;
+      }, {});
       return `
-        <div class="modal-summary full"><strong>${escapeHtml(accountingRangeLabel(accountingFilters.range))}</strong><span>${escapeHtml(account)} · phân tích theo bộ lọc Dòng tiền hiện tại.</span></div>
+        <section class="ledger-balance-hero full" data-ledger-available-balance>
+          <div>
+            <span>Tiền hiện còn</span>
+            <strong>${money.format(availableBalance)}</strong>
+            <small>${escapeHtml(accountLabel)} · tổng số dư sổ tại thời điểm hiện tại</small>
+          </div>
+          <p>Số dư này không thay đổi theo bộ lọc thời gian. Thu, chi và dòng tiền ròng bên dưới được tính cho ${escapeHtml(accountingRangeLabel(accountingFilters.range).toLowerCase())}.</p>
+        </section>
         <div class="profit-detail-flow ledger-analysis-metrics full">
           <article><span>Tổng thu</span><strong>${money.format(income)}</strong><small>${transactions.filter(item => item.type === "income").length} giao dịch</small></article>
           <article><span>Tổng chi</span><strong>${money.format(expense)}</strong><small>${expenses.length} giao dịch</small></article>
-          <article><span>Dòng tiền ròng</span><strong>${money.format(income - expense)}</strong><small>Thu trừ chi</small></article>
+          <article data-tone="${income - expense < 0 ? "negative" : "positive"}"><span>Dòng tiền ròng</span><strong>${money.format(income - expense)}</strong><small>Thu trừ chi trong kỳ</small></article>
           <article><span>Thiếu chứng từ</span><strong>${missingDocuments}</strong><small>Khoản chi cần bổ sung</small></article>
         </div>
-        <div class="modal-section full">
-          <div class="modal-section-heading"><h3>Cơ cấu khoản chi</h3><p>Xếp từ danh mục chi lớn nhất trong phạm vi đang chọn.</p></div>
-          <div class="expense-breakdown compact">
-            ${categories.length ? categories.map(([label, amount]) => {
-              const share = expense > 0 ? amount / expense * 100 : 0;
-              return `<div class="expense-row"><div><strong>${escapeHtml(label)}</strong><span>${money.format(amount)} · ${share.toFixed(1)}%</span></div><i style="--expense-width:${Math.round(amount / maxExpense * 100)}%"></i></div>`;
-            }).join("") : `<div class="empty">Chưa phát sinh khoản chi trong phạm vi đang chọn.</div>`}
+        <div class="ledger-analysis-grid full">
+          <section class="modal-section ledger-account-section">
+            <div class="modal-section-heading"><h3>Số dư theo tài khoản</h3><p>Tiền đang nằm ở đâu và lần đối soát gần nhất.</p></div>
+            <div class="ledger-account-balances">
+              ${accounts.length ? accounts.map(item => {
+                const reconciliation = latestReconciliationByAccount[item.id];
+                const reconciliationLabel = reconciliation
+                  ? `Đối soát ${formatDate(reconciliation.reconciledAt || reconciliation.createdAt)}${Number(reconciliation.difference || 0) ? ` · lệch ${money.format(reconciliation.difference)}` : " · đã khớp"}`
+                  : "Chưa đối soát";
+                return `<article>
+                  <span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(accountTypeLabel(item.type))} · ${escapeHtml(reconciliationLabel)}</small></span>
+                  <b class="${Number(item.currentBalance || 0) < 0 ? "is-negative" : ""}">${money.format(item.currentBalance)}</b>
+                </article>`;
+              }).join("") : `<div class="empty compact-empty">Chưa có tài khoản tiền phù hợp.</div>`}
+            </div>
+          </section>
+          <section class="modal-section ledger-expense-section">
+            <div class="modal-section-heading"><h3>Cơ cấu khoản chi</h3><p>Xếp từ danh mục chi lớn nhất trong phạm vi đang chọn.</p></div>
+            <div class="expense-breakdown compact">
+              ${categories.length ? categories.map(([label, amount]) => {
+                const share = expense > 0 ? amount / expense * 100 : 0;
+                return `<div class="expense-row"><div><strong>${escapeHtml(label)}</strong><span>${money.format(amount)} · ${share.toFixed(1)}%</span></div><i style="--expense-width:${Math.round(amount / maxExpense * 100)}%"></i></div>`;
+              }).join("") : `<div class="empty compact-empty">Chưa phát sinh khoản chi trong phạm vi đang chọn.</div>`}
+            </div>
+          </section>
           </div>
-        </div>
       `;
     }
     
