@@ -272,6 +272,91 @@
     });
   }
 
+  function localizedDateText(value, includesTime) {
+    const source = String(value || "").trim();
+    if (!source) return "";
+    const match = source.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
+    if (!match) return source;
+    const date = `${match[3]}/${match[2]}/${match[1]}`;
+    return includesTime ? `${date} ${match[4] || "00"}:${match[5] || "00"}` : date;
+  }
+
+  function localizedDateValue(value, includesTime) {
+    const source = String(value || "").trim();
+    if (!source) return "";
+    const match = source.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+    if (!match || (includesTime && (!match[4] || !match[5]))) return "";
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    const year = Number(match[3]);
+    const hour = Number(match[4] || 0);
+    const minute = Number(match[5] || 0);
+    const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day || hour > 23 || minute > 59) return "";
+    const dateValue = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return includesTime ? `${dateValue}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}` : dateValue;
+  }
+
+  function syncLocalizedDateDisplay(nativeInput) {
+    const wrapper = nativeInput.closest(".localized-date-input");
+    const displayInput = wrapper?.querySelector(".localized-date-display");
+    if (!displayInput) return;
+    displayInput.value = localizedDateText(nativeInput.value, nativeInput.type === "datetime-local");
+    displayInput.setCustomValidity("");
+  }
+
+  function enhanceLocalizedDateInputs(rootNode) {
+    const root = rootNode || document;
+    const inputs = [];
+    if (root.matches?.('input[type="date"], input[type="datetime-local"]')) inputs.push(root);
+    root.querySelectorAll?.('input[type="date"], input[type="datetime-local"]').forEach(input => inputs.push(input));
+    inputs.forEach(nativeInput => {
+      if (nativeInput.dataset.localizedDateInput === "true") {
+        syncLocalizedDateDisplay(nativeInput);
+        return;
+      }
+      const includesTime = nativeInput.type === "datetime-local";
+      const wrapper = document.createElement("span");
+      const displayInput = document.createElement("input");
+      wrapper.className = `localized-date-input${includesTime ? " has-time" : ""}`;
+      displayInput.type = "text";
+      displayInput.className = "localized-date-display";
+      displayInput.placeholder = includesTime ? "dd/mm/yyyy HH:mm" : "dd/mm/yyyy";
+      displayInput.inputMode = "numeric";
+      displayInput.autocomplete = "off";
+      displayInput.disabled = nativeInput.disabled;
+      displayInput.readOnly = nativeInput.readOnly;
+      displayInput.required = nativeInput.required;
+      displayInput.setAttribute("aria-label", nativeInput.getAttribute("aria-label") || (includesTime ? "Ngày giờ, định dạng ngày/tháng/năm giờ:phút" : "Ngày, định dạng ngày/tháng/năm"));
+      nativeInput.parentNode.insertBefore(wrapper, nativeInput);
+      wrapper.append(displayInput, nativeInput);
+      nativeInput.dataset.localizedDateInput = "true";
+      nativeInput.classList.add("localized-date-native");
+      nativeInput.required = false;
+      nativeInput.tabIndex = -1;
+      nativeInput.setAttribute("aria-hidden", "true");
+      syncLocalizedDateDisplay(nativeInput);
+
+      displayInput.addEventListener("input", () => {
+        const parsed = localizedDateValue(displayInput.value, includesTime);
+        nativeInput.value = parsed;
+        displayInput.setCustomValidity(displayInput.value.trim() && !parsed
+          ? (includesTime ? "Nhập ngày giờ theo định dạng dd/mm/yyyy HH:mm" : "Nhập ngày theo định dạng dd/mm/yyyy")
+          : "");
+      });
+      displayInput.addEventListener("blur", () => {
+        const parsed = localizedDateValue(displayInput.value, includesTime);
+        if (parsed) {
+          nativeInput.value = parsed;
+          syncLocalizedDateDisplay(nativeInput);
+          nativeInput.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+      nativeInput.addEventListener("input", () => syncLocalizedDateDisplay(nativeInput));
+      nativeInput.addEventListener("change", () => syncLocalizedDateDisplay(nativeInput));
+    });
+  }
+
   const els = {
     authScreen: qs("[data-auth-screen]"),
     appShell: qs("[data-app-shell]"),
@@ -2113,8 +2198,8 @@
         item.collaborators || "",
         product ? product.sku : "",
         product ? product.name : "",
-        item.dueDate || "",
-        item.publishAt || "",
+        item.dueDate ? formatDate(item.dueDate) : "",
+        item.publishAt ? formatDateTimeShort(item.publishAt) : "",
         `${checklist.filter(entry => entry.done).length}/${checklist.length || 0}`,
         `${assetChecklist.filter(entry => entry.done).length}/${assetChecklist.length || 0}`,
         item.contentDocUrl || "",
@@ -2122,7 +2207,7 @@
         item.publishUrl || "",
         item.tags || "",
         item.note || "",
-        item.updatedAt || item.createdAt || ""
+        item.updatedAt || item.createdAt ? formatDateTime(item.updatedAt || item.createdAt) : ""
       ];
     });
     const XLSX = requireXlsx();
@@ -2139,7 +2224,7 @@
     const plans = (state.teamPlans || []).map(normalizeTeamPlan);
     const pricing = (state.teamPricingModels || []).map(normalizePricingModel);
     const decisions = (state.teamDecisions || []).map(normalizeTeamDecision);
-    XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - BIÊN BẢN", `Xuất lúc ${new Date().toLocaleString("vi-VN")} · ${meetings.length} cuộc họp`, ["Cuộc họp", "Loại", "Trạng thái", "Thời gian", "Chủ trì", "Thành viên", "Agenda", "Biên bản", "Quyết định", "Việc cần làm"], meetings.map(item => [item.title, item.type, teamStatuses[item.status] || item.status, item.meetingAt, item.owner, item.attendees, item.agenda, item.notes, (item.decisions || []).join("\n"), textFromActionRows(item.actions)]), { widths: [32, 14, 16, 20, 22, 32, 42, 52, 44, 44], wrapColumn: 7 }), "Biên bản");
+    XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - BIÊN BẢN", `Xuất lúc ${new Date().toLocaleString("vi-VN")} · ${meetings.length} cuộc họp`, ["Cuộc họp", "Loại", "Trạng thái", "Thời gian", "Chủ trì", "Thành viên", "Agenda", "Biên bản", "Quyết định", "Việc cần làm"], meetings.map(item => [item.title, item.type, teamStatuses[item.status] || item.status, item.meetingAt ? formatDateTimeShort(item.meetingAt) : "", item.owner, item.attendees, item.agenda, item.notes, (item.decisions || []).join("\n"), (item.actions || []).map(action => [action.title, action.owner, action.dueDate ? formatDate(action.dueDate) : "", action.status].filter(Boolean).join(" | ")).join("\n")]), { widths: [32, 14, 16, 20, 22, 32, 42, 52, 44, 44], wrapColumn: 7 }), "Biên bản");
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - KẾ HOẠCH", `${plans.length} kế hoạch`, ["Kế hoạch", "Kỳ", "Trạng thái", "Phụ trách", "Doanh thu mục tiêu", "Lợi nhuận mục tiêu", "Ngân sách", "Kênh", "Sản phẩm trọng tâm", "Milestone", "Rủi ro", "Ghi chú"], plans.map(item => [item.title, item.period, teamStatuses[item.status] || item.status, item.owner, item.goalRevenue, item.goalProfit, item.budget, item.channels, item.focusProducts, (item.milestones || []).map(m => [m.title, m.dueDate, m.owner].filter(Boolean).join(" | ")).join("\n"), item.risks, item.note]), { widths: [32, 14, 16, 22, 18, 18, 16, 26, 32, 42, 36, 42], moneyColumns: [4, 5, 6], wrapColumn: 9 }), "Kế hoạch");
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("TEAM HUB - TÍNH GIÁ", `${pricing.length} bảng tính giá`, ["Bảng tính", "Sản phẩm", "Trạng thái", "Phụ trách", "Giá vốn", "Chi phí thêm", "Kịch bản", "Giá gợi ý", "Biên lãi", "Ghi chú"], pricing.map(item => {
       const product = item.productId ? byId("products", item.productId) : null;
@@ -2315,7 +2400,7 @@
       const account = getAccountingAccount(transaction.accountId);
       const category = getAccountingCategory(transaction.categoryId);
       return [
-        transaction.transactionDate || reportDayKey(transaction.createdAt),
+        formatDate(transaction.transactionDate || reportDayKey(transaction.createdAt)),
         accountingTypeLabel(transaction.type),
         account.name,
         category.name,
@@ -2333,7 +2418,7 @@
 
   function appendPlatformPayoutSheets(workbook, XLSX) {
     const payouts = state.platformPayouts || [];
-    const rows = payouts.map(item => [commerceChannelLabel(item.channelId || item.channelCode),item.payoutCode,item.periodStart,item.periodEnd,item.payoutDate,item.grossAmount,item.totalFees,item.totalRefunds,item.expectedAmount,item.actualAmount,item.difference,payoutStatusMeta(item.status)[0],item.sourceFileName,item.sourceFileUrl,item.note]);
+    const rows = payouts.map(item => [commerceChannelLabel(item.channelId || item.channelCode),item.payoutCode,formatDate(item.periodStart),formatDate(item.periodEnd),formatDate(item.payoutDate),item.grossAmount,item.totalFees,item.totalRefunds,item.expectedAmount,item.actualAmount,item.difference,payoutStatusMeta(item.status)[0],item.sourceFileName,item.sourceFileUrl,item.note]);
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("ĐỐI SOÁT SÀN", `ArtFlow POS · Cập nhật ${new Date().toLocaleString("vi-VN")}`, ["Sàn","Mã payout","Từ ngày","Đến ngày","Ngày tiền về","Doanh thu gộp","Phí sàn","Hoàn trả","Dự kiến","Thực nhận","Chênh lệch","Trạng thái","File nguồn","Link file","Ghi chú"], rows, { widths:[18,22,14,14,14,18,16,16,18,18,16,16,24,38,34], moneyColumns:[5,6,7,8,9,10], wrapColumn:14 }), "Đối soát sàn");
     const details = payouts.flatMap(payout => payout.items.map(item => [payout.payoutCode,commerceChannelLabel(payout.channelId || payout.channelCode),item.orderCode,item.platformOrderCode,item.productTotal,item.shippingFee,item.sellerDiscount,item.platformDiscount,item.commissionFee,item.paymentFee,item.affiliateFee,item.adsFee,item.refundAmount,item.penaltyFee,item.expectedNetAmount,item.platformNetAmount,item.difference,item.status,item.note]));
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("CHI TIẾT PAYOUT", "Chi tiết phí và đơn thuộc từng payout", ["Payout","Sàn","Mã đơn","Mã đơn sàn","Tiền hàng","Vận chuyển","Voucher shop","Voucher sàn","Hoa hồng","Thanh toán","Affiliate","Ads","Hoàn trả","Phạt","Dự kiến","Sàn trả","Chênh lệch","Trạng thái","Ghi chú"], details, { widths:[20,16,20,20,16,16,16,16,16,16,16,16,16,16,16,16,16,14,30], moneyColumns:[4,5,6,7,8,9,10,11,12,13,14,15,16] }), "Chi tiết payout");
@@ -2345,7 +2430,7 @@
       row.customer.name,
       row.customer.phone || "",
       channelLabel(row.order.channel),
-      reportDayKey(row.order.createdAt),
+      formatDate(reportDayKey(row.order.createdAt)),
       row.ageDays,
       row.order.total,
       row.collected,
@@ -2409,7 +2494,7 @@
       .map(reconciliation => {
         const account = getAccountingAccount(reconciliation.accountId);
         return [
-          reconciliation.reconciledAt || reportDayKey(reconciliation.createdAt),
+          formatDate(reconciliation.reconciledAt || reportDayKey(reconciliation.createdAt)),
           account.name,
           reconciliation.systemBalance,
           reconciliation.actualBalance,
@@ -2422,7 +2507,7 @@
 
   function appendPayrollSheet(workbook, XLSX, range) {
     const rows = accountingPayrollRows(range).map(transaction => [
-      transaction.transactionDate || reportDayKey(transaction.createdAt),
+      formatDate(transaction.transactionDate || reportDayKey(transaction.createdAt)),
       transaction.description,
       getAccountingAccount(transaction.accountId).name,
       getAccountingCategory(transaction.categoryId).name,
@@ -4030,6 +4115,7 @@
     renderSettingsPage();
     enhanceResponsiveTables();
     enhanceMoneyInputs();
+    enhanceLocalizedDateInputs();
     focusDeepLinkedRecord();
   }
 
@@ -5401,7 +5487,7 @@
       ["Thanh toán", statusLabel(order.paymentStatus)],
       ["Ngày tạo", formatDateTime(order.createdAt)],
       ["Ngày nhận", order.receivedAt ? formatDateTime(order.receivedAt) : ""],
-      ["Hạn thanh toán", order.dueDate || ""],
+      ["Hạn thanh toán", order.dueDate ? formatDate(order.dueDate) : ""],
       ["Tạm tính", order.subtotal],
       ["Chiết khấu", order.discount],
       ["Phí vận chuyển", order.shippingFee],
@@ -7070,6 +7156,7 @@
     if (type === "teamPricing") updateTeamPricingPreview(els.modalForm);
     if (type === "pricingProductPicker") filterProductPicker(els.modalForm);
     enhanceMoneyInputs(els.modalForm);
+    enhanceLocalizedDateInputs(els.modalForm);
     const firstInput = els.modalForm.querySelector("input, select");
     if (firstInput) firstInput.focus();
   }
@@ -8507,6 +8594,16 @@
 
   injectSharedUi();
   hydrateIcons(document);
+  enhanceLocalizedDateInputs(document);
+  const localizedDateObserver = new MutationObserver(records => {
+    records.forEach(record => record.addedNodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE) enhanceLocalizedDateInputs(node);
+    }));
+  });
+  localizedDateObserver.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener("reset", event => {
+    window.setTimeout(() => event.target.querySelectorAll?.('input[data-localized-date-input="true"]').forEach(syncLocalizedDateDisplay), 0);
+  }, true);
   bindEvents();
   if (page === "auth") bootstrapAuthPage();
   else {

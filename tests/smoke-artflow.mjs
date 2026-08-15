@@ -507,6 +507,14 @@ async function runPageInteractions(page, pageName, viewportName) {
   }
   if (pageName === "meeting-minutes") {
     if (!await page.locator("[data-minutes-list]").getByText("Hop ke hoach thang 7", { exact: false }).isVisible()) throw new Error("Meeting minutes workspace must retain saved meetings.");
+    const minutesDateDisplay = page.locator(".localized-date-input:has(#minutesAt) .localized-date-display");
+    if (!(await minutesDateDisplay.count())) throw new Error("Meeting date-time input must use the Vietnamese date control.");
+    await page.locator("#minutesAt").fill("2026-08-15T09:05");
+    await page.locator("#minutesAt").dispatchEvent("change");
+    if (await minutesDateDisplay.inputValue() !== "15/08/2026 09:05") throw new Error("Native date-time picker changes must display in Vietnamese order.");
+    await minutesDateDisplay.fill("15/08/2026 14:30");
+    await minutesDateDisplay.blur();
+    if (await page.locator("#minutesAt").inputValue() !== "2026-08-15T14:30") throw new Error("Vietnamese date-time input must preserve the ISO value used by the API.");
     if (viewportName === "mobile") {
       const listStyle = await page.locator("[data-minutes-list]").evaluate(element => ({ display: getComputedStyle(element).display, overflowX: getComputedStyle(element).overflowX }));
       if (listStyle.display !== "flex" || listStyle.overflowX !== "auto") throw new Error("Mobile meeting history must use a compact horizontal strip.");
@@ -687,6 +695,14 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (!(await backButton.isVisible()) || !String(await backButton.getAttribute("href")).includes("purchasing.html")) {
       throw new Error("Purchase creation must provide a clear route back to the purchase list.");
     }
+    const dueDateDisplay = page.locator(".localized-date-input:has(#dueDate) .localized-date-display");
+    if (!(await dueDateDisplay.count())) throw new Error("Purchase due date must use the Vietnamese date control.");
+    await page.locator("#dueDate").fill("2026-11-09");
+    await page.locator("#dueDate").dispatchEvent("change");
+    if (await dueDateDisplay.inputValue() !== "09/11/2026") throw new Error("Native date picker changes must display in Vietnamese order.");
+    await dueDateDisplay.fill("31/12/2026");
+    await dueDateDisplay.blur();
+    if (await page.locator("#dueDate").inputValue() !== "2026-12-31") throw new Error("Vietnamese date input must preserve the ISO value used by the API.");
     if (await page.locator(".purchase-items-section > .purchase-product-picker").count()) {
       throw new Error("The product catalog must not consume space in the main purchase form.");
     }

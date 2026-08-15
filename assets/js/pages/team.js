@@ -539,12 +539,16 @@
     function actionRowsFromText(text) {
       return String(text || "").split(/\n+/).map(line => line.trim()).filter(Boolean).map(line => {
         const parts = line.split("|").map(part => part.trim());
-        return normalizeTeamAction({ title: parts[0] || "", owner: parts[1] || "", dueDate: parts[2] || "", status: parts[3] || "todo" });
+        const dateMatch = String(parts[2] || "").match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+        const dueDate = dateMatch
+          ? `${dateMatch[3]}-${String(dateMatch[2]).padStart(2, "0")}-${String(dateMatch[1]).padStart(2, "0")}`
+          : parts[2] || "";
+        return normalizeTeamAction({ title: parts[0] || "", owner: parts[1] || "", dueDate, status: parts[3] || "todo" });
       });
     }
     
     function textFromActionRows(actions) {
-      return (actions || []).map(action => [action.title, action.owner, action.dueDate, action.status].filter(Boolean).join(" | ")).join("\n");
+      return (actions || []).map(action => [action.title, action.owner, action.dueDate ? formatDate(action.dueDate) : "", action.status].filter(Boolean).join(" | ")).join("\n");
     }
     
     function localDateTimeValue(value) {
@@ -813,7 +817,7 @@
         <div class="field full"><label for="teamMeetingAgenda">Agenda</label><textarea id="teamMeetingAgenda" name="agenda" rows="4" placeholder="1. Kết quả tuần trước&#10;2. Vấn đề cần chốt&#10;3. Việc tuần này">${escapeHtml(item.agenda)}</textarea></div>
         <div class="field full"><label for="teamMeetingNotes">Nội dung biên bản</label><textarea id="teamMeetingNotes" name="notes" rows="6" placeholder="Ghi nhanh diễn biến, số liệu, bối cảnh...">${escapeHtml(item.notes)}</textarea></div>
         <div class="field full"><label for="teamMeetingDecisions">Quyết định đã chốt</label><textarea id="teamMeetingDecisions" name="decisionsText" rows="3" placeholder="Mỗi dòng một quyết định">${escapeHtml((item.decisions || []).join("\n"))}</textarea></div>
-        <div class="field full"><label for="teamMeetingActions">Việc cần làm</label><textarea id="teamMeetingActions" name="actionsText" rows="4" placeholder="Nội dung | Người phụ trách | YYYY-MM-DD | todo/doing/done">${escapeHtml(textFromActionRows(item.actions))}</textarea><small>Mỗi dòng một việc. Có thể bỏ trống người phụ trách/deadline nếu chưa chốt.</small></div>
+        <div class="field full"><label for="teamMeetingActions">Việc cần làm</label><textarea id="teamMeetingActions" name="actionsText" rows="4" placeholder="Nội dung | Người phụ trách | DD/MM/YYYY | todo/doing/done">${escapeHtml(textFromActionRows(item.actions))}</textarea><small>Mỗi dòng một việc. Có thể bỏ trống người phụ trách/deadline nếu chưa chốt.</small></div>
         <div class="field full"><label for="teamMeetingLinks">Link liên quan</label><textarea id="teamMeetingLinks" name="links" rows="2" placeholder="Google Drive, tài liệu, sản phẩm, content...">${escapeHtml(item.links)}</textarea></div>
         ${renderTeamSourceAndComments(item)}
       `;
