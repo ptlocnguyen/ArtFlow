@@ -123,6 +123,7 @@
 
   const iconPaths = {
     activity: '<path d="M3 12h4l3 8 4-16 3 8h4"/>',
+    arrowLeft: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
     archive: '<path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/>',
     calculator: '<rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M8 18h.01M12 18h.01"/>',
     chart: '<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>',
@@ -5644,13 +5645,22 @@
 
   function renderPurchaseProductPicker() {
     const products = state.products.filter(product => product.status === "active").sort((a, b) => a.name.localeCompare(b.name));
+    const categories = Array.from(new Set(products.map(product => String(product.category || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    const brands = Array.from(new Set(products.map(product => String(product.brand || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
     return `
       <div class="product-picker purchase-product-picker">
-        <div class="product-picker-toolbar"><label class="search-box product-picker-search">${icon("search")}<input type="search" placeholder="Tìm SKU, tên, danh mục..." data-purchase-product-search /></label><span class="pill" data-purchase-product-count>${products.length} sản phẩm</span></div>
+        <div class="product-picker-toolbar"><label class="search-box product-picker-search">${icon("search")}<input type="search" placeholder="Tìm tên, SKU, danh mục hoặc hãng..." data-purchase-product-search /></label><span class="pill" data-purchase-product-count>${products.length} sản phẩm</span></div>
+        <div class="product-picker-filters purchase-product-filters">
+          <select data-purchase-product-category aria-label="Lọc theo danh mục"><option value="all">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(normalizeSearchText(value))}">${escapeHtml(value)}</option>`).join("")}</select>
+          <select data-purchase-product-brand aria-label="Lọc theo hãng"><option value="all">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(normalizeSearchText(value))}">${escapeHtml(value)}</option>`).join("")}</select>
+          <select data-purchase-product-stock aria-label="Lọc theo tồn kho"><option value="all">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="empty">Hết hàng</option></select>
+          <button class="button ghost" type="button" data-reset-purchase-product-picker>${icon("refresh")} Đặt lại</button>
+        </div>
         <div class="product-picker-list" data-purchase-product-list>${products.map(product => `
-          <button class="product-card" type="button" data-add-product-to-purchase="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}">
-            <span><strong>${product.name}</strong><small>${product.sku} · ${product.category}</small></span>
-            <span><strong>${money.format(product.costPrice)}</strong><small>Giá vốn · tồn ${product.stock}</small></span>
+          <button class="product-card product-card-rich purchase-product-card" type="button" data-add-product-to-purchase="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-product-category="${escapeAttribute(normalizeSearchText(product.category || ""))}" data-product-brand="${escapeAttribute(normalizeSearchText(product.brand || ""))}" data-product-stock="${Number(product.stock || 0) > 0 ? "available" : "empty"}" aria-pressed="false">
+            ${renderProductThumb(product)}
+            <span class="product-card-main"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · ${escapeHtml(product.category || "Chưa phân loại")}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small><span class="product-card-tags"><em>${Number(product.stock || 0)} tồn</em><span>Giá vốn ${money.format(product.costPrice)}</span></span></span>
+            <span class="purchase-product-state" data-purchase-product-state>${icon("plus")} Thêm</span>
           </button>
         `).join("")}</div>
       </div>
@@ -5664,27 +5674,78 @@
     const unitCost = Number(values.unitCost === undefined ? product.costPrice : values.unitCost);
     return `
       <div class="purchase-item-row" data-purchase-item-row>
-        <div class="cart-product-summary"><strong>${product.name}</strong><small>${product.sku} · tồn ${product.stock}</small><input type="hidden" value="${product.id}" data-purchase-product required /></div>
+        <div class="cart-product-summary purchase-product-summary">${renderProductThumb(product, "cart-product-thumb")}<span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · tồn ${Number(product.stock || 0)} · giá vốn ${money.format(product.costPrice)}</small></span><input type="hidden" value="${product.id}" data-purchase-product required /></div>
         <div class="field compact-field purchase-quantity-field"><label>Số lượng</label><input type="number" min="1" step="1" value="${quantity}" data-purchase-quantity required /></div>
         <div class="field compact-field purchase-cost-field"><label>Đơn giá nhập</label><input type="number" min="0" step="1" value="${unitCost}" data-purchase-cost required /></div>
         <strong class="purchase-line-total" data-purchase-line-total>${money.format(quantity * unitCost)}</strong>
-        <button class="icon-button" type="button" data-remove-purchase-item aria-label="Xóa dòng">${icon("close")}</button>
+        <button class="icon-button purchase-remove-item" type="button" data-remove-purchase-item aria-label="Xóa dòng" title="Xóa khỏi phiếu">${icon("trash")}</button>
       </div>
     `;
   }
 
-  function filterPurchaseProductPicker(input) {
-    const panel = input && input.closest(".product-picker");
+  function selectedPurchaseProductIds(form) {
+    return new Set(Array.from(form?.querySelectorAll("[data-purchase-product]") || [], input => input.value));
+  }
+
+  function syncPurchaseProductPicker(form) {
+    if (!form) return;
+    const selected = selectedPurchaseProductIds(form);
+    form.querySelectorAll("[data-add-product-to-purchase]").forEach(card => {
+      const isSelected = selected.has(card.dataset.addProductToPurchase);
+      card.classList.toggle("is-selected", isSelected);
+      card.disabled = isSelected;
+      card.setAttribute("aria-pressed", String(isSelected));
+      const stateLabel = card.querySelector("[data-purchase-product-state]");
+      if (stateLabel) stateLabel.innerHTML = isSelected ? `${icon("check")} Đã thêm` : `${icon("plus")} Thêm`;
+    });
+    const selectedCount = form.querySelector("[data-purchase-picker-selected-count]");
+    if (selectedCount) selectedCount.textContent = `${selected.size} đã chọn`;
+  }
+
+  function filterPurchaseProductPicker(control) {
+    const panel = control && control.closest(".product-picker");
     if (!panel) return;
-    const term = normalizeSearchText(input.value || "");
+    const term = normalizeSearchText(panel.querySelector("[data-purchase-product-search]")?.value || "");
+    const category = panel.querySelector("[data-purchase-product-category]")?.value || "all";
+    const brand = panel.querySelector("[data-purchase-product-brand]")?.value || "all";
+    const stock = panel.querySelector("[data-purchase-product-stock]")?.value || "all";
     let visible = 0;
     panel.querySelectorAll("[data-add-product-to-purchase]").forEach(card => {
-      const matched = !term || card.dataset.productSearch.indexOf(term) !== -1;
+      const matched = (!term || card.dataset.productSearch.indexOf(term) !== -1)
+        && (category === "all" || card.dataset.productCategory === category)
+        && (brand === "all" || card.dataset.productBrand === brand)
+        && (stock === "all" || card.dataset.productStock === stock);
       card.hidden = !matched;
       if (matched) visible += 1;
     });
     const count = panel.querySelector("[data-purchase-product-count]");
     if (count) count.textContent = `${visible} sản phẩm`;
+  }
+
+  function resetPurchaseProductPicker(form) {
+    if (!form) return;
+    const panel = form.querySelector(".purchase-product-picker");
+    if (!panel) return;
+    const search = panel.querySelector("[data-purchase-product-search]");
+    if (search) search.value = "";
+    panel.querySelectorAll("select").forEach(select => { select.value = "all"; });
+    filterPurchaseProductPicker(search || panel);
+  }
+
+  function openPurchaseProductPicker(form) {
+    const popup = form && form.querySelector("[data-purchase-product-popup]");
+    if (!popup) return;
+    syncPurchaseProductPicker(form);
+    popup.hidden = false;
+    document.body.classList.add("purchase-product-picker-open");
+    const search = popup.querySelector("[data-purchase-product-search]");
+    if (search) window.setTimeout(() => search.focus(), 0);
+  }
+
+  function closePurchaseProductPicker(form) {
+    const popup = form && form.querySelector("[data-purchase-product-popup]");
+    if (popup) popup.hidden = true;
+    document.body.classList.remove("purchase-product-picker-open");
   }
 
   function addProductToPurchase(form, productId) {
@@ -5727,6 +5788,7 @@
     const count = form.querySelector("[data-purchase-cart-count]");
     if (empty) empty.hidden = rows.length > 0;
     if (count) count.textContent = `${rows.length} dòng`;
+    syncPurchaseProductPicker(form);
   }
 
   async function submitPurchaseForm(form) {
@@ -5781,10 +5843,17 @@
     els.purchaseCreateForm.innerHTML = `
       <section class="order-compose-grid purchase-compose-grid">
         <div class="order-compose-main">
-          <section class="panel order-compose-section"><div class="panel-header"><div><h2>Hàng hóa cần mua</h2><p>Tìm sản phẩm, nhập số lượng và đơn giá từ báo giá nhà cung cấp.</p></div></div><div class="order-builder-layout purchase-builder-layout">${renderPurchaseProductPicker()}<div class="order-cart-panel"><div class="order-cart-heading"><strong>Danh sách nhập</strong><span data-purchase-cart-count>0 dòng</span></div><div class="order-empty-cart" data-purchase-empty-cart>Chọn sản phẩm để thêm vào phiếu mua.</div><div class="order-items order-items-large purchase-items" data-purchase-items></div></div></div></section>
+          <section class="panel order-compose-section purchase-items-section"><div class="panel-header purchase-items-header"><div><h2>Danh sách hàng nhập</h2><p>Kiểm tra số lượng và đơn giá nhập trước khi lưu phiếu.</p></div><button class="button primary" type="button" data-open-purchase-product-picker>${icon("plus")} Thêm sản phẩm</button></div><div class="purchase-builder-layout"><div class="order-cart-panel purchase-cart-panel"><div class="order-cart-heading"><strong>Sản phẩm đã chọn</strong><span data-purchase-cart-count>0 dòng</span></div><div class="purchase-list-columns" aria-hidden="true"><span>Sản phẩm</span><span>Số lượng</span><span>Đơn giá nhập</span><span>Thành tiền</span><span></span></div><div class="order-empty-cart" data-purchase-empty-cart><span class="empty-state-icon">${icon("package")}</span><strong>Chưa có sản phẩm trong phiếu</strong><small>Mở danh mục để chọn nhanh nhiều sản phẩm cần nhập.</small><button class="button ghost" type="button" data-open-purchase-product-picker>${icon("plus")} Chọn sản phẩm</button></div><div class="order-items order-items-large purchase-items" data-purchase-items></div></div></div></section>
           <section class="panel order-compose-section order-customer-section"><div class="panel-header"><div><h2>Nhà cung cấp</h2><p>Thông tin đối tác và chứng từ mua hàng.</p></div></div><div class="form-grid compact-grid"><div class="field full"><label for="supplierId">Nhà cung cấp</label><select id="supplierId" name="supplierId" required>${suppliers}</select></div><div class="field"><label for="invoiceNumber">Số hóa đơn</label><input id="invoiceNumber" name="invoiceNumber" placeholder="Mẫu số / số hóa đơn" /></div><div class="field"><label for="dueDate">Hạn thanh toán</label><input id="dueDate" name="dueDate" type="date" /></div><div class="field full"><label for="note">Ghi chú</label><input id="note" name="note" placeholder="Điều khoản mua, người giao, số báo giá..." /></div></div></section>
         </div>
         <aside class="order-summary-panel"><section class="panel order-compose-section sticky-summary"><div class="panel-header"><div><h2>Tổng phiếu mua</h2><p>Phiếu được lưu ở trạng thái nháp trước khi nhận hàng.</p></div></div><div class="form-grid summary-grid"><div class="field"><label for="discount">Chiết khấu</label><input id="discount" name="discount" type="number" min="0" step="1" value="0" data-purchase-money /></div><div class="field"><label for="shippingFee">Phí vận chuyển</label><input id="shippingFee" name="shippingFee" type="number" min="0" step="1" value="0" data-purchase-money /></div></div><div class="summary-lines"><div><span>Tạm tính</span><strong data-purchase-summary-subtotal>${money.format(0)}</strong></div><div><span>Chiết khấu</span><strong data-purchase-summary-discount>${money.format(0)}</strong></div><div><span>Phí vận chuyển</span><strong data-purchase-summary-shipping>${money.format(0)}</strong></div><div class="summary-total"><span>Tổng phải trả</span><strong data-purchase-summary-total>${money.format(0)}</strong></div></div><div class="form-actions order-submit-actions"><a class="button ghost" href="./purchasing.html">Hủy</a><button class="button primary" type="submit">Lưu phiếu mua</button></div></section></aside>
+        <div class="purchase-product-popup" data-purchase-product-popup hidden>
+          <div class="purchase-product-popup-panel" role="dialog" aria-modal="true" aria-labelledby="purchaseProductPickerTitle">
+            <header class="purchase-product-popup-header"><div><p class="eyebrow">Danh mục sản phẩm</p><h2 id="purchaseProductPickerTitle">Chọn sản phẩm cần nhập</h2><p>Những sản phẩm đã có trong phiếu sẽ được đánh dấu để tránh chọn trùng.</p></div><button class="icon-button" type="button" data-close-purchase-product-picker aria-label="Đóng">${icon("close")}</button></header>
+            ${renderPurchaseProductPicker()}
+            <footer class="purchase-product-popup-footer"><span data-purchase-picker-selected-count>0 đã chọn</span><button class="button primary" type="button" data-close-purchase-product-picker>${icon("check")} Xong</button></footer>
+          </div>
+        </div>
       </section>
     `;
     if (editingOrder) {
@@ -7874,6 +7943,18 @@
         const popup = target.closest("[data-order-product-popup]");
         if (popup) popup.hidden = true;
       }
+      if (target.matches("[data-open-purchase-product-picker]")) {
+        openPurchaseProductPicker(target.closest("form") || els.purchaseCreateForm);
+      }
+      if (target.matches("[data-close-purchase-product-picker]")) {
+        closePurchaseProductPicker(target.closest("form") || els.purchaseCreateForm);
+      }
+      if (target.matches("[data-purchase-product-popup]")) {
+        closePurchaseProductPicker(target.closest("form") || els.purchaseCreateForm);
+      }
+      if (target.matches("[data-reset-purchase-product-picker]")) {
+        resetPurchaseProductPicker(target.closest("form") || els.purchaseCreateForm);
+      }
       if (target.matches("[data-reset-product-picker]")) {
         resetProductPicker(target.closest(".product-picker"));
       }
@@ -8253,6 +8334,7 @@
 
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") {
+        closePurchaseProductPicker(els.purchaseCreateForm);
         closeInventoryMovements();
         closeModal();
       }
@@ -8267,7 +8349,7 @@
     document.addEventListener("input", event => {
       if (event.target.matches("#costPrice, #salePrice")) updateProductPricingPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-product-picker-search], [data-product-picker-filter], [data-product-picker-sort]")) filterProductPicker(event.target);
-      if (event.target.matches("[data-purchase-product-search]")) filterPurchaseProductPicker(event.target);
+      if (event.target.matches("[data-purchase-product-search], [data-purchase-product-category], [data-purchase-product-brand], [data-purchase-product-stock]")) filterPurchaseProductPicker(event.target);
       if (event.target.matches("[data-order-quantity], [data-order-price], [data-order-line-discount], [data-order-money]")) updateOrderTotalPreviewV2(event.target.closest("form") || els.orderCreateForm || els.modalForm);
       if (event.target.matches("[data-purchase-quantity], [data-purchase-cost], [data-purchase-money]")) updatePurchaseTotalPreview(event.target.closest("form") || els.purchaseCreateForm);
       if (event.target.matches("[data-return-quantity]")) updatePurchaseReturnPreview(event.target.closest("form") || els.modalForm);

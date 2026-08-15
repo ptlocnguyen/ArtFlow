@@ -670,6 +670,13 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.waitForTimeout(100);
   }
   if (pageName === "purchase-create") {
+    const backButton = page.locator(".purchase-back-button");
+    if (!(await backButton.isVisible()) || !String(await backButton.getAttribute("href")).includes("purchasing.html")) {
+      throw new Error("Purchase creation must provide a clear route back to the purchase list.");
+    }
+    if (await page.locator(".purchase-items-section > .purchase-product-picker").count()) {
+      throw new Error("The product catalog must not consume space in the main purchase form.");
+    }
     if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
       const dir = path.join(screenshotRoot, viewportName);
       await mkdir(dir, { recursive: true });
@@ -701,7 +708,56 @@ async function runPageInteractions(page, pageName, viewportName) {
       await page.screenshot({ path: path.join(dir, "purchase-create-bottom.png"), fullPage: false });
     }
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.locator("[data-add-product-to-purchase]").first().click();
+    await page.locator("[data-open-purchase-product-picker]").first().click();
+    const productPopup = page.locator("[data-purchase-product-popup]:not([hidden])");
+    await productPopup.waitFor();
+    const popupOverflow = await productPopup.locator(".purchase-product-popup-panel").evaluate(element => ({
+      width: element.getBoundingClientRect().width,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth
+    }));
+    if (popupOverflow.scrollWidth > popupOverflow.clientWidth + 2) throw new Error("Purchase product picker must not overflow horizontally.");
+    if (viewportName === "desktop" && popupOverflow.width < 900) throw new Error("Purchase product picker should use a wide desktop dialog.");
+    const categoryFilter = productPopup.locator("[data-purchase-product-category]");
+    if (await categoryFilter.locator("option").count() > 1) {
+      await categoryFilter.selectOption({ index: 1 });
+      if (!(await productPopup.locator("[data-add-product-to-purchase]:visible").count())) throw new Error("Purchase category filter must retain matching products.");
+      await productPopup.locator("[data-reset-purchase-product-picker]").click();
+    }
+    const selectedProduct = productPopup.locator("[data-add-product-to-purchase]:not([disabled])").first();
+    const selectedProductId = await selectedProduct.getAttribute("data-add-product-to-purchase");
+    await selectedProduct.click();
+    const selectedCard = productPopup.locator(`[data-add-product-to-purchase="${selectedProductId}"]`);
+    if (!(await selectedCard.isDisabled()) || !(await selectedCard.getAttribute("class")).includes("is-selected")) {
+      throw new Error("Products already added to the purchase must be visibly marked and protected from duplicates.");
+    }
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "purchase-create-product-picker.png"), fullPage: false });
+    }
+    await productPopup.locator("[data-close-purchase-product-picker]").last().click();
+    if (await page.locator("[data-purchase-product-popup]:not([hidden])").count()) throw new Error("Purchase product picker must close from its completion action.");
+    const purchaseItems = page.locator("[data-purchase-items]");
+    if (await purchaseItems.locator("[data-purchase-item-row]").count() !== 1) throw new Error("Selecting a product must create exactly one purchase line.");
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "purchase-create-selected-item.png"), fullPage: false });
+    }
+    const internalScroll = await purchaseItems.evaluate(element => {
+      const source = element.querySelector("[data-purchase-item-row]");
+      for (let index = 0; index < 12; index += 1) {
+        const clone = source.cloneNode(true);
+        clone.dataset.purchaseScrollClone = "";
+        element.appendChild(clone);
+      }
+      return { scrollHeight: element.scrollHeight, clientHeight: element.clientHeight, overflowY: getComputedStyle(element).overflowY };
+    });
+    if (internalScroll.scrollHeight <= internalScroll.clientHeight || !["auto", "scroll"].includes(internalScroll.overflowY)) {
+      throw new Error("A long purchase item list must use its own vertical scrollbar.");
+    }
+    await page.locator("[data-purchase-scroll-clone]").evaluateAll(elements => elements.forEach(element => element.remove()));
     const unitCost = page.locator("[data-purchase-cost]").first();
     await unitCost.fill("11200");
     const isValidCost = await unitCost.evaluate(input => input.validity.valid);
