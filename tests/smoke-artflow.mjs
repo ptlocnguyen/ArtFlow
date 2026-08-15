@@ -743,6 +743,9 @@ async function runPageInteractions(page, pageName, viewportName) {
       await productPopup.locator("[data-reset-purchase-product-picker]").click();
     }
     const stockFilter = productPopup.locator("[data-purchase-product-stock]");
+    const thresholdLabels = productPopup.locator(".purchase-stock-threshold");
+    if (await thresholdLabels.count() !== 30) throw new Error("Every purchase product must show its safe-stock threshold.");
+    if (!(await thresholdLabels.first().textContent()).includes("Ngưỡng")) throw new Error("Purchase safe-stock thresholds must have a clear Vietnamese label.");
     await stockFilter.selectOption("low");
     const lowStockCards = productPopup.locator('[data-add-product-to-purchase][data-product-low-stock="true"]:visible');
     if (!(await lowStockCards.count())) throw new Error("Purchase stock filter must expose products at or below their reorder threshold.");

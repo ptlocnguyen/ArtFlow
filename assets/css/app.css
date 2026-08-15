@@ -6483,6 +6483,19 @@ body[data-page="purchaseCreate"] .order-empty-cart small {
   white-space: nowrap;
 }
 
+.purchase-product-card .product-card-tags em.is-low {
+  color: #b54708;
+}
+
+.purchase-stock-threshold {
+  color: #475467;
+}
+
+.purchase-stock-threshold.is-low {
+  color: #b54708;
+  font-weight: 800;
+}
+
 .purchase-product-card .purchase-product-state {
   display: inline-flex;
   align-items: center;

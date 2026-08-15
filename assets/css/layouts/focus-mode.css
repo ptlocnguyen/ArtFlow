@@ -147,6 +147,7 @@ body[data-page="purchaseCreate"] .order-summary-panel > .sticky-summary {
   }
   body[data-page="purchaseCreate"] .purchase-product-card {
     grid-template-columns: 48px minmax(0, 1fr);
+    min-height: 128px;
     padding-right: 52px;
   }
   body[data-page="purchaseCreate"] .purchase-product-card .product-thumb {
