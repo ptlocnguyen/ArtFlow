@@ -526,6 +526,12 @@
       "/omni/campaigns/archive": "archiveCampaign",
       "/omni/tasks/upsert": "upsertWorkspaceTask",
       "/omni/tasks/archive": "archiveWorkspaceTask",
+      "/tiktok/status": "getTikTokConnection",
+      "/tiktok/authorize": "startTikTokAuthorization",
+      "/tiktok/refresh": "refreshTikTokConnection",
+      "/tiktok/disconnect": "disconnectTikTokShop",
+      "/tiktok/catalog/sync": "syncTikTokCatalog",
+      "/tiktok/inventory/sync": "syncTikTokInventory",
       "/incense": "getIncenseData",
       "/incense/create": "createIncenseWish",
       "/products/import": "importProducts",
@@ -1325,6 +1331,7 @@
       state.products = (data.products || state.products || []).map(normalizeProduct);
       state.orders = (data.orders || state.orders || []).map(normalizeOrder);
       if (Array.isArray(data.users)) state.users = data.users;
+      if (data.tiktokConnection) state.tiktokConnection = data.tiktokConnection;
     }
     if (scopes.includes("incense")) {
       state.incenseWishes = (data.incenseWishes || []).map(normalizeIncenseWish);
@@ -1661,6 +1668,18 @@
     if (page === "users") await withLoading("Đang tải danh sách nhân viên...", loadStaffUsers);
     if (page === "activity") await withLoading("Đang tải lịch sử hoạt động...", loadAuditLogs);
     renderPage();
+    if (page === "channels") {
+      const url = new URL(window.location.href);
+      const tiktokStatus = url.searchParams.get("tiktok");
+      const tiktokError = url.searchParams.get("tiktok_error");
+      if (tiktokStatus === "connected") showToast("Đã kết nối TikTok Shop. Hãy đối chiếu SKU trước khi đồng bộ tồn kho.", "success");
+      if (tiktokStatus === "error") showToast(tiktokError || "Không thể kết nối TikTok Shop.", "error");
+      if (tiktokStatus) {
+        url.searchParams.delete("tiktok");
+        url.searchParams.delete("tiktok_error");
+        window.history.replaceState({}, "", url.toString());
+      }
+    }
   }
 
   async function bootstrapAuthPage() {
@@ -7530,6 +7549,42 @@
       }
       if (target.matches("[data-open-channel-product-form]")) openModal("channelProduct", { productId: target.dataset.productId || "" });
       if (target.matches("[data-export-omni]")) exportOmniReport();
+      if (target.matches("[data-tiktok-connect]")) {
+        const response = await withLoading("Đang tạo liên kết ủy quyền TikTok Shop...", () => apiRequest("/tiktok/authorize", {
+          method: "POST",
+          body: JSON.stringify({ returnUrl: window.location.href })
+        }));
+        window.location.assign(response.authorizeUrl);
+        return;
+      }
+      if (target.matches("[data-tiktok-refresh]")) {
+        const response = await withLoading("Đang làm mới kết nối TikTok Shop...", () => apiRequest("/tiktok/refresh", { method: "POST", body: "{}" }));
+        state.tiktokConnection = response.tiktokConnection;
+        window.ArtFlowPosStore.save(state);
+        renderOmniWorkspace();
+        showToast("Đã làm mới kết nối TikTok Shop.");
+      }
+      if (target.matches("[data-tiktok-sync-catalog]")) {
+        const response = await withLoading("Đang đối chiếu sản phẩm TikTok Shop...", () => apiRequest("/tiktok/catalog/sync", { method: "POST", body: "{}" }));
+        await loadPageData(["omni"]);
+        renderPage();
+        showToast(`Đã đối chiếu ${response.result?.remoteSkuCount || 0} SKU, khớp ${response.result?.mapped || 0}.`);
+      }
+      if (target.matches("[data-tiktok-sync-inventory]")) {
+        const response = await withLoading("Đang đồng bộ tồn kho lên TikTok Shop...", () => apiRequest("/tiktok/inventory/sync", { method: "POST", body: "{}" }));
+        await loadPageData(["omni"]);
+        renderPage();
+        const failed = Number(response.result?.failed || 0);
+        showToast(failed ? `Đã cập nhật ${response.result?.updated || 0} SKU, ${failed} sản phẩm lỗi.` : `Đã cập nhật tồn kho ${response.result?.updated || 0} SKU.`, failed ? "warning" : "success");
+      }
+      if (target.matches("[data-tiktok-disconnect]")) {
+        if (!confirm("Ngắt kết nối TikTok Shop? Dữ liệu ánh xạ vẫn được giữ để đối chiếu lịch sử.")) return;
+        const response = await withLoading("Đang ngắt kết nối TikTok Shop...", () => apiRequest("/tiktok/disconnect", { method: "POST", body: "{}" }));
+        state.tiktokConnection = response.tiktokConnection;
+        window.ArtFlowPosStore.save(state);
+        renderOmniWorkspace();
+        showToast("Đã ngắt kết nối TikTok Shop.");
+      }
       if (target.matches("[data-copy-content-prompt]")) {
         const prompt = target.closest("form")?.querySelector("[data-content-prompt]")?.value || "";
         if (prompt) {
@@ -8362,7 +8417,7 @@
     });
   }
 
-  const { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, filteredChannelProductRows, renderStaticOmniWorkspace, renderChannelSettings, renderOmniWorkspace } = window.ArtFlowPageModules.channels ? window.ArtFlowPageModules.channels.create({ normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, getSearchTerm: () => searchTerm, hydrateIcons, icon, money, omniFilters, qs, state }) : Object.fromEntries(["activeSalesChannels","channelByIdOrCode","reservedStockForProduct","channelProductRows","filteredChannelProductRows","renderStaticOmniWorkspace","renderChannelSettings","renderOmniWorkspace"].map(name => [name, function () {}]));
+  const { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, filteredChannelProductRows, renderStaticOmniWorkspace, renderTikTokConnection, renderChannelSettings, renderOmniWorkspace } = window.ArtFlowPageModules.channels ? window.ArtFlowPageModules.channels.create({ normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, getSearchTerm: () => searchTerm, hydrateIcons, icon, money, omniFilters, qs, state }) : Object.fromEntries(["activeSalesChannels","channelByIdOrCode","reservedStockForProduct","channelProductRows","filteredChannelProductRows","renderStaticOmniWorkspace","renderTikTokConnection","renderChannelSettings","renderOmniWorkspace"].map(name => [name, function () {}]));
   const { teamOwners, teamDateInRange, teamSearchText, currentTeamItems, setTeamOptions, renderTeamFilters, renderTeamHub, selectedIncenseOfferings, syncIncenseOfferings, renderOfferingTray, renderIncense, submitIncenseWish, teamStatusBadge, renderTeamTasks, renderTeamMeetings, renderTeamPlans, pricingLineAmount, roundedPricingValue, calculatePricingScenario, pricingTotals, renderTeamPricing, teamPricingPageContext, renderTeamPricingPage, submitTeamPricingPageForm, renderTeamDecisions, teamOwnerOptions, teamProductOptions, teamChannelOptions, pricingMarketplaceChannels, pricingChannelOptions, pricingTargetLabel, pricingSuggestedTitle, renderTeamSourceAndComments, appendTeamCommentLog, actionRowsFromText, textFromActionRows, localDateTimeValue, meetingTypeOptions, meetingStatusOptions, actionStatusOptions, splitListText, meetingMinutesIdFromUrl, setMeetingMinutesUrl, renderMinutesTextRows, renderMinutesActions, renderMinutesAttendees, renderMeetingMinutesForm, renderMeetingMinutesList, renderMeetingMinutesPage, valuesFromMinutesRows, syncMeetingMinutesForm, addMinutesTextRow, addMinutesAction, applyMeetingTemplate, parseQuickMeetingNote, cleanMeetingMinutesText, submitMeetingMinutesForm, renderMeetingForm, renderPlanForm, renderPricingForm, renderPricingSelectedProduct, renderPricingProductPicker, renderPricingProductPickerCard, selectPricingProduct, renderPricingLineInput, renderPricingScenarioInput, renderDecisionForm, collectPricingLines, collectPricingScenarios, refreshPricingBuilderState, updatePricingScopeFields, syncPricingTitle, updatePricingLineState, selectPricingScenario, updateTeamPricingPreview, teamApiCollection, teamApiItemType, pricingModelFromForm, validatePricingModel } = window.ArtFlowPageModules.team ? window.ArtFlowPageModules.team.create({ normalizeIncenseWish, normalizePricingLine, normalizePricingModel, normalizePricingScenario, normalizeSalesChannel, normalizeTeamAction, normalizeTeamDecision, normalizeTeamMeeting, normalizeTeamPlan, normalizeWorkspaceTask, apiRequest, byId, channelByIdOrCode, closeModal, currentUser, els, enhanceMoneyInputs, enhanceResponsiveTables, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, hydrateIcons, icon, incenseKinds, incenseOfferings, localDateValue, money, ownerName, productHasShopPrice, productSearchText, qs, renderProductThumb, saveTeamItem, searchTerm, setBusy, showToast, state, teamFilters, teamStatuses, teamViews }) : Object.fromEntries(["teamOwners","teamDateInRange","teamSearchText","currentTeamItems","setTeamOptions","renderTeamFilters","renderTeamHub","selectedIncenseOfferings","syncIncenseOfferings","renderOfferingTray","renderIncense","submitIncenseWish","teamStatusBadge","renderTeamTasks","renderTeamMeetings","renderTeamPlans","pricingLineAmount","roundedPricingValue","calculatePricingScenario","pricingTotals","renderTeamPricing","teamPricingPageContext","renderTeamPricingPage","submitTeamPricingPageForm","renderTeamDecisions","teamOwnerOptions","teamProductOptions","teamChannelOptions","pricingMarketplaceChannels","pricingChannelOptions","pricingTargetLabel","pricingSuggestedTitle","renderTeamSourceAndComments","appendTeamCommentLog","actionRowsFromText","textFromActionRows","localDateTimeValue","meetingTypeOptions","meetingStatusOptions","actionStatusOptions","splitListText","meetingMinutesIdFromUrl","setMeetingMinutesUrl","renderMinutesTextRows","renderMinutesActions","renderMinutesAttendees","renderMeetingMinutesForm","renderMeetingMinutesList","renderMeetingMinutesPage","valuesFromMinutesRows","syncMeetingMinutesForm","addMinutesTextRow","addMinutesAction","applyMeetingTemplate","parseQuickMeetingNote","cleanMeetingMinutesText","submitMeetingMinutesForm","renderMeetingForm","renderPlanForm","renderPricingForm","renderPricingSelectedProduct","renderPricingProductPicker","renderPricingProductPickerCard","selectPricingProduct","renderPricingLineInput","renderPricingScenarioInput","renderDecisionForm","collectPricingLines","collectPricingScenarios","refreshPricingBuilderState","updatePricingScopeFields","syncPricingTitle","updatePricingLineState","selectPricingScenario","updateTeamPricingPreview","teamApiCollection","teamApiItemType","pricingModelFromForm","validatePricingModel"].map(name => [name, function () {}]));
   const { syncAccountingView, commerceChannelLabel, payoutStatusMeta, renderCommerceAccounting, renderAccounting, productProfitRowsFromSnapshot, renderAccountingProfit, renderAccountingLedgerAnalysis, renderAccountingProfitDetails } = window.ArtFlowPageModules.accounting ? window.ArtFlowPageModules.accounting.create({ accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state }) : Object.fromEntries(["syncAccountingView","commerceChannelLabel","payoutStatusMeta","renderCommerceAccounting","renderAccounting","productProfitRowsFromSnapshot","renderAccountingProfit","renderAccountingLedgerAnalysis","renderAccountingProfitDetails"].map(name => [name, function () {}]));
   const { renderPurchasing, closeManagementDrawers, openSupplierDetail, openPurchaseDetail } = window.ArtFlowPageModules.purchasing ? window.ArtFlowPageModules.purchasing.create({ byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSearchTerm: () => searchTerm, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, state, statusLabel, supplierFilters, supplierTarget }) : Object.fromEntries(["renderPurchasing","closeManagementDrawers","openSupplierDetail","openPurchaseDetail"].map(name => [name, function () {}]));

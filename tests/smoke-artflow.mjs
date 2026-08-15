@@ -473,6 +473,10 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.waitForTimeout(100);
   }
   if (pageName === "channels") {
+    const tiktokBar = page.locator("[data-tiktok-connection]");
+    if (!(await tiktokBar.isVisible())) throw new Error("TikTok Shop connection status must remain visible on the channel workspace.");
+    if (!(await page.locator("[data-tiktok-sync-catalog]").isVisible())) throw new Error("Connected TikTok Shop must expose SKU reconciliation.");
+    if (!(await page.locator("[data-tiktok-sync-inventory]").isVisible())) throw new Error("Connected TikTok Shop must expose inventory sync.");
     const count = page.locator("[data-omni-result-count]");
     if ((await count.innerText()).trim() !== "5 SKU") throw new Error("Channel workspace must show the initial product count.");
     await page.locator("[data-global-search]").fill("SHP-ART001");
@@ -1240,7 +1244,22 @@ function omniData(state) {
     workspaceTasks: state.workspaceTasks || [],
     products: state.products,
     orders: state.orders,
-    users: state.users
+    users: state.users,
+    tiktokConnection: {
+      configured: true,
+      connected: true,
+      id: "qa-tiktok-connection",
+      salesChannelId: "channel-tiktok",
+      shopId: "qa-shop",
+      shopName: "ArtFlow TikTok Shop",
+      region: "VN",
+      status: "active",
+      scopes: ["seller.authorization.info", "seller.product.basic", "seller.product.write"],
+      mappedSkuCount: 1,
+      unmatchedSkuCount: 2,
+      lastProductSyncAt: "2026-08-15T09:00:00.000Z",
+      lastInventorySyncAt: "2026-08-15T09:05:00.000Z"
+    }
   };
 }
 

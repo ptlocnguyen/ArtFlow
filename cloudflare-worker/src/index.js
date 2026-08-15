@@ -9,6 +9,12 @@ import { handleWorkspaceAction } from "./d1-workspace-actions.js";
 import { handleAccountingAction } from "./d1-accounting-actions.js";
 import { handlePurchasingAction } from "./d1-purchasing-actions.js";
 import { handleOmniAction } from "./d1-omni-actions.js";
+import {
+  handleTikTokAction,
+  handleTikTokOAuthCallback,
+  handleTikTokWebhook,
+  refreshDueTikTokTokens
+} from "./tiktok-shop.js";
 
 async function handleD1PageData(env, payload) {
   if (payload.action !== "getPageData" || !env.DB) return null;
@@ -64,7 +70,8 @@ const CORE_READ_ONLY_ACTIONS = new Set([
   "listUsers",
   "listAuditLogs",
   "exportD1Snapshot",
-  "testProductContentConfiguration"
+  "testProductContentConfiguration",
+  "startTikTokAuthorization"
 ]);
 
 function changesCoreData(action) {
@@ -148,7 +155,12 @@ const AUDIT_METADATA = {
   postPlatformPayout: ["Ghi nhận tiền sàn chuyển về", "platform_payout"],
   resolvePlatformPayoutMismatch: ["Xác nhận xử lý chênh lệch payout", "platform_payout"],
   updateAccountingSettings: ["Cập nhật cài đặt kế toán", "app_setting"],
-  updateCashTransaction: ["Cập nhật giao dịch thu chi", "cash_transaction"]
+  updateCashTransaction: ["Cập nhật giao dịch thu chi", "cash_transaction"],
+  startTikTokAuthorization: ["Bắt đầu kết nối TikTok Shop", "tiktok_shop"],
+  refreshTikTokConnection: ["Làm mới kết nối TikTok Shop", "tiktok_shop"],
+  disconnectTikTokShop: ["Ngắt kết nối TikTok Shop", "tiktok_shop"],
+  syncTikTokCatalog: ["Đồng bộ danh mục TikTok Shop", "tiktok_shop"],
+  syncTikTokInventory: ["Đồng bộ tồn kho TikTok Shop", "tiktok_shop"]
 };
 
 function sanitizedAuditJson(value, fallback) {
@@ -200,7 +212,7 @@ async function completeAuditEvent(env, payload, response, event) {
     response.category || response.reconciliation || response.platformPayout || response.payoutItem || response.supplier || response.purchaseOrder ||
     response.salesChannel || response.channelProduct || response.campaign || response.workspaceTask ||
     response.incenseWish || response.salesReturn || response.refund || response.purchaseReturn ||
-    response.payment || response.creditApplication || {};
+    response.payment || response.creditApplication || response.tiktokConnection || {};
   const completedAt = new Date().toISOString();
   const actor = event.actor || response.user || null;
   const resultJson = sanitizedAuditJson(response, { ok: true });
@@ -371,10 +383,11 @@ async function d1Status(env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, context) {
     const requestId = request.headers.get("X-Client-Request-Id") || makeRequestId();
     const allowedOrigin = getAllowedOrigin(request, env);
     let auditEvent = null;
+    const requestUrl = new URL(request.url);
 
     if (!allowedOrigin) {
       return new Response(JSON.stringify({
@@ -401,8 +414,14 @@ export default {
     }
 
     if (request.method === "GET") {
-      const url = new URL(request.url);
-      if (url.pathname === "/health") {
+      if (requestUrl.pathname === "/tiktok/oauth/callback") {
+        try {
+          return await handleTikTokOAuthCallback(request, env);
+        } catch (error) {
+          return json({ ok: false, error: error?.message || String(error), code: "tiktok_oauth_error" }, 500, allowedOrigin, requestId);
+        }
+      }
+      if (requestUrl.pathname === "/health") {
         const d1 = await d1Status(env);
         return json({
           ok: true,
@@ -417,6 +436,15 @@ export default {
 
     if (request.method !== "POST") {
       return json({ ok: false, error: "Method not allowed", code: "method_not_allowed" }, 405, allowedOrigin, requestId);
+    }
+
+    if (requestUrl.pathname === "/tiktok/webhook") {
+      try {
+        return await handleTikTokWebhook(request, env);
+      } catch (error) {
+        console.error("TikTok webhook failed", { requestId, message: error?.message || String(error) });
+        return json({ ok: false, error: "TikTok webhook unavailable", code: "tiktok_webhook_error" }, 500, allowedOrigin, requestId);
+      }
     }
 
     const contentLength = Number(request.headers.get("Content-Length") || 0);
@@ -492,6 +520,14 @@ export default {
       if (purchasingResponse) {
         await settleAuditEvent(env, payload, purchasingResponse, auditEvent);
         return json(purchasingResponse, 200, allowedOrigin, requestId, {
+          "Server-Timing": "d1;dur=0",
+          "X-ArtFlow-Data-Source": "d1"
+        });
+      }
+      const tiktokResponse = await handleTikTokAction(env, payload);
+      if (tiktokResponse) {
+        await settleAuditEvent(env, payload, tiktokResponse, auditEvent);
+        return json(tiktokResponse, 200, allowedOrigin, requestId, {
           "Server-Timing": "d1;dur=0",
           "X-ArtFlow-Data-Source": "d1"
         });
@@ -695,5 +731,8 @@ export default {
         transient: true
       }, timeout ? 504 : 502, allowedOrigin, requestId);
     }
+  },
+  async scheduled(controller, env, context) {
+    context.waitUntil(refreshDueTikTokTokens(env));
   }
 };

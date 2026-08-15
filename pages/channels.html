@@ -19,6 +19,24 @@
     <main class="workspace">
       <header class="command-bar"><button class="icon-button command-mobile-toggle" type="button" data-context-toggle aria-label="Mở menu"><span data-icon="menu"></span></button><div class="channels-command-title"><p class="eyebrow">Kênh bán & tăng trưởng</p><div class="channels-title-line"><h1 data-page-title>Kênh bán</h1><span aria-hidden="true">/</span><strong>Ánh xạ SKU</strong></div></div><div class="command-actions"><label class="search-box"><span data-icon="search"></span><input data-global-search type="search" placeholder="Tìm SKU nội bộ, SKU sàn, sản phẩm, kênh..." /></label><button class="button primary" type="button" data-open-channel-product-form><span data-icon="package"></span> Map SKU</button><div class="user-chip" data-current-user></div><button class="icon-button" type="button" data-logout aria-label="Đăng xuất"><span data-icon="logOut"></span></button></div></header>
       <section class="view active analytics-page channel-operations" data-omni-workspace>
+        <section class="tiktok-connection-bar" data-tiktok-connection aria-live="polite">
+          <div class="tiktok-connection-main">
+            <span class="tiktok-mark" aria-hidden="true"><span data-icon="package"></span></span>
+            <span class="tiktok-connection-copy">
+              <strong data-tiktok-title>TikTok Shop</strong>
+              <small data-tiktok-description>Kiểm tra cấu hình kết nối...</small>
+            </span>
+            <span class="status-chip" data-tiktok-status>Đang tải</span>
+          </div>
+          <div class="tiktok-connection-meta" data-tiktok-meta hidden></div>
+          <div class="tiktok-connection-actions">
+            <button class="button ghost" type="button" data-tiktok-sync-catalog hidden><span data-icon="refresh"></span> Đối chiếu SKU</button>
+            <button class="button ghost" type="button" data-tiktok-sync-inventory hidden><span data-icon="warehouse"></span> Đồng bộ tồn</button>
+            <button class="icon-button" type="button" data-tiktok-refresh hidden aria-label="Làm mới token TikTok" title="Làm mới token"><span data-icon="refresh"></span></button>
+            <button class="button primary" type="button" data-tiktok-connect><span data-icon="external"></span> Kết nối</button>
+            <button class="icon-button danger" type="button" data-tiktok-disconnect hidden aria-label="Ngắt kết nối TikTok Shop" title="Ngắt kết nối"><span data-icon="close"></span></button>
+          </div>
+        </section>
         <section class="panel operation-queue channels-panel">
           <h2 class="visually-hidden">Danh sách ánh xạ SKU</h2>
           <div class="channels-catalog-toolbar">

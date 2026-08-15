@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "artflow-pos-api",
   "main": "src/index.js",
-  "compatibility_date": "2026-07-08",
+  "compatibility_date": "2026-08-15",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "observability": {
@@ -10,7 +10,12 @@
     "head_sampling_rate": 1
   },
   "vars": {
-    "ALLOWED_ORIGINS": "https://ptlocnguyen.github.io,http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500"
+    "ALLOWED_ORIGINS": "https://ptlocnguyen.github.io,http://localhost:8000,http://127.0.0.1:8000,http://localhost:5500,http://127.0.0.1:5500",
+    "TIKTOK_SERVICE_ID": "7674011394094466824",
+    "TIKTOK_UI_RETURN_URL": "https://ptlocnguyen.github.io/ArtFlow/pages/channels.html"
+  },
+  "triggers": {
+    "crons": ["*/30 * * * *"]
   },
   "d1_databases": [
     {
@@ -22,7 +27,10 @@
   ],
   "secrets": {
     "required": [
-      "APPS_SCRIPT_URL"
+      "APPS_SCRIPT_URL",
+      "TIKTOK_APP_KEY",
+      "TIKTOK_APP_SECRET",
+      "TIKTOK_TOKEN_ENCRYPTION_KEY"
     ]
   }
 }

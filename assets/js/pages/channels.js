@@ -66,6 +66,7 @@
     }
 
     function renderStaticOmniWorkspace(rootNode, channelsList) {
+      renderTikTokConnection(rootNode);
       const filteredRows = filteredChannelProductRows();
       const channelFilter = rootNode.querySelector("[data-omni-channel-filter]");
       if (channelFilter) {
@@ -95,6 +96,43 @@
       hydrateIcons(rootNode);
       enhanceResponsiveTables(rootNode);
     }
+
+    function renderTikTokConnection(rootNode) {
+      const container = rootNode.querySelector("[data-tiktok-connection]");
+      if (!container) return;
+      const connection = state.tiktokConnection || { configured: false, connected: false, status: "not_configured" };
+      const connected = Boolean(connection.connected && connection.status === "active");
+      const title = container.querySelector("[data-tiktok-title]");
+      const description = container.querySelector("[data-tiktok-description]");
+      const status = container.querySelector("[data-tiktok-status]");
+      const meta = container.querySelector("[data-tiktok-meta]");
+      const connect = container.querySelector("[data-tiktok-connect]");
+      const connectedActions = container.querySelectorAll("[data-tiktok-sync-catalog], [data-tiktok-sync-inventory], [data-tiktok-refresh], [data-tiktok-disconnect]");
+      if (title) title.textContent = connected ? (connection.shopName || "TikTok Shop") : "TikTok Shop";
+      if (description) {
+        description.textContent = connected
+          ? `${connection.region || "VN"} · Token được mã hóa trong D1`
+          : connection.configured
+            ? "Kết nối cửa hàng để đối chiếu SKU và đồng bộ tồn kho"
+            : "Worker còn thiếu cấu hình TikTok Shop";
+      }
+      if (status) {
+        status.className = `status-chip ${connected ? "success" : connection.configured ? "warning" : "danger"}`;
+        status.textContent = connected ? "Đã kết nối" : connection.configured ? "Chưa kết nối" : "Thiếu cấu hình";
+      }
+      if (meta) {
+        const lastSync = connection.lastInventorySyncAt || connection.lastProductSyncAt || "";
+        meta.hidden = !connected;
+        meta.textContent = connected
+          ? `${Number(connection.mappedSkuCount || 0)} SKU đã map · ${Number(connection.unmatchedSkuCount || 0)} chưa khớp${lastSync ? ` · Đồng bộ ${new Date(lastSync).toLocaleString("vi-VN")}` : ""}`
+          : "";
+      }
+      if (connect) {
+        connect.hidden = connected || !connection.configured;
+        connect.disabled = !connection.configured;
+      }
+      connectedActions.forEach(button => { button.hidden = !connected; });
+    }
     
     function renderChannelSettings(settingsNode, channelsList) {
       if (!settingsNode) return;
@@ -111,7 +149,7 @@
       if (rootNode) renderStaticOmniWorkspace(rootNode, channelsList);
     }
 
-    return { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, filteredChannelProductRows, renderStaticOmniWorkspace, renderChannelSettings, renderOmniWorkspace };
+    return { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, filteredChannelProductRows, renderStaticOmniWorkspace, renderTikTokConnection, renderChannelSettings, renderOmniWorkspace };
   }
 
   function selectQuickFilter(value) {
