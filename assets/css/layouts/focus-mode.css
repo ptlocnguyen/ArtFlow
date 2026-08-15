@@ -147,7 +147,7 @@ body[data-page="purchaseCreate"] .order-summary-panel > .sticky-summary {
   }
   body[data-page="purchaseCreate"] .purchase-product-card {
     grid-template-columns: 48px minmax(0, 1fr);
-    min-height: 128px;
+    min-height: 184px;
     padding-right: 52px;
   }
   body[data-page="purchaseCreate"] .purchase-product-card .product-thumb {
@@ -164,4 +164,5 @@ body[data-page="purchaseCreate"] .order-summary-panel > .sticky-summary {
     padding: 0;
     font-size: 0;
   }
+  body[data-page="purchaseCreate"] .purchase-product-card .purchase-supplier-history:not(.has-history) { display: none; }
 }

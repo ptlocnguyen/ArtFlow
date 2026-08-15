@@ -25,10 +25,10 @@ body[data-page="teamPricing"] .team-pricing-page { min-height: 0; overflow: auto
 }
 .supplier-page .management-content { display: flex; width: 100%; height: 100%; min-height: 0; flex-direction: column; }
 .supplier-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.supplier-filter-bar { display: grid; grid-template-columns: minmax(180px, 240px) minmax(180px, 240px) minmax(120px, 1fr); align-items: end; margin: 0; }
+.supplier-filter-bar { display: grid; grid-template-columns: minmax(160px, 220px) minmax(160px, 220px) minmax(240px, 1fr) auto; align-items: end; margin: 0; }
 .supplier-filter-bar .result-indicator { justify-self: end; }
 .supplier-table-wrap { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; border: 0; }
-.supplier-table { min-width: 1040px; }
+.supplier-table { min-width: 1160px; }
 .supplier-table thead { position: sticky; z-index: 2; top: 0; background: var(--surface); }
 .supplier-identity,
 .supplier-contact { display: grid; gap: 3px; }
@@ -47,6 +47,8 @@ body[data-page="teamPricing"] .team-pricing-page { min-height: 0; overflow: auto
 .drawer-metrics article.has-payable strong { color: #a54800; }
 .supplier-drawer-actions { position: sticky; bottom: -22px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: auto -22px -22px; padding: 14px 22px 18px; border-top: 1px solid var(--border); background: var(--surface); }
 .supplier-drawer-actions .button { min-width: 0; }
+.supplier-product-history-section .compact-search { margin-bottom: 10px; }
+.supplier-product-history-section .supply-history-row { grid-template-columns: minmax(180px, 1.6fr) repeat(5, minmax(82px, .65fr)); }
 
 .channel-operation-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr); gap: 12px; margin-bottom: 12px; }
 .channel-work-queue,
@@ -106,6 +108,8 @@ body[data-page="teamPricing"] .team-pricing-page { min-height: 0; overflow: auto
   .supplier-table tbody { grid-template-columns: 1fr; padding: 10px 14px 14px; }
   .supplier-table tr { min-height: 0; }
   .supplier-drawer-actions { bottom: -18px; margin: auto -16px -18px; padding-inline: 16px; }
+  .supplier-product-history-section .supply-history-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .supplier-product-history-section .supply-history-row > span:first-child { grid-column: 1 / -1; }
   .omni-filter-bar { grid-template-columns: 1fr; }
   .omni-table td:nth-child(4) { grid-column: 1 / -1; }
   .omni-channel-pill {

@@ -202,10 +202,24 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.keyboard.press("Escape");
   }
   if (["orders", "products", "customers"].includes(pageName)) {
-    const rowSelector = pageName === "orders" ? "[data-orders-table] [data-view-order]" : pageName === "products" ? "[data-products-table] [data-view-product]" : "[data-customers-table] [data-view-customer]";
+    const rowSelector = pageName === "orders" ? "[data-orders-table] [data-view-order]" : pageName === "products" ? '[data-products-table] [data-view-product="prod-001"]' : "[data-customers-table] [data-view-customer]";
     await page.locator(rowSelector).first().click();
     const expectedType = pageName === "orders" ? "orderDetail" : pageName === "products" ? "productDetail" : "customerDetail";
     await page.locator(`[data-modal-type='${expectedType}']`).waitFor();
+    if (pageName === "products") {
+      const detailText = await page.locator("[data-modal-type='productDetail']").innerText();
+      if (!["Nhà cung cấp đã nhập", "Art Supplies VN", "12.000"].every(value => detailText.includes(value))) {
+        throw new Error("Product detail must expose its received supplier and latest purchase cost.");
+      }
+      if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+        const dir = path.join(screenshotRoot, viewportName);
+        await mkdir(dir, { recursive: true });
+        if (viewportName === "mobile") {
+          await page.locator("[data-modal-type='productDetail'] .section-heading-inline", { hasText: "Nhà cung cấp đã nhập" }).scrollIntoViewIfNeeded();
+        }
+        await page.screenshot({ path: path.join(dir, "products-supplier-history.png"), fullPage: false });
+      }
+    }
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector("[data-modal-backdrop]")?.hidden === true);
   }
@@ -629,12 +643,25 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (["tablet", "mobile"].includes(viewportName) && tableMetrics.scrollWidth > tableMetrics.clientWidth + 2) throw new Error("Supplier cards must not overflow horizontally.");
     const supplierRow = page.locator("[data-supplier-card]").first();
     const supplierText = await supplierRow.innerText();
-    if (!["090000001", "1.800.000", "800.000"].every(value => supplierText.includes(value))) throw new Error("Responsive supplier cards must retain contact, purchase and balance information.");
+    if (!["090000001", "2 sản phẩm", "1.800.000", "800.000"].every(value => supplierText.includes(value))) throw new Error("Responsive supplier cards must retain contact, supplied-product, purchase and balance information.");
+    const productFilter = page.locator("[data-supplier-product-filter]");
+    await productFilter.selectOption("prod-001");
+    if ((await count.innerText()).trim() !== "1 nhà cung cấp") throw new Error("Supplier product filter must find suppliers that received the selected SKU.");
+    await productFilter.selectOption("all");
+    await page.locator("[data-global-search]").fill("ART002");
+    await page.waitForTimeout(60);
+    if ((await count.innerText()).trim() !== "1 nhà cung cấp") throw new Error("Supplier search must include products previously received from that supplier.");
+    await page.locator("[data-global-search]").fill("");
     await page.locator("button[data-supplier-card]").first().click();
     const detail = page.locator("[data-supplier-detail]:not([hidden])");
     await detail.waitFor();
     const detailText = await detail.innerText();
-    if (!["Thông tin liên hệ", "sales@supplier.local", "Phiếu mua gần đây", "PO-20260624-0001"].every(value => detailText.includes(value))) throw new Error("Supplier detail must include contact and recent purchasing information.");
+    if (!["Thông tin liên hệ", "sales@supplier.local", "Sản phẩm đã nhập", "But chi 2B Faber Castell", "12.000", "Phiếu mua gần đây", "PO-20260624-0001"].every(value => detailText.includes(value))) throw new Error("Supplier detail must include contact, supplied-product statistics and recent purchasing information.");
+    if (detailText.includes("Bang pha mau nhua")) throw new Error("Draft purchase items must not appear in received supplier history.");
+    const historySearch = detail.locator("[data-supplier-product-history-search]");
+    await historySearch.fill("ART002");
+    if ((await detail.locator("[data-supplier-product-history-count]").innerText()).trim() !== "1") throw new Error("Supplier product history search must narrow the visible SKU list.");
+    await historySearch.fill("");
     if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
       const dir = path.join(screenshotRoot, viewportName);
       await mkdir(dir, { recursive: true });
@@ -774,8 +801,20 @@ async function runPageInteractions(page, pageName, viewportName) {
       await page.screenshot({ path: path.join(dir, "purchase-create-low-stock-filter.png"), fullPage: false });
     }
     await productPopup.locator("[data-reset-purchase-product-picker]").click();
-    const selectedProduct = productPopup.locator("[data-add-product-to-purchase]:not([disabled])").first();
+    const supplierHistoryFilter = productPopup.locator("[data-purchase-product-supplier]");
+    await supplierHistoryFilter.selectOption("current");
+    if (await productPopup.locator('[data-add-product-to-purchase][data-product-supplier-match="true"]:visible').count() !== 2) {
+      throw new Error("Purchase picker must only show products received from the selected supplier.");
+    }
+    if (await productPopup.locator('[data-add-product-to-purchase="prod-004"]:visible').count()) {
+      throw new Error("Products found only in draft purchases must not be treated as supplier history.");
+    }
+    await productPopup.locator("[data-reset-purchase-product-picker]").click();
+    const selectedProduct = productPopup.locator('[data-add-product-to-purchase="prod-001"]');
     const selectedProductId = await selectedProduct.getAttribute("data-add-product-to-purchase");
+    if (!(await selectedProduct.locator("[data-purchase-supplier-history]").innerText()).includes("12.000")) {
+      throw new Error("Purchase product cards must show the supplier's latest received cost.");
+    }
     await selectedProduct.click();
     const selectedCard = productPopup.locator(`[data-add-product-to-purchase="${selectedProductId}"]`);
     if (!(await selectedCard.isDisabled()) || !(await selectedCard.getAttribute("class")).includes("is-selected")) {
@@ -790,6 +829,9 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (await page.locator("[data-purchase-product-popup]:not([hidden])").count()) throw new Error("Purchase product picker must close from its completion action.");
     const purchaseItems = page.locator("[data-purchase-items]");
     if (await purchaseItems.locator("[data-purchase-item-row]").count() !== 1) throw new Error("Selecting a product must create exactly one purchase line.");
+    if (await purchaseItems.locator("[data-purchase-cost]").first().inputValue() !== "12000") {
+      throw new Error("Adding a known supplier product must default to its latest received cost.");
+    }
     if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
       const dir = path.join(screenshotRoot, viewportName);
       await mkdir(dir, { recursive: true });

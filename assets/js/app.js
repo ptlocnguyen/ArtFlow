@@ -64,7 +64,7 @@
   };
   let accountingExportScope = "receivables";
   const purchasingFilters = { status: "all", paymentStatus: "all", savedView: "all" };
-  const supplierFilters = { status: "all", balance: "all", search: "" };
+  const supplierFilters = { status: "all", balance: "all", product: "all", search: "" };
   if (page === "accounting" && accountingTransactionTarget) {
     accountingFilters.view = "ledger";
     accountingFilters.range = "all";
@@ -1099,6 +1099,83 @@
     return `${escapeHtml(items[0].name)}${items.length > 1 ? ` +${items.length - 1} mặt hàng` : ""} · ${quantity} SP`;
   }
 
+  let purchaseSupplyHistoryCache = { orders: null, products: null, suppliers: null, rows: [] };
+
+  function purchaseSupplyHistory() {
+    if (purchaseSupplyHistoryCache.orders === state.purchaseOrders
+      && purchaseSupplyHistoryCache.products === state.products
+      && purchaseSupplyHistoryCache.suppliers === state.suppliers) {
+      return purchaseSupplyHistoryCache.rows;
+    }
+    const pairs = new Map();
+    (state.purchaseOrders || [])
+      .filter(order => order.status === "received" && order.supplierId)
+      .forEach(order => {
+        const purchasedAt = order.receivedAt || order.updatedAt || order.createdAt || "";
+        (order.items || []).forEach(item => {
+          if (!item.productId) return;
+          const key = `${order.supplierId}:${item.productId}`;
+          const quantity = Number(item.quantity || 0);
+          const unitCost = Number(item.unitCost || 0);
+          const current = pairs.get(key) || {
+            supplierId: order.supplierId,
+            productId: item.productId,
+            orderIds: new Set(),
+            totalQuantity: 0,
+            totalCost: 0,
+            minUnitCost: null,
+            maxUnitCost: null,
+            lastUnitCost: 0,
+            lastPurchasedAt: "",
+            sku: item.sku || "",
+            name: item.name || ""
+          };
+          current.orderIds.add(order.id);
+          current.totalQuantity += quantity;
+          current.totalCost += quantity * unitCost;
+          current.minUnitCost = current.minUnitCost === null ? unitCost : Math.min(current.minUnitCost, unitCost);
+          current.maxUnitCost = current.maxUnitCost === null ? unitCost : Math.max(current.maxUnitCost, unitCost);
+          if (!current.lastPurchasedAt || String(purchasedAt).localeCompare(String(current.lastPurchasedAt)) >= 0) {
+            current.lastPurchasedAt = purchasedAt;
+            current.lastUnitCost = unitCost;
+          }
+          pairs.set(key, current);
+        });
+      });
+    const rows = [...pairs.values()].map(entry => {
+      const product = byId("products", entry.productId);
+      const supplier = byId("suppliers", entry.supplierId);
+      return {
+        ...entry,
+        orderCount: entry.orderIds.size,
+        averageUnitCost: entry.totalQuantity > 0 ? entry.totalCost / entry.totalQuantity : 0,
+        productName: product?.name || entry.name || "Sản phẩm không xác định",
+        productSku: product?.sku || entry.sku || "",
+        supplierName: supplier?.name || "Nhà cung cấp không xác định",
+        supplierCode: supplier?.code || ""
+      };
+    });
+    purchaseSupplyHistoryCache = { orders: state.purchaseOrders, products: state.products, suppliers: state.suppliers, rows };
+    return rows;
+  }
+
+  function supplierProductHistory(supplierId) {
+    return purchaseSupplyHistory()
+      .filter(entry => entry.supplierId === supplierId)
+      .sort((a, b) => String(b.lastPurchasedAt).localeCompare(String(a.lastPurchasedAt)) || a.productName.localeCompare(b.productName));
+  }
+
+  function productSupplierHistory(productId) {
+    return purchaseSupplyHistory()
+      .filter(entry => entry.productId === productId)
+      .sort((a, b) => String(b.lastPurchasedAt).localeCompare(String(a.lastPurchasedAt)) || a.supplierName.localeCompare(b.supplierName));
+  }
+
+  function purchaseSupplyRelationship(supplierId, productId) {
+    if (!supplierId || !productId) return null;
+    return purchaseSupplyHistory().find(entry => entry.supplierId === supplierId && entry.productId === productId) || null;
+  }
+
   function returnedPurchaseItemQuantity(itemId) {
     return (state.purchaseReturns || []).reduce((sum, purchaseReturn) => {
       return sum + (purchaseReturn.items || [])
@@ -1361,7 +1438,7 @@
     const scopesByPage = {
       orders: ["customers", "orders", "accounting", "settings"],
       orderCreate: ["products", "customers", "settings"],
-      products: ["products"],
+      products: ["products", "purchasing"],
       channels: ["omni"],
       channelSettings: ["omni"],
       content: ["content"],
@@ -4412,6 +4489,10 @@
     const channelPriceBlock = channelPrices.length
       ? `<div class="price-channel-list full">${channelPrices.map(entry => `<span class="price-channel-chip"><b>${escapeHtml(entry.channelName || entry.channelCode || "Kênh bán")}</b>${money.format(entry.channelPrice || entry.price || 0)}</span>`).join("")}</div>`
       : `<p class="resource-empty-copy full">Chưa có giá riêng theo kênh bán.</p>`;
+    const supplierHistory = productSupplierHistory(product.id);
+    const supplierHistoryBlock = supplierHistory.length
+      ? `<div class="supply-history-table">${supplierHistory.map(entry => `<a class="supply-history-row" href="./suppliers.html?supplierId=${encodeURIComponent(entry.supplierId)}"><span><strong>${escapeHtml(entry.supplierName)}</strong><small>${escapeHtml(entry.supplierCode || "Nhà cung cấp")}</small></span><span><small>Số phiếu</small><strong>${entry.orderCount}</strong></span><span><small>Đã nhập</small><strong>${entry.totalQuantity}</strong></span><span><small>Giá gần nhất</small><strong>${money.format(entry.lastUnitCost)}</strong></span><span><small>Giá bình quân</small><strong>${money.format(entry.averageUnitCost)}</strong></span><span><small>Lần gần nhất</small><strong>${formatDate(entry.lastPurchasedAt)}</strong></span></a>`).join("")}</div>`
+      : `<p class="resource-empty-copy">Sản phẩm chưa có lịch sử nhập từ nhà cung cấp.</p>`;
     return `
       <div class="product-detail-hero full">${image}<div><span class="badge ${product.status}">${statusLabel(product.status)}</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</p><b>${shopPriceLabel}</b><span class="price-status ${priceStatus.key}">${priceStatus.label}</span>${canManageProducts() ? `<div class="product-detail-actions"><button class="button info" type="button" data-edit-product-from-detail="${escapeAttribute(product.id)}">Sửa sản phẩm</button><button class="button ghost" type="button" data-open-pricing-for-product="${escapeAttribute(product.id)}">Tính giá</button></div>` : ""}</div></div>
       <section class="product-detail-section full"><h3>Thông tin sản phẩm</h3><div class="product-detail-grid">
@@ -4421,6 +4502,7 @@
         ${info("Tạo lúc", formatDateTime(product.createdAt))}${info("Cập nhật lúc", formatDateTime(product.updatedAt))}
         ${channelPriceBlock}
       </div></section>
+      <section class="product-detail-section full"><div class="section-heading-inline"><div><h3>Nhà cung cấp đã nhập</h3><p>Dữ liệu tự tổng hợp từ các phiếu mua đã nhận hàng.</p></div><span class="pill">${supplierHistory.length} nhà cung cấp</span></div>${supplierHistoryBlock}</section>
       <section class="product-detail-section full"><h3>Content</h3><div class="product-detail-grid">${info("Trạng thái", productContentStatuses[product.contentStatus])}${info("Phụ trách", product.contentOwner)}${info("Đối tượng", product.targetAudience)}${info("Từ khóa", product.seoKeywords)}</div>
         <div class="product-copy-block"><span>Mô tả ngắn</span><p>${escapeHtml(product.shortDescription || "Chưa có mô tả.")}</p></div>
         <div class="product-copy-block"><span>Điểm nổi bật / USP</span><p>${escapeHtml(product.keyFeatures || "Chưa có nội dung.").replace(/\n/g, "<br>")}</p></div>
@@ -5740,12 +5822,13 @@
           <select data-purchase-product-category aria-label="Lọc theo danh mục"><option value="all">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(normalizeSearchText(value))}">${escapeHtml(value)}</option>`).join("")}</select>
           <select data-purchase-product-brand aria-label="Lọc theo hãng"><option value="all">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(normalizeSearchText(value))}">${escapeHtml(value)}</option>`).join("")}</select>
           <select data-purchase-product-stock aria-label="Lọc theo tồn kho"><option value="all">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="low">Sắp hết hàng</option><option value="empty">Hết hàng</option></select>
+          <select data-purchase-product-supplier aria-label="Lọc theo lịch sử nhà cung cấp"><option value="all">Tất cả nguồn nhập</option><option value="current">Đã nhập từ nhà cung cấp đang chọn</option></select>
           <button class="button ghost" type="button" data-reset-purchase-product-picker>${icon("refresh")} Đặt lại</button>
         </div>
         <div class="product-picker-list" data-purchase-product-list>${products.map(product => `
           <button class="product-card product-card-rich purchase-product-card" type="button" data-add-product-to-purchase="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-product-category="${escapeAttribute(normalizeSearchText(product.category || ""))}" data-product-brand="${escapeAttribute(normalizeSearchText(product.brand || ""))}" data-product-stock="${Number(product.stock || 0) > 0 ? "available" : "empty"}" data-product-low-stock="${Number(product.stock || 0) > 0 && Number(product.stock || 0) <= Number(product.lowStock || 0) ? "true" : "false"}" aria-pressed="false">
             ${renderProductThumb(product)}
-            <span class="product-card-main"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · ${escapeHtml(product.category || "Chưa phân loại")}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small><span class="product-card-tags"><em class="${Number(product.stock || 0) > 0 && Number(product.stock || 0) <= Number(product.lowStock || 0) ? "is-low" : ""}">${Number(product.stock || 0)} tồn</em><span class="purchase-stock-threshold ${Number(product.stock || 0) > 0 && Number(product.stock || 0) <= Number(product.lowStock || 0) ? "is-low" : ""}">Ngưỡng ${Number(product.lowStock || 0)}</span><span>Giá vốn ${money.format(product.costPrice)}</span></span></span>
+            <span class="product-card-main"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · ${escapeHtml(product.category || "Chưa phân loại")}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small><span class="product-card-tags"><em class="${Number(product.stock || 0) > 0 && Number(product.stock || 0) <= Number(product.lowStock || 0) ? "is-low" : ""}">${Number(product.stock || 0)} tồn</em><span class="purchase-stock-threshold ${Number(product.stock || 0) > 0 && Number(product.stock || 0) <= Number(product.lowStock || 0) ? "is-low" : ""}">Ngưỡng ${Number(product.lowStock || 0)}</span><span>Giá vốn ${money.format(product.costPrice)}</span></span><small class="purchase-supplier-history" data-purchase-supplier-history>Chọn nhà cung cấp để xem lịch sử nhập</small></span>
             <span class="purchase-product-state" data-purchase-product-state>${icon("plus")} Thêm</span>
           </button>
         `).join("")}</div>
@@ -5788,6 +5871,33 @@
     if (selectedCount) selectedCount.textContent = `${selected.size} đã chọn`;
   }
 
+  function syncPurchaseSupplierContext(form) {
+    if (!form) return;
+    const supplierId = form.querySelector("#supplierId")?.value || "";
+    const supplier = byId("suppliers", supplierId);
+    const historyByProduct = new Map(supplierProductHistory(supplierId).map(entry => [entry.productId, entry]));
+    const sourceFilter = form.querySelector("[data-purchase-product-supplier]");
+    if (sourceFilter) {
+      const currentOption = sourceFilter.querySelector('option[value="current"]');
+      if (currentOption) currentOption.textContent = supplier ? `Đã nhập từ ${supplier.name}` : "Đã nhập từ nhà cung cấp đang chọn";
+      sourceFilter.disabled = !supplierId;
+      if (!supplierId && sourceFilter.value === "current") sourceFilter.value = "all";
+    }
+    form.querySelectorAll("[data-add-product-to-purchase]").forEach(card => {
+      const history = historyByProduct.get(card.dataset.addProductToPurchase) || null;
+      card.dataset.productSupplierMatch = history ? "true" : "false";
+      const note = card.querySelector("[data-purchase-supplier-history]");
+      if (!note) return;
+      note.classList.toggle("has-history", Boolean(history));
+      note.textContent = !supplierId
+        ? "Chọn nhà cung cấp để xem lịch sử nhập"
+        : history
+          ? `Đã nhập ${history.orderCount} phiếu · gần nhất ${formatDate(history.lastPurchasedAt)} · ${money.format(history.lastUnitCost)}`
+          : "Chưa nhập từ nhà cung cấp này";
+    });
+    filterPurchaseProductPicker(sourceFilter || form.querySelector("[data-purchase-product-search]"));
+  }
+
   function filterPurchaseProductPicker(control) {
     const panel = control && control.closest(".product-picker");
     if (!panel) return;
@@ -5795,12 +5905,14 @@
     const category = panel.querySelector("[data-purchase-product-category]")?.value || "all";
     const brand = panel.querySelector("[data-purchase-product-brand]")?.value || "all";
     const stock = panel.querySelector("[data-purchase-product-stock]")?.value || "all";
+    const supplierSource = panel.querySelector("[data-purchase-product-supplier]")?.value || "all";
     let visible = 0;
     panel.querySelectorAll("[data-add-product-to-purchase]").forEach(card => {
       const matched = (!term || card.dataset.productSearch.indexOf(term) !== -1)
         && (category === "all" || card.dataset.productCategory === category)
         && (brand === "all" || card.dataset.productBrand === brand)
-        && (stock === "all" || (stock === "low" ? card.dataset.productLowStock === "true" : card.dataset.productStock === stock));
+        && (stock === "all" || (stock === "low" ? card.dataset.productLowStock === "true" : card.dataset.productStock === stock))
+        && (supplierSource === "all" || card.dataset.productSupplierMatch === "true");
       card.hidden = !matched;
       if (matched) visible += 1;
     });
@@ -5815,6 +5927,8 @@
     const search = panel.querySelector("[data-purchase-product-search]");
     if (search) search.value = "";
     panel.querySelectorAll("select").forEach(select => { select.value = "all"; });
+    const list = panel.querySelector("[data-purchase-product-list]");
+    if (list) list.scrollTop = 0;
     filterPurchaseProductPicker(search || panel);
   }
 
@@ -5822,6 +5936,7 @@
     const popup = form && form.querySelector("[data-purchase-product-popup]");
     if (!popup) return;
     syncPurchaseProductPicker(form);
+    syncPurchaseSupplierContext(form);
     popup.hidden = false;
     document.body.classList.add("purchase-product-picker-open");
     const search = popup.querySelector("[data-purchase-product-search]");
@@ -5843,7 +5958,9 @@
       const quantity = existing.querySelector("[data-purchase-quantity]");
       quantity.value = Number(quantity.value || 0) + 1;
     } else {
-      list.insertAdjacentHTML("beforeend", renderPurchaseItemRow(product.id));
+      const supplierId = form.querySelector("#supplierId")?.value || "";
+      const history = purchaseSupplyRelationship(supplierId, product.id);
+      list.insertAdjacentHTML("beforeend", renderPurchaseItemRow(product.id, history ? { unitCost: history.lastUnitCost } : {}));
     }
     updatePurchaseTotalPreview(form);
   }
@@ -5954,6 +6071,7 @@
       const submitButton = els.purchaseCreateForm.querySelector("button[type='submit']");
       if (submitButton) submitButton.textContent = "Lưu thay đổi";
     }
+    syncPurchaseSupplierContext(els.purchaseCreateForm);
     updatePurchaseTotalPreview(els.purchaseCreateForm);
   }
 
@@ -8436,7 +8554,21 @@
     document.addEventListener("input", event => {
       if (event.target.matches("#costPrice, #salePrice")) updateProductPricingPreview(event.target.closest("form") || els.modalForm);
       if (event.target.matches("[data-product-picker-search], [data-product-picker-filter], [data-product-picker-sort]")) filterProductPicker(event.target);
-      if (event.target.matches("[data-purchase-product-search], [data-purchase-product-category], [data-purchase-product-brand], [data-purchase-product-stock]")) filterPurchaseProductPicker(event.target);
+      if (event.target.matches("[data-purchase-product-search], [data-purchase-product-category], [data-purchase-product-brand], [data-purchase-product-stock], [data-purchase-product-supplier]")) filterPurchaseProductPicker(event.target);
+      if (event.target.matches("[data-supplier-product-history-search]")) {
+        const section = event.target.closest(".supplier-product-history-section");
+        const term = normalizeSearchText(event.target.value);
+        let visible = 0;
+        section?.querySelectorAll("[data-history-search]").forEach(row => {
+          const matched = !term || String(row.dataset.historySearch || "").includes(term);
+          row.hidden = !matched;
+          if (matched) visible += 1;
+        });
+        const count = section?.querySelector("[data-supplier-product-history-count]");
+        if (count) count.textContent = String(visible);
+        const empty = section?.querySelector("[data-supplier-product-history-empty]:last-child");
+        if (empty) empty.hidden = visible > 0;
+      }
       if (event.target.matches("[data-order-quantity], [data-order-price], [data-order-line-discount], [data-order-money]")) updateOrderTotalPreviewV2(event.target.closest("form") || els.orderCreateForm || els.modalForm);
       if (event.target.matches("[data-purchase-quantity], [data-purchase-cost], [data-purchase-money]")) updatePurchaseTotalPreview(event.target.closest("form") || els.purchaseCreateForm);
       if (event.target.matches("[data-return-quantity]")) updatePurchaseReturnPreview(event.target.closest("form") || els.modalForm);
@@ -8550,6 +8682,11 @@
         supplierFilters.balance = event.target.value;
         renderPurchasing();
       }
+      if (event.target.matches("[data-supplier-product-filter]")) {
+        supplierFilters.product = event.target.value;
+        renderPurchasing();
+      }
+      if (event.target.matches("#supplierId")) syncPurchaseSupplierContext(event.target.closest("form") || els.purchaseCreateForm);
       if (event.target.matches("[data-order-product], #customerId, #roundingStep, #paymentMethod")) updateOrderTotalPreviewV2(event.target.closest("form") || els.orderCreateForm || els.modalForm);
       if (event.target.matches("[data-cash-type]")) {
         const category = (event.target.closest("form") || els.modalForm).querySelector("[data-cash-category]");
@@ -8589,7 +8726,7 @@
   const { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, filteredChannelProductRows, renderStaticOmniWorkspace, renderTikTokConnection, renderChannelSettings, renderOmniWorkspace } = window.ArtFlowPageModules.channels ? window.ArtFlowPageModules.channels.create({ normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, getSearchTerm: () => searchTerm, hydrateIcons, icon, money, omniFilters, qs, state }) : Object.fromEntries(["activeSalesChannels","channelByIdOrCode","reservedStockForProduct","channelProductRows","filteredChannelProductRows","renderStaticOmniWorkspace","renderTikTokConnection","renderChannelSettings","renderOmniWorkspace"].map(name => [name, function () {}]));
   const { teamOwners, teamDateInRange, teamSearchText, currentTeamItems, setTeamOptions, renderTeamFilters, renderTeamHub, selectedIncenseOfferings, syncIncenseOfferings, renderOfferingTray, renderIncense, submitIncenseWish, teamStatusBadge, renderTeamTasks, renderTeamMeetings, renderTeamPlans, pricingLineAmount, roundedPricingValue, calculatePricingScenario, pricingTotals, renderTeamPricing, teamPricingPageContext, renderTeamPricingPage, submitTeamPricingPageForm, renderTeamDecisions, teamOwnerOptions, teamProductOptions, teamChannelOptions, pricingMarketplaceChannels, pricingChannelOptions, pricingTargetLabel, pricingSuggestedTitle, renderTeamSourceAndComments, appendTeamCommentLog, actionRowsFromText, textFromActionRows, localDateTimeValue, meetingTypeOptions, meetingStatusOptions, actionStatusOptions, splitListText, meetingMinutesIdFromUrl, setMeetingMinutesUrl, renderMinutesTextRows, renderMinutesActions, renderMinutesAttendees, renderMeetingMinutesForm, renderMeetingMinutesList, renderMeetingMinutesPage, valuesFromMinutesRows, syncMeetingMinutesForm, addMinutesTextRow, addMinutesAction, applyMeetingTemplate, parseQuickMeetingNote, cleanMeetingMinutesText, submitMeetingMinutesForm, renderMeetingForm, renderPlanForm, renderPricingForm, renderPricingSelectedProduct, renderPricingProductPicker, renderPricingProductPickerCard, selectPricingProduct, renderPricingLineInput, renderPricingScenarioInput, renderDecisionForm, collectPricingLines, collectPricingScenarios, refreshPricingBuilderState, updatePricingScopeFields, syncPricingTitle, updatePricingLineState, selectPricingScenario, updateTeamPricingPreview, teamApiCollection, teamApiItemType, pricingModelFromForm, validatePricingModel } = window.ArtFlowPageModules.team ? window.ArtFlowPageModules.team.create({ normalizeIncenseWish, normalizePricingLine, normalizePricingModel, normalizePricingScenario, normalizeSalesChannel, normalizeTeamAction, normalizeTeamDecision, normalizeTeamMeeting, normalizeTeamPlan, normalizeWorkspaceTask, apiRequest, byId, channelByIdOrCode, closeModal, currentUser, els, enhanceMoneyInputs, enhanceResponsiveTables, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, hydrateIcons, icon, incenseKinds, incenseOfferings, localDateValue, money, ownerName, productHasShopPrice, productSearchText, qs, renderProductThumb, saveTeamItem, searchTerm, setBusy, showToast, state, teamFilters, teamStatuses, teamViews }) : Object.fromEntries(["teamOwners","teamDateInRange","teamSearchText","currentTeamItems","setTeamOptions","renderTeamFilters","renderTeamHub","selectedIncenseOfferings","syncIncenseOfferings","renderOfferingTray","renderIncense","submitIncenseWish","teamStatusBadge","renderTeamTasks","renderTeamMeetings","renderTeamPlans","pricingLineAmount","roundedPricingValue","calculatePricingScenario","pricingTotals","renderTeamPricing","teamPricingPageContext","renderTeamPricingPage","submitTeamPricingPageForm","renderTeamDecisions","teamOwnerOptions","teamProductOptions","teamChannelOptions","pricingMarketplaceChannels","pricingChannelOptions","pricingTargetLabel","pricingSuggestedTitle","renderTeamSourceAndComments","appendTeamCommentLog","actionRowsFromText","textFromActionRows","localDateTimeValue","meetingTypeOptions","meetingStatusOptions","actionStatusOptions","splitListText","meetingMinutesIdFromUrl","setMeetingMinutesUrl","renderMinutesTextRows","renderMinutesActions","renderMinutesAttendees","renderMeetingMinutesForm","renderMeetingMinutesList","renderMeetingMinutesPage","valuesFromMinutesRows","syncMeetingMinutesForm","addMinutesTextRow","addMinutesAction","applyMeetingTemplate","parseQuickMeetingNote","cleanMeetingMinutesText","submitMeetingMinutesForm","renderMeetingForm","renderPlanForm","renderPricingForm","renderPricingSelectedProduct","renderPricingProductPicker","renderPricingProductPickerCard","selectPricingProduct","renderPricingLineInput","renderPricingScenarioInput","renderDecisionForm","collectPricingLines","collectPricingScenarios","refreshPricingBuilderState","updatePricingScopeFields","syncPricingTitle","updatePricingLineState","selectPricingScenario","updateTeamPricingPreview","teamApiCollection","teamApiItemType","pricingModelFromForm","validatePricingModel"].map(name => [name, function () {}]));
   const { syncAccountingView, commerceChannelLabel, payoutStatusMeta, renderCommerceAccounting, renderAccounting, productProfitRowsFromSnapshot, renderAccountingProfit, renderAccountingLedgerAnalysis, renderAccountingProfitDetails } = window.ArtFlowPageModules.accounting ? window.ArtFlowPageModules.accounting.create({ accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state }) : Object.fromEntries(["syncAccountingView","commerceChannelLabel","payoutStatusMeta","renderCommerceAccounting","renderAccounting","productProfitRowsFromSnapshot","renderAccountingProfit","renderAccountingLedgerAnalysis","renderAccountingProfitDetails"].map(name => [name, function () {}]));
-  const { renderPurchasing, closeManagementDrawers, openSupplierDetail, openPurchaseDetail } = window.ArtFlowPageModules.purchasing ? window.ArtFlowPageModules.purchasing.create({ byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSearchTerm: () => searchTerm, getSupplier, hydrateIcons, icon, localDateValue, money, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, state, statusLabel, supplierFilters, supplierTarget }) : Object.fromEntries(["renderPurchasing","closeManagementDrawers","openSupplierDetail","openPurchaseDetail"].map(name => [name, function () {}]));
+  const { renderPurchasing, closeManagementDrawers, openSupplierDetail, openPurchaseDetail } = window.ArtFlowPageModules.purchasing ? window.ArtFlowPageModules.purchasing.create({ byId, canManagePurchasing, canPayPurchases, canReturnPurchaseOrder, els, enhanceResponsiveTables, escapeHtml, formatDate, getSearchTerm: () => searchTerm, getSupplier, hydrateIcons, icon, localDateValue, money, normalizeSearchText, purchaseItemSummary, purchasingFilters, purchasingOrderTarget, state, statusLabel, supplierFilters, supplierProductHistory, supplierTarget }) : Object.fromEntries(["renderPurchasing","closeManagementDrawers","openSupplierDetail","openPurchaseDetail"].map(name => [name, function () {}]));
   const { renderReports } = window.ArtFlowPageModules.reports ? window.ArtFlowPageModules.reports.create({ byId, channelLabel, channels, comparisonText, els, formatDate, money, orderCost, profitSnapshot, reportDayKey, reportFilters, returnedOrderItemQuantity }) : Object.fromEntries(["renderReports"].map(name => [name, function () {}]));
 
   injectSharedUi();
