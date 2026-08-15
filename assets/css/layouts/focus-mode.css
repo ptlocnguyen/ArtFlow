@@ -147,7 +147,7 @@ body[data-page="purchaseCreate"] .order-summary-panel > .sticky-summary {
   }
   body[data-page="purchaseCreate"] .purchase-product-card {
     grid-template-columns: 48px minmax(0, 1fr);
-    padding-right: 72px;
+    padding-right: 52px;
   }
   body[data-page="purchaseCreate"] .purchase-product-card .product-thumb {
     width: 48px;
@@ -155,8 +155,12 @@ body[data-page="purchaseCreate"] .order-summary-panel > .sticky-summary {
   }
   body[data-page="purchaseCreate"] .purchase-product-card .purchase-product-state {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    padding-inline: 6px;
+    top: 12px;
+    right: 12px;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: 0;
   }
 }

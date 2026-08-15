@@ -6433,8 +6433,11 @@ body[data-page="purchaseCreate"] .order-empty-cart small {
 }
 
 .purchase-product-popup .product-picker-list {
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+  grid-auto-rows: minmax(112px, auto);
   flex: 1 1 auto;
+  align-items: stretch;
+  gap: 10px;
   max-height: none;
   padding: 12px;
 }
@@ -6445,7 +6448,39 @@ body[data-page="purchaseCreate"] .order-empty-cart small {
 
 .purchase-product-card {
   position: relative;
-  min-height: 86px;
+  min-height: 112px;
+  align-items: start;
+  padding: 14px;
+}
+
+.purchase-product-card .product-thumb {
+  align-self: center;
+}
+
+.purchase-product-card .product-card-main {
+  display: flex;
+  align-self: stretch;
+  flex-direction: column;
+}
+
+.purchase-product-card .product-card-main > small {
+  display: -webkit-box;
+  min-height: 34px;
+  overflow: hidden;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.purchase-product-card .product-card-tags {
+  margin-top: auto;
+  padding-top: 7px;
+  line-height: 1.3;
+}
+
+.purchase-product-card .product-card-tags span,
+.purchase-product-card .product-card-tags em {
+  white-space: nowrap;
 }
 
 .purchase-product-card .purchase-product-state {

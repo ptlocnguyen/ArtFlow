@@ -78,6 +78,19 @@ for (const viewport of viewports) {
 
   for (const [name, relativeFile] of pages) {
     const state = createArtflowFixture();
+    if (name === "purchase-create") {
+      const samples = [...state.products];
+      for (let index = samples.length; index < 30; index += 1) {
+        const source = samples[index % samples.length];
+        state.products.push({
+          ...source,
+          id: `purchase-picker-product-${index + 1}`,
+          sku: `${source.sku}-QA-${String(index + 1).padStart(2, "0")}`,
+          name: `${source.name} - Phiên bản kiểm tra tên sản phẩm dài ${index + 1}`,
+          stock: index % 6 === 0 ? 0 : 10 + index
+        });
+      }
+    }
     const page = await context.newPage();
     if (name === "auth") {
       await page.addInitScript(storageKey => {
@@ -711,6 +724,9 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("[data-open-purchase-product-picker]").first().click();
     const productPopup = page.locator("[data-purchase-product-popup]:not([hidden])");
     await productPopup.waitFor();
+    if (await productPopup.locator("[data-add-product-to-purchase]").count() !== 30) {
+      throw new Error("Purchase product picker fixture must cover a realistic 30-product catalog.");
+    }
     const popupOverflow = await productPopup.locator(".purchase-product-popup-panel").evaluate(element => ({
       width: element.getBoundingClientRect().width,
       scrollWidth: element.scrollWidth,
@@ -718,6 +734,8 @@ async function runPageInteractions(page, pageName, viewportName) {
     }));
     if (popupOverflow.scrollWidth > popupOverflow.clientWidth + 2) throw new Error("Purchase product picker must not overflow horizontally.");
     if (viewportName === "desktop" && popupOverflow.width < 900) throw new Error("Purchase product picker should use a wide desktop dialog.");
+    const overflowingProductCards = await productPopup.locator("[data-add-product-to-purchase]").evaluateAll(cards => cards.filter(card => card.scrollHeight > card.clientHeight + 1).map(card => card.textContent.trim().slice(0, 80)));
+    if (overflowingProductCards.length) throw new Error(`Purchase product cards must contain all content without overlap: ${overflowingProductCards.join(" | ")}`);
     const categoryFilter = productPopup.locator("[data-purchase-product-category]");
     if (await categoryFilter.locator("option").count() > 1) {
       await categoryFilter.selectOption({ index: 1 });
