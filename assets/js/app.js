@@ -5653,11 +5653,11 @@
         <div class="product-picker-filters purchase-product-filters">
           <select data-purchase-product-category aria-label="Lọc theo danh mục"><option value="all">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(normalizeSearchText(value))}">${escapeHtml(value)}</option>`).join("")}</select>
           <select data-purchase-product-brand aria-label="Lọc theo hãng"><option value="all">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(normalizeSearchText(value))}">${escapeHtml(value)}</option>`).join("")}</select>
-          <select data-purchase-product-stock aria-label="Lọc theo tồn kho"><option value="all">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="empty">Hết hàng</option></select>
+          <select data-purchase-product-stock aria-label="Lọc theo tồn kho"><option value="all">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="low">Sắp hết hàng</option><option value="empty">Hết hàng</option></select>
           <button class="button ghost" type="button" data-reset-purchase-product-picker>${icon("refresh")} Đặt lại</button>
         </div>
         <div class="product-picker-list" data-purchase-product-list>${products.map(product => `
-          <button class="product-card product-card-rich purchase-product-card" type="button" data-add-product-to-purchase="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-product-category="${escapeAttribute(normalizeSearchText(product.category || ""))}" data-product-brand="${escapeAttribute(normalizeSearchText(product.brand || ""))}" data-product-stock="${Number(product.stock || 0) > 0 ? "available" : "empty"}" aria-pressed="false">
+          <button class="product-card product-card-rich purchase-product-card" type="button" data-add-product-to-purchase="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-product-category="${escapeAttribute(normalizeSearchText(product.category || ""))}" data-product-brand="${escapeAttribute(normalizeSearchText(product.brand || ""))}" data-product-stock="${Number(product.stock || 0) > 0 ? "available" : "empty"}" data-product-low-stock="${Number(product.stock || 0) > 0 && Number(product.stock || 0) <= Number(product.lowStock || 0) ? "true" : "false"}" aria-pressed="false">
             ${renderProductThumb(product)}
             <span class="product-card-main"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · ${escapeHtml(product.category || "Chưa phân loại")}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small><span class="product-card-tags"><em>${Number(product.stock || 0)} tồn</em><span>Giá vốn ${money.format(product.costPrice)}</span></span></span>
             <span class="purchase-product-state" data-purchase-product-state>${icon("plus")} Thêm</span>
@@ -5714,7 +5714,7 @@
       const matched = (!term || card.dataset.productSearch.indexOf(term) !== -1)
         && (category === "all" || card.dataset.productCategory === category)
         && (brand === "all" || card.dataset.productBrand === brand)
-        && (stock === "all" || card.dataset.productStock === stock);
+        && (stock === "all" || (stock === "low" ? card.dataset.productLowStock === "true" : card.dataset.productStock === stock));
       card.hidden = !matched;
       if (matched) visible += 1;
     });

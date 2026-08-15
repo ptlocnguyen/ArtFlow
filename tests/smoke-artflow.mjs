@@ -742,6 +742,19 @@ async function runPageInteractions(page, pageName, viewportName) {
       if (!(await productPopup.locator("[data-add-product-to-purchase]:visible").count())) throw new Error("Purchase category filter must retain matching products.");
       await productPopup.locator("[data-reset-purchase-product-picker]").click();
     }
+    const stockFilter = productPopup.locator("[data-purchase-product-stock]");
+    await stockFilter.selectOption("low");
+    const lowStockCards = productPopup.locator('[data-add-product-to-purchase][data-product-low-stock="true"]:visible');
+    if (!(await lowStockCards.count())) throw new Error("Purchase stock filter must expose products at or below their reorder threshold.");
+    if (await productPopup.locator('[data-add-product-to-purchase][data-product-low-stock="false"]:visible').count()) {
+      throw new Error("Purchase low-stock filter must hide products above their reorder threshold.");
+    }
+    if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, "purchase-create-low-stock-filter.png"), fullPage: false });
+    }
+    await productPopup.locator("[data-reset-purchase-product-picker]").click();
     const selectedProduct = productPopup.locator("[data-add-product-to-purchase]:not([disabled])").first();
     const selectedProductId = await selectedProduct.getAttribute("data-add-product-to-purchase");
     await selectedProduct.click();
