@@ -37,10 +37,10 @@
       <section class="view active operation-page team-workspace">
         <section class="team-toolbar panel">
           <div class="team-tabs" role="tablist" aria-label="Không gian Team Hub">
-            <button type="button" data-team-view="tasks" class="active"><span data-icon="check"></span> Việc cần làm</button>
-            <button type="button" data-team-view="meetings"><span data-icon="clipboard"></span> Cuộc họp</button>
-            <button type="button" data-team-view="plans"><span data-icon="chart"></span> Kế hoạch</button>
-            <button type="button" data-team-view="decisions"><span data-icon="check"></span> Quyết định</button>
+            <button type="button" data-team-view="tasks" class="active" role="tab" aria-selected="true"><span data-icon="check"></span><span>Công việc</span><small data-team-tab-count="tasks">0</small></button>
+            <button type="button" data-team-view="meetings" role="tab" aria-selected="false"><span data-icon="clipboard"></span><span>Họp</span><small data-team-tab-count="meetings">0</small></button>
+            <button type="button" data-team-view="plans" role="tab" aria-selected="false"><span data-icon="chart"></span><span>Kế hoạch</span><small data-team-tab-count="plans">0</small></button>
+            <button type="button" data-team-view="decisions" role="tab" aria-selected="false"><span data-icon="check"></span><span>Quyết định</span><small data-team-tab-count="decisions">0</small></button>
           </div>
           <div class="team-filter-bar">
             <label><span>Trạng thái</span><select data-team-status-filter></select></label>

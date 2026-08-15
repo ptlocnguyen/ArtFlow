@@ -56,7 +56,7 @@
     
     function teamSearchText(item) {
       return [
-        item.title, item.type, item.status, item.owner, item.attendees, item.agenda, item.notes,
+        item.title, item.type, item.status, item.owner, ownerName(item.owner), item.attendees, item.agenda, item.notes,
         item.channels, item.focusProducts, item.tags, item.detail, item.note, item.links
       ].join(" ").toLowerCase();
     }
@@ -96,15 +96,26 @@
       const statuses = [...new Set(items.map(item => item.status).filter(Boolean))]
         .map(status => [status, teamStatuses[status] || status]);
       setTeamOptions(els.teamStatusFilter, statuses, teamFilters.status, "Tất cả trạng thái");
-      setTeamOptions(els.teamOwnerFilter, teamOwners().map(owner => [owner, owner]), teamFilters.owner, "Tất cả phụ trách");
+      setTeamOptions(els.teamOwnerFilter, teamOwners().map(owner => [owner, ownerName(owner)]), teamFilters.owner, "Tất cả phụ trách");
       if (els.teamRangeFilter) els.teamRangeFilter.value = teamFilters.range;
     }
     
     function renderTeamHub() {
       if (!els.teamContent) return;
       renderTeamFilters();
+      const teamCounts = {
+        tasks: teamWorkspaceTasks().filter(item => item.status !== "deleted").length,
+        meetings: (state.teamMeetings || []).filter(item => item.status !== "deleted").length,
+        plans: (state.teamPlans || []).filter(item => item.status !== "deleted").length,
+        decisions: (state.teamDecisions || []).filter(item => item.status !== "deleted").length
+      };
       document.querySelectorAll("[data-team-view]").forEach(button => {
-        button.classList.toggle("active", button.dataset.teamView === teamFilters.view);
+        const active = button.dataset.teamView === teamFilters.view;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", String(active));
+      });
+      document.querySelectorAll("[data-team-tab-count]").forEach(counter => {
+        counter.textContent = String(teamCounts[counter.dataset.teamTabCount] || 0);
       });
       const view = teamViews[teamFilters.view] || teamViews.tasks;
       if (els.teamPanelTitle) els.teamPanelTitle.textContent = view.title;
@@ -234,8 +245,9 @@
       const items = currentTeamItems();
       return `<div class="team-list">${items.length ? items.map(meeting => {
         const openActions = (meeting.actions || []).filter(action => action.status !== "done").length;
+        const typeLabel = { weekly: "Họp tuần", planning: "Kế hoạch", product: "Sản phẩm", finance: "Tài chính", content: "Content", other: "Khác" }[meeting.type] || meeting.type;
         return `<article class="team-item">
-          <div><strong>${escapeHtml(meeting.title)}</strong><small>${escapeHtml(meeting.type)} · ${meeting.meetingAt ? formatDateTimeShort(meeting.meetingAt) : "Chưa có lịch"} · ${escapeHtml(meeting.owner || "Chưa giao")}</small></div>
+          <div><strong>${escapeHtml(meeting.title)}</strong><small>${escapeHtml(typeLabel)} · ${meeting.meetingAt ? formatDateTimeShort(meeting.meetingAt) : "Chưa có lịch"} · ${escapeHtml(meeting.owner ? ownerName(meeting.owner) : "Chưa giao")}</small></div>
           <div>${teamStatusBadge(meeting.status)}<small>${openActions} việc mở · ${(meeting.decisions || []).length} quyết định</small></div>
           <div class="team-item-preview">${escapeHtml(meeting.agenda || meeting.notes || "Chưa có nội dung.").slice(0, 160)}</div>
           <div class="row-actions"><button class="link-button icon-only" type="button" data-view-team-meeting="${meeting.id}" title="Xem">${icon("eye")}</button><button class="link-button icon-only action-edit" type="button" data-edit-team-meeting="${meeting.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="meetings:${meeting.id}" title="Lưu trữ">${icon("archive")}</button></div>
@@ -246,7 +258,7 @@
     function renderTeamPlans() {
       const items = currentTeamItems();
       return `<div class="team-card-grid">${items.length ? items.map(plan => `<article class="team-plan-card">
-        <div class="team-card-head"><div><strong>${escapeHtml(plan.title)}</strong><small>${escapeHtml(plan.period || "Chưa có kỳ")} · ${escapeHtml(plan.owner || "Chưa giao")}</small></div>${teamStatusBadge(plan.status)}</div>
+        <div class="team-card-head"><div><strong>${escapeHtml(plan.title)}</strong><small>${escapeHtml(plan.period || "Chưa có kỳ")} · ${escapeHtml(plan.owner ? ownerName(plan.owner) : "Chưa giao")}</small></div>${teamStatusBadge(plan.status)}</div>
         <div class="team-money-grid"><span><small>Doanh thu mục tiêu</small><b>${money.format(plan.goalRevenue)}</b></span><span><small>Lợi nhuận mục tiêu</small><b>${money.format(plan.goalProfit)}</b></span><span><small>Ngân sách</small><b>${money.format(plan.budget)}</b></span></div>
         <p>${escapeHtml(plan.note || plan.risks || "Chưa có ghi chú.")}</p>
         <div class="row-actions"><button class="link-button icon-only action-edit" type="button" data-edit-team-plan="${plan.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="plans:${plan.id}" title="Lưu trữ">${icon("archive")}</button></div>
@@ -419,7 +431,7 @@
     function renderTeamDecisions() {
       const items = currentTeamItems();
       return `<div class="team-list">${items.length ? items.map(decision => `<article class="team-item compact">
-        <div><strong>${escapeHtml(decision.title)}</strong><small>${decision.decidedAt ? formatDate(decision.decidedAt) : "Chưa có ngày"} · ${escapeHtml(decision.owner || "Chưa giao")} · ${escapeHtml(decision.tags || "Không tag")}</small></div>
+        <div><strong>${escapeHtml(decision.title)}</strong><small>${decision.decidedAt ? formatDate(decision.decidedAt) : "Chưa có ngày"} · ${escapeHtml(decision.owner ? ownerName(decision.owner) : "Chưa giao")}${decision.tags ? ` · ${escapeHtml(decision.tags)}` : ""}</small></div>
         <div>${teamStatusBadge(decision.status)}<small>${decision.nextReviewAt ? "Xem lại " + formatDate(decision.nextReviewAt) : "Không lịch xem lại"}</small></div>
         <div class="team-item-preview">${escapeHtml(decision.detail || "Chưa có mô tả.")}</div>
         <div class="row-actions"><button class="link-button icon-only action-edit" type="button" data-edit-team-decision="${decision.id}" title="Sửa">${icon("edit")}</button><button class="link-button danger-link icon-only" type="button" data-archive-team-item="decisions:${decision.id}" title="Lưu trữ">${icon("archive")}</button></div>

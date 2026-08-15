@@ -444,12 +444,36 @@ async function runPageInteractions(page, pageName, viewportName) {
     }
   }
   if (pageName === "team") {
+    const captureTeamState = async name => {
+      if (!keepScreenshots || !["desktop", "mobile"].includes(viewportName)) return;
+      const dir = path.join(screenshotRoot, viewportName);
+      await mkdir(dir, { recursive: true });
+      await page.screenshot({ path: path.join(dir, `team-${name}.png`), fullPage: false });
+    };
     if (await page.locator("[data-team-range-filter]").inputValue() !== "all") throw new Error("Team Hub must show all historical records by default.");
     if (!await page.locator("[data-team-view='meetings']").isVisible()) throw new Error("Meeting workspace tab must remain available.");
     if (!await page.locator("[data-team-content]").getByText("Map SKU Shopee", { exact: false }).isVisible()) throw new Error("Historical standalone tasks must remain visible.");
     if (!await page.locator("[data-team-content]").getByText("Chot bang gia combo", { exact: false }).isVisible()) throw new Error("Meeting action items must appear in the shared task workspace.");
     await page.locator("[data-team-view='meetings']").click();
     if (!await page.locator("[data-team-content]").getByText("Hop ke hoach thang 7", { exact: false }).isVisible()) throw new Error("Saved meetings must render in Team Hub.");
+    if (!String(await page.locator("[data-team-primary-action]").innerText()).includes("Cuộc họp")) throw new Error("Meeting tab must expose its own primary action.");
+    await captureTeamState("meetings");
+    await page.locator("[data-team-view='plans']").click();
+    if (!await page.locator("[data-team-content]").getByText("Ke hoach Back to School", { exact: false }).isVisible()) throw new Error("Business plans must render in Team Hub.");
+    if (!await page.locator("[data-team-content]").getByText("18.000.000", { exact: false }).isVisible()) throw new Error("Legacy plan revenue must remain visible after normalization.");
+    await captureTeamState("plans");
+    await page.locator("[data-team-primary-action]").click();
+    if (!await page.locator("#teamPlanTitle").isVisible()) throw new Error("Plan creation must open the plan form.");
+    await captureTeamState("plan-create");
+    await page.keyboard.press("Escape");
+    await page.locator("[data-team-view='decisions']").click();
+    if (!await page.locator("[data-team-content]").getByText("Giu gia but chi 2B", { exact: false }).isVisible()) throw new Error("Saved decisions must render in Team Hub.");
+    if (!await page.locator("[data-team-content]").getByText("Gia ban 8.000d", { exact: false }).isVisible()) throw new Error("Legacy decision details must remain visible after normalization.");
+    await captureTeamState("decisions");
+    await page.locator("[data-team-primary-action]").click();
+    if (!await page.locator("#teamDecisionTitle").isVisible()) throw new Error("Decision creation must open the decision form.");
+    await captureTeamState("decision-create");
+    await page.keyboard.press("Escape");
     await page.locator("[data-team-view='tasks']").click();
     await page.locator("[data-team-primary-action]").click();
     await page.locator("#taskTitle").fill("QA kiem tra workflow task");
@@ -463,14 +487,27 @@ async function runPageInteractions(page, pageName, viewportName) {
     await createdTask.locator("[data-archive-workspace-task]").click();
     await page.locator(".team-task-card", { hasText: "QA kiem tra workflow task" }).waitFor({ state: "detached", timeout: 1500 });
     await page.waitForTimeout(100);
+    if (viewportName === "desktop") {
+      const dimensions = await page.locator(".team-workspace").evaluate(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height }));
+      if (dimensions.width < 1000 || dimensions.height < 700) throw new Error("Team Hub must use the remaining desktop workspace.");
+    }
   }
   if (pageName === "meeting-minutes") {
+    if (!await page.locator("[data-minutes-list]").getByText("Hop ke hoach thang 7", { exact: false }).isVisible()) throw new Error("Meeting minutes workspace must retain saved meetings.");
+    if (viewportName === "mobile") {
+      const listStyle = await page.locator("[data-minutes-list]").evaluate(element => ({ display: getComputedStyle(element).display, overflowX: getComputedStyle(element).overflowX }));
+      if (listStyle.display !== "flex" || listStyle.overflowX !== "auto") throw new Error("Mobile meeting history must use a compact horizontal strip.");
+    }
     await page.locator("#minutesTitle").fill("QA bien ban hop nhanh");
     await page.locator("[data-minutes-template='planning']").click().catch(() => {});
     await page.locator("[data-minutes-quick-note]").fill("Chot: mo shop TikTok trong tuan nay\nViec: Ngoc Hoa chuan bi logo truoc 2026-07-12\nhttps://drive.google.com/demo");
     await page.locator("[data-minutes-parse-quick]").click().catch(() => {});
+    if (await page.locator("[data-minutes-decisions-list] [data-minutes-decision-row]").count() < 1) throw new Error("Quick meeting notes must create structured decisions.");
+    if (await page.locator("[data-minutes-actions-list] [data-minutes-action-row]").count() < 1) throw new Error("Quick meeting notes must create structured follow-up tasks.");
+    if (await page.locator("[data-minutes-links-list] [data-minutes-link-row]").count() < 1) throw new Error("Quick meeting notes must retain related links.");
     await page.locator("[data-meeting-minutes-form] button[type='submit']").click().catch(() => {});
     await page.waitForTimeout(100);
+    if (!await page.locator("[data-minutes-list]").getByText("QA bien ban hop nhanh", { exact: false }).isVisible()) throw new Error("Saved meeting minutes must return to the meeting history.");
   }
   if (pageName === "channels") {
     const tiktokBar = page.locator("[data-tiktok-connection]");

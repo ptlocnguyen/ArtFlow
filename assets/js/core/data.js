@@ -142,23 +142,26 @@
     }
     
     function normalizeTeamPlan(plan) {
+      const legacyMilestones = Array.isArray(plan.milestones)
+        ? plan.milestones
+        : String(plan.tasks || "").split(/\r?\n|,/).map(value => value.trim()).filter(Boolean).map(title => ({ title, dueDate: "", owner: "" }));
       return {
         id: plan.id || makeLocalId("plan"),
         title: plan.title || "",
         period: plan.period || "",
         status: plan.status || "idea",
         owner: plan.owner || "",
-        goalRevenue: Number(plan.goalRevenue || 0),
-        goalProfit: Number(plan.goalProfit || 0),
+        goalRevenue: Number(plan.goalRevenue ?? plan.expectedRevenue ?? 0),
+        goalProfit: Number(plan.goalProfit ?? plan.expectedProfit ?? 0),
         budget: Number(plan.budget || 0),
         channels: plan.channels || "",
         focusProducts: plan.focusProducts || "",
-        milestones: Array.isArray(plan.milestones) ? plan.milestones : [],
+        milestones: legacyMilestones,
         sourceType: plan.sourceType || "manual",
         sourceId: plan.sourceId || "",
         commentLog: Array.isArray(plan.commentLog) ? plan.commentLog : [],
         risks: plan.risks || "",
-        note: plan.note || "",
+        note: plan.note || plan.goal || "",
         createdAt: plan.createdAt || "",
         updatedAt: plan.updatedAt || ""
       };
@@ -233,6 +236,11 @@
     }
     
     function normalizeTeamDecision(decision) {
+      const legacyDetail = [
+        decision.context ? `Bối cảnh: ${decision.context}` : "",
+        decision.decision ? `Đã chốt: ${decision.decision}` : "",
+        decision.impact ? `Ảnh hưởng: ${decision.impact}` : ""
+      ].filter(Boolean).join(" · ");
       return {
         id: decision.id || makeLocalId("decision"),
         title: decision.title || "",
@@ -240,9 +248,9 @@
         sourceId: decision.sourceId || "",
         status: decision.status || "active",
         owner: decision.owner || "",
-        decidedAt: decision.decidedAt || "",
+        decidedAt: decision.decidedAt || decision.decisionDate || "",
         tags: decision.tags || "",
-        detail: decision.detail || "",
+        detail: decision.detail || legacyDetail,
         nextReviewAt: decision.nextReviewAt || "",
         sourceType: decision.sourceType || "manual",
         sourceId: decision.sourceId || "",

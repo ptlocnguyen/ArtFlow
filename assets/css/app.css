@@ -4003,19 +4003,25 @@ body[data-page="products"] .view.active {
 }
 
 .team-workspace {
+  width: 100%;
+  max-width: none !important;
+  flex: 1 1 auto;
   align-content: start;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden !important;
 }
 
 .team-toolbar {
   display: grid;
+  grid-template-columns: minmax(630px, 0.98fr) minmax(400px, 1.02fr);
+  align-items: end;
   gap: 12px;
   padding: 12px 16px;
 }
 
 .team-tabs {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -4023,9 +4029,9 @@ body[data-page="products"] .view.active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 42px;
-  padding: 0 14px;
+  padding: 0 8px;
   color: #344054;
   background: #f8fafc;
   border: 1px solid var(--line);
@@ -4034,10 +4040,33 @@ body[data-page="products"] .view.active {
   font-weight: 850;
 }
 
+.team-tabs button small {
+  display: inline-flex;
+  min-width: 20px;
+  min-height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  color: #475467;
+  background: #e8eef7;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.team-tabs button > span:not(.app-icon) {
+  min-width: 0;
+  white-space: nowrap;
+}
+
 .team-tabs button.active {
   color: #fff;
   background: #2563eb;
   border-color: #2563eb;
+}
+
+.team-tabs button.active small {
+  color: #1d4ed8;
+  background: #fff;
 }
 
 .team-filter-bar {
@@ -4060,14 +4089,15 @@ body[data-page="products"] .view.active {
 
 .team-main-panel {
   display: grid;
-  align-self: start;
-  grid-template-rows: auto auto;
+  align-self: stretch;
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
 .team-main-panel>[data-team-content] {
   min-height: 0;
-  max-height: min(560px, calc(100dvh - 360px));
+  max-height: none;
   overflow: auto;
   padding: 0 16px 16px;
   scrollbar-color: #b8c4d6 transparent;
@@ -4848,7 +4878,7 @@ body[data-page="products"] .view.active {
 }
 
 .team-card-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
 }
 
 .team-plan-card,
@@ -5195,6 +5225,13 @@ body[data-page="meetingMinutes"] .view.active {
   }
 }
 
+@media (max-width: 1340px) {
+  .team-toolbar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
 @media (max-width: 760px) {
   .minutes-editor {
     padding: 14px;
@@ -5221,6 +5258,24 @@ body[data-page="meetingMinutes"] .view.active {
   .minutes-editor-head .row-actions .button,
   .minutes-template-buttons button {
     flex: 1 1 auto;
+  }
+
+  .minutes-sidebar {
+    grid-template-rows: auto auto;
+  }
+
+  .minutes-list {
+    display: flex;
+    max-height: none;
+    padding: 0 14px 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+  }
+
+  .minutes-list button {
+    flex: 0 0 min(272px, calc(100vw - 72px));
+    scroll-snap-align: start;
   }
 }
 
@@ -6618,7 +6673,11 @@ body[data-page="orderCreate"] .summary-total strong {
   }
 
   .team-workspace {
-    grid-template-rows: auto auto auto;
+    display: grid;
+    height: auto;
+    min-height: calc(100dvh - 150px);
+    grid-template-rows: auto auto;
+    overflow: visible !important;
   }
 
   .team-filter-bar,
@@ -6633,6 +6692,10 @@ body[data-page="orderCreate"] .summary-total strong {
 
   .team-main-panel>[data-team-content] {
     max-height: none;
+    overflow: visible;
+  }
+
+  .team-main-panel {
     overflow: visible;
   }
 }
@@ -6747,6 +6810,33 @@ body[data-page="orderCreate"] .summary-total strong {
     width: 100%;
     min-height: 40px;
     padding-inline: 10px;
+  }
+
+  .team-filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .team-filter-bar label:last-child {
+    grid-column: 1 / -1;
+  }
+
+  body[data-page="team"] .team-main-panel .panel-header.split {
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    padding-right: 68px;
+  }
+
+  body[data-page="team"] .team-main-panel .panel-header.split > .row-actions {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: auto;
+  }
+
+  body[data-page="team"] .team-main-panel .panel-header.split > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   .team-money-grid,
