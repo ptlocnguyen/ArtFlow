@@ -689,8 +689,20 @@ async function runPageInteractions(page, pageName, viewportName) {
     const detailText = await detail.innerText();
     if (!["Thông tin liên hệ", "sales@supplier.local", "344 Nơ Trang Long", "Sản phẩm đã nhập", "23", "But chi 2B Faber Castell", "12.000", "Phiếu mua gần đây", "PO-20260624-0001"].every(value => detailText.includes(value))) throw new Error("Supplier detail must include contact, supplied-product statistics and recent purchasing information.");
     if (detailText.includes("Bang pha mau nhua")) throw new Error("Draft purchase items must not appear in received supplier history.");
+    const historyList = detail.locator("[data-supplier-product-history-list]");
+    const historyMetrics = await historyList.evaluate(element => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      overflowY: getComputedStyle(element).overflowY
+    }));
+    if (historyMetrics.clientHeight > 300 || historyMetrics.scrollHeight <= historyMetrics.clientHeight || historyMetrics.overflowY !== "auto") {
+      throw new Error("Long supplier product history must use a compact internal vertical scroller.");
+    }
+    await historyList.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    if (await historyList.evaluate(element => element.scrollTop <= 0)) throw new Error("Supplier product history must be independently scrollable.");
     const historySearch = detail.locator("[data-supplier-product-history-search]");
     await historySearch.fill("ART002");
+    if (await historyList.evaluate(element => element.scrollTop !== 0)) throw new Error("Supplier product search must return the internal list to its first result.");
     if ((await detail.locator("[data-supplier-product-history-count]").innerText()).trim() !== "1") throw new Error("Supplier product history search must narrow the visible SKU list.");
     await historySearch.fill("");
     if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {

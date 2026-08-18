@@ -71,7 +71,28 @@ body[data-page="teamPricing"] .team-pricing-page { min-height: 0; overflow: auto
 .supplier-drawer-actions { position: sticky; bottom: -22px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: auto -22px -22px; padding: 14px 22px 18px; border-top: 1px solid var(--border); background: var(--surface); }
 .supplier-drawer-actions .button { min-width: 0; }
 .supplier-product-history-section .compact-search { margin-bottom: 10px; }
-.supplier-product-history-section .supply-history-table { min-width: 0; }
+.supplier-product-history-section .supply-history-table {
+  min-width: 0;
+  max-height: min(244px, 34dvh);
+  padding: 2px 5px 2px 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #9fb0c5 transparent;
+}
+.supplier-product-history-section .supply-history-table::-webkit-scrollbar { width: 8px; }
+.supplier-product-history-section .supply-history-table::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: #edf2f7;
+}
+.supplier-product-history-section .supply-history-table::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #9fb0c5;
+  background-clip: padding-box;
+}
 .supplier-product-history-section .supply-history-row { grid-template-columns: minmax(170px, 1.6fr) repeat(5, minmax(72px, .65fr)); gap: 9px; }
 .supplier-product-history-section .supply-history-row strong { font-size: 13px; }
 

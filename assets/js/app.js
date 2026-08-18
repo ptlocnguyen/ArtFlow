@@ -8557,6 +8557,8 @@
       if (event.target.matches("[data-purchase-product-search], [data-purchase-product-category], [data-purchase-product-brand], [data-purchase-product-stock], [data-purchase-product-supplier]")) filterPurchaseProductPicker(event.target);
       if (event.target.matches("[data-supplier-product-history-search]")) {
         const section = event.target.closest(".supplier-product-history-section");
+        const historyList = section?.querySelector("[data-supplier-product-history-list]");
+        if (historyList) historyList.scrollTop = 0;
         const term = normalizeSearchText(event.target.value);
         let visible = 0;
         section?.querySelectorAll("[data-history-search]").forEach(row => {
