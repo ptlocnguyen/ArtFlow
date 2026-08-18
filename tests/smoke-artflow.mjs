@@ -91,6 +91,23 @@ for (const viewport of viewports) {
         });
       }
     }
+    if (name === "suppliers") {
+      state.suppliers[0].address = "344 Nơ Trang Long, Phường Bình Lợi Trung, Thành phố Hồ Chí Minh";
+      const receivedOrder = state.purchaseOrders.find(order => order.id === "po-001");
+      for (let index = receivedOrder.items.length; index < 23; index += 1) {
+        receivedOrder.items.push({
+          id: `supplier-history-item-${index + 1}`,
+          purchaseOrderId: receivedOrder.id,
+          productId: `supplier-history-product-${index + 1}`,
+          sku: `NCC-HISTORY-${String(index + 1).padStart(2, "0")}`,
+          name: `Sản phẩm nhà cung cấp có tên dài để kiểm tra hiển thị ${index + 1}`,
+          quantity: index + 1,
+          unitCost: 10000 + index * 500,
+          lineTotal: (index + 1) * (10000 + index * 500),
+          createdAt: receivedOrder.createdAt
+        });
+      }
+    }
     const page = await context.newPage();
     if (name === "auth") {
       await page.addInitScript(storageKey => {
@@ -643,7 +660,7 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (["tablet", "mobile"].includes(viewportName) && tableMetrics.scrollWidth > tableMetrics.clientWidth + 2) throw new Error("Supplier cards must not overflow horizontally.");
     const supplierRow = page.locator("[data-supplier-card]").first();
     const supplierText = await supplierRow.innerText();
-    if (!["090000001", "2 sản phẩm", "1.800.000", "800.000"].every(value => supplierText.includes(value))) throw new Error("Responsive supplier cards must retain contact, supplied-product, purchase and balance information.");
+    if (!["090000001", "23 sản phẩm", "1.800.000", "800.000"].every(value => supplierText.includes(value))) throw new Error("Responsive supplier cards must retain contact, supplied-product, purchase and balance information.");
     const productFilter = page.locator("[data-supplier-product-filter]");
     await productFilter.selectOption("prod-001");
     if ((await count.innerText()).trim() !== "1 nhà cung cấp") throw new Error("Supplier product filter must find suppliers that received the selected SKU.");
@@ -655,8 +672,22 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("button[data-supplier-card]").first().click();
     const detail = page.locator("[data-supplier-detail]:not([hidden])");
     await detail.waitFor();
+    const detailMetrics = await detail.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return {
+        width: rect.width,
+        left: rect.left,
+        right: rect.right,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        viewportWidth: window.innerWidth
+      };
+    });
+    if (detailMetrics.scrollWidth > detailMetrics.clientWidth + 2) throw new Error(`Supplier detail must not overflow horizontally (${detailMetrics.scrollWidth - detailMetrics.clientWidth}px).`);
+    if (detailMetrics.left < -2 || detailMetrics.right > detailMetrics.viewportWidth + 2) throw new Error("Supplier detail must remain inside the viewport.");
+    if (viewportName === "desktop" && detailMetrics.width < 680) throw new Error(`Supplier detail must be wide enough for its purchasing history (actual: ${Math.round(detailMetrics.width)}px).`);
     const detailText = await detail.innerText();
-    if (!["Thông tin liên hệ", "sales@supplier.local", "Sản phẩm đã nhập", "But chi 2B Faber Castell", "12.000", "Phiếu mua gần đây", "PO-20260624-0001"].every(value => detailText.includes(value))) throw new Error("Supplier detail must include contact, supplied-product statistics and recent purchasing information.");
+    if (!["Thông tin liên hệ", "sales@supplier.local", "344 Nơ Trang Long", "Sản phẩm đã nhập", "23", "But chi 2B Faber Castell", "12.000", "Phiếu mua gần đây", "PO-20260624-0001"].every(value => detailText.includes(value))) throw new Error("Supplier detail must include contact, supplied-product statistics and recent purchasing information.");
     if (detailText.includes("Bang pha mau nhua")) throw new Error("Draft purchase items must not appear in received supplier history.");
     const historySearch = detail.locator("[data-supplier-product-history-search]");
     await historySearch.fill("ART002");
