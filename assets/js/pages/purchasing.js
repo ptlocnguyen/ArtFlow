@@ -121,7 +121,59 @@
       const order = byId("purchaseOrders", orderId);
       if (!drawer || !order) return;
       const supplier = getSupplier(order);
-      drawer.innerHTML = `<header class="drawer-header"><div><p class="section-kicker">Phiếu mua</p><h2>${escapeHtml(order.code)}</h2><small>${escapeHtml(supplier.name)} · ${formatDate(order.createdAt)}</small></div><button class="icon-button" type="button" data-close-management-drawer aria-label="Đóng">${icon("close")}</button></header><section class="drawer-metrics"><article><small>Tổng phiếu</small><strong>${money.format(order.total)}</strong></article><article><small>Đã trả</small><strong>${money.format(order.settledAmount)}</strong></article><article><small>Còn phải trả</small><strong>${money.format(order.outstanding)}</strong></article><article><small>Hạn trả</small><strong>${order.dueDate ? formatDate(order.dueDate) : "Chưa đặt"}</strong></article></section><section class="drawer-section"><h3>Hàng hóa</h3>${(order.items || []).map(item => `<div class="channel-work-item"><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.sku)} · ${item.quantity} × ${money.format(item.unitCost)}</small></span><b>${money.format(item.lineTotal)}</b></div>`).join("")}</section><section class="drawer-section"><h3>Bước tiếp theo</h3><div class="row-actions">${order.status === "draft" && canManagePurchasing() ? `<a class="button ghost" href="./purchase-create.html?edit=${order.id}">${icon("edit")} Sửa</a><button class="button primary" type="button" data-receive-purchase="${order.id}">${icon("truck")} Nhận hàng</button>` : ""}${order.status === "received" && order.outstanding > 0 && canPayPurchases() ? `<button class="button primary" type="button" data-pay-purchase="${order.id}">${icon("receipt")} Thanh toán</button>` : ""}<button class="button ghost" type="button" data-print-purchase-order="${order.id}">${icon("printer")} In phiếu</button></div></section>`;
+      const items = order.items || [];
+      const totalQuantity = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      const statusClass = order.status === "received" ? "active" : order.status === "cancelled" ? "cancelled" : "pending";
+      drawer.innerHTML = `
+        <header class="drawer-header purchase-detail-header">
+          <div>
+            <p class="section-kicker">Phiếu mua</p>
+            <h2>${escapeHtml(order.code)}</h2>
+            <div class="purchase-detail-header-meta">
+              <strong>${escapeHtml(supplier.name)}</strong>
+              <span>Ngày lập ${formatDate(order.createdAt)}${order.invoiceNumber ? ` · Hóa đơn ${escapeHtml(order.invoiceNumber)}` : ""}</span>
+            </div>
+          </div>
+          <button class="icon-button" type="button" data-close-management-drawer aria-label="Đóng" title="Đóng">${icon("close")}</button>
+        </header>
+        <div class="purchase-detail-statuses">
+          <span class="badge ${statusClass}">${statusLabel(order.status)}</span>
+          <span class="badge ${order.outstanding > 0 ? "pending" : "active"}">${statusLabel(order.paymentStatus)}</span>
+        </div>
+        <section class="drawer-metrics purchase-detail-metrics">
+          <article><small>Tổng phiếu</small><strong>${money.format(order.total)}</strong></article>
+          <article><small>Đã trả</small><strong>${money.format(order.settledAmount)}</strong></article>
+          <article class="${order.outstanding > 0 ? "has-payable" : ""}"><small>Còn phải trả</small><strong>${money.format(order.outstanding)}</strong></article>
+          <article><small>Hạn trả</small><strong>${order.dueDate ? formatDate(order.dueDate) : "Chưa đặt"}</strong></article>
+        </section>
+        <section class="drawer-section purchase-detail-items-section">
+          <div class="section-heading-inline">
+            <div><h3>Hàng hóa</h3><p>${items.length} mặt hàng · ${totalQuantity} sản phẩm</p></div>
+            <span class="pill">${items.length}</span>
+          </div>
+          <div class="purchase-detail-item-table">
+            <div class="purchase-detail-item-head" aria-hidden="true"><span>Sản phẩm</span><span>Số lượng</span><span>Đơn giá</span><span>Thành tiền</span></div>
+            <div class="purchase-detail-item-list" data-purchase-detail-items tabindex="0" aria-label="Danh sách hàng hóa trong phiếu mua">
+              ${items.length ? items.map(item => `
+                <div class="purchase-detail-item-row">
+                  <a class="purchase-detail-product" href="./products.html?productId=${encodeURIComponent(item.productId)}">
+                    <strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.sku)}</small>
+                  </a>
+                  <span><small>Số lượng</small><strong>${Number(item.quantity || 0)}</strong></span>
+                  <span><small>Đơn giá</small><strong>${money.format(item.unitCost)}</strong></span>
+                  <span class="purchase-detail-line-total"><small>Thành tiền</small><strong>${money.format(item.lineTotal)}</strong></span>
+                </div>
+              `).join("") : `<div class="empty compact">Phiếu chưa có hàng hóa.</div>`}
+            </div>
+          </div>
+        </section>
+        ${order.note ? `<section class="drawer-section purchase-detail-note"><h3>Ghi chú</h3><p>${escapeHtml(order.note)}</p></section>` : ""}
+        <div class="purchase-detail-actions">
+          ${order.status === "draft" && canManagePurchasing() ? `<a class="button ghost" href="./purchase-create.html?edit=${order.id}">${icon("edit")} Sửa phiếu</a><button class="button primary" type="button" data-receive-purchase="${order.id}">${icon("truck")} Nhận hàng</button>` : ""}
+          ${order.status === "received" && order.outstanding > 0 && canPayPurchases() ? `<button class="button primary" type="button" data-pay-purchase="${order.id}">${icon("receipt")} Thanh toán</button>` : ""}
+          <button class="button ghost" type="button" data-print-purchase-order="${order.id}">${icon("printer")} In phiếu</button>
+        </div>
+      `;
       drawer.hidden = false;
       hydrateIcons(drawer);
     }

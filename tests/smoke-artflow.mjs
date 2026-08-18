@@ -108,6 +108,26 @@ for (const viewport of viewports) {
         });
       }
     }
+    if (name === "purchasing") {
+      const receivedOrder = state.purchaseOrders.find(order => order.id === "po-001");
+      const samples = [...receivedOrder.items];
+      for (let index = samples.length; index < 12; index += 1) {
+        const source = samples[index % samples.length];
+        receivedOrder.items.push({
+          ...source,
+          id: `purchase-detail-item-${index + 1}`,
+          productId: `purchase-detail-product-${index + 1}`,
+          sku: `${source.sku}-DETAIL-${String(index + 1).padStart(2, "0")}`,
+          name: `${source.name} - Quy cách nhập kiểm tra ${index + 1}`,
+          quantity: index + 1,
+          lineTotal: (index + 1) * Number(source.unitCost || 0)
+        });
+      }
+      receivedOrder.subtotal = receivedOrder.items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
+      receivedOrder.total = receivedOrder.subtotal;
+      receivedOrder.netTotal = receivedOrder.total;
+      receivedOrder.outstanding = Math.max(0, receivedOrder.total - receivedOrder.settledAmount);
+    }
     const page = await context.newPage();
     if (name === "auth") {
       await page.addInitScript(storageKey => {
@@ -745,9 +765,23 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (viewportName === "desktop" && tableMetrics.height < 500) throw new Error(`Purchase table must use the remaining desktop workspace height (actual: ${Math.round(tableMetrics.height)}px).`);
     if (viewportName === "mobile" && ["auto", "scroll"].includes(tableMetrics.overflowY)) throw new Error("Purchase cards must use natural page scrolling on mobile.");
     await page.locator("[data-purchase-order-row='po-001']").click();
-    await page.locator("[data-purchase-detail]:not([hidden])").waitFor();
-    const detailText = await page.locator("[data-purchase-detail]:not([hidden])").innerText();
-    if (!detailText.includes("1.800.000") || !detailText.includes("ART")) throw new Error("Purchase detail must show totals and purchased item information.");
+    const purchaseDetail = page.locator("[data-purchase-detail]:not([hidden])");
+    await purchaseDetail.waitFor();
+    const detailText = await purchaseDetail.innerText();
+    const requiredPurchaseDetailText = ["Hàng hóa", "12 mặt hàng", "ART"];
+    const missingPurchaseDetailText = requiredPurchaseDetailText.filter(value => !detailText.includes(value));
+    if (missingPurchaseDetailText.length) throw new Error(`Purchase detail must show a structured, auditable item table (missing: ${missingPurchaseDetailText.join(", ")}).`);
+    const itemHeadText = await purchaseDetail.locator(".purchase-detail-item-head").textContent();
+    if (!["Sản phẩm", "Số lượng", "Đơn giá", "Thành tiền"].every(value => itemHeadText.includes(value))) throw new Error("Purchase item table must label every accounting column.");
+    const purchaseDetailMetrics = await purchaseDetail.evaluate(element => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, width: element.getBoundingClientRect().width }));
+    if (purchaseDetailMetrics.scrollWidth > purchaseDetailMetrics.clientWidth + 2) throw new Error("Purchase detail must not overflow horizontally.");
+    if (viewportName === "desktop" && purchaseDetailMetrics.width < 680) throw new Error("Purchase detail must provide enough desktop width for item columns.");
+    const itemList = purchaseDetail.locator("[data-purchase-detail-items]");
+    const itemListMetrics = await itemList.evaluate(element => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, overflowY: getComputedStyle(element).overflowY }));
+    if (itemListMetrics.scrollHeight <= itemListMetrics.clientHeight || itemListMetrics.overflowY !== "auto") throw new Error("Long purchase item lists must scroll independently.");
+    await itemList.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    if (await itemList.evaluate(element => element.scrollTop <= 0)) throw new Error("Purchase item table must support vertical review of long receipts.");
+    await itemList.evaluate(element => { element.scrollTop = 0; });
     if (keepScreenshots) {
       const dir = path.join(screenshotRoot, viewportName);
       await mkdir(dir, { recursive: true });
