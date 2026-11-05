@@ -5837,13 +5837,14 @@
   }
 
   function renderPurchaseItemRow(productId, values = {}) {
-    const product = byId("products", productId);
+    const catalogProduct = byId("products", productId);
+    const product = catalogProduct || (values.productId ? { id: productId, sku: values.sku, name: values.name, stock: 0, costPrice: values.unitCost } : null);
     if (!product) return "";
     const quantity = Number(values.quantity || 1);
     const unitCost = Number(values.unitCost === undefined ? product.costPrice : values.unitCost);
     return `
       <div class="purchase-item-row" data-purchase-item-row>
-        <div class="cart-product-summary purchase-product-summary">${renderProductThumb(product, "cart-product-thumb")}<span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · tồn ${Number(product.stock || 0)} · giá vốn ${money.format(product.costPrice)}</small></span><input type="hidden" value="${product.id}" data-purchase-product required /></div>
+        <div class="cart-product-summary purchase-product-summary">${renderProductThumb(product, "cart-product-thumb")}<span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · tồn ${Number(product.stock || 0)} · giá vốn ${money.format(product.costPrice)}</small>${!catalogProduct ? `<small>Không còn trong danh mục</small>` : product.status === "archived" ? `<small>Ngừng hoạt động · Dòng hàng đã có trong phiếu</small>` : ""}</span><input type="hidden" value="${product.id}" data-purchase-product required /></div>
         <div class="field compact-field purchase-quantity-field"><label>Số lượng</label><input type="number" min="1" step="1" value="${quantity}" data-purchase-quantity required /></div>
         <div class="field compact-field purchase-cost-field"><label>Đơn giá nhập</label><input type="number" min="0" step="1" value="${unitCost}" data-purchase-cost required /></div>
         <strong class="purchase-line-total" data-purchase-line-total>${money.format(quantity * unitCost)}</strong>
@@ -5997,6 +5998,7 @@
   async function submitPurchaseForm(form) {
     const data = Object.fromEntries(new FormData(form));
     const editingOrder = form.dataset.purchaseOrderId ? byId("purchaseOrders", form.dataset.purchaseOrderId) : null;
+    if ((purchaseEditId || form.dataset.purchaseOrderId) && !editingOrder) throw new Error("Không tìm thấy phiếu mua cần sửa. Vui lòng tải lại phiếu trước khi lưu.");
     const supplier = byId("suppliers", data.supplierId);
     const items = [...form.querySelectorAll("[data-purchase-item-row]")].map(row => ({
       productId: row.querySelector("[data-purchase-product]").value,
@@ -6004,7 +6006,7 @@
       unitCost: Number(row.querySelector("[data-purchase-cost]").value)
     }));
     if (!supplier || !items.length) throw new Error("Cần chọn nhà cung cấp và ít nhất một sản phẩm.");
-    if (items.some(item => !item.productId || item.quantity < 1 || item.unitCost < 0)) throw new Error("Dòng hàng nhập chưa hợp lệ.");
+    if (items.some(item => !item.productId || !Number.isFinite(item.quantity) || !Number.isFinite(item.unitCost) || item.quantity < 1 || item.unitCost < 0)) throw new Error("Dòng hàng nhập chưa hợp lệ.");
     const response = await apiRequest(editingOrder ? "/purchase-orders/update" : "/purchase-orders/create", {
       method: "POST", body: JSON.stringify({
         id: editingOrder ? editingOrder.id : undefined,
@@ -7665,7 +7667,8 @@
           await withLoading(purchaseEditId ? "Đang cập nhật phiếu mua..." : "Đang tạo phiếu mua...", () => submitPurchaseForm(event.currentTarget));
           window.location.href = "./purchasing.html";
         } catch (error) {
-          showToast(error.message, "error");
+          const reference = error.code === "purchasing_storage_error" && error.requestId ? ` Mã yêu cầu: ${error.requestId}` : "";
+          showToast(`${error.message}${reference}`, "error");
         } finally {
           setBusy(button, false);
         }
