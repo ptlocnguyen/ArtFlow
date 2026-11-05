@@ -47,13 +47,13 @@ body[data-page="purchaseCreate"] .money-input-wrap > span {
 body[data-page="purchaseCreate"] .order-submit-actions .button { width: 100%; }
 .focus-workflow { max-width: 1600px; margin: 0 auto; }
 
-/* Purchase entry contains several independent work areas, so the document owns
-   vertical scrolling while the product and cart lists keep their own limits. */
+/* Desktop purchase entry stays inside one viewport. The item table owns the
+   only vertical scrollbar; compact screens fall back to document scrolling. */
 body[data-page="purchaseCreate"] {
-  height: auto;
-  min-height: 100dvh;
+  height: 100dvh;
+  min-height: 0;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 
 body[data-page="purchaseCreate"].purchase-product-picker-open {
@@ -61,39 +61,130 @@ body[data-page="purchaseCreate"].purchase-product-picker-open {
 }
 
 body[data-page="purchaseCreate"] .app-shell {
-  height: auto;
-  min-height: 100dvh;
-  overflow: visible;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 body[data-page="purchaseCreate"] .workspace,
 body[data-page="purchaseCreate"] .view.active,
 body[data-page="purchaseCreate"] .purchase-create-form,
 body[data-page="purchaseCreate"] .order-compose-grid {
-  height: auto;
+  height: 100%;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
-body[data-page="purchaseCreate"] .view.active { flex: 0 0 auto; }
-body[data-page="purchaseCreate"] .order-compose-grid { align-items: start; }
-body[data-page="purchaseCreate"] .order-compose-main { grid-template-rows: auto auto; }
-body[data-page="purchaseCreate"] .order-compose-main > .panel:first-child { min-height: min(600px, calc(100dvh - 130px)); }
-body[data-page="purchaseCreate"] .purchase-builder-layout { min-height: 460px; }
-body[data-page="purchaseCreate"] .order-summary-panel { align-self: start; }
-body[data-page="purchaseCreate"] .order-summary-panel > .sticky-summary {
-  position: sticky;
-  top: calc(var(--command-height) + 12px);
-  height: auto;
-  max-height: calc(100dvh - var(--command-height) - 24px);
+body[data-page="purchaseCreate"] .view.active { flex: 1 1 auto; }
+body[data-page="purchaseCreate"] .order-compose-grid { align-items: stretch; }
+body[data-page="purchaseCreate"] .order-compose-main,
+body[data-page="purchaseCreate"] .purchase-items-section,
+body[data-page="purchaseCreate"] .purchase-builder-layout,
+body[data-page="purchaseCreate"] .purchase-cart-panel {
+  height: 100%;
+  min-height: 0;
+}
+body[data-page="purchaseCreate"] .order-compose-main { display: block; }
+body[data-page="purchaseCreate"] .purchase-items-section {
+  display: flex;
+  flex-direction: column;
+}
+body[data-page="purchaseCreate"] .purchase-builder-layout { flex: 1 1 auto; }
+body[data-page="purchaseCreate"] .purchase-cart-panel {
+  display: flex;
+  flex-direction: column;
+}
+body[data-page="purchaseCreate"] .purchase-items {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
+}
+body[data-page="purchaseCreate"] .purchase-side-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  align-self: stretch;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+body[data-page="purchaseCreate"] .purchase-side-panel > .panel {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+body[data-page="purchaseCreate"] .purchase-supplier-section .panel-header,
+body[data-page="purchaseCreate"] .purchase-side-panel > .sticky-summary .panel-header {
+  padding-block: 14px 10px;
+}
+body[data-page="purchaseCreate"] .purchase-supplier-section .compact-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  gap: 10px;
+  padding: 8px 18px 14px;
+}
+body[data-page="purchaseCreate"] .purchase-supplier-section .field,
+body[data-page="purchaseCreate"] .purchase-supplier-section input,
+body[data-page="purchaseCreate"] .purchase-supplier-section select {
+  min-width: 0;
+  width: 100%;
+}
+body[data-page="purchaseCreate"] .purchase-supplier-section .field.full:first-child,
+body[data-page="purchaseCreate"] .purchase-supplier-section .field.full:last-child {
+  grid-column: 1 / -1;
+}
+body[data-page="purchaseCreate"] .purchase-side-panel > .sticky-summary {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+}
+body[data-page="purchaseCreate"] .purchase-side-panel .summary-lines { flex: 1 1 auto; }
+body[data-page="purchaseCreate"] .purchase-side-panel .order-submit-actions {
+  position: static;
+  margin-top: auto;
 }
 
 @media (max-width: 1100px) {
-  body[data-page="purchaseCreate"] .order-compose-main > .panel:first-child { min-height: 560px; }
+  body[data-page="purchaseCreate"] {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+  body[data-page="purchaseCreate"] .app-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  body[data-page="purchaseCreate"] .workspace,
+  body[data-page="purchaseCreate"] .view.active,
+  body[data-page="purchaseCreate"] .purchase-create-form,
+  body[data-page="purchaseCreate"] .order-compose-grid {
+    height: auto;
+    overflow: visible;
+  }
+  body[data-page="purchaseCreate"] .view.active { flex: 0 0 auto; }
+  body[data-page="purchaseCreate"] .order-compose-grid { align-items: start; }
+  body[data-page="purchaseCreate"] .order-compose-main,
+  body[data-page="purchaseCreate"] .purchase-items-section,
+  body[data-page="purchaseCreate"] .purchase-builder-layout,
+  body[data-page="purchaseCreate"] .purchase-cart-panel { height: auto; }
+  body[data-page="purchaseCreate"] .purchase-items-section { min-height: 560px; }
   body[data-page="purchaseCreate"] .purchase-builder-layout { min-height: 440px; }
+  body[data-page="purchaseCreate"] .purchase-items { max-height: 480px; }
+  body[data-page="purchaseCreate"] .purchase-side-panel {
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 14px;
+    overflow: visible;
+  }
   body[data-page="purchaseCreate"] .order-summary-panel > .sticky-summary {
     position: static;
+    height: auto;
     max-height: none;
     overflow: visible;
   }

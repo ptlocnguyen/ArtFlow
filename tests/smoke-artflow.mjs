@@ -822,18 +822,25 @@ async function runPageInteractions(page, pageName, viewportName) {
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth
     }));
-    if (purchaseScroll.overflowY === "hidden") throw new Error("Purchase creation page must not lock vertical scrolling.");
+    const compactPurchaseLayout = Number(page.viewportSize()?.width || 0) <= 1100;
+    if (compactPurchaseLayout && purchaseScroll.overflowY === "hidden") throw new Error("Compact purchase creation must allow document scrolling.");
+    if (!compactPurchaseLayout && purchaseScroll.overflowY !== "hidden") throw new Error("Desktop purchase creation must keep the workflow inside one viewport.");
     if (purchaseScroll.scrollWidth > purchaseScroll.clientWidth + 2) throw new Error("Purchase creation page must not overflow horizontally.");
-    await page.evaluate(() => {
-      const probe = document.createElement("div");
-      probe.dataset.purchaseScrollProbe = "";
-      probe.style.height = "420px";
-      document.querySelector("[data-purchase-create-form]")?.appendChild(probe);
-    });
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await page.waitForTimeout(80);
-    if (await page.evaluate(() => window.scrollY <= 0)) throw new Error("Purchase creation page must scroll to its supplier and submit sections.");
-    await page.locator("[data-purchase-scroll-probe]").evaluate(element => element.remove());
+    if (compactPurchaseLayout) {
+      await page.evaluate(() => {
+        const probe = document.createElement("div");
+        probe.dataset.purchaseScrollProbe = "";
+        probe.style.height = "420px";
+        document.querySelector("[data-purchase-create-form]")?.appendChild(probe);
+      });
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.waitForTimeout(80);
+      if (await page.evaluate(() => window.scrollY <= 0)) throw new Error("Compact purchase creation must scroll to its supplier and submit sections.");
+      await page.locator("[data-purchase-scroll-probe]").evaluate(element => element.remove());
+    } else {
+      const desktopFit = await page.evaluate(() => ({ page: document.documentElement.scrollHeight, viewport: innerHeight }));
+      if (desktopFit.page > desktopFit.viewport + 2) throw new Error("Desktop purchase creation must not require whole-page scrolling.");
+    }
     if (!(await page.locator("[data-purchase-create-form] button[type='submit']").isVisible())) throw new Error("Purchase submit action must remain reachable after scrolling.");
     if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
       const dir = path.join(screenshotRoot, viewportName);
