@@ -906,7 +906,7 @@ async function runPageInteractions(page, pageName, viewportName) {
     if (await page.locator("[data-purchase-product-popup]:not([hidden])").count()) throw new Error("Purchase product picker must close from its completion action.");
     const purchaseItems = page.locator("[data-purchase-items]");
     if (await purchaseItems.locator("[data-purchase-item-row]").count() !== 1) throw new Error("Selecting a product must create exactly one purchase line.");
-    if (await purchaseItems.locator("[data-purchase-cost]").first().inputValue() !== "12000") {
+    if (await purchaseItems.locator("[data-purchase-cost]").first().inputValue() !== "12.000") {
       throw new Error("Adding a known supplier product must default to its latest received cost.");
     }
     if (keepScreenshots && ["desktop", "mobile"].includes(viewportName)) {
@@ -929,10 +929,12 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.locator("[data-purchase-scroll-clone]").evaluateAll(elements => elements.forEach(element => element.remove()));
     const unitCost = page.locator("[data-purchase-cost]").first();
     await unitCost.fill("11200");
+    await page.waitForFunction(() => document.querySelector("[data-purchase-cost]")?.value === "11.200");
     const isValidCost = await unitCost.evaluate(input => input.validity.valid);
     if (!isValidCost) throw new Error("Purchase unit cost 11200 must be accepted as a valid VND value.");
     await page.locator("[data-purchase-create-form] button[type='submit']").click();
-    await page.waitForTimeout(150);
+    await page.waitForFunction(() => document.querySelector("[data-toast]")?.textContent.includes("Đã lưu"));
+    if (!page.url().includes("purchase-create.html?edit=")) throw new Error("A successful purchase save must stay on the editor and switch to update mode.");
   }
   if (pageName === "team-pricing") {
     await page.evaluate(() => window.history.replaceState(null, "", "?productId=prod-001"));

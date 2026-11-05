@@ -257,6 +257,22 @@
     if (input.value !== formatted) input.value = formatted;
   }
 
+  function formatMoneyInputWhileTyping(input) {
+    if (!isMoneyInput(input)) return;
+    const selection = Number(input.selectionStart ?? input.value.length);
+    const digitsBeforeCursor = cleanMoneyText(input.value.slice(0, selection)).replace("-", "").length;
+    const formatted = formatMoneyText(input.value);
+    input.value = formatted;
+    if (typeof input.setSelectionRange !== "function") return;
+    let cursor = 0;
+    let seenDigits = 0;
+    while (cursor < formatted.length && seenDigits < digitsBeforeCursor) {
+      if (/\d/.test(formatted[cursor])) seenDigits += 1;
+      cursor += 1;
+    }
+    input.setSelectionRange(cursor, cursor);
+  }
+
   function normalizeMoneyInputs(rootNode) {
     (rootNode || document).querySelectorAll("input").forEach(unformatMoneyInput);
   }
@@ -5846,7 +5862,7 @@
       <div class="purchase-item-row" data-purchase-item-row>
         <div class="cart-product-summary purchase-product-summary">${renderProductThumb(product, "cart-product-thumb")}<span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · tồn ${Number(product.stock || 0)} · giá vốn ${money.format(product.costPrice)}</small>${!catalogProduct ? `<small>Không còn trong danh mục</small>` : product.status === "archived" ? `<small>Ngừng hoạt động · Dòng hàng đã có trong phiếu</small>` : ""}</span><input type="hidden" value="${product.id}" data-purchase-product required /></div>
         <div class="field compact-field purchase-quantity-field"><label>Số lượng</label><input type="number" min="1" step="1" value="${quantity}" data-purchase-quantity required /></div>
-        <div class="field compact-field purchase-cost-field"><label>Đơn giá nhập</label><input type="number" min="0" step="1" value="${unitCost}" data-purchase-cost required /></div>
+        <div class="field compact-field purchase-cost-field"><label>Đơn giá nhập</label><div class="money-input-wrap"><input type="text" inputmode="numeric" autocomplete="off" value="${formatMoneyText(unitCost)}" data-money-input="true" data-purchase-cost required /><span>đ</span></div></div>
         <strong class="purchase-line-total" data-purchase-line-total>${money.format(quantity * unitCost)}</strong>
         <button class="icon-button purchase-remove-item" type="button" data-remove-purchase-item aria-label="Xóa dòng" title="Xóa khỏi phiếu">${icon("trash")}</button>
       </div>
@@ -5972,14 +5988,14 @@
     let subtotal = 0;
     rows.forEach(row => {
       const quantity = Number(row.querySelector("[data-purchase-quantity]").value || 0);
-      const cost = Number(row.querySelector("[data-purchase-cost]").value || 0);
+      const cost = Number(cleanMoneyText(row.querySelector("[data-purchase-cost]").value) || 0);
       const lineTotal = Math.max(0, quantity * cost);
       subtotal += lineTotal;
       const output = row.querySelector("[data-purchase-line-total]");
       if (output) output.textContent = money.format(lineTotal);
     });
-    const discount = Number(form.discount && form.discount.value || 0);
-    const shippingFee = Number(form.shippingFee && form.shippingFee.value || 0);
+    const discount = Number(cleanMoneyText(form.discount && form.discount.value) || 0);
+    const shippingFee = Number(cleanMoneyText(form.shippingFee && form.shippingFee.value) || 0);
     const total = Math.max(0, subtotal - discount + shippingFee);
     const outputs = {
       "[data-purchase-summary-subtotal]": subtotal,
@@ -6003,7 +6019,7 @@
     const items = [...form.querySelectorAll("[data-purchase-item-row]")].map(row => ({
       productId: row.querySelector("[data-purchase-product]").value,
       quantity: Number(row.querySelector("[data-purchase-quantity]").value),
-      unitCost: Number(row.querySelector("[data-purchase-cost]").value)
+      unitCost: Number(cleanMoneyText(row.querySelector("[data-purchase-cost]").value))
     }));
     if (!supplier || !items.length) throw new Error("Cần chọn nhà cung cấp và ít nhất một sản phẩm.");
     if (items.some(item => !item.productId || !Number.isFinite(item.quantity) || !Number.isFinite(item.unitCost) || item.quantity < 1 || item.unitCost < 0)) throw new Error("Dòng hàng nhập chưa hợp lệ.");
@@ -6013,8 +6029,8 @@
         supplierId: data.supplierId,
         dueDate: data.dueDate || "",
         invoiceNumber: data.invoiceNumber || "",
-        discount: Number(data.discount || 0),
-        shippingFee: Number(data.shippingFee || 0),
+        discount: Number(cleanMoneyText(data.discount) || 0),
+        shippingFee: Number(cleanMoneyText(data.shippingFee) || 0),
         note: data.note || "",
         items
       })
@@ -6051,7 +6067,7 @@
           <section class="panel order-compose-section purchase-items-section"><div class="panel-header purchase-items-header"><div><h2>Danh sách hàng nhập</h2><p>Kiểm tra số lượng và đơn giá nhập trước khi lưu phiếu.</p></div><button class="button primary" type="button" data-open-purchase-product-picker>${icon("plus")} Thêm sản phẩm</button></div><div class="purchase-builder-layout"><div class="order-cart-panel purchase-cart-panel"><div class="order-cart-heading"><strong>Sản phẩm đã chọn</strong><span data-purchase-cart-count>0 dòng</span></div><div class="purchase-list-columns" aria-hidden="true"><span>Sản phẩm</span><span>Số lượng</span><span>Đơn giá nhập</span><span>Thành tiền</span><span></span></div><div class="order-empty-cart" data-purchase-empty-cart><span class="empty-state-icon">${icon("package")}</span><strong>Chưa có sản phẩm trong phiếu</strong><small>Mở danh mục để chọn nhanh nhiều sản phẩm cần nhập.</small><button class="button ghost" type="button" data-open-purchase-product-picker>${icon("plus")} Chọn sản phẩm</button></div><div class="order-items order-items-large purchase-items" data-purchase-items></div></div></div></section>
           <section class="panel order-compose-section order-customer-section"><div class="panel-header"><div><h2>Nhà cung cấp</h2><p>Thông tin đối tác và chứng từ mua hàng.</p></div></div><div class="form-grid compact-grid"><div class="field full"><label for="supplierId">Nhà cung cấp</label><select id="supplierId" name="supplierId" required>${suppliers}</select></div><div class="field"><label for="invoiceNumber">Số hóa đơn</label><input id="invoiceNumber" name="invoiceNumber" placeholder="Mẫu số / số hóa đơn" /></div><div class="field"><label for="dueDate">Hạn thanh toán</label><input id="dueDate" name="dueDate" type="date" /></div><div class="field full"><label for="note">Ghi chú</label><input id="note" name="note" placeholder="Điều khoản mua, người giao, số báo giá..." /></div></div></section>
         </div>
-        <aside class="order-summary-panel"><section class="panel order-compose-section sticky-summary"><div class="panel-header"><div><h2>Tổng phiếu mua</h2><p>Phiếu được lưu ở trạng thái nháp trước khi nhận hàng.</p></div></div><div class="form-grid summary-grid"><div class="field"><label for="discount">Chiết khấu</label><input id="discount" name="discount" type="number" min="0" step="1" value="0" data-purchase-money /></div><div class="field"><label for="shippingFee">Phí vận chuyển</label><input id="shippingFee" name="shippingFee" type="number" min="0" step="1" value="0" data-purchase-money /></div></div><div class="summary-lines"><div><span>Tạm tính</span><strong data-purchase-summary-subtotal>${money.format(0)}</strong></div><div><span>Chiết khấu</span><strong data-purchase-summary-discount>${money.format(0)}</strong></div><div><span>Phí vận chuyển</span><strong data-purchase-summary-shipping>${money.format(0)}</strong></div><div class="summary-total"><span>Tổng phải trả</span><strong data-purchase-summary-total>${money.format(0)}</strong></div></div><div class="form-actions order-submit-actions"><a class="button ghost" href="./purchasing.html">Hủy</a><button class="button primary" type="submit">Lưu phiếu mua</button></div></section></aside>
+        <aside class="order-summary-panel"><section class="panel order-compose-section sticky-summary"><div class="panel-header"><div><h2>Tổng phiếu mua</h2><p>Lưu nháp tại đây để tiếp tục chỉnh sửa trước khi nhận hàng.</p></div></div><div class="form-grid summary-grid"><div class="field"><label for="discount">Chiết khấu</label><input id="discount" name="discount" type="number" min="0" step="1" value="0" data-purchase-money /></div><div class="field"><label for="shippingFee">Phí vận chuyển</label><input id="shippingFee" name="shippingFee" type="number" min="0" step="1" value="0" data-purchase-money /></div></div><div class="summary-lines"><div><span>Tạm tính</span><strong data-purchase-summary-subtotal>${money.format(0)}</strong></div><div><span>Chiết khấu</span><strong data-purchase-summary-discount>${money.format(0)}</strong></div><div><span>Phí vận chuyển</span><strong data-purchase-summary-shipping>${money.format(0)}</strong></div><div class="summary-total"><span>Tổng phải trả</span><strong data-purchase-summary-total>${money.format(0)}</strong></div></div><div class="form-actions order-submit-actions"><button class="button primary" type="submit">Lưu phiếu mua</button></div></section></aside>
         <div class="purchase-product-popup" data-purchase-product-popup hidden>
           <div class="purchase-product-popup-panel" role="dialog" aria-modal="true" aria-labelledby="purchaseProductPickerTitle">
             <header class="purchase-product-popup-header"><div><p class="eyebrow">Danh mục sản phẩm</p><h2 id="purchaseProductPickerTitle">Chọn sản phẩm cần nhập</h2><p>Những sản phẩm đã có trong phiếu sẽ được đánh dấu để tránh chọn trùng.</p></div><button class="icon-button" type="button" data-close-purchase-product-picker aria-label="Đóng">${icon("close")}</button></header>
@@ -7411,6 +7427,10 @@
         input.dataset.moneyFreshFocus = "false";
         window.clearTimeout(Number(input.dataset.moneyFormatTimer || 0));
         input.dataset.moneyFormatTimer = String(window.setTimeout(() => {
+          if (input.matches("[data-purchase-cost]")) {
+            formatMoneyInputWhileTyping(input);
+            return;
+          }
           const formatted = formatMoneyText(input.value);
           if (input.value !== formatted) {
             input.value = formatted;
@@ -7661,14 +7681,26 @@
     if (els.purchaseCreateForm) {
       els.purchaseCreateForm.addEventListener("submit", async event => {
         event.preventDefault();
-        const button = event.currentTarget.querySelector("button[type='submit']");
+        const form = event.currentTarget;
+        const button = form.querySelector("button[type='submit']");
         setBusy(button, true, "Đang lưu...");
         try {
-          await withLoading(purchaseEditId ? "Đang cập nhật phiếu mua..." : "Đang tạo phiếu mua...", () => submitPurchaseForm(event.currentTarget));
-          window.location.href = "./purchasing.html";
+          const savedOrder = await withLoading(form.dataset.purchaseOrderId ? "Đang cập nhật phiếu mua..." : "Đang tạo phiếu mua...", () => submitPurchaseForm(form));
+          form.dataset.purchaseOrderId = savedOrder.id;
+          const saved = byId("purchaseOrders", savedOrder.id) || normalizePurchaseOrder(savedOrder);
+          if (button) {
+            button.textContent = "Lưu thay đổi";
+            button.dataset.originalHtml = "Lưu thay đổi";
+          }
+          if (els.title) els.title.textContent = `Sửa ${saved.code}`;
+          const nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.set("edit", saved.id);
+          window.history.replaceState({}, "", nextUrl);
+          showToast(`Đã lưu ${saved.code} thành công.`, "success");
         } catch (error) {
-          const reference = error.code === "purchasing_storage_error" && error.requestId ? ` Mã yêu cầu: ${error.requestId}` : "";
-          showToast(`${error.message}${reference}`, "error");
+          const errorCode = error.code && error.code !== "api_error" ? ` Mã lỗi: ${error.code}.` : "";
+          const requestCode = error.requestId ? ` Mã yêu cầu: ${error.requestId}.` : "";
+          showToast(`Lưu phiếu thất bại: ${error.message}.${errorCode}${requestCode}`, "error");
         } finally {
           setBusy(button, false);
         }
