@@ -8,22 +8,6 @@ const DIRECT_ACTIONS = new Set([
   "me",
   "exportD1Snapshot"
 ]);
-const CORE_ACTIONS = [...DIRECT_ACTIONS];
-
-const NUMERIC_FIELDS = {
-  products: ["cost_price", "sale_price", "stock", "low_stock", "weight_grams"],
-  customers: ["total_spent", "loyalty_points", "lifetime_points"],
-  orders: [
-    "subtotal", "discount", "shipping_fee", "total", "returned_amount",
-    "refunded_amount", "discount_percent", "loyalty_points_used",
-    "loyalty_discount", "cash_received", "change_amount", "rounding_amount"
-  ],
-  order_items: ["quantity", "unit_price", "cost_price", "line_total", "discount_percent"],
-  sales_returns: ["amount"],
-  sales_return_items: ["quantity", "unit_price", "cost_price", "line_total", "discount_percent"],
-  order_refunds: ["amount"],
-  stock_movements: ["quantity_delta", "stock_before", "stock_after"]
-};
 
 function number(value) {
   return Number(value || 0);
@@ -128,15 +112,6 @@ export async function requireSession(db, token) {
        AND datetime(session_expires_at) >= datetime('now')
      LIMIT 1`
   ).bind(String(token)).first();
-}
-
-async function readIsDirty(db, action) {
-  const row = await db.prepare(
-    `SELECT value_json
-     FROM d1_meta
-     WHERE key = ? AND updated_at > datetime('now', '-5 minutes')`
-  ).bind(`dirty:${action}`).first();
-  return Boolean(row && row.value_json === "true");
 }
 
 async function listProducts(db) {
@@ -315,7 +290,16 @@ function groupBy(values, keyForValue) {
 export async function readDirectD1(env, payload, options = {}) {
   if (!env.DB) return null;
   const user = await requireSession(env.DB, payload.token);
-  if (!user) return null;
+  if (!user) {
+    // Business reads belong to D1, so an invalid session is a real D1
+    // response rather than a reason to fall through to legacy Sheets.
+    // Identity reads remain eligible for the Apps Script owner.
+    const businessRead = payload.action === "getPageData" ||
+      (DIRECT_ACTIONS.has(payload.action) && !["me", "listUsers"].includes(payload.action));
+    return businessRead
+      ? { ok: false, error: "Invalid session", code: "invalid_session", dataSource: "d1" }
+      : null;
+  }
   const handlers = {
     listProducts, listCustomers, listOrders, listStockMovements,
     listUsers: (db, current) => listUsers(db, current),
@@ -349,156 +333,6 @@ export async function readDirectD1(env, payload, options = {}) {
   }
   if (!DIRECT_ACTIONS.has(payload.action)) return null;
   return handlers[payload.action](env.DB, user);
-}
-
-export async function markCoreReadsDirty(env) {
-  if (!env.DB) return;
-  await env.DB.batch(CORE_ACTIONS.map(action => env.DB.prepare(
-    `INSERT INTO d1_meta (key, value_json, updated_at) VALUES (?, 'true', datetime('now'))
-     ON CONFLICT(key) DO UPDATE SET value_json = 'true', updated_at = datetime('now')`
-  ).bind(`dirty:${action}`)));
-}
-
-function snakeRecord(value, mapping) {
-  const output = {};
-  Object.entries(mapping).forEach(([target, source]) => {
-    output[target] = value[source] == null ? "" : value[source];
-  });
-  return output;
-}
-
-function statementFor(db, table, record) {
-  const numeric = new Set(NUMERIC_FIELDS[table] || []);
-  const columns = Object.keys(record);
-  const values = columns.map(column => numeric.has(column) ? number(record[column]) : record[column]);
-  return db.prepare(
-    `INSERT OR REPLACE INTO ${table} (${columns.map(column => `"${column}"`).join(",")})
-     VALUES (${columns.map(() => "?").join(",")})`
-  ).bind(...values);
-}
-
-async function replaceTable(db, table, records) {
-  await db.prepare(`DELETE FROM ${table}`).run();
-  for (let index = 0; index < records.length; index += 75) {
-    await db.batch(records.slice(index, index + 75).map(record => statementFor(db, table, record)));
-  }
-}
-
-const PRODUCT_MAP = {
-  id: "id", sku: "sku", name: "name", category: "category", brand: "brand",
-  barcode: "barcode", unit: "unit", weight_grams: "weightGrams", dimensions: "dimensions",
-  origin: "origin", material: "material", cost_price: "costPrice", sale_price: "salePrice",
-  stock: "stock", low_stock: "lowStock", image_url: "imageUrl",
-  short_description: "shortDescription", key_features: "keyFeatures",
-  target_audience: "targetAudience", seo_keywords: "seoKeywords",
-  content_status: "contentStatus", content_owner: "contentOwner", content_note: "contentNote",
-  website_product_url: "websiteProductUrl", shopee_product_url: "shopeeProductUrl",
-  tiktok_product_url: "tiktokProductUrl", facebook_product_url: "facebookProductUrl",
-  content_post_links: "contentPostLinks", content_doc_id: "contentDocId",
-  content_doc_url: "contentDocUrl", media_folder_id: "mediaFolderId",
-  media_folder_url: "mediaFolderUrl", image_folder_id: "imageFolderId",
-  image_folder_url: "imageFolderUrl", video_folder_id: "videoFolderId",
-  video_folder_url: "videoFolderUrl", status: "status", created_at: "createdAt", updated_at: "updatedAt"
-};
-
-const CUSTOMER_MAP = {
-  id: "id", name: "name", phone: "phone", email: "email", group: "group",
-  status: "status", total_spent: "totalSpent", loyalty_points: "loyaltyPoints",
-  lifetime_points: "lifetimePoints", last_order_at: "lastOrderAt", note: "note",
-  created_at: "createdAt", updated_at: "updatedAt"
-};
-
-export async function refreshD1FromRead(env, payload, response) {
-  if (!env.DB || !response || response.ok === false) return;
-  const refreshedActions = [];
-  if (Array.isArray(response.products)) {
-    await replaceTable(env.DB, "products", response.products.map(value => snakeRecord(value, PRODUCT_MAP)));
-    refreshedActions.push("listProducts");
-  }
-  if (Array.isArray(response.productOptions)) {
-    const records = response.productOptions.map(value => snakeRecord(value, {
-      id: "id", type: "type", name: "name", status: "status",
-      created_at: "createdAt", updated_at: "updatedAt"
-    }));
-    await replaceTable(env.DB, "product_options", records);
-  }
-  if (Array.isArray(response.customers)) {
-    await replaceTable(env.DB, "customers", response.customers.map(value => snakeRecord(value, CUSTOMER_MAP)));
-    refreshedActions.push("listCustomers");
-  }
-  if (Array.isArray(response.movements)) {
-    const records = response.movements.map(value => snakeRecord(value, {
-      id: "id", product_id: "productId", sku: "sku", product_name: "productName",
-      type: "type", quantity_delta: "quantityDelta", stock_before: "stockBefore",
-      stock_after: "stockAfter", reason: "reason", reference_type: "referenceType",
-      reference_id: "referenceId", created_by: "createdBy", created_at: "createdAt"
-    }));
-    await replaceTable(env.DB, "stock_movements", records);
-    refreshedActions.push("listStockMovements");
-  }
-  if (Array.isArray(response.orders)) {
-    const orderRows = [];
-    const itemRows = [];
-    response.orders.forEach(value => {
-      orderRows.push(snakeRecord(value, {
-        id: "id", code: "code", customer_id: "customerId", status: "status",
-        payment_status: "paymentStatus", payment_method: "paymentMethod",
-        subtotal: "subtotal", discount: "discount", shipping_fee: "shippingFee",
-        total: "total", note: "note", created_by: "createdBy", created_at: "createdAt",
-        updated_at: "updatedAt", channel: "channel", shipping_status: "shippingStatus",
-        carrier: "carrier", tracking_code: "trackingCode", returned_amount: "returnedAmount",
-        refunded_amount: "refundedAmount", discount_percent: "discountPercent",
-        loyalty_points_used: "loyaltyPointsUsed", loyalty_discount: "loyaltyDiscount",
-        cash_received: "cashReceived", change_amount: "changeAmount",
-        rounding_amount: "roundingAmount", receipt_pdf_url: "receiptPdfUrl"
-      }));
-      (value.items || []).forEach(item => itemRows.push(snakeRecord(item, {
-        id: "id", order_id: "orderId", product_id: "productId", sku: "sku",
-        name: "name", quantity: "quantity", unit_price: "unitPrice",
-        cost_price: "costPrice", line_total: "lineTotal", created_at: "createdAt",
-        discount_percent: "discountPercent"
-      })));
-    });
-    await replaceTable(env.DB, "order_items", itemRows);
-    await replaceTable(env.DB, "orders", orderRows);
-    refreshedActions.push("listOrders");
-  }
-  if (Array.isArray(response.salesReturns)) {
-    const returnRows = [];
-    const itemRows = [];
-    response.salesReturns.forEach(value => {
-      returnRows.push(snakeRecord(value, {
-        id: "id", code: "code", order_id: "orderId", customer_id: "customerId",
-        amount: "amount", note: "note", created_by: "createdBy", created_at: "createdAt"
-      }));
-      (value.items || []).forEach(item => itemRows.push(snakeRecord(item, {
-        id: "id", return_id: "returnId", order_item_id: "orderItemId",
-        product_id: "productId", sku: "sku", name: "name", quantity: "quantity",
-        unit_price: "unitPrice", cost_price: "costPrice",
-        discount_percent: "discountPercent", line_total: "lineTotal", created_at: "createdAt"
-      })));
-    });
-    await replaceTable(env.DB, "sales_return_items", itemRows);
-    await replaceTable(env.DB, "sales_returns", returnRows);
-  }
-  if (Array.isArray(response.orderRefunds)) {
-    await replaceTable(env.DB, "order_refunds", response.orderRefunds.map(value => snakeRecord(value, {
-      id: "id", order_id: "orderId", sales_return_id: "salesReturnId",
-      cash_transaction_id: "cashTransactionId", account_id: "accountId",
-      category_id: "categoryId", amount: "amount", refund_date: "refundDate",
-      note: "note", created_by: "createdBy", created_at: "createdAt"
-    })));
-  }
-  if (refreshedActions.length) {
-    await env.DB.batch([...new Set(refreshedActions)].map(action => env.DB.prepare(
-      `INSERT INTO d1_meta (key, value_json, updated_at) VALUES (?, 'false', datetime('now'))
-       ON CONFLICT(key) DO UPDATE SET value_json = 'false', updated_at = datetime('now')`
-    ).bind(`dirty:${action}`)));
-  }
-}
-
-export function isDirectReadAction(action) {
-  return DIRECT_ACTIONS.has(action);
 }
 
 export async function syncIdentityToD1(env, payload, response) {

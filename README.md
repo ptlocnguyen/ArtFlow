@@ -5,14 +5,14 @@
 [![Frontend](https://img.shields.io/badge/Frontend-GitHub_Pages-24292f?style=for-the-badge&logo=github)](https://pages.github.com/)
 [![API](https://img.shields.io/badge/API-Cloudflare_Workers-f38020?style=for-the-badge&logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Backend](https://img.shields.io/badge/Backend-Google_Apps_Script-4285f4?style=for-the-badge&logo=googleappsscript&logoColor=white)](https://developers.google.com/apps-script)
-[![Data](https://img.shields.io/badge/Data-Google_Sheets_%2F_Drive-34a853?style=for-the-badge&logo=googledrive&logoColor=white)](https://developers.google.com/workspace)
+[![Data](https://img.shields.io/badge/Data-Cloudflare_D1-f38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/d1/)
 [![Language](https://img.shields.io/badge/Language-Vanilla_JS-f7df1e?style=for-the-badge&logo=javascript&logoColor=111)](https://developer.mozilla.org/docs/Web/JavaScript)
 
 ## 1. Tổng quan
 
 ArtFlow POS là ứng dụng quản lý bán hàng nội bộ, được xây dựng theo hướng nhẹ, dễ triển khai và không cần máy chủ riêng.
 
-Hệ thống gồm bốn lớp:
+Hệ thống gồm bốn lớp, trong đó D1 là nguồn dữ liệu nghiệp vụ duy nhất:
 
 ```text
 Người dùng
@@ -22,15 +22,13 @@ Frontend tĩnh trên GitHub Pages
    │  POST JSON
    ▼
 Cloudflare Worker
-   │  proxy có kiểm soát CORS
-   ▼
-Google Apps Script Web App
-   │
-   ├── Google Sheets: dữ liệu nghiệp vụ
-   └── Google Drive: tài nguyên sản phẩm và chứng từ
+   ├── Cloudflare D1: dữ liệu nghiệp vụ hiện hành
+   └── Google Apps Script Web App
+       ├── Google Sheets: tài khoản, xác thực và phiên đăng nhập
+       └── Google Drive/Docs: tài nguyên, PDF và bản sao lưu
 ```
 
-Frontend được viết bằng HTML, CSS và JavaScript thuần, không sử dụng framework và không cần build. Cloudflare Worker đóng vai trò cổng API trung gian, kiểm tra origin, giới hạn kích thước request và chuyển tiếp yêu cầu tới Google Apps Script.
+Frontend được viết bằng HTML, CSS và JavaScript thuần, không sử dụng framework và không cần build. Cloudflare Worker là cổng API và nơi định tuyến quyền sở hữu dữ liệu: nghiệp vụ đọc/ghi trực tiếp D1; chỉ xác thực và các tác vụ cần dịch vụ Google mới đi qua Apps Script.
 
 ## 2. Chức năng chính
 
@@ -213,21 +211,21 @@ Worker có các nhiệm vụ:
 - Kiểm tra JSON và trường `action`.
 - Không lưu cache response API.
 - Không đưa trực tiếp Apps Script URL vào frontend.
-- Chuyển tiếp payload tới Google Apps Script bằng `text/plain;charset=utf-8`.
+- Đọc/ghi dữ liệu nghiệp vụ trực tiếp trên D1.
+- Chuyển tiếp xác thực và cầu nối Google tới Apps Script bằng `text/plain;charset=utf-8`.
+- Không fallback nghiệp vụ sang Google Sheets khi D1 lỗi hoặc hết hạn mức. Worker trả `503`, frontend giữ snapshot cục bộ và không ghi nhầm vào nguồn dữ liệu cũ.
 
 ### 3.3. Google Apps Script
 
-Google Apps Script là backend nghiệp vụ thực tế, nhận trường `action` và xử lý:
+Google Apps Script là backend cho danh tính và dịch vụ Google, nhận trường `action` và xử lý:
 
 - Xác thực và phiên đăng nhập.
-- CRUD sản phẩm, khách hàng, nhân viên và nhà cung cấp.
-- Đơn bán, trả hàng và hoàn tiền.
-- Phiếu mua, nhận hàng, thanh toán và trả nhà cung cấp.
-- Biến động tồn kho.
-- Thu chi, tài khoản tiền, danh mục và đối soát.
-- Nhật ký hoạt động.
+- Quản trị tài khoản nhân viên.
 - Tạo tài nguyên Google Drive và Google Docs.
 - Tạo PDF hóa đơn/phiếu bán hàng.
+- Nhận snapshot D1 để lưu bản sao trên Google Drive.
+
+Mã Apps Script vẫn còn một số handler CRUD cũ để tương thích/lịch sử, nhưng chúng không phải nguồn production cho dữ liệu nghiệp vụ và Worker không được phép tự động chuyển sang các handler đó.
 
 > Thư mục `apps-script/` đang nằm trong `.gitignore`. Vì vậy mã Apps Script không được đưa lên repository công khai theo cấu hình hiện tại. Khi triển khai trên môi trường mới, cần có mã backend Apps Script tương ứng và deploy dưới dạng Web App.
 
@@ -243,7 +241,12 @@ Frontend không gọi các URL REST riêng biệt. Hàm `actionForPath()` ánh x
 }
 ```
 
-Worker giữ nguyên payload và chuyển tiếp tới Apps Script.
+- Action nghiệp vụ: `Frontend -> Worker -> D1`.
+- Action xác thực/người dùng: `Frontend -> Worker -> Apps Script/Sheets` và đồng bộ nhận dạng cần thiết sang D1.
+- Action tài nguyên/PDF: Worker đọc bản ghi hiện hành từ D1 rồi mới gọi cầu nối Apps Script/Drive.
+- Khi D1 tạm lỗi hoặc chạm hạn mức: Worker trả `503 d1_unavailable`; không đọc hay ghi dữ liệu nghiệp vụ từ Sheets.
+
+Worker chỉ chuyển tiếp các action do Apps Script sở hữu. Action nghiệp vụ được xử lý tại D1 và không được proxy sang Sheets.
 
 ## 4. Cấu trúc thư mục
 
@@ -470,6 +473,15 @@ https://artflow-pos-api.<subdomain>.workers.dev
 
 Cập nhật URL này vào `assets/js/config.js`.
 
+### 9.4. An toàn dữ liệu production
+
+- Không chạy migration hoặc import lại dữ liệu chỉ để deploy thay đổi định tuyến này.
+- Trước thay đổi schema hay dữ liệu, tạo snapshot và ghi lại mốc D1 Time Travel có thể khôi phục.
+- Chạy `npm run qa:data-source`, `npm run qa:data-integrity` và các test nghiệp vụ trên D1 local trước khi deploy.
+- Sau deploy, kiểm tra read-only trước; chỉ thực hiện một mutation nhỏ có thể đối soát khi các lượt đọc đều trả header `X-ArtFlow-Data-Source: d1`.
+- Theo dõi D1 rows read/written và lỗi `d1_unavailable`. Khi D1 lỗi hoặc hết hạn mức, dừng mutation và giữ cache cục bộ; không chuyển sang Sheets.
+- Không chạy test seed/reset hoặc smoke test có ghi dữ liệu trên database production.
+
 ## 10. Triển khai frontend lên GitHub Pages
 
 1. Commit và push repository lên GitHub.
@@ -496,11 +508,11 @@ git push origin main
 
 Vai trò của local storage:
 
-- Giữ seed data khi chưa tải được backend.
+- Giữ snapshot gần nhất khi tạm thời không tải được backend.
 - Làm cache giao diện sau khi dữ liệu được tải từ API.
 - Giảm tình trạng giao diện trống trong một số luồng.
 
-Nguồn dữ liệu nghiệp vụ chính vẫn phải là Google Apps Script/Google Sheets. Không nên coi local storage là cơ sở dữ liệu production.
+Nguồn dữ liệu nghiệp vụ duy nhất là Cloudflare D1. `localStorage` chỉ được dùng để hiển thị dữ liệu đã biết khi offline; mọi mutation vẫn phải được D1 xác nhận. Không coi local storage hoặc Google Sheets là cơ sở dữ liệu nghiệp vụ production.
 
 Để xóa cache của phiên bản hiện tại, chạy trong DevTools Console:
 
@@ -785,20 +797,19 @@ Nên test theo thứ tự:
 ## 18. Giới hạn hiện tại
 
 - Frontend tập trung phần lớn logic trong một file `assets/js/app.js`, nên cần cẩn thận khi mở rộng.
-- Chưa có build pipeline, unit test hoặc end-to-end test trong repository.
-- Google Sheets phù hợp quy mô nhỏ và vừa, nhưng có thể chậm khi dữ liệu tăng lớn.
+- Frontend không có build pipeline; bộ QA hiện tại chủ yếu là smoke/integration thay vì unit test chi tiết cho từng hàm.
+- D1 đang dùng gói Free nên phải theo dõi rows read, rows written, dung lượng và số query trong mỗi Worker invocation.
 - Local storage chỉ là cache/fallback, không phù hợp làm nguồn dữ liệu chính.
-- Mã Apps Script và tài liệu nội bộ đang bị loại khỏi Git theo `.gitignore`.
-- Chưa có hệ thống migration schema dữ liệu.
-- Việc đồng thời ghi dữ liệu phụ thuộc vào cơ chế khóa và kiểm tra ở Apps Script.
+- Apps Script còn chứa handler nghiệp vụ cũ; Worker phải tiếp tục chặn fallback để tránh hai nguồn dữ liệu lệch nhau.
+- Thay đổi schema D1 phải đi qua migration được kiểm thử local và backup trước khi áp dụng production.
 - Một số chỉ số báo cáo được tính ở frontend từ dữ liệu đã tải về.
 
 ## 19. Hướng phát triển đề xuất
 
 - Tách `app.js` thành các module theo nghiệp vụ.
 - Thêm pagination phía backend cho bảng dữ liệu lớn.
-- Thêm kiểm thử tự động.
-- Thêm schema version và migration cho Google Sheets.
+- Mở rộng kiểm thử transaction, quyền và khôi phục lỗi cho từng nghiệp vụ D1.
+- Theo dõi D1 metrics và cảnh báo sớm trước khi chạm hạn mức Free.
 - Thêm quản lý nhiều kho và chuyển kho.
 - Thêm kiểm kho theo phiên.
 - Thêm giữ tồn cho đơn chưa giao và tồn khả dụng.
@@ -806,8 +817,8 @@ Nên test theo thứ tự:
 - Thêm đối soát COD và phí sàn.
 - Thêm phân quyền chi tiết theo hành động.
 - Thêm rate limit và Cloudflare WAF.
-- Thêm cơ chế backup và phục hồi dữ liệu.
-- Cân nhắc chuyển dữ liệu giao dịch lớn sang Cloudflare D1, PostgreSQL hoặc hệ quản trị cơ sở dữ liệu phù hợp.
+- Diễn tập định kỳ việc khôi phục bằng D1 Time Travel và snapshot Google Drive.
+- Chỉ cân nhắc nâng gói hoặc chuyển hệ quản trị khi metrics thực tế cho thấy D1 Free không còn đáp ứng tải.
 
 ## 20. Ghi chú repository
 

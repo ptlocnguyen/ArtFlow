@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { D1_OWNED_ACTIONS } from "../cloudflare-worker/src/data-ownership.js";
 
 const frontend = fs.readFileSync("assets/js/app.js", "utf8");
 const appsScript = fs.readFileSync("apps-script/Code.gs", "utf8");
@@ -6,6 +7,32 @@ const workerFiles = fs.readdirSync("cloudflare-worker/src").filter(file => file.
 const worker = workerFiles
   .map(file => fs.readFileSync(`cloudflare-worker/src/${file}`, "utf8"))
   .join("\n");
+
+const d1HandlerFiles = [
+  "d1-catalog-actions.js",
+  "d1-order-actions.js",
+  "d1-accounting-actions.js",
+  "d1-purchasing-actions.js",
+  "d1-workspace-actions.js",
+  "d1-omni-actions.js",
+  "tiktok-shop.js"
+];
+for (const file of d1HandlerFiles) {
+  const source = fs.readFileSync(`cloudflare-worker/src/${file}`, "utf8");
+  const actionBlock = source.match(/const ACTIONS\s*=\s*new Set\(\[([\s\S]*?)\]\)/)?.[1] || "";
+  const handlerActions = [...actionBlock.matchAll(/"([A-Za-z0-9]+)"/g)].map(match => match[1]);
+  if (!handlerActions.length) throw new Error(`Could not inspect D1 actions in ${file}.`);
+  const unowned = handlerActions.filter(action => !D1_OWNED_ACTIONS.has(action));
+  if (unowned.length) {
+    throw new Error(`D1 handlers missing from ownership registry (${file}): ${unowned.join(", ")}`);
+  }
+}
+for (const action of ["getPageData", "listProducts", "listCustomers", "listOrders", "listStockMovements", "listAuditLogs", "exportD1Snapshot", "createOrderReceiptPdf"]) {
+  if (!D1_OWNED_ACTIONS.has(action)) throw new Error(`${action} must remain D1-owned.`);
+}
+for (const action of ["login", "logout", "createUser", "updateUser", "deleteUser"]) {
+  if (D1_OWNED_ACTIONS.has(action)) throw new Error(`${action} must remain Apps Script identity-owned.`);
+}
 const migration = fs.readFileSync(
   "cloudflare-worker/migrations/0004_durable_audit_events.sql",
   "utf8"

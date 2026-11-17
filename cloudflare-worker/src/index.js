@@ -3,6 +3,10 @@ import {
   readDirectD1,
   syncIdentityToD1
 } from "./d1-data.js";
+import {
+  isD1CapacityOrAvailabilityError,
+  isD1OwnedAction
+} from "./data-ownership.js";
 import { handleCatalogAction } from "./d1-catalog-actions.js";
 import { handleOrderAction } from "./d1-order-actions.js";
 import { handleWorkspaceAction } from "./d1-workspace-actions.js";
@@ -40,7 +44,8 @@ async function handleD1PageData(env, payload) {
   const results = [];
   for (const scope of requested) {
     const result = await handlers[scope](payload);
-    if (!result || result.ok === false) return null;
+    if (!result) return null;
+    if (result.ok === false) return result;
     results.push(result);
   }
   return results.reduce((output, result) => Object.assign(output, result), { ok: true });
@@ -309,6 +314,35 @@ function json(payload, status, origin, requestId, extraHeaders = {}) {
   });
 }
 
+function d1Unavailable(origin, requestId, action, error = "") {
+  console.error(JSON.stringify({
+    event: "d1_unavailable",
+    requestId,
+    action,
+    message: String(error?.message || error || "D1 binding is unavailable")
+  }));
+  return json({
+    ok: false,
+    error: "Dữ liệu D1 đang tạm gián đoạn hoặc đã chạm giới hạn trong ngày. Web sẽ giữ dữ liệu đã lưu và không chuyển sang dữ liệu Sheets cũ.",
+    code: "d1_unavailable",
+    transient: true,
+    dataSource: "d1"
+  }, 503, origin, requestId, {
+    "Retry-After": "30",
+    "X-ArtFlow-Data-Source": "d1-unavailable"
+  });
+}
+
+function d1Json(response, origin, requestId, action) {
+  if (response?.ok === false && isD1CapacityOrAvailabilityError(response)) {
+    return d1Unavailable(origin, requestId, action, response.error);
+  }
+  return json(response, 200, origin, requestId, {
+    "Server-Timing": "d1;dur=0",
+    "X-ArtFlow-Data-Source": "d1"
+  });
+}
+
 function upstreamTimeoutMs(env) {
   const configured = Number(env.UPSTREAM_TIMEOUT_MS || DEFAULT_UPSTREAM_TIMEOUT_MS);
   return Number.isFinite(configured) && configured >= 5000 ? configured : DEFAULT_UPSTREAM_TIMEOUT_MS;
@@ -387,6 +421,7 @@ export default {
     const requestId = request.headers.get("X-Client-Request-Id") || makeRequestId();
     const allowedOrigin = getAllowedOrigin(request, env);
     let auditEvent = null;
+    let requestedAction = "";
     const requestUrl = new URL(request.url);
 
     if (!allowedOrigin) {
@@ -470,6 +505,14 @@ export default {
       if (!payload || typeof payload.action !== "string" || !payload.action) {
         return json({ ok: false, error: "Missing action", code: "missing_action" }, 400, allowedOrigin, requestId);
       }
+      requestedAction = payload.action;
+
+      // D1 owns all business records. If its binding is unavailable, fail
+      // closed and let the frontend keep its last known local snapshot. Never
+      // fall through to the legacy Sheets implementation.
+      if (isD1OwnedAction(requestedAction) && !env.DB) {
+        return d1Unavailable(allowedOrigin, requestId, requestedAction);
+      }
 
       auditEvent = await beginAuditEvent(env, payload, requestId);
 
@@ -478,67 +521,43 @@ export default {
         return null;
       });
       if (pageDataResponse) {
-        return json(pageDataResponse, 200, allowedOrigin, requestId, {
-          "Server-Timing": "d1;dur=0",
-          "X-ArtFlow-Data-Source": "d1"
-        });
+        return d1Json(pageDataResponse, allowedOrigin, requestId, requestedAction);
       }
 
       const catalogResponse = await handleCatalogAction(env, payload);
       if (catalogResponse) {
         await settleAuditEvent(env, payload, catalogResponse, auditEvent);
-        return json(catalogResponse, 200, allowedOrigin, requestId, {
-          "Server-Timing": "d1;dur=0",
-          "X-ArtFlow-Data-Source": "d1"
-        });
+        return d1Json(catalogResponse, allowedOrigin, requestId, requestedAction);
       }
       const orderResponse = await handleOrderAction(env, payload);
       if (orderResponse) {
         await settleAuditEvent(env, payload, orderResponse, auditEvent);
-        return json(orderResponse, 200, allowedOrigin, requestId, {
-          "Server-Timing": "d1;dur=0",
-          "X-ArtFlow-Data-Source": "d1"
-        });
+        return d1Json(orderResponse, allowedOrigin, requestId, requestedAction);
       }
       const workspaceResponse = await handleWorkspaceAction(env, payload);
       if (workspaceResponse) {
         await settleAuditEvent(env, payload, workspaceResponse, auditEvent);
-        return json(workspaceResponse, 200, allowedOrigin, requestId, {
-          "Server-Timing": "d1;dur=0",
-          "X-ArtFlow-Data-Source": "d1"
-        });
+        return d1Json(workspaceResponse, allowedOrigin, requestId, requestedAction);
       }
       const accountingResponse = await handleAccountingAction(env, payload);
       if (accountingResponse) {
         await settleAuditEvent(env, payload, accountingResponse, auditEvent);
-        return json(accountingResponse, 200, allowedOrigin, requestId, {
-          "Server-Timing": "d1;dur=0",
-          "X-ArtFlow-Data-Source": "d1"
-        });
+        return d1Json(accountingResponse, allowedOrigin, requestId, requestedAction);
       }
       const purchasingResponse = await handlePurchasingAction(env, payload);
       if (purchasingResponse) {
         await settleAuditEvent(env, payload, purchasingResponse, auditEvent);
-        return json(purchasingResponse, 200, allowedOrigin, requestId, {
-          "Server-Timing": "d1;dur=0",
-          "X-ArtFlow-Data-Source": "d1"
-        });
+        return d1Json(purchasingResponse, allowedOrigin, requestId, requestedAction);
       }
       const tiktokResponse = await handleTikTokAction(env, payload);
       if (tiktokResponse) {
         await settleAuditEvent(env, payload, tiktokResponse, auditEvent);
-        return json(tiktokResponse, 200, allowedOrigin, requestId, {
-          "Server-Timing": "d1;dur=0",
-          "X-ArtFlow-Data-Source": "d1"
-        });
+        return d1Json(tiktokResponse, allowedOrigin, requestId, requestedAction);
       }
       const omniResponse = await handleOmniAction(env, payload);
       if (omniResponse) {
         await settleAuditEvent(env, payload, omniResponse, auditEvent);
-        return json(omniResponse, 200, allowedOrigin, requestId, {
-          "Server-Timing": "d1;dur=0",
-          "X-ArtFlow-Data-Source": "d1"
-        });
+        return d1Json(omniResponse, allowedOrigin, requestId, requestedAction);
       }
 
       if (payload.action === "createOrderReceiptPdf" && env.DB) {
@@ -556,6 +575,16 @@ export default {
           payload.bridgeItems = bridgeItems.results;
           payload.bridgeCustomer = bridgeCustomer || {};
           body = JSON.stringify(payload);
+        } else {
+          await failAuditEvent(env, auditEvent, "Order not found in D1", null, "rejected");
+          return json({
+            ok: false,
+            error: "Không tìm thấy đơn hàng hiện hành trong D1.",
+            code: "d1_record_not_found",
+            dataSource: "d1"
+          }, 404, allowedOrigin, requestId, {
+            "X-ArtFlow-Data-Source": "d1"
+          });
         }
       }
 
@@ -568,10 +597,13 @@ export default {
         return null;
       });
       if (d1Response) {
-        return json(d1Response, 200, allowedOrigin, requestId, {
-          "Server-Timing": "d1;dur=0",
-          "X-ArtFlow-Data-Source": "d1"
-        });
+        return d1Json(d1Response, allowedOrigin, requestId, requestedAction);
+      }
+
+      // A D1-owned action reaching this point means its D1 handler could not
+      // produce a response. Do not proxy the same action to legacy Sheets.
+      if (isD1OwnedAction(requestedAction) && payload.action === requestedAction) {
+        return d1Unavailable(allowedOrigin, requestId, requestedAction, "D1 handler returned no response");
       }
 
       if (!env.APPS_SCRIPT_URL) {
@@ -690,6 +722,11 @@ export default {
           message: auditError?.message || String(auditError)
         });
       });
+      // Once a D1-backed receipt has been converted to its Apps Script bridge
+      // action, an upstream PDF failure is no longer a D1 availability error.
+      if (requestedAction && isD1OwnedAction(requestedAction) && payload?.action === requestedAction) {
+        return d1Unavailable(allowedOrigin, requestId, requestedAction, error);
+      }
       if (payload && payload.action) {
         const d1Fallback = await readDirectD1(env, payload, { allowDirty: true }).catch(() => null);
         if (d1Fallback) {
