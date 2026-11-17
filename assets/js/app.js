@@ -6226,7 +6226,7 @@
 
   function renderChannelProductForm(productId = "") {
     const products = (state.products || []).map(normalizeProduct).filter(product => product.status === "active");
-    const channelsList = activeSalesChannels().filter(channel => channel.status === "active");
+    const channelsList = (activeSalesChannels() || []).filter(channel => channel.status === "active");
     const selectedProduct = byId("products", productId) || products[0] || {};
     const mappings = (state.channelProducts || []).map(normalizeChannelProduct).filter(item => item.status !== "deleted");
     const selectedMapping = mappings.find(item => item.productId === selectedProduct.id) || {};
@@ -6268,7 +6268,7 @@
     const item = normalizeWorkspaceTask(task || {});
     const users = (state.users || state.contentOwners || []).map(user => `<option value="${escapeAttribute(user.id || user.name)}" ${item.owner === (user.id || user.name) ? "selected" : ""}>${escapeHtml(user.name || user.email || user.id)}</option>`).join("");
     const products = (state.products || []).map(normalizeProduct).filter(product => product.status !== "deleted");
-    const channelsList = activeSalesChannels();
+    const channelsList = activeSalesChannels() || [];
     const campaigns = (state.campaigns || []).map(normalizeCampaign);
     const hiddenId = `<input type="hidden" name="id" value="${escapeAttribute(item.id)}" /><input type="hidden" name="sourceId" value="${escapeAttribute(item.sourceId)}" />`;
     return `
