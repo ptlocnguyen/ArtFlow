@@ -1996,6 +1996,46 @@
     return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
+  let xlsxLoadPromise = null;
+
+  function ensureXlsx() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    if (xlsxLoadPromise) return xlsxLoadPromise;
+
+    xlsxLoadPromise = new Promise((resolve, reject) => {
+      const script = document.querySelector('script[data-artflow-xlsx="true"]') || document.createElement("script");
+      const fail = () => {
+        xlsxLoadPromise = null;
+        script.remove();
+        reject(new Error("Không thể tải bộ xử lý Excel. Hãy kiểm tra kết nối và thử lại."));
+      };
+      script.addEventListener("load", () => {
+        if (window.XLSX) resolve(window.XLSX);
+        else fail();
+      }, { once: true });
+      script.addEventListener("error", fail, { once: true });
+      if (!script.isConnected) {
+        script.src = new URL(`${root}/assets/vendor/xlsx.bundle.js`, window.location.href).href;
+        script.async = true;
+        script.dataset.artflowXlsx = "true";
+        document.head.appendChild(script);
+      }
+    });
+    return xlsxLoadPromise;
+  }
+
+  async function runExcelTask(task) {
+    try {
+      return await withLoading("Đang chuẩn bị bộ xử lý Excel...", async () => {
+        await ensureXlsx();
+        return task();
+      });
+    } catch (error) {
+      showToast(error.message || "Không thể xử lý file Excel.", "error");
+      return null;
+    }
+  }
+
   function requireXlsx() {
     if (!window.XLSX) throw new Error("Không thể tải bộ xử lý Excel. Hãy tải lại trang và thử lại.");
     return window.XLSX;
@@ -2070,7 +2110,8 @@
       .slice(0, 80) || "artflow";
   }
 
-  function downloadProductTemplate() {
+  async function downloadProductTemplate() {
+    await ensureXlsx();
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, createInstructionSheet("HƯỚNG DẪN NHẬP SẢN PHẨM", [
@@ -2088,7 +2129,8 @@
     saveExcelWorkbook(workbook, "artflow-mau-nhap-san-pham.xlsx");
   }
 
-  function downloadCustomerTemplate() {
+  async function downloadCustomerTemplate() {
+    await ensureXlsx();
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, createInstructionSheet("HƯỚNG DẪN NHẬP KHÁCH HÀNG", [
@@ -2109,7 +2151,7 @@
 
   async function spreadsheetFileToCsv(file, preferredSheetName) {
     if (/\.csv$/i.test(file.name)) return file.text();
-    const XLSX = requireXlsx();
+    const XLSX = await ensureXlsx();
     const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
     const preferred = workbook.SheetNames.find(name => name.toLowerCase() === preferredSheetName.toLowerCase());
     const sheetName = preferred || workbook.SheetNames.find(name => name.toLowerCase() !== "hướng dẫn" && name.toLowerCase() !== "huong dan");
@@ -2118,7 +2160,8 @@
     return rows.map(row => row.map(csvCell).join(",")).join("\r\n");
   }
 
-  function exportProductsCsv() {
+  async function exportProductsCsv() {
+    await ensureXlsx();
     const products = filtered(state.products.filter(product => product.status !== "deleted"), ["sku", "name", "category"])
       .slice()
       .sort((a, b) => a.sku.localeCompare(b.sku));
@@ -2254,7 +2297,8 @@
     showToast(`Đã tạo ${result.created || 0}, cập nhật ${result.updated || 0} sản phẩm.`);
   }
 
-  function exportCustomersCsv() {
+  async function exportCustomersCsv() {
+    await ensureXlsx();
     const customers = filtered(state.customers.filter(customer => customer.status !== "deleted"), ["name", "phone", "email", "group"])
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -2275,7 +2319,8 @@
     showToast(`Đã xuất ${customers.length} khách hàng.`);
   }
 
-  function exportContentReport() {
+  async function exportContentReport() {
+    await ensureXlsx();
     const items = filteredContentItems();
     const rows = items.map(item => {
       const product = getContentProduct(item);
@@ -2310,7 +2355,8 @@
     showToast(`Đã xuất ${items.length} chủ đề content.`);
   }
 
-  function exportTeamReport() {
+  async function exportTeamReport() {
+    await ensureXlsx();
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
     const meetings = (state.teamMeetings || []).map(normalizeTeamMeeting);
@@ -2330,7 +2376,8 @@
     showToast("Đã xuất báo cáo Team Hub.");
   }
 
-  function exportOmniReport() {
+  async function exportOmniReport() {
+    await ensureXlsx();
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
     const rows = filteredChannelProductRows().map(row => [
@@ -2626,7 +2673,8 @@
     XLSX.utils.book_append_sheet(workbook, createExcelSheet("DANH MỤC THU CHI", `ArtFlow POS · Cập nhật lúc ${new Date().toLocaleString("vi-VN")}`, ["Danh mục", "Loại", "Trạng thái", "Số giao dịch", "Tổng phát sinh", "Cập nhật"], rows, { widths: [32, 14, 16, 16, 20, 22], moneyColumns: [4], numberColumns: [3] }), "Danh mục");
   }
 
-  function exportAccountingReport(type = "full") {
+  async function exportAccountingReport(type = "full") {
+    await ensureXlsx();
     const range = accountingExportRange();
     const XLSX = requireXlsx();
     const workbook = XLSX.utils.book_new();
@@ -2670,7 +2718,8 @@
     showToast("Đã xuất file báo cáo kế toán.");
   }
 
-  function exportProfitReport(options = {}) {
+  async function exportProfitReport(options = {}) {
+    await ensureXlsx();
     const range = options.range || reportFilters.range;
     const channel = options.channel || reportFilters.channel;
     const snapshot = profitSnapshot(range, channel);
@@ -5565,7 +5614,8 @@
     win.document.close();
   }
 
-  function exportPurchaseOrderExcel(order) {
+  async function exportPurchaseOrderExcel(order) {
+    await ensureXlsx();
     const XLSX = requireXlsx();
     const supplier = getSupplier(order);
     const settings = getReceiptSettings();
@@ -7834,9 +7884,9 @@
           openModal("orderDetail", { orderDetail: updated });
         }
       }
-      if (target.matches("[data-export-profit-report]")) exportProfitReport(page === "accounting" ? { range: accountingExportRange(), channel: "all" } : {});
-      if (target.matches("[data-export-products]")) exportProductsCsv();
-      if (target.matches("[data-export-content]")) exportContentReport();
+      if (target.matches("[data-export-profit-report]")) await runExcelTask(() => exportProfitReport(page === "accounting" ? { range: accountingExportRange(), channel: "all" } : {}));
+      if (target.matches("[data-export-products]")) await runExcelTask(exportProductsCsv);
+      if (target.matches("[data-export-content]")) await runExcelTask(exportContentReport);
       if (target.matches("[data-reset-content-filters]")) {
         Object.assign(contentFilters, { status: "all", type: "all", owner: "all", channel: "all", product: "all", schedule: "all" });
         searchTerm = "";
@@ -7844,12 +7894,12 @@
         if (contentSearch) contentSearch.value = "";
         renderContentWorkspace();
       }
-      if (target.matches("[data-export-team]")) exportTeamReport();
+      if (target.matches("[data-export-team]")) await runExcelTask(exportTeamReport);
       if (target.matches("[data-import-products]")) openModal("productImport");
-      if (target.matches("[data-export-customers]")) exportCustomersCsv();
+      if (target.matches("[data-export-customers]")) await runExcelTask(exportCustomersCsv);
       if (target.matches("[data-import-customers]")) openModal("customerImport");
-      if (target.matches("[data-download-product-template]")) downloadProductTemplate();
-      if (target.matches("[data-download-customer-template]")) downloadCustomerTemplate();
+      if (target.matches("[data-download-product-template]")) await runExcelTask(downloadProductTemplate);
+      if (target.matches("[data-download-customer-template]")) await runExcelTask(downloadCustomerTemplate);
       if (target.matches("[data-choose-product-file]")) els.productCsvFile?.click();
       if (target.matches("[data-choose-customer-file]")) els.customerCsvFile?.click();
       if (target.matches("[data-open-product]")) openModal("product");
@@ -7859,7 +7909,7 @@
         openModal("salesChannel", channel ? { channel } : {});
       }
       if (target.matches("[data-open-channel-product-form]")) openModal("channelProduct", { productId: target.dataset.productId || "" });
-      if (target.matches("[data-export-omni]")) exportOmniReport();
+      if (target.matches("[data-export-omni]")) await runExcelTask(exportOmniReport);
       if (target.matches("[data-tiktok-connect]")) {
         const response = await withLoading("Đang tạo liên kết ủy quyền TikTok Shop...", () => apiRequest("/tiktok/authorize", {
           method: "POST",
@@ -8228,7 +8278,7 @@
       if (target.matches("[data-open-accounting-profit-details]")) openModal("accountingProfitDetails");
       if (target.matches("[data-open-accounting-ledger-analysis]")) openModal("accountingLedgerAnalysis");
       if (target.dataset.exportAccountingReport) {
-        exportAccountingReport(target.dataset.exportAccountingReport);
+        await runExcelTask(() => exportAccountingReport(target.dataset.exportAccountingReport));
         closeModal();
       }
       if (target.matches("[data-open-accounting-account]")) openModal("accountingAccount");
@@ -8341,7 +8391,7 @@
         const purchaseOrder = byId("purchaseOrders", target.dataset.exportPurchaseOrder);
         if (purchaseOrder) {
           try {
-            await withLoading("Đang xuất Excel phiếu mua...", () => exportPurchaseOrderExcel(purchaseOrder));
+            await runExcelTask(() => exportPurchaseOrderExcel(purchaseOrder));
             showToast("Đã xuất Excel phiếu mua.");
           } catch (error) {
             showToast(error.message || String(error), "error");

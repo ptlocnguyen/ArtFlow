@@ -28,6 +28,7 @@ const expectedModules = {
 
 for (const [file, expected] of Object.entries(expectedModules)) {
   const html = fs.readFileSync(path.join("pages", file), "utf8");
+  assert.ok(!html.includes("xlsx.bundle.js"), `${file} must lazy-load XLSX instead of blocking initial render`);
   const actual = [...html.matchAll(/assets\/js\/pages\/([a-z-]+)\.js/g)].map(match => match[1]);
   assert.deepEqual(actual, expected, `${file} must load only its owning page modules`);
 

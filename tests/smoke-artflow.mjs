@@ -1049,10 +1049,14 @@ async function runPageInteractions(page, pageName, viewportName) {
     await page.evaluate(() => window.scrollTo(0, 0));
   }
   if (pageName === "purchasing") {
-    const hasXlsx = await page.evaluate(() => Boolean(window.XLSX));
-    if (!hasXlsx) throw new Error("Purchasing page must load XLSX before enabling purchase order Excel export.");
     const exportButton = page.locator("[data-export-purchase-order]").first();
     if (!(await exportButton.count())) throw new Error("Purchasing page must render per-order Excel export actions.");
+    const hasEagerXlsx = await page.evaluate(() => Boolean(window.XLSX));
+    if (hasEagerXlsx) throw new Error("Purchasing page must not load XLSX before an Excel action is requested.");
+    const downloadPromise = page.waitForEvent("download");
+    await exportButton.click();
+    await downloadPromise;
+    await page.waitForFunction(() => Boolean(window.XLSX));
     const receiveButton = page.locator("[data-receive-purchase]").first();
     if (await receiveButton.count()) {
       const hasReceiveColor = await receiveButton.evaluate(button => button.classList.contains("action-receive"));
