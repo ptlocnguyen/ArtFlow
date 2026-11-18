@@ -5,16 +5,16 @@ import path from "node:path";
 const expectedModules = {
   "accounting-settings.html": ["channels", "accounting"],
   "accounting.html": ["channels", "accounting"],
-  "activity.html": [],
+  "activity.html": ["admin"],
   "channel-settings.html": ["channels"],
   "channels.html": ["channels"],
   "content.html": [],
-  "customers.html": ["customers"],
+  "customers.html": ["orders", "customers"],
   "incense.html": ["channels", "team"],
   "inventory.html": ["inventory"],
   "meeting-minutes.html": ["channels", "team"],
   "order-create.html": [],
-  "orders.html": [],
+  "orders.html": ["orders"],
   "products.html": ["products"],
   "purchase-create.html": [],
   "purchasing.html": ["purchasing"],
@@ -23,11 +23,11 @@ const expectedModules = {
   "suppliers.html": ["purchasing"],
   "team-pricing.html": ["channels", "team"],
   "team.html": ["channels", "team"],
-  "users.html": []
+  "users.html": ["admin"]
 };
 
 const appSource = fs.readFileSync(path.join("assets", "js", "app.js"), "utf8");
-for (const controller of ["renderProducts", "renderCustomers", "renderCustomerDetail", "renderInventory", "renderStockMovements"]) {
+for (const controller of ["renderProducts", "renderCustomers", "renderCustomerDetail", "renderInventory", "renderStockMovements", "renderOrdersRows", "renderOrderDetail", "renderUsers", "renderAuditLogs", "renderAuditDetail"]) {
   assert.ok(!appSource.includes(`function ${controller}(`), `${controller} must remain owned by its page module`);
 }
 
@@ -45,6 +45,6 @@ for (const [file, expected] of Object.entries(expectedModules)) {
 }
 
 const totalReferences = Object.values(expectedModules).reduce((sum, modules) => sum + modules.length, 0);
-assert.equal(totalReferences, 20, "Page-module budget changed; update the ownership map intentionally");
+assert.equal(totalReferences, 24, "Page-module budget changed; update the ownership map intentionally");
 
 console.log(`Frontend module loading QA passed for ${Object.keys(expectedModules).length} pages and ${totalReferences} module references.`);
