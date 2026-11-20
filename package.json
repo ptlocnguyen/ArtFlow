@@ -10,6 +10,8 @@
     "qa:connection": "node tests/connection-resilience.mjs",
     "qa:data-integrity": "node tests/data-integrity.mjs",
     "qa:data-source": "node tests/data-source-ownership.mjs",
+    "qa:d1-auth": "node tests/d1-auth.mjs",
+    "qa:login-performance": "node tests/login-performance-guards.mjs",
     "qa:frontend-modules": "node tests/frontend-module-loading.mjs",
     "qa:purchase-save": "node tests/purchase-save.mjs",
     "qa:reset": "node tests/artflow-test-data.mjs --reset"

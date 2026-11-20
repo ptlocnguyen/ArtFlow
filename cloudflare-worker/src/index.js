@@ -1,5 +1,6 @@
 import {
   recordSessionValidation,
+  readBootstrapStatusFromD1,
   readDirectD1,
   syncIdentityToD1
 } from "./d1-data.js";
@@ -13,6 +14,7 @@ import { handleWorkspaceAction } from "./d1-workspace-actions.js";
 import { handleAccountingAction } from "./d1-accounting-actions.js";
 import { handlePurchasingAction } from "./d1-purchasing-actions.js";
 import { handleOmniAction } from "./d1-omni-actions.js";
+import { handleD1AuthAction, upgradeIdentityPassword } from "./d1-auth-actions.js";
 import {
   handleTikTokAction,
   handleTikTokOAuthCallback,
@@ -217,7 +219,8 @@ async function completeAuditEvent(env, payload, response, event) {
     response.category || response.reconciliation || response.platformPayout || response.payoutItem || response.supplier || response.purchaseOrder ||
     response.salesChannel || response.channelProduct || response.campaign || response.workspaceTask ||
     response.incenseWish || response.salesReturn || response.refund || response.purchaseReturn ||
-    response.payment || response.creditApplication || response.tiktokConnection || {};
+    response.payment || response.creditApplication || response.tiktokConnection || response.user ||
+    (payload.id ? { id: payload.id } : {});
   const completedAt = new Date().toISOString();
   const actor = event.actor || response.user || null;
   const resultJson = sanitizedAuditJson(response, { ok: true });
@@ -516,6 +519,38 @@ export default {
 
       auditEvent = await beginAuditEvent(env, payload, requestId);
 
+      if (payload.action === "bootstrapStatus") {
+        const bootstrapStatus = await readBootstrapStatusFromD1(env).catch(error => {
+          console.error("D1 bootstrap status read failed", {
+            requestId,
+            message: error?.message || String(error)
+          });
+          return null;
+        });
+        if (bootstrapStatus) {
+          return d1Json(bootstrapStatus, allowedOrigin, requestId, requestedAction);
+        }
+      }
+
+      const authResponse = await handleD1AuthAction(env, payload).catch(error => {
+        console.error("D1 authentication action failed", {
+          requestId,
+          action: payload.action,
+          message: error?.message || String(error)
+        });
+        return {
+          ok: false,
+          error: "D1 authentication database unavailable",
+          code: "d1_auth_unavailable",
+          transient: true,
+          dataSource: "d1"
+        };
+      });
+      if (authResponse) {
+        await settleAuditEvent(env, payload, authResponse, auditEvent);
+        return d1Json(authResponse, allowedOrigin, requestId, requestedAction);
+      }
+
       const pageDataResponse = await handleD1PageData(env, payload).catch(error => {
         console.error("D1 page data failed", { requestId, message: error?.message || String(error) });
         return null;
@@ -687,6 +722,13 @@ export default {
             requestId,
             action: payload.action,
             message: error && error.message
+          });
+        });
+        await upgradeIdentityPassword(env, payload, responseJson).catch(error => {
+          console.error("D1 password credential upgrade failed", {
+            requestId,
+            action: payload.action,
+            message: error?.message || String(error)
           });
         });
         await writeD1Cache(env, payload, responseJson).catch(error => {

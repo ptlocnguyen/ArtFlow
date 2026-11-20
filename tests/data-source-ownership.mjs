@@ -56,16 +56,61 @@ try {
   assert.equal(invalidSession.response.headers.get("X-ArtFlow-Data-Source"), "d1");
   assert.equal(upstreamCalls, invalidBefore, "Invalid D1 session must not fall back to Apps Script");
 
+  const bootstrapD1 = {
+    prepare(sql) {
+      assert.match(sql, /role\s*=\s*'admin'/, "Bootstrap lookup must only accept an admin account");
+      assert.match(sql, /status\s*<>\s*'deleted'/, "Deleted admins must not enable login mode");
+      return {
+        async first() { return { id: "admin-1" }; }
+      };
+    }
+  };
+  const bootstrapBefore = upstreamCalls;
+  const bootstrap = await call("bootstrapStatus", { token: "" }, { DB: bootstrapD1 });
+  assert.equal(bootstrap.response.status, 200);
+  assert.equal(bootstrap.data.hasAdmin, true);
+  assert.equal(bootstrap.data.dataSource, "d1");
+  assert.equal(bootstrap.response.headers.get("X-ArtFlow-Data-Source"), "d1");
+  assert.equal(upstreamCalls, bootstrapBefore, "A confirmed D1 admin must avoid the Apps Script bootstrap delay");
+
+  const emptyIdentityD1 = {
+    prepare() {
+      return {
+        bind() { return this; },
+        async first() { return null; },
+        async run() { return { success: true }; }
+      };
+    }
+  };
+  const emptyBootstrapBefore = upstreamCalls;
+  const emptyBootstrap = await call("bootstrapStatus", { token: "" }, { DB: emptyIdentityD1 });
+  assert.equal(emptyBootstrap.response.status, 200);
+  assert.equal(emptyBootstrap.data.source, "apps-script");
+  assert.equal(upstreamCalls, emptyBootstrapBefore + 1, "An empty D1 identity table must fall back instead of enabling setup");
+
+  const failedIdentityD1 = {
+    prepare() {
+      return {
+        async first() { throw new Error("D1_ERROR: storage unavailable"); }
+      };
+    }
+  };
+  const failedBootstrapBefore = upstreamCalls;
+  const failedBootstrap = await call("bootstrapStatus", { token: "" }, { DB: failedIdentityD1 });
+  assert.equal(failedBootstrap.response.status, 200);
+  assert.equal(failedBootstrap.data.source, "apps-script");
+  assert.equal(upstreamCalls, failedBootstrapBefore + 1, "A D1 bootstrap failure must safely fall back to the identity owner");
+
   const loginBefore = upstreamCalls;
   const login = await call("login", { email: "qa@example.invalid", password: "not-used-by-mock" });
   assert.equal(login.response.status, 200);
   assert.equal(login.data.ok, true);
-  assert.equal(upstreamCalls, loginBefore + 1, "Apps Script must remain the identity owner");
+  assert.equal(upstreamCalls, loginBefore + 1, "Shadow mode must preserve the legacy login path during rollout");
 
   assert.ok(D1_OWNED_ACTIONS.has("returnOrder"));
   assert.ok(D1_OWNED_ACTIONS.has("payPurchaseOrder"));
   assert.ok(D1_OWNED_ACTIONS.has("syncTikTokInventory"));
-  assert.ok(!D1_OWNED_ACTIONS.has("login"));
+  assert.ok(!D1_OWNED_ACTIONS.has("login"), "Login keeps a controlled fallback while credentials are upgraded");
   assert.ok(!D1_OWNED_ACTIONS.has("createUser"));
   assert.ok(!D1_OWNED_ACTIONS.has("testProductContentConfiguration"));
 

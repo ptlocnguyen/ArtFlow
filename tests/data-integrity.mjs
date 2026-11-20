@@ -30,8 +30,12 @@ for (const file of d1HandlerFiles) {
 for (const action of ["getPageData", "listProducts", "listCustomers", "listOrders", "listStockMovements", "listAuditLogs", "exportD1Snapshot", "createOrderReceiptPdf"]) {
   if (!D1_OWNED_ACTIONS.has(action)) throw new Error(`${action} must remain D1-owned.`);
 }
-for (const action of ["login", "logout", "createUser", "updateUser", "deleteUser"]) {
-  if (D1_OWNED_ACTIONS.has(action)) throw new Error(`${action} must remain Apps Script identity-owned.`);
+for (const action of ["login", "setupAdmin"]) {
+  if (D1_OWNED_ACTIONS.has(action)) throw new Error(`${action} must retain its controlled legacy fallback during auth rollout.`);
+}
+const authWorker = fs.readFileSync("cloudflare-worker/src/d1-auth-actions.js", "utf8");
+for (const action of ["login", "logout", "updateMyProfile", "changeMyPassword", "createUser", "toggleUser", "deleteUser"]) {
+  if (!authWorker.includes(`"${action}"`)) throw new Error(`${action} is missing from staged D1 authentication.`);
 }
 const migration = fs.readFileSync(
   "cloudflare-worker/migrations/0004_durable_audit_events.sql",

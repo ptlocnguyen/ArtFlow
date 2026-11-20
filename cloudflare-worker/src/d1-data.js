@@ -114,6 +114,21 @@ export async function requireSession(db, token) {
   ).bind(String(token)).first();
 }
 
+export async function readBootstrapStatusFromD1(env) {
+  if (!env.DB) return null;
+  const admin = await env.DB.prepare(
+    `SELECT id
+     FROM users
+     WHERE role = 'admin' AND status <> 'deleted'
+     LIMIT 1`
+  ).first();
+
+  // D1 is only authoritative for the positive case. An empty or not-yet-synced
+  // identity table must fall through to Apps Script so setup can never be
+  // enabled from an incomplete replica.
+  return admin ? { ok: true, hasAdmin: true, dataSource: "d1" } : null;
+}
+
 async function listProducts(db) {
   const [products, options, owners] = await Promise.all([
     db.prepare("SELECT * FROM products WHERE status <> 'deleted' ORDER BY name COLLATE NOCASE").all(),
@@ -257,6 +272,10 @@ async function exportSnapshot(db, user) {
       rows.forEach(row => {
         delete row.password_hash;
         delete row.salt;
+        delete row.password_hash_v2;
+        delete row.password_salt_v2;
+        delete row.password_iterations_v2;
+        delete row.auth_migrated_at;
         delete row.session_token;
         delete row.session_expires_at;
         delete row.d1_verified_at;

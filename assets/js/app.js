@@ -46,6 +46,9 @@
   let auditHealth = { pending: 0, failed: 0, lastCompletedAt: "" };
   let searchTerm = "";
   let pageDataReady = false;
+  let purchasingDataReady = false;
+  let purchasingDataPromise = null;
+  let purchasingDataError = false;
   const orderFilters = { channel: "all", status: "all", paymentStatus: "all", shippingStatus: "all" };
   const accountingFilters = {
     view: accountingTransactionTarget ? "ledger" : (["ledger", "receivables", "payouts", "payroll", "tax"].includes(routeParams.get("view")) ? routeParams.get("view") : "ledger"),
@@ -1437,6 +1440,8 @@
       state.purchaseReturns = (data.purchaseReturns || []).map(normalizePurchaseReturn);
       state.supplierCreditApplications = (data.supplierCreditApplications || []).map(normalizeSupplierCreditApplication);
       window.ArtFlowPosStore.save(state);
+      purchasingDataReady = true;
+      purchasingDataError = false;
       return true;
     } catch (error) {
       state.suppliers = state.suppliers || [];
@@ -1453,7 +1458,7 @@
     const scopesByPage = {
       orders: ["customers", "orders", "accounting", "settings"],
       orderCreate: ["products", "customers", "settings"],
-      products: ["products", "purchasing"],
+      products: ["products"],
       channels: ["omni"],
       channelSettings: ["omni"],
       content: ["content"],
@@ -1535,6 +1540,8 @@
       state.supplierPayments = (data.supplierPayments || []).map(normalizeSupplierPayment);
       state.purchaseReturns = (data.purchaseReturns || []).map(normalizePurchaseReturn);
       state.supplierCreditApplications = (data.supplierCreditApplications || []).map(normalizeSupplierCreditApplication);
+      purchasingDataReady = true;
+      purchasingDataError = false;
     }
     if (scopes.includes("settings")) {
       state.appSettings = data.settings && typeof data.settings === "object" ? data.settings : (state.appSettings || {});
@@ -1604,6 +1611,29 @@
       }
       if (!options.quiet) showToast(userMessageForApiError(error), error.transient ? "warning" : "error");
       return false;
+    }
+  }
+
+  function ensurePurchasingData() {
+    if (purchasingDataReady) return Promise.resolve(true);
+    if (purchasingDataPromise) return purchasingDataPromise;
+    purchasingDataError = false;
+    purchasingDataPromise = loadPageData(["purchasing"], { quiet: true })
+      .then(loaded => {
+        purchasingDataError = !loaded;
+        return loaded;
+      })
+      .finally(() => {
+        purchasingDataPromise = null;
+      });
+    return purchasingDataPromise;
+  }
+
+  async function refreshProductDetailPurchasing(product) {
+    await ensurePurchasingData();
+    const modal = els.modalBackdrop?.querySelector(".modal");
+    if (!els.modalBackdrop?.hidden && modal?.dataset.modalType === "productDetail") {
+      openModal("productDetail", { product });
     }
   }
 
@@ -3580,8 +3610,12 @@
     const channelPriceBlock = channelPrices.length
       ? `<div class="price-channel-list full">${channelPrices.map(entry => `<span class="price-channel-chip"><b>${escapeHtml(entry.channelName || entry.channelCode || "Kênh bán")}</b>${money.format(entry.channelPrice || entry.price || 0)}</span>`).join("")}</div>`
       : `<p class="resource-empty-copy full">Chưa có giá riêng theo kênh bán.</p>`;
-    const supplierHistory = productSupplierHistory(product.id);
-    const supplierHistoryBlock = supplierHistory.length
+    const supplierHistory = purchasingDataReady ? productSupplierHistory(product.id) : [];
+    const supplierHistoryBlock = purchasingDataPromise
+      ? `<p class="resource-empty-copy" role="status">Đang tải lịch sử nhập hàng...</p>`
+      : purchasingDataError
+        ? `<div class="resource-empty-copy"><p>Chưa thể tải lịch sử nhập hàng. Thông tin sản phẩm vẫn có thể sử dụng bình thường.</p><button class="button ghost" type="button" data-retry-product-purchasing="${escapeAttribute(product.id)}">Thử tải lại</button></div>`
+        : supplierHistory.length
       ? `<div class="supply-history-table">${supplierHistory.map(entry => `<a class="supply-history-row" href="./suppliers.html?supplierId=${encodeURIComponent(entry.supplierId)}"><span><strong>${escapeHtml(entry.supplierName)}</strong><small>${escapeHtml(entry.supplierCode || "Nhà cung cấp")}</small></span><span><small>Số phiếu</small><strong>${entry.orderCount}</strong></span><span><small>Đã nhập</small><strong>${entry.totalQuantity}</strong></span><span><small>Giá gần nhất</small><strong>${money.format(entry.lastUnitCost)}</strong></span><span><small>Giá bình quân</small><strong>${money.format(entry.averageUnitCost)}</strong></span><span><small>Lần gần nhất</small><strong>${formatDate(entry.lastPurchasedAt)}</strong></span></a>`).join("")}</div>`
       : `<p class="resource-empty-copy">Sản phẩm chưa có lịch sử nhập từ nhà cung cấp.</p>`;
     return `
@@ -7021,7 +7055,23 @@
       }
       if (target.dataset.viewProduct) {
         const product = byId("products", target.dataset.viewProduct);
-        if (product) openModal("productDetail", { product });
+        if (product) {
+          const purchasingLoad = purchasingDataReady ? null : ensurePurchasingData();
+          openModal("productDetail", { product });
+          if (purchasingLoad) await refreshProductDetailPurchasing(product);
+        }
+      }
+      if (target.dataset.retryProductPurchasing) {
+        const product = byId("products", target.dataset.retryProductPurchasing);
+        if (product) {
+          const purchasingLoad = ensurePurchasingData();
+          openModal("productDetail", { product });
+          await purchasingLoad;
+          const modal = els.modalBackdrop?.querySelector(".modal");
+          if (!els.modalBackdrop?.hidden && modal?.dataset.modalType === "productDetail") {
+            openModal("productDetail", { product });
+          }
+        }
       }
       if (target.dataset.viewCustomer) {
         const customer = byId("customers", target.dataset.viewCustomer);
