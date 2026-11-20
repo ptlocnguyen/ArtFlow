@@ -32,7 +32,79 @@
       </header>
 
       <section class="view active team-pricing-page">
-        <section data-team-pricing-page></section>
+        <section data-team-pricing-page>
+          <form class="team-pricing-page-form" data-team-pricing-page-form>
+            <div class="pricing-workbench full">
+              <section class="pricing-block pricing-header-block">
+                <div class="field"><label for="teamPricingTitle">Tên bảng tính</label><input id="teamPricingTitle" name="title" placeholder="Tính giá bộ màu nước 24 màu" required /></div>
+                <div class="field"><label for="teamPricingStatus">Trạng thái</label><select id="teamPricingStatus" name="status"><option value="draft">Nháp</option><option value="active">Đang dùng</option><option value="approved">Đã duyệt</option><option value="archived">Lưu trữ</option></select></div>
+                <div class="field"><label for="teamPricingOwner">Phụ trách</label><select id="teamPricingOwner" name="owner"><option value="">Chưa giao</option></select></div>
+                <div class="field full"><label for="teamPricingNote">Ghi chú</label><textarea id="teamPricingNote" name="note" rows="2"></textarea></div>
+              </section>
+
+              <section class="pricing-block pricing-product-block">
+                <div class="team-editor-head"><div><strong>Sản phẩm và nơi áp giá</strong><small>Giá vốn lấy từ danh mục và vẫn có thể điều chỉnh riêng cho bản tính này.</small></div></div>
+                <div class="pricing-product-layout">
+                  <div class="field pricing-product-field">
+                    <label>Sản phẩm</label>
+                    <input type="hidden" name="productId" data-team-pricing-product />
+                    <div class="pricing-selected-product" data-pricing-selected-product>
+                      <div class="pricing-product-empty"><strong>Chưa chọn sản phẩm</strong><small>Bấm Thêm sản phẩm để chọn từ danh mục shop.</small></div>
+                    </div>
+                    <button class="button ghost" type="button" data-open-pricing-product-picker><span data-icon="package"></span> <span data-pricing-product-action>Thêm sản phẩm</span></button>
+                  </div>
+                  <div class="pricing-scope-panel is-offline" data-pricing-scope-panel>
+                    <div class="field"><label for="teamPricingBaseCost">Giá vốn một sản phẩm</label><input id="teamPricingBaseCost" name="baseCost" type="number" min="0" step="1" value="0" data-team-pricing-input /></div>
+                    <div class="field"><label for="teamPricingQuantity">Số lượng tham chiếu</label><input id="teamPricingQuantity" name="quantity" type="number" min="1" step="1" value="1" data-team-pricing-input /><small>Chỉ dùng để tham khảo tổng lãi, không nhân vào giá bán đơn vị.</small></div>
+                    <div class="field pricing-target-field" data-pricing-target-field><label for="teamPricingTarget">Nơi muốn áp giá</label><select id="teamPricingTarget" name="priceTarget" data-team-pricing-input><option value="offline">Shop/POS offline</option><option value="channel">Kênh/sàn bán hàng</option></select></div>
+                    <div class="field pricing-channel-field" data-pricing-channel-field hidden><label for="teamPricingChannel">Kênh/sàn muốn áp giá</label><select id="teamPricingChannel" name="channelId" data-team-pricing-input></select><a class="field-helper-link" href="./channels.html" target="_blank" rel="noopener"><span data-icon="plus"></span> Quản lý hoặc thêm sàn khác</a></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="pricing-block pricing-cost-block">
+                <div class="team-editor-head"><div><strong>Cấu phần chi phí</strong><small>Chi phí được cộng vào giá của một sản phẩm.</small></div><button class="button ghost compact-button" type="button" data-add-pricing-line><span data-icon="plus"></span> Thêm dòng</button></div>
+                <div class="pricing-presets" aria-label="Mẫu chi phí nhanh">
+                  <button type="button" data-add-pricing-preset data-preset-name="Bao bì" data-preset-type="fixed">+ Bao bì</button>
+                  <button type="button" data-add-pricing-preset data-preset-name="Nhân công" data-preset-type="fixed">+ Nhân công</button>
+                  <button type="button" data-add-pricing-preset data-preset-name="Phí sàn" data-preset-type="price_percent">+ Phí sàn</button>
+                  <button type="button" data-add-pricing-preset data-preset-name="Phí thanh toán" data-preset-type="price_percent">+ Phí thanh toán</button>
+                  <button type="button" data-add-pricing-preset data-preset-name="Marketing/Ads" data-preset-type="price_percent">+ Marketing/Ads</button>
+                  <button type="button" data-add-pricing-preset data-preset-name="Voucher/khuyến mãi" data-preset-type="price_percent">+ Voucher/khuyến mãi</button>
+                  <button type="button" data-add-pricing-preset data-preset-name="Affiliate" data-preset-type="price_percent">+ Affiliate</button>
+                  <button type="button" data-add-pricing-preset data-preset-name="Dự phòng rủi ro" data-preset-type="price_percent">+ Dự phòng rủi ro</button>
+                </div>
+                <div class="pricing-row-labels pricing-line-labels"><span>Dùng</span><span>Tên chi phí</span><span>Cách tính</span><span>Giá trị</span><span>Ghi chú</span><span></span></div>
+                <div data-pricing-lines></div>
+              </section>
+
+              <section class="pricing-block pricing-scenario-block">
+                <div class="team-editor-head"><div><strong>Kịch bản giá</strong><small>Chọn một kịch bản để xem và áp dụng kết quả tương ứng.</small></div><button class="button ghost compact-button" type="button" data-add-pricing-scenario><span data-icon="plus"></span> Thêm kịch bản</button></div>
+                <input type="hidden" name="selectedScenarioId" data-selected-pricing-scenario />
+                <div class="pricing-scenario-list" data-pricing-scenarios></div>
+              </section>
+
+              <section class="pricing-block pricing-result-block">
+                <div class="team-editor-head"><div><strong>Kết quả tính giá</strong><small>Thay đổi đầu vào ở trên, kết quả sẽ cập nhật ngay mà không tải lại trang.</small></div></div>
+                <div class="team-pricing-preview" data-team-pricing-preview></div>
+              </section>
+            </div>
+
+            <details class="content-details team-extra-details full">
+              <summary><span>Liên kết và trao đổi<small>Nguồn tham chiếu, link liên quan và comment nội bộ.</small></span></summary>
+              <div class="content-details-body">
+                <div class="field"><label for="teamPricingSourceType">Nguồn liên kết</label><select id="teamPricingSourceType" name="sourceType"><option value="manual">Ghi chú riêng</option><option value="product">Sản phẩm</option><option value="content">Content</option><option value="order">Đơn hàng</option><option value="pricing">Bảng tính giá</option><option value="plan">Kế hoạch</option></select></div>
+                <div class="field"><label for="teamPricingSourceId">Mã/link nguồn</label><input id="teamPricingSourceId" name="sourceId" placeholder="SKU, mã đơn, link Docs/Drive..." /></div>
+                <div class="content-form-box full"><strong>Lịch sử trao đổi</strong><div data-team-pricing-comments><p class="content-empty">Chưa có trao đổi.</p></div><textarea name="newComment" rows="2" placeholder="Thêm comment, cảnh báo, số liệu cần theo dõi..."></textarea></div>
+              </div>
+            </details>
+
+            <footer class="team-pricing-page-actions">
+              <a class="button ghost" href="./team.html"><span data-icon="close"></span> Quay lại Team Hub</a>
+              <button class="button primary" type="submit"><span data-icon="check"></span> Lưu bảng tính giá</button>
+            </footer>
+          </form>
+        </section>
       </section>
     </main>
   </div>

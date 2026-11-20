@@ -73,6 +73,18 @@ for (const selector of ["data-order-create-editor", "data-order-items", "data-or
 }
 assert.ok(!orderCreateHtml.includes('<form class="order-create-form" data-order-create-form></form>'), "Order editor HTML must not be an empty JavaScript mount point");
 
+const teamPricingHtml = fs.readFileSync(path.join("pages", "team-pricing.html"), "utf8");
+for (const selector of ["data-team-pricing-page-form", "data-pricing-selected-product", "data-pricing-lines", "data-pricing-scenarios", "data-team-pricing-preview", "data-team-pricing-comments"]) {
+  assert.ok(teamPricingHtml.includes(selector), `team-pricing.html must own ${selector}`);
+}
+for (const field of ["title", "status", "owner", "productId", "baseCost", "quantity", "priceTarget", "channelId", "selectedScenarioId"]) {
+  assert.ok(teamPricingHtml.includes(`name="${field}"`), `team-pricing.html must own the ${field} field`);
+}
+assert.ok(!teamPricingHtml.includes("<section data-team-pricing-page></section>"), "Team pricing HTML must not be an empty JavaScript mount point");
+const teamSource = fs.readFileSync(path.join("assets", "js", "pages", "team.js"), "utf8");
+const pricingPageController = teamSource.slice(teamSource.indexOf("function renderTeamPricingPage("), teamSource.indexOf("async function submitTeamPricingPageForm("));
+assert.ok(!pricingPageController.includes("container.innerHTML"), "Team pricing page controller must hydrate HTML instead of replacing its layout");
+
 const authHtml = fs.readFileSync("index.html", "utf8");
 for (const state of ["loading", "backend-error", "form"]) {
   assert.ok(authHtml.includes(`data-auth-state="${state}"`), `index.html must own the ${state} auth state`);

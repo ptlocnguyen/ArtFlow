@@ -400,20 +400,66 @@
       if (!container) return;
       const { existing, model } = teamPricingPageContext();
       if (els.title) els.title.textContent = existing ? "Cập nhật bảng tính giá" : "Tạo bảng tính giá";
-      container.innerHTML = `
-        <form class="team-pricing-page-form" data-team-pricing-page-form data-pricing-existing-id="${escapeAttribute(existing ? existing.id : "")}">
-          ${renderPricingForm(model)}
-          <footer class="team-pricing-page-actions">
-            <a class="button ghost" href="./team.html">${icon("close")} Quay lại Team Hub</a>
-            <button class="button primary" type="submit">${icon("check")} Lưu bảng tính giá</button>
-          </footer>
-        </form>
-      `;
-      hydrateIcons(container);
       const form = container.querySelector("[data-team-pricing-page-form]");
+      if (!form) return;
+      hydrateTeamPricingPageForm(form, model, existing);
       updatePricingScopeFields(form);
       updateTeamPricingPreview(form);
+      hydrateIcons(container);
       enhanceMoneyInputs(container);
+    }
+
+    function hydrateTeamPricingPageForm(form, model, existing = null) {
+      const item = normalizePricingModel(model || {});
+      const selectedProduct = item.productId ? byId("products", item.productId) : null;
+      const lines = item.lines.length ? item.lines : [
+        { label: "Bao bì", type: "fixed", value: 1000 },
+        { label: "Phí thanh toán", type: "price_percent", value: 3 },
+        { label: "Dự phòng rủi ro", type: "price_percent", value: 2 }
+      ].map(normalizePricingLine);
+      const scenarios = item.scenarios.length ? item.scenarios : [
+        { label: "Giá shop đề xuất", targetMargin: 35, manualPrice: 0, roundingStep: 1000 }
+      ].map(normalizePricingScenario);
+      const selectedScenarioId = scenarios.some(scenario => scenario.id === item.selectedScenarioId)
+        ? item.selectedScenarioId
+        : scenarios[0]?.id || "";
+      const suggestedTitle = pricingSuggestedTitle(selectedProduct, item.priceTarget, item.channelId || item.channelCode || "");
+      const pricingTitle = !item.title || String(item.title).startsWith("Tính giá ") ? suggestedTitle || item.title : item.title;
+      const field = name => form.elements.namedItem(name);
+
+      form.dataset.pricingExistingId = existing ? existing.id : "";
+      field("title").value = pricingTitle || "";
+      field("status").value = item.status || "draft";
+      field("owner").innerHTML = teamOwnerOptions(item.owner);
+      field("owner").value = item.owner || "";
+      field("note").value = item.note || "";
+      field("productId").value = item.productId || "";
+      field("baseCost").value = item.baseCost;
+      field("quantity").value = item.quantity;
+      field("priceTarget").value = item.priceTarget === "channel" ? "channel" : "offline";
+      field("channelId").innerHTML = pricingChannelOptions(item.channelId || item.channelCode || "");
+      field("channelId").value = item.channelId || item.channelCode || "";
+      field("selectedScenarioId").value = selectedScenarioId;
+      field("sourceType").value = item.sourceType || "manual";
+      field("sourceId").value = item.sourceId || "";
+      field("newComment").value = "";
+
+      const selectedProductContainer = form.querySelector("[data-pricing-selected-product]");
+      if (selectedProductContainer) selectedProductContainer.innerHTML = renderPricingSelectedProduct(selectedProduct);
+      const productAction = form.querySelector("[data-pricing-product-action]");
+      if (productAction) productAction.textContent = selectedProduct ? "Đổi sản phẩm" : "Thêm sản phẩm";
+      const lineContainer = form.querySelector("[data-pricing-lines]");
+      if (lineContainer) lineContainer.innerHTML = lines.map((line, index) => renderPricingLineInput(line, index)).join("");
+      const scenarioContainer = form.querySelector("[data-pricing-scenarios]");
+      if (scenarioContainer) scenarioContainer.innerHTML = scenarios.map((scenario, index) => renderPricingScenarioInput(scenario, index, selectedScenarioId)).join("");
+
+      const commentContainer = form.querySelector("[data-team-pricing-comments]");
+      const comments = Array.isArray(item.commentLog) ? item.commentLog : [];
+      if (commentContainer) {
+        commentContainer.innerHTML = comments.length
+          ? `<div class="content-comment-log">${comments.slice(-6).map(comment => `<p><span>${escapeHtml(comment.author || "Team")} · ${escapeHtml(formatDateTime(comment.createdAt || ""))}</span>${escapeHtml(comment.text || "")}</p>`).join("")}</div>`
+          : `<p class="content-empty">Chưa có trao đổi.</p>`;
+      }
     }
     
     async function submitTeamPricingPageForm(form) {
@@ -980,8 +1026,10 @@
       if (!product || !form) return;
       const hidden = form.querySelector("[data-team-pricing-product]");
       const selected = form.querySelector("[data-pricing-selected-product]");
+      const productAction = form.querySelector("[data-pricing-product-action]");
       if (hidden) hidden.value = product.id;
       if (selected) selected.innerHTML = renderPricingSelectedProduct(product);
+      if (productAction) productAction.textContent = "Đổi sản phẩm";
       if (form.baseCost) form.baseCost.value = product.costPrice || 0;
       syncPricingTitle(form, true);
       updateTeamPricingPreview(form);
