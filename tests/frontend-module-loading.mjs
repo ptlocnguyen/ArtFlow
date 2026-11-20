@@ -99,6 +99,14 @@ assert.ok(!purchasingHtml.includes('<aside class="management-drawer operation-de
 const purchasingSource = fs.readFileSync(path.join("assets", "js", "pages", "purchasing.js"), "utf8");
 assert.ok(!purchasingSource.includes("drawer.innerHTML"), "Purchasing drawers must hydrate their HTML-owned structure");
 
+const customersHtml = fs.readFileSync(path.join("pages", "customers.html"), "utf8");
+for (const selector of ["data-customer-detail-template", "data-customer-detail-avatar", "data-customer-detail-spent", "data-customer-detail-phone", "data-customer-detail-orders", "data-customer-detail-note", "data-customer-detail-actions"]) {
+  assert.ok(customersHtml.includes(selector), `customers.html must own ${selector}`);
+}
+const customersSource = fs.readFileSync(path.join("assets", "js", "pages", "customers.js"), "utf8");
+assert.ok(!customersSource.includes('<section class="customer-detail-hero'), "Customer detail layout must remain owned by its HTML template");
+assert.ok(customersSource.includes("hydrateCustomerDetail"), "Customer controller must hydrate the HTML-owned detail template");
+
 const authHtml = fs.readFileSync("index.html", "utf8");
 for (const state of ["loading", "backend-error", "form"]) {
   assert.ok(authHtml.includes(`data-auth-state="${state}"`), `index.html must own the ${state} auth state`);

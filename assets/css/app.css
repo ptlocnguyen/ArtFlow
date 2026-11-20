@@ -129,6 +129,10 @@
   font-weight: 700;
 }
 
+.customer-detail-note-value {
+  white-space: pre-wrap;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);

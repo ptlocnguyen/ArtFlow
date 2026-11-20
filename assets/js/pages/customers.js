@@ -27,29 +27,51 @@
     }
 
     function renderCustomerDetail(customer) {
+      const template = document.querySelector("[data-customer-detail-template]");
+      return customer && template ? template.innerHTML : "";
+    }
+
+    function hydrateCustomerDetail(host, customer) {
+      if (!host || !customer) return;
       const orders = (state.orders || [])
         .filter(order => order.customerId === customer.id && order.status !== "cancelled")
         .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
       const points = loyaltyPointsForCustomer(customer);
       const latestOrders = orders.slice(0, 5);
-      return `
-        <section class="customer-detail-hero full">
-          <div class="customer-avatar" aria-hidden="true">${escapeHtml(String(customer.name || "K").trim().charAt(0).toUpperCase())}</div>
-          <div><span class="badge ${customer.status}">${statusLabel(customer.status)}</span><h3>${escapeHtml(customer.name)}</h3><p>${escapeHtml(customer.group || "Khách hàng")}</p></div>
-        </section>
-        <section class="detail-metric-grid full">
-          <article><span>Tổng đã mua</span><strong>${money.format(customer.totalSpent || 0)}</strong></article>
-          <article><span>Điểm thành viên</span><strong>${Number(points || 0).toLocaleString("vi-VN")}</strong></article>
-          <article><span>Số đơn</span><strong>${orders.length}</strong></article>
-        </section>
-        <section class="detail-section full"><h3>Liên hệ</h3><dl class="detail-list"><div><dt>Điện thoại</dt><dd>${escapeHtml(customer.phone || "—")}</dd></div><div><dt>Email</dt><dd>${escapeHtml(customer.email || "—")}</dd></div><div><dt>Lần mua cuối</dt><dd>${customer.lastOrderAt ? formatDateTime(customer.lastOrderAt) : "—"}</dd></div></dl></section>
-        <section class="detail-section full"><div class="detail-section-header"><h3>Đơn gần đây</h3><a href="./orders.html?customer=${encodeURIComponent(customer.id)}">Xem danh sách</a></div>${latestOrders.length ? `<div class="detail-activity-list">${latestOrders.map(order => `<button type="button" data-view-order="${order.id}"><span><strong>${escapeHtml(order.code)}</strong><small>${formatDateTimeShort(order.createdAt)}</small></span><b>${money.format(order.netTotal)}</b></button>`).join("")}</div>` : `<p class="resource-empty-copy">Khách hàng chưa có đơn mua.</p>`}</section>
-        <section class="detail-section full"><h3>Ghi chú</h3><p>${escapeHtml(customer.note || "Chưa có ghi chú.").replace(/\n/g, "<br>")}</p></section>
-        ${canManageCustomers() ? `<footer class="detail-sticky-actions"><button class="button primary" type="button" data-edit-customer="${customer.id}">${icon("edit")} Sửa khách hàng</button></footer>` : ""}
-      `;
+      const setText = (selector, value) => {
+        const node = host.querySelector(selector);
+        if (node) node.textContent = value;
+      };
+      setText("[data-customer-detail-avatar]", String(customer.name || "K").trim().charAt(0).toUpperCase());
+      setText("[data-customer-detail-name]", customer.name);
+      setText("[data-customer-detail-group]", customer.group || "Khách hàng");
+      setText("[data-customer-detail-spent]", money.format(customer.totalSpent || 0));
+      setText("[data-customer-detail-points]", Number(points || 0).toLocaleString("vi-VN"));
+      setText("[data-customer-detail-order-count]", String(orders.length));
+      setText("[data-customer-detail-phone]", customer.phone || "—");
+      setText("[data-customer-detail-email]", customer.email || "—");
+      setText("[data-customer-detail-last-order]", customer.lastOrderAt ? formatDateTime(customer.lastOrderAt) : "—");
+      setText("[data-customer-detail-note]", customer.note || "Chưa có ghi chú.");
+      const status = host.querySelector("[data-customer-detail-status]");
+      if (status) {
+        status.className = `badge ${customer.status}`;
+        status.textContent = statusLabel(customer.status);
+      }
+      const ordersLink = host.querySelector("[data-customer-detail-orders-link]");
+      if (ordersLink) ordersLink.href = `./orders.html?customer=${encodeURIComponent(customer.id)}`;
+      const ordersHost = host.querySelector("[data-customer-detail-orders]");
+      if (ordersHost) {
+        ordersHost.innerHTML = latestOrders.length
+          ? `<div class="detail-activity-list">${latestOrders.map(order => `<button type="button" data-view-order="${order.id}"><span><strong>${escapeHtml(order.code)}</strong><small>${formatDateTimeShort(order.createdAt)}</small></span><b>${money.format(order.netTotal)}</b></button>`).join("")}</div>`
+          : `<p class="resource-empty-copy">Khách hàng chưa có đơn mua.</p>`;
+      }
+      const actions = host.querySelector("[data-customer-detail-actions]");
+      const editButton = actions?.querySelector("[data-edit-customer]");
+      if (actions) actions.hidden = !canManageCustomers();
+      if (editButton) editButton.dataset.editCustomer = customer.id;
     }
 
-    return { renderCustomerDetail, renderCustomers };
+    return { hydrateCustomerDetail, renderCustomerDetail, renderCustomers };
   }
 
   window.ArtFlowPageModules = window.ArtFlowPageModules || {};

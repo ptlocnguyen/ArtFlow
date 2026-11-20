@@ -45,6 +45,33 @@
       <div class="loading-card" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><strong data-loading-text>Đang xử lý...</strong></div>
     </div>
   </div>
+  <template data-customer-detail-template>
+    <section class="customer-detail-hero full">
+      <div class="customer-avatar" aria-hidden="true" data-customer-detail-avatar></div>
+      <div><span class="badge" data-customer-detail-status></span><h3 data-customer-detail-name></h3><p data-customer-detail-group></p></div>
+    </section>
+    <section class="detail-metric-grid full">
+      <article><span>Tổng đã mua</span><strong data-customer-detail-spent></strong></article>
+      <article><span>Điểm thành viên</span><strong data-customer-detail-points></strong></article>
+      <article><span>Số đơn</span><strong data-customer-detail-order-count></strong></article>
+    </section>
+    <section class="detail-section full">
+      <h3>Liên hệ</h3>
+      <dl class="detail-list">
+        <div><dt>Điện thoại</dt><dd data-customer-detail-phone></dd></div>
+        <div><dt>Email</dt><dd data-customer-detail-email></dd></div>
+        <div><dt>Lần mua cuối</dt><dd data-customer-detail-last-order></dd></div>
+      </dl>
+    </section>
+    <section class="detail-section full">
+      <div class="detail-section-header"><h3>Đơn gần đây</h3><a href="./orders.html" data-customer-detail-orders-link>Xem danh sách</a></div>
+      <div data-customer-detail-orders></div>
+    </section>
+    <section class="detail-section full"><h3>Ghi chú</h3><p class="customer-detail-note-value" data-customer-detail-note></p></section>
+    <footer class="detail-sticky-actions" data-customer-detail-actions>
+      <button class="button primary" type="button" data-edit-customer=""><span data-icon="edit"></span> Sửa khách hàng</button>
+    </footer>
+  </template>
   <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/core/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/core/ui.js"></script><script src="../assets/js/core/navigation.js"></script><script src="../assets/js/pages/orders.js"></script><script src="../assets/js/pages/customers.js"></script><script src="../assets/js/ui/app-shell.js"></script><script src="../assets/js/ui/side-sheet.js"></script><script src="../assets/js/ui/modal.js"></script><script src="../assets/js/ui/popover.js"></script><script src="../assets/js/ui/bottom-sheet.js"></script><script src="../assets/js/ui/command-menu.js"></script><script src="../assets/js/ui/data-table.js"></script><script src="../assets/js/ui/filter-bar.js"></script><script src="../assets/js/ui/toast.js"></script><script src="../assets/js/ui/confirm-dialog.js"></script><script src="../assets/js/app.js"></script>
 </body>
 </html>
