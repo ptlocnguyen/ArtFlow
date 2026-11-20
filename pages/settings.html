@@ -38,13 +38,53 @@
           </div>
         </section>
         <div class="settings-layout">
-          <form class="panel form-grid settings-form" data-settings-form></form>
-          <aside class="panel settings-preview" data-settings-preview></aside>
+          <form class="panel form-grid settings-form" data-settings-form>
+            <div class="field"><label for="storeName">Tên hiển thị trên phiếu</label><input id="storeName" name="storeName" required /></div>
+            <div class="field"><label for="legalName">Tên pháp lý / hộ kinh doanh</label><input id="legalName" name="legalName" placeholder="Tên đăng ký kinh doanh hoặc tên hộ kinh doanh" /></div>
+            <div class="field"><label for="paperSize">Khổ giấy</label><select id="paperSize" name="paperSize"><option value="thermal80">Nhiệt 80mm - phổ biến POS</option><option value="thermal58">Nhiệt 58mm - máy mini</option><option value="thermal76">Nhiệt 76mm</option><option value="thermal112">Nhiệt 112mm</option><option value="a5">A5</option><option value="a4">A4</option></select></div>
+            <div class="field"><label for="phone">Điện thoại</label><input id="phone" name="phone" /></div>
+            <div class="field"><label for="taxCode">Mã số thuế</label><input id="taxCode" name="taxCode" /></div>
+            <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" /></div>
+            <div class="field"><label for="website">Website / fanpage</label><input id="website" name="website" /></div>
+            <div class="field"><label for="representative">Người đại diện</label><input id="representative" name="representative" /></div>
+            <div class="field"><label for="businessRegistration">Số ĐKKD / mã hộ KD</label><input id="businessRegistration" name="businessRegistration" /></div>
+            <div class="field full"><label for="storeInfo">Dòng mô tả</label><input id="storeInfo" name="storeInfo" /></div>
+            <div class="field full"><label for="address">Địa chỉ</label><input id="address" name="address" /></div>
+            <div class="field"><label for="bankName">Ngân hàng</label><input id="bankName" name="bankName" placeholder="VD: Vietcombank" /></div>
+            <div class="field"><label for="bankAccount">Số tài khoản</label><input id="bankAccount" name="bankAccount" /></div>
+            <div class="field"><label for="bankOwner">Chủ tài khoản</label><input id="bankOwner" name="bankOwner" /></div>
+            <div class="field"><label for="invoiceSeries">Ký hiệu / mẫu hóa đơn</label><input id="invoiceSeries" name="invoiceSeries" placeholder="Nếu có hóa đơn điện tử" /></div>
+            <div class="field full"><label for="footer">Lời cuối phiếu</label><input id="footer" name="footer" /></div>
+            <div class="field full"><label for="invoiceLegalNotice">Ghi chú pháp lý trên phiếu</label><textarea id="invoiceLegalNotice" name="invoiceLegalNotice" rows="3"></textarea></div>
+            <div class="field checkbox-field full">
+              <label><input type="checkbox" name="showSku" /> Hiện SKU</label>
+              <label><input type="checkbox" name="showCustomer" /> Hiện khách hàng</label>
+              <label><input type="checkbox" name="showPoints" /> Hiện điểm tích lũy</label>
+              <label><input type="checkbox" name="showUnitPrice" /> Hiện đơn giá</label>
+            </div>
+            <div class="receipt-setting-note full">Theo Nghị định 123/2020/NĐ-CP, khi bán hàng hóa/dịch vụ người bán phải lập hóa đơn nếu thuộc trường hợp phải xuất hóa đơn. Phiếu POS trong ArtFlow giúp in nhanh và lưu chứng từ nội bộ; nếu cần hóa đơn điện tử hợp pháp, hãy dùng thông tin này để lập hóa đơn qua hệ thống hóa đơn điện tử đã đăng ký với cơ quan thuế.</div>
+            <div class="button-row"><button class="button primary" type="submit"><span data-icon="check"></span> Lưu thông tin shop</button></div>
+          </form>
+          <aside class="panel settings-preview" data-settings-preview>
+            <div class="settings-preview-card">
+              <span>Thông tin sẽ in trên chứng từ</span>
+              <h3 data-settings-preview-store>ArtFlow</h3>
+              <p data-settings-preview-legal>ArtFlow</p>
+              <p data-settings-preview-contact>Chưa có SĐT</p>
+              <p data-settings-preview-address>Chưa có địa chỉ</p>
+              <p data-settings-preview-online hidden></p>
+              <p data-settings-preview-bank hidden></p>
+            </div>
+            <div class="settings-compliance-card">
+              <strong>Lưu ý pháp lý</strong>
+              <p data-settings-preview-notice></p>
+            </div>
+          </aside>
         </div>
       </section>
     </main>
   </div>
   <div data-shared-ui></div>
-  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/core/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/core/ui.js"></script><script src="../assets/js/core/navigation.js"></script><script src="../assets/js/ui/app-shell.js"></script><script src="../assets/js/ui/side-sheet.js"></script><script src="../assets/js/ui/modal.js"></script><script src="../assets/js/ui/popover.js"></script><script src="../assets/js/ui/bottom-sheet.js"></script><script src="../assets/js/ui/command-menu.js"></script><script src="../assets/js/ui/data-table.js"></script><script src="../assets/js/ui/filter-bar.js"></script><script src="../assets/js/ui/toast.js"></script><script src="../assets/js/ui/confirm-dialog.js"></script><script src="../assets/js/app.js"></script>
+  <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/core/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/core/ui.js"></script><script src="../assets/js/core/navigation.js"></script><script src="../assets/js/pages/settings.js"></script><script src="../assets/js/ui/app-shell.js"></script><script src="../assets/js/ui/side-sheet.js"></script><script src="../assets/js/ui/modal.js"></script><script src="../assets/js/ui/popover.js"></script><script src="../assets/js/ui/bottom-sheet.js"></script><script src="../assets/js/ui/command-menu.js"></script><script src="../assets/js/ui/data-table.js"></script><script src="../assets/js/ui/filter-bar.js"></script><script src="../assets/js/ui/toast.js"></script><script src="../assets/js/ui/confirm-dialog.js"></script><script src="../assets/js/app.js"></script>
 </body>
 </html>

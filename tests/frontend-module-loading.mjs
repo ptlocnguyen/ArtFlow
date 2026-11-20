@@ -19,7 +19,7 @@ const expectedModules = {
   "purchase-create.html": ["purchase-create"],
   "purchasing.html": ["purchasing"],
   "reports.html": ["reports"],
-  "settings.html": [],
+  "settings.html": ["settings"],
   "suppliers.html": ["purchasing"],
   "team-pricing.html": ["channels", "team"],
   "team.html": ["channels", "team"],
@@ -27,7 +27,7 @@ const expectedModules = {
 };
 
 const appSource = fs.readFileSync(path.join("assets", "js", "app.js"), "utf8");
-for (const controller of ["renderProducts", "renderCustomers", "renderCustomerDetail", "renderInventory", "renderStockMovements", "renderStockReceiveForm", "renderStockAdjustForm", "renderPurchaseCreatePage", "renderOrdersRows", "renderOrderDetail", "renderUsers", "renderAuditLogs", "renderAuditDetail", "renderContentWorkspace", "renderContentItemForm", "renderOrderCreatePage", "renderProductPicker", "renderOrderItemRowV2", "submitOrderForm"]) {
+for (const controller of ["renderProducts", "renderCustomers", "renderCustomerDetail", "renderInventory", "renderStockMovements", "renderStockReceiveForm", "renderStockAdjustForm", "renderPurchaseCreatePage", "renderSettingsPage", "renderSettingsPreview", "renderOrdersRows", "renderOrderDetail", "renderUsers", "renderAuditLogs", "renderAuditDetail", "renderContentWorkspace", "renderContentItemForm", "renderOrderCreatePage", "renderProductPicker", "renderOrderItemRowV2", "submitOrderForm"]) {
   assert.ok(!appSource.includes(`function ${controller}(`), `${controller} must remain owned by its page module`);
 }
 
@@ -45,12 +45,21 @@ for (const [file, expected] of Object.entries(expectedModules)) {
 }
 
 const totalReferences = Object.values(expectedModules).reduce((sum, modules) => sum + modules.length, 0);
-assert.equal(totalReferences, 27, "Page-module budget changed; update the ownership map intentionally");
+assert.equal(totalReferences, 28, "Page-module budget changed; update the ownership map intentionally");
 
 const purchaseCreateHtml = fs.readFileSync(path.join("pages", "purchase-create.html"), "utf8");
 for (const selector of ["data-purchase-editor", "data-purchase-items", "data-purchase-supplier", "data-purchase-product-list", "data-purchase-summary-total"]) {
   assert.ok(purchaseCreateHtml.includes(selector), `purchase-create.html must own ${selector}`);
 }
 assert.ok(!purchaseCreateHtml.includes('<form class="purchase-create-form" data-purchase-create-form></form>'), "Purchase editor HTML must not be an empty JavaScript mount point");
+
+const settingsHtml = fs.readFileSync(path.join("pages", "settings.html"), "utf8");
+for (const field of ["storeName", "legalName", "paperSize", "taxCode", "invoiceLegalNotice"]) {
+  assert.ok(settingsHtml.includes(`name="${field}"`), `settings.html must own the ${field} field`);
+}
+for (const preview of ["data-settings-preview-store", "data-settings-preview-legal", "data-settings-preview-notice"]) {
+  assert.ok(settingsHtml.includes(preview), `settings.html must own ${preview}`);
+}
+assert.ok(!settingsHtml.includes('<form class="panel form-grid settings-form" data-settings-form></form>'), "Settings HTML must not be an empty JavaScript mount point");
 
 console.log(`Frontend module loading QA passed for ${Object.keys(expectedModules).length} pages and ${totalReferences} module references.`);

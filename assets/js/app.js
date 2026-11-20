@@ -4086,32 +4086,6 @@
     };
   }
 
-  function renderSettingsPreview(settings = getReceiptSettings()) {
-    if (!els.settingsPreview) return;
-    els.settingsPreview.innerHTML = `
-      <div class="settings-preview-card">
-        <span>Thông tin sẽ in trên chứng từ</span>
-        <h3>${escapeHtml(settings.storeName)}</h3>
-        <p>${escapeHtml(settings.legalName || settings.storeName)}</p>
-        <p>${settings.taxCode ? `MST: ${escapeHtml(settings.taxCode)} · ` : ""}${escapeHtml(settings.phone || "Chưa có SĐT")}</p>
-        <p>${escapeHtml(settings.address || "Chưa có địa chỉ")}</p>
-        ${settings.email || settings.website ? `<p>${escapeHtml([settings.email, settings.website].filter(Boolean).join(" · "))}</p>` : ""}
-        ${settings.bankAccount ? `<p>CK: ${escapeHtml(settings.bankAccount)} ${settings.bankName ? `- ${escapeHtml(settings.bankName)}` : ""}</p>` : ""}
-      </div>
-      <div class="settings-compliance-card">
-        <strong>Lưu ý pháp lý</strong>
-        <p>${escapeHtml(settings.invoiceLegalNotice)}</p>
-      </div>
-    `;
-  }
-
-  function renderSettingsPage() {
-    if (!els.settingsForm) return;
-    els.settingsForm.innerHTML = `${renderReceiptSettingsForm()}<div class="button-row"><button class="button primary" type="submit">${icon("check")} Lưu thông tin shop</button></div>`;
-    renderSettingsPreview();
-    enhanceMoneyInputs(els.settingsForm);
-  }
-
   function receiptHtml(order) {
     const settings = getReceiptSettings();
     const profile = receiptPaperProfile(settings);
@@ -7311,6 +7285,7 @@
 
   const { addProductToOrder, renderOrderCreatePage, renderOrderItemRow: renderOrderItemRowV2, submitOrderForm, updateOrderTotalPreview: updateOrderTotalPreviewV2 } = window.ArtFlowPageModules.orderCreate ? window.ArtFlowPageModules.orderCreate.create({ apiRequest, byId, canCreateOrder, canManageOrders, carriers, channels, clampNumber, els, ensureOrderReceiptPdf, escapeAttribute, escapeHtml, icon, loadCustomers, loadProducts, loyaltyPointsForCustomer, loyaltyRules, money, openReceiptPdf, openReceiptPrintWindow, paymentStatuses, printReceipt, productHasShopPrice, productSearchText, renderOptions, renderPage, renderProductThumb, saveOrderToState, shippingStatuses, showToast, state }) : { addProductToOrder() {}, renderOrderCreatePage() {}, renderOrderItemRowV2() { return ""; }, submitOrderForm: async () => {}, updateOrderTotalPreviewV2() { return { total: 0, items: [] }; } };
   const { renderPurchaseCreatePage } = window.ArtFlowPageModules.purchaseCreate ? window.ArtFlowPageModules.purchaseCreate.create({ canCreatePurchase, els, escapeAttribute, escapeHtml, getPageDataReady: () => pageDataReady, getPurchaseEditId: () => purchaseEditId, icon, money, normalizeSearchText, productSearchText, renderProductThumb, renderPurchaseItemRow, state, syncPurchaseSupplierContext, updatePurchaseTotalPreview }) : { renderPurchaseCreatePage() {} };
+  const { renderSettingsPage, renderSettingsPreview } = window.ArtFlowPageModules.settings ? window.ArtFlowPageModules.settings.create({ els, getReceiptSettings }) : { renderSettingsPage() {}, renderSettingsPreview() {} };
   const { applyContentAutomation, archiveContentItem, compactContentItemForm, filteredContentItems, getContentProduct, provisionContentItem, renderContentItemForm, renderContentWorkspace, saveContentItem } = window.ArtFlowPageModules.content ? window.ArtFlowPageModules.content.create({ apiRequest, byId, canManageContent, contentBriefTemplates, contentChannels, contentFilters, contentItemStatuses, contentItemTypes, contentPriorities, defaultContentAssetChecklist, defaultContentChecklist, els, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, getCurrentUser: () => currentUser, getSearchTerm: () => searchTerm, icon, normalizeContentItem, ownerName, renderPage, showToast, state }) : { applyContentAutomation() {}, archiveContentItem: async () => {}, compactContentItemForm() {}, filteredContentItems: () => [], getContentProduct: () => null, provisionContentItem: async () => null, renderContentItemForm: () => "", renderContentWorkspace() {}, saveContentItem: async () => {} };
   const { renderOrderDetail, renderOrdersRows } = window.ArtFlowPageModules.orders ? window.ArtFlowPageModules.orders.create({ canManageOrders, canReturnOrder, carrierLabel, channelLabel, collectedForOrder, els, escapeAttribute, escapeHtml, formatDateTime, formatDateTimeShort, getCustomer, icon, isAdmin, money, orderItemSummary, outstandingForOrder, paymentLabel, refundableForOrder, shippingLabel, statusLabel }) : { renderOrderDetail() { return ""; }, renderOrdersRows() {} };
   const { auditActionLabel, auditEntityLabel, renderAuditDetail, renderAuditLogs, renderUsers } = window.ArtFlowPageModules.admin ? window.ArtFlowPageModules.admin.create({ auditFilters, els, escapeAttribute, escapeHtml, filtered, formatDate, formatDateTime, getAuditHealth: () => auditHealth, getAuditLogs: () => auditLogs, getCurrentUser: () => currentUser, getSearchTerm: () => searchTerm, getStaffUsers: () => staffUsers, icon, roleLabel, statusLabel, userFilters }) : { auditActionLabel: action => action || "Hoạt động hệ thống", auditEntityLabel: type => type || "Hệ thống", renderAuditDetail() { return ""; }, renderAuditLogs() {}, renderUsers() {} };
