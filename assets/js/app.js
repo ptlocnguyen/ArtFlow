@@ -1643,49 +1643,6 @@
     return items.filter(item => fields.some(field => String(item[field] || "").toLowerCase().includes(term)));
   }
 
-  function renderApiMissing(message) {
-    if (!els.loginForm) return;
-    els.loginForm.innerHTML = `
-      <div>
-        <p class="eyebrow">Cần cấu hình backend</p>
-        <h2>Backend chưa sẵn sàng</h2>
-        <p class="form-note">${message || "Hãy chạy Cloudflare Worker và điền Worker URL vào assets/js/config.js."}</p>
-        <div class="connection-actions">
-          <button class="button primary" type="button" data-retry-backend>${icon("refresh")} Thử kết nối lại</button>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderAuthForm(mode) {
-    if (!els.loginForm) return;
-    const setup = mode === "setup";
-    els.loginForm.dataset.mode = mode;
-    els.loginForm.innerHTML = `
-      <div>
-        <p class="eyebrow">${setup ? "Thiết lập lần đầu" : "Quyền truy cập nội bộ"}</p>
-        <h2>${setup ? "Khởi tạo quản trị viên" : "Đăng nhập"}</h2>
-        <p class="form-note">${setup ? "Tạo tài khoản admin đầu tiên trong Google Sheet." : "Tài khoản do admin cấp, không có đăng ký công khai."}</p>
-      </div>
-      ${setup ? `
-        <label class="field">
-          <span>Tên quản trị viên</span>
-          <input type="text" name="name" autocomplete="name" placeholder="Tên của bạn" required />
-        </label>
-      ` : ""}
-      <label class="field">
-        <span>Email</span>
-        <input type="email" name="email" autocomplete="username" placeholder="name@artflow.vn" required />
-      </label>
-      <label class="field">
-        <span>Mật khẩu</span>
-        <input type="password" name="password" autocomplete="${setup ? "new-password" : "current-password"}" placeholder="${setup ? "Tạo mật khẩu" : "Nhập mật khẩu"}" minlength="${setup ? "8" : "1"}" required />
-      </label>
-      <p class="form-error" data-login-error hidden></p>
-      <button class="button primary" type="submit">${icon(setup ? "userPlus" : "check")} ${setup ? "Tạo tài khoản admin" : "Đăng nhập"}</button>
-    `;
-  }
-
   async function submitAuth(form) {
     const mode = form.dataset.mode || "login";
     const payload = Object.fromEntries(new FormData(form));
@@ -7283,6 +7240,7 @@
     });
   }
 
+  const { renderApiMissing, renderAuthForm } = window.ArtFlowPageModules.auth ? window.ArtFlowPageModules.auth.create({ els, icon }) : { renderApiMissing() {}, renderAuthForm() {} };
   const { addProductToOrder, renderOrderCreatePage, renderOrderItemRow: renderOrderItemRowV2, submitOrderForm, updateOrderTotalPreview: updateOrderTotalPreviewV2 } = window.ArtFlowPageModules.orderCreate ? window.ArtFlowPageModules.orderCreate.create({ apiRequest, byId, canCreateOrder, canManageOrders, carriers, channels, clampNumber, els, ensureOrderReceiptPdf, escapeAttribute, escapeHtml, icon, loadCustomers, loadProducts, loyaltyPointsForCustomer, loyaltyRules, money, openReceiptPdf, openReceiptPrintWindow, paymentStatuses, printReceipt, productHasShopPrice, productSearchText, renderOptions, renderPage, renderProductThumb, saveOrderToState, shippingStatuses, showToast, state }) : { addProductToOrder() {}, renderOrderCreatePage() {}, renderOrderItemRowV2() { return ""; }, submitOrderForm: async () => {}, updateOrderTotalPreviewV2() { return { total: 0, items: [] }; } };
   const { renderPurchaseCreatePage } = window.ArtFlowPageModules.purchaseCreate ? window.ArtFlowPageModules.purchaseCreate.create({ canCreatePurchase, els, escapeAttribute, escapeHtml, getPageDataReady: () => pageDataReady, getPurchaseEditId: () => purchaseEditId, icon, money, normalizeSearchText, productSearchText, renderProductThumb, renderPurchaseItemRow, state, syncPurchaseSupplierContext, updatePurchaseTotalPreview }) : { renderPurchaseCreatePage() {} };
   const { renderSettingsPage, renderSettingsPreview } = window.ArtFlowPageModules.settings ? window.ArtFlowPageModules.settings.create({ els, getReceiptSettings }) : { renderSettingsPage() {}, renderSettingsPreview() {} };

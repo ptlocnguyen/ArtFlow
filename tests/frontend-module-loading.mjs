@@ -27,7 +27,7 @@ const expectedModules = {
 };
 
 const appSource = fs.readFileSync(path.join("assets", "js", "app.js"), "utf8");
-for (const controller of ["renderProducts", "renderCustomers", "renderCustomerDetail", "renderInventory", "renderStockMovements", "renderStockReceiveForm", "renderStockAdjustForm", "renderPurchaseCreatePage", "renderSettingsPage", "renderSettingsPreview", "renderOrdersRows", "renderOrderDetail", "renderUsers", "renderAuditLogs", "renderAuditDetail", "renderContentWorkspace", "renderContentItemForm", "renderOrderCreatePage", "renderProductPicker", "renderOrderItemRowV2", "submitOrderForm"]) {
+for (const controller of ["renderProducts", "renderCustomers", "renderCustomerDetail", "renderInventory", "renderStockMovements", "renderStockReceiveForm", "renderStockAdjustForm", "renderPurchaseCreatePage", "renderSettingsPage", "renderSettingsPreview", "renderApiMissing", "renderAuthForm", "renderOrdersRows", "renderOrderDetail", "renderUsers", "renderAuditLogs", "renderAuditDetail", "renderContentWorkspace", "renderContentItemForm", "renderOrderCreatePage", "renderProductPicker", "renderOrderItemRowV2", "submitOrderForm"]) {
   assert.ok(!appSource.includes(`function ${controller}(`), `${controller} must remain owned by its page module`);
 }
 
@@ -67,5 +67,15 @@ for (const selector of ["data-order-create-editor", "data-order-items", "data-or
   assert.ok(orderCreateHtml.includes(selector), `order-create.html must own ${selector}`);
 }
 assert.ok(!orderCreateHtml.includes('<form class="order-create-form" data-order-create-form></form>'), "Order editor HTML must not be an empty JavaScript mount point");
+
+const authHtml = fs.readFileSync("index.html", "utf8");
+for (const state of ["loading", "backend-error", "form"]) {
+  assert.ok(authHtml.includes(`data-auth-state="${state}"`), `index.html must own the ${state} auth state`);
+}
+for (const field of ["name", "email", "password"]) {
+  assert.ok(authHtml.includes(`name="${field}"`), `index.html must own the ${field} auth field`);
+}
+assert.ok(authHtml.indexOf("assets/js/pages/auth.js") < authHtml.indexOf("assets/js/app.js"), "Auth controller must load before app.js");
+assert.ok(!authHtml.includes("Google Sheet"), "Auth copy must describe the current D1 architecture");
 
 console.log(`Frontend module loading QA passed for ${Object.keys(expectedModules).length} pages and ${totalReferences} module references.`);

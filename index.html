@@ -17,20 +17,47 @@
         <div class="auth-brand">
           <img class="brand-logo large" src="./assets/images/artflow-pos-logo.svg" alt="ArtFlow POS" />
           <h1>ArtFlow POS</h1>
-          <p>Không gian quản lý bán hàng riêng cho team ArtFlow: đăng nhập nội bộ, phân quyền nhân viên và sẵn sàng kết nối dữ liệu thật qua Google Apps Script.</p>
+          <p>Không gian quản lý bán hàng riêng cho team ArtFlow: đăng nhập nội bộ, phân quyền nhân viên và vận hành dữ liệu tập trung qua Cloudflare Worker cùng D1.</p>
         </div>
         <div class="auth-points" aria-label="Điểm nổi bật">
           <span>Không mở đăng ký công khai</span>
           <span>Tài khoản do admin cấp trực tiếp</span>
-          <span>Dữ liệu đi qua Cloudflare Worker trước khi ghi vào Google Sheet</span>
+          <span>Xác thực và dữ liệu nghiệp vụ được bảo vệ trên D1</span>
         </div>
       </div>
 
       <form class="login-card" data-login-form aria-live="polite">
-        <div class="form-skeleton">
+        <div class="form-skeleton" data-auth-state="loading">
           <span></span>
           <span></span>
           <span></span>
+        </div>
+        <div data-auth-state="backend-error" hidden>
+          <p class="eyebrow">Cần cấu hình backend</p>
+          <h2>Backend chưa sẵn sàng</h2>
+          <p class="form-note" data-auth-backend-message>Hãy chạy Cloudflare Worker và điền Worker URL vào assets/js/config.js.</p>
+          <div class="connection-actions"><button class="button primary" type="button" data-retry-backend><span data-icon="refresh"></span> Thử kết nối lại</button></div>
+        </div>
+        <div data-auth-state="form" hidden>
+          <div>
+            <p class="eyebrow" data-auth-eyebrow>Quyền truy cập nội bộ</p>
+            <h2 data-auth-title>Đăng nhập</h2>
+            <p class="form-note" data-auth-note>Tài khoản do admin cấp, không có đăng ký công khai.</p>
+          </div>
+          <label class="field" data-auth-name-field hidden>
+            <span>Tên quản trị viên</span>
+            <input type="text" name="name" autocomplete="name" placeholder="Tên của bạn" disabled />
+          </label>
+          <label class="field">
+            <span>Email</span>
+            <input type="email" name="email" autocomplete="username" placeholder="name@artflow.vn" required />
+          </label>
+          <label class="field">
+            <span>Mật khẩu</span>
+            <input type="password" name="password" autocomplete="current-password" placeholder="Nhập mật khẩu" minlength="1" required />
+          </label>
+          <p class="form-error" data-login-error hidden></p>
+          <button class="button primary" type="submit"><span data-auth-submit-icon></span><span data-auth-submit-label>Đăng nhập</span></button>
         </div>
       </form>
     </section>
@@ -48,6 +75,7 @@
   <script src="./assets/js/data.js"></script>
   <script src="./assets/js/core/data.js"></script>
   <script src="./assets/js/storage.js"></script>
+  <script src="./assets/js/pages/auth.js"></script>
   <script src="./assets/js/app.js"></script>
 </body>
 </html>
