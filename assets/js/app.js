@@ -3448,22 +3448,28 @@
   }
 
   function renderProductOptionManager(activeType, editOptionId) {
+    const template = document.querySelector("[data-product-options-template]");
+    return template ? template.innerHTML : "";
+  }
+
+  function hydrateProductOptionManager(host, activeType, editOptionId) {
+    if (!host) return;
     const type = productOptionLabels[activeType] ? activeType : "category";
     const options = (state.productOptions || [])
       .filter(option => option.type === type)
       .sort((a, b) => Number(b.status === "active") - Number(a.status === "active") || a.name.localeCompare(b.name, "vi"));
-    return `
-      <div class="product-option-manager full">
-        <div class="segmented-control product-option-tabs">${Object.entries(productOptionLabels).map(([key, label]) => `<button class="${key === type ? "active" : ""}" type="button" data-product-option-type="${key}">${label}</button>`).join("")}</div>
-        <div class="product-option-create">
-          <label class="field"><span>Thêm ${productOptionLabels[type].toLowerCase()}</span><input type="text" maxlength="100" placeholder="Nhập tên mới" data-product-option-name data-option-type="${type}" /></label>
-          <button class="button primary" type="button" data-create-product-option="${type}">${icon("plus")} Thêm</button>
-        </div>
-        <div class="product-option-list">${options.length ? options.map(option => `
-          <div class="product-option-item ${option.status !== "active" ? "archived" : ""}">
-            ${editOptionId === option.id ? `<div class="product-option-edit"><input type="text" maxlength="100" value="${escapeAttribute(option.name)}" data-product-option-edit-name="${escapeAttribute(option.id)}" /><div class="row-actions"><button class="link-button action-edit icon-only" type="button" data-save-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" aria-label="Lưu" title="Lưu">${icon("check")}</button><button class="link-button icon-only" type="button" data-cancel-product-option-edit data-option-type="${type}" aria-label="Hủy" title="Hủy">${icon("close")}</button></div></div>` : `<div><strong>${escapeHtml(option.name)}</strong><small>${option.status === "active" ? "Đang sử dụng" : "Đã ngừng dùng"} · ${productOptionUsageCount(option)} sản phẩm</small></div><div class="row-actions"><button class="link-button action-edit icon-only" type="button" data-edit-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" aria-label="Đổi tên" title="Đổi tên">${icon("edit")}</button><button class="link-button icon-only ${option.status === "active" ? "action-archive" : "action-activate"}" type="button" data-toggle-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" data-option-usage="${productOptionUsageCount(option)}" data-next-status="${option.status === "active" ? "archived" : "active"}" aria-label="${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}" title="${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}">${icon(option.status === "active" ? "archive" : "check")}</button></div>`}
-          </div>`).join("") : `<div class="empty">Chưa có ${productOptionLabels[type].toLowerCase()}.</div>`}</div>
-      </div>`;
+    host.querySelectorAll("[data-product-option-type]").forEach(button => button.classList.toggle("active", button.dataset.productOptionType === type));
+    const createLabel = host.querySelector("[data-product-option-create-label]");
+    const createInput = host.querySelector("[data-product-option-name]");
+    const createButton = host.querySelector("[data-create-product-option]");
+    const optionList = host.querySelector("[data-product-option-list]");
+    if (createLabel) createLabel.textContent = `Thêm ${productOptionLabels[type].toLowerCase()}`;
+    if (createInput) createInput.dataset.optionType = type;
+    if (createButton) createButton.dataset.createProductOption = type;
+    if (optionList) optionList.innerHTML = options.length ? options.map(option => `
+      <div class="product-option-item ${option.status !== "active" ? "archived" : ""}">
+        ${editOptionId === option.id ? `<div class="product-option-edit"><input type="text" maxlength="100" value="${escapeAttribute(option.name)}" data-product-option-edit-name="${escapeAttribute(option.id)}" /><div class="row-actions"><button class="link-button action-edit icon-only" type="button" data-save-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" aria-label="Lưu" title="Lưu">${icon("check")}</button><button class="link-button icon-only" type="button" data-cancel-product-option-edit data-option-type="${type}" aria-label="Hủy" title="Hủy">${icon("close")}</button></div></div>` : `<div><strong>${escapeHtml(option.name)}</strong><small>${option.status === "active" ? "Đang sử dụng" : "Đã ngừng dùng"} · ${productOptionUsageCount(option)} sản phẩm</small></div><div class="row-actions"><button class="link-button action-edit icon-only" type="button" data-edit-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" aria-label="Đổi tên" title="Đổi tên">${icon("edit")}</button><button class="link-button icon-only ${option.status === "active" ? "action-archive" : "action-activate"}" type="button" data-toggle-product-option="${escapeAttribute(option.id)}" data-option-type="${type}" data-option-usage="${productOptionUsageCount(option)}" data-next-status="${option.status === "active" ? "archived" : "active"}" aria-label="${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}" title="${option.status === "active" ? "Ngừng dùng" : "Dùng lại"}">${icon(option.status === "active" ? "archive" : "check")}</button></div>`}
+      </div>`).join("") : `<div class="empty">Chưa có ${productOptionLabels[type].toLowerCase()}.</div>`;
   }
 
   function updateProductPricingPreview(form) {
@@ -5752,6 +5758,7 @@
     els.modalEyebrow.textContent = definition.eyebrow;
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
+    if (type === "productOptions") hydrateProductOptionManager(els.modalForm, options.optionType || "category", options.editOptionId || "");
     if (type === "product") hydrateProductForm(els.modalForm, editingProduct);
     if (type === "orderDetail" && viewingOrder) hydrateOrderDetail(els.modalForm, viewingOrder);
     if (type === "productDetail" && editingProduct) hydrateProductDetail(els.modalForm, editingProduct);

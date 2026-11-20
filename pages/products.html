@@ -69,6 +69,20 @@
       <div class="loading-card" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><strong data-loading-text>Đang xử lý...</strong></div>
     </div>
   </div>
+  <template data-product-options-template>
+    <div class="product-option-manager full">
+      <div class="segmented-control product-option-tabs">
+        <button type="button" data-product-option-type="category">Danh mục</button>
+        <button type="button" data-product-option-type="brand">Thương hiệu</button>
+        <button type="button" data-product-option-type="unit">Đơn vị tính</button>
+      </div>
+      <div class="product-option-create">
+        <label class="field"><span data-product-option-create-label></span><input type="text" maxlength="100" placeholder="Nhập tên mới" data-product-option-name data-option-type="" /></label>
+        <button class="button primary" type="button" data-create-product-option=""><span data-icon="plus"></span> Thêm</button>
+      </div>
+      <div class="product-option-list" data-product-option-list></div>
+    </div>
+  </template>
   <template data-product-form-template>
     <div class="product-form-section full"><h3>Thông tin bán hàng</h3><p>Các trường dùng cho danh mục, kho và đơn hàng.</p></div>
     <div class="field"><label for="sku">SKU</label><input id="sku" name="sku" placeholder="AF-NEW-001" required /></div>
