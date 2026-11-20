@@ -101,6 +101,16 @@
   padding: 32px;
 }
 
+.login-card [hidden] {
+  display: none !important;
+}
+
+.login-card > [data-auth-state="form"]:not([hidden]),
+.login-card > [data-auth-state="backend-error"]:not([hidden]) {
+  display: grid;
+  gap: 16px;
+}
+
 .login-card h2 {
   margin: 4px 0 0;
   font-size: 28px;

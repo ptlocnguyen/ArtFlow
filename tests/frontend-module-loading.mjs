@@ -94,5 +94,8 @@ for (const field of ["name", "email", "password"]) {
 }
 assert.ok(authHtml.indexOf("assets/js/pages/auth.js") < authHtml.indexOf("assets/js/app.js"), "Auth controller must load before app.js");
 assert.ok(!authHtml.includes("Google Sheet"), "Auth copy must describe the current D1 architecture");
+const appCss = fs.readFileSync(path.join("assets", "css", "app.css"), "utf8");
+assert.ok(appCss.includes('.login-card [hidden]'), "Auth CSS must hide inactive states and setup-only fields");
+assert.ok(appCss.includes('[data-auth-state="form"]:not([hidden])'), "Auth CSS must lay out the visible form state");
 
 console.log(`Frontend module loading QA passed for ${Object.keys(expectedModules).length} pages and ${totalReferences} module references.`);
