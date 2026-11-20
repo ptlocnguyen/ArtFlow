@@ -1,0 +1,127 @@
+/* Keep the desktop sales workflow inside one viewport. Long carts alone own
+   an internal scrollbar; compact screens continue to use natural scrolling. */
+@media (min-width: 1101px) {
+  body[data-page="orderCreate"],
+  body[data-page="orderCreate"] .app-shell,
+  body[data-page="orderCreate"] .workspace {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body[data-page="orderCreate"] .workspace {
+    padding-bottom: 10px;
+  }
+
+  body[data-page="orderCreate"] .command-bar {
+    flex: 0 0 auto;
+    min-height: 72px;
+    margin-bottom: 10px;
+  }
+
+  body[data-page="orderCreate"] .workspace > .view.active {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  body[data-page="orderCreate"] .order-create-form,
+  body[data-page="orderCreate"] .order-compose-grid,
+  body[data-page="orderCreate"] .order-compose-main,
+  body[data-page="orderCreate"] .order-summary-panel,
+  body[data-page="orderCreate"] .order-summary-panel > .sticky-summary {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body[data-page="orderCreate"] .order-compose-grid { align-items: stretch; }
+  body[data-page="orderCreate"] .order-compose-main { grid-template-rows: minmax(0, 1fr) auto; }
+  body[data-page="orderCreate"] .order-summary-panel > .sticky-summary { display: flex; flex-direction: column; }
+  body[data-page="orderCreate"] .summary-grid { overflow: hidden; }
+  body[data-page="orderCreate"] .order-items-large { overflow-y: auto; }
+}
+
+@media (min-width: 1101px) and (max-height: 900px) {
+  body[data-page="orderCreate"] .order-compose-grid,
+  body[data-page="orderCreate"] .order-compose-main { gap: 10px; }
+
+  body[data-page="orderCreate"] .order-compose-section .panel-header {
+    min-height: 0;
+    padding: 8px 14px 6px;
+  }
+
+  body[data-page="orderCreate"] .order-compose-section .panel-header p { display: none; }
+  body[data-page="orderCreate"] .order-compose-section .panel-header h2 { font-size: 17px; }
+
+  body[data-page="orderCreate"] input,
+  body[data-page="orderCreate"] select,
+  body[data-page="orderCreate"] .button {
+    min-height: 36px;
+  }
+
+  body[data-page="orderCreate"] input,
+  body[data-page="orderCreate"] select { padding-block: 6px; }
+  body[data-page="orderCreate"] .field { gap: 2px; }
+
+  body[data-page="orderCreate"] .order-builder-layout {
+    padding: 0 14px 10px;
+  }
+
+  body[data-page="orderCreate"] .order-cart-heading { padding: 8px 10px; }
+  body[data-page="orderCreate"] .order-empty-cart {
+    margin: 8px;
+    padding: 16px 14px;
+  }
+
+  body[data-page="orderCreate"] .order-customer-section .compact-grid {
+    gap: 5px 10px;
+    padding: 6px 14px 10px;
+  }
+
+  body[data-page="orderCreate"] .loyalty-status-line {
+    margin-top: 0;
+    line-height: 1.2;
+  }
+
+  body[data-page="orderCreate"] .summary-grid {
+    flex: 0 0 auto;
+    gap: 5px 10px;
+    padding: 6px 14px 7px;
+  }
+
+  body[data-page="orderCreate"] .summary-grid input,
+  body[data-page="orderCreate"] .summary-grid select {
+    min-height: 36px;
+    padding-block: 6px;
+  }
+
+  body[data-page="orderCreate"] .order-extra-settings summary { padding: 7px 10px; }
+  body[data-page="orderCreate"] .receipt-actions {
+    min-height: 34px;
+    padding-top: 2px;
+  }
+
+  body[data-page="orderCreate"] .summary-lines {
+    gap: 3px 14px;
+    padding: 0 14px 5px;
+  }
+
+  body[data-page="orderCreate"] .summary-lines div {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  body[data-page="orderCreate"] .summary-lines strong { font-size: 12px; }
+  body[data-page="orderCreate"] .summary-total {
+    margin-top: 1px;
+    padding-top: 6px;
+  }
+
+  body[data-page="orderCreate"] .summary-total span,
+  body[data-page="orderCreate"] .summary-total strong { font-size: 16px; }
+
+  body[data-page="orderCreate"] .order-submit-actions { padding: 7px 14px 9px; }
+}

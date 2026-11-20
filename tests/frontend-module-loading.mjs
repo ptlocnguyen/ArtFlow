@@ -68,10 +68,15 @@ for (const preview of ["data-settings-preview-store", "data-settings-preview-leg
 assert.ok(!settingsHtml.includes('<form class="panel form-grid settings-form" data-settings-form></form>'), "Settings HTML must not be an empty JavaScript mount point");
 
 const orderCreateHtml = fs.readFileSync(path.join("pages", "order-create.html"), "utf8");
+assert.ok(orderCreateHtml.includes("assets/css/order-create.css"), "order-create.html must load its viewport-fit layout rules");
 for (const selector of ["data-order-create-editor", "data-order-items", "data-order-customer-options", "data-product-picker-list", "data-summary-total"]) {
   assert.ok(orderCreateHtml.includes(selector), `order-create.html must own ${selector}`);
 }
 assert.ok(!orderCreateHtml.includes('<form class="order-create-form" data-order-create-form></form>'), "Order editor HTML must not be an empty JavaScript mount point");
+const orderCreateCss = fs.readFileSync(path.join("assets", "css", "order-create.css"), "utf8");
+assert.ok(orderCreateCss.includes('body[data-page="orderCreate"] .workspace > .view.active'), "Desktop order creation must fit the remaining workspace height");
+assert.ok(orderCreateCss.includes("max-height: 900px"), "Short desktop screens must use the compact order layout");
+assert.ok(orderCreateCss.includes(".order-items-large { overflow-y: auto; }"), "Only long order item lists may scroll inside the desktop workflow");
 
 const teamPricingHtml = fs.readFileSync(path.join("pages", "team-pricing.html"), "utf8");
 for (const selector of ["data-team-pricing-page-form", "data-pricing-selected-product", "data-pricing-lines", "data-pricing-scenarios", "data-team-pricing-preview", "data-team-pricing-comments"]) {
