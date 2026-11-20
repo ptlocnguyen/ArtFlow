@@ -3720,20 +3720,6 @@
     filterProductPicker(search || panel);
   }
 
-  function renderInventoryProductOptions() {
-    return state.products
-      .filter(product => product.status === "active")
-      .map(product => `<option value="${product.id}">${product.sku} · ${product.name} (${product.stock} hiện có)</option>`)
-      .join("");
-  }
-
-  function renderInventoryProductOptionsV2(selectedId = "") {
-    return state.products
-      .filter(product => product.status === "active")
-      .map(product => `<option value="${product.id}" ${product.id === selectedId ? "selected" : ""}>${product.sku} · ${product.name} (${product.stock} hiện có)</option>`)
-      .join("");
-  }
-
   function renderOptions(options, selected = "") {
     return Object.entries(options).map(([value, label]) => `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`).join("");
   }
@@ -3995,52 +3981,6 @@
   function renderPlatformPayoutDetail(payout) {
     const meta = payoutStatusMeta(payout.status);
     return `<div class="payout-detail full"><div class="modal-summary"><strong>${escapeHtml(commerceChannelLabel(payout.channelId || payout.channelCode))} · ${escapeHtml(payout.payoutCode)}</strong><span>${formatDate(payout.periodStart)} - ${formatDate(payout.periodEnd)} · <span class="badge ${meta[1]}">${meta[0]}</span></span></div><div class="payout-detail-kpis"><article><small>Dự kiến</small><strong>${money.format(payout.expectedAmount)}</strong></article><article><small>Thực nhận</small><strong>${money.format(payout.actualAmount)}</strong></article><article><small>Chênh lệch</small><strong>${money.format(payout.difference)}</strong></article></div><div class="table-wrap"><table><thead><tr><th>Đơn</th><th>Tiền hàng</th><th>Dự kiến</th><th>Sàn trả</th><th>Lệch</th></tr></thead><tbody>${payout.items.length ? payout.items.map(item=>`<tr><td><strong>${escapeHtml(item.orderCode || item.platformOrderCode || "Chưa ghép")}</strong><small>${escapeHtml(item.status)}</small></td><td>${money.format(item.productTotal)}</td><td>${money.format(item.expectedNetAmount)}</td><td>${money.format(item.platformNetAmount)}</td><td>${money.format(item.difference)}</td></tr>`).join("") : `<tr><td colspan="5" class="empty">Chưa có dòng chi tiết.</td></tr>`}</tbody></table></div>${payout.sourceFileUrl ? `<a class="button ghost" href="${escapeAttribute(payout.sourceFileUrl)}" target="_blank" rel="noopener">${icon("external")} Mở file nguồn</a>` : ""}</div>`;
-  }
-
-  function renderStockReceiveForm() {
-    return `
-      <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptions()}</select></div>
-      <div class="field"><label for="quantity">Số lượng nhập thêm</label><input id="quantity" name="quantity" type="number" min="1" step="1" value="1" required /></div>
-      <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" placeholder="Nhập hàng từ nhà cung cấp" /></div>
-    `;
-  }
-
-  function renderStockAdjustForm() {
-    return `
-      <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptions()}</select></div>
-      <div class="field"><label for="stock">Tồn thực tế sau kiểm</label><input id="stock" name="stock" type="number" min="0" step="1" value="0" required /></div>
-      <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" placeholder="Kiểm kho định kỳ, hàng lỗi, thất lạc..." /></div>
-    `;
-  }
-
-  function renderStockReceiveForm(selectedProductId = "") {
-    const product = byId("products", selectedProductId) || state.products.find(item => item.status === "active");
-    const summary = product ? `
-      <div class="modal-summary full">
-        <strong>${escapeHtml(product.name)}</strong>
-        <span>${escapeHtml(product.sku)} · Tồn hiện tại ${Number(product.stock || 0)} · Ngưỡng ${Number(product.lowStock || 0)}</span>
-      </div>` : "";
-    return `
-      ${summary}
-      <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptionsV2(product ? product.id : selectedProductId)}</select></div>
-      <div class="field"><label for="quantity">Số lượng nhập thêm</label><input id="quantity" name="quantity" type="number" min="1" step="1" value="${product ? Math.max(1, inventoryRestockSuggestion(product)) : 1}" required /></div>
-      <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" value="Nhập kho bổ sung" placeholder="Nhập hàng từ nhà cung cấp" /></div>
-    `;
-  }
-
-  function renderStockAdjustForm(selectedProductId = "") {
-    const product = byId("products", selectedProductId) || state.products.find(item => item.status === "active");
-    const summary = product ? `
-      <div class="modal-summary full">
-        <strong>${escapeHtml(product.name)}</strong>
-        <span>${escapeHtml(product.sku)} · Tồn hệ thống ${Number(product.stock || 0)} · Ngưỡng ${Number(product.lowStock || 0)}</span>
-      </div>` : "";
-    return `
-      ${summary}
-      <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptionsV2(product ? product.id : selectedProductId)}</select></div>
-      <div class="field"><label for="stock">Tồn thực tế sau kiểm</label><input id="stock" name="stock" type="number" min="0" step="1" value="${product ? Number(product.stock || 0) : 0}" required /></div>
-      <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" value="Điều chỉnh kiểm kho" placeholder="Kiểm kho định kỳ, hàng lỗi, thất lạc..." /></div>
-    `;
   }
 
   function renderOrderFulfillmentForm(order) {
@@ -7452,7 +7392,7 @@
   const { auditActionLabel, auditEntityLabel, renderAuditDetail, renderAuditLogs, renderUsers } = window.ArtFlowPageModules.admin ? window.ArtFlowPageModules.admin.create({ auditFilters, els, escapeAttribute, escapeHtml, filtered, formatDate, formatDateTime, getAuditHealth: () => auditHealth, getAuditLogs: () => auditLogs, getCurrentUser: () => currentUser, getSearchTerm: () => searchTerm, getStaffUsers: () => staffUsers, icon, roleLabel, statusLabel, userFilters }) : { auditActionLabel: action => action || "Hoạt động hệ thống", auditEntityLabel: type => type || "Hệ thống", renderAuditDetail() { return ""; }, renderAuditLogs() {}, renderUsers() {} };
   const { renderProducts } = window.ArtFlowPageModules.products ? window.ArtFlowPageModules.products.create({ canManageProducts, els, escapeAttribute, escapeHtml, filtered, icon, money, productAssetsComplete, productChannelPrices, productFilters, productGrossProfit, productHasShopPrice, productImageUrl, productMarginRate, qs, state, statusLabel }) : { renderProducts() {} };
   const { renderCustomerDetail, renderCustomers } = window.ArtFlowPageModules.customers ? window.ArtFlowPageModules.customers.create({ canManageCustomers, els, escapeAttribute, escapeHtml, filtered, formatDate, formatDateTime, formatDateTimeShort, icon, loyaltyPointsForCustomer, money, state, statusLabel }) : { renderCustomerDetail() { return ""; }, renderCustomers() {} };
-  const { closeInventoryMovements, inventoryRestockSuggestion, inventoryStockState, openInventoryMovements, renderInventory, renderStockMovements } = window.ArtFlowPageModules.inventory ? window.ArtFlowPageModules.inventory.create({ els, escapeAttribute, escapeHtml, filtered, formatDateTime, getSearchTerm: () => searchTerm, icon, inventoryFilters, money, renderProductThumb, state, statusLabel }) : { closeInventoryMovements() {}, inventoryRestockSuggestion() { return 0; }, inventoryStockState() { return {}; }, openInventoryMovements() {}, renderInventory() {}, renderStockMovements() {} };
+  const { closeInventoryMovements, inventoryRestockSuggestion, inventoryStockState, openInventoryMovements, renderInventory, renderStockAdjustForm, renderStockMovements, renderStockReceiveForm } = window.ArtFlowPageModules.inventory ? window.ArtFlowPageModules.inventory.create({ els, escapeAttribute, escapeHtml, filtered, formatDateTime, getSearchTerm: () => searchTerm, icon, inventoryFilters, money, renderProductThumb, state, statusLabel }) : { closeInventoryMovements() {}, inventoryRestockSuggestion() { return 0; }, inventoryStockState() { return {}; }, openInventoryMovements() {}, renderInventory() {}, renderStockAdjustForm() { return ""; }, renderStockMovements() {}, renderStockReceiveForm() { return ""; } };
   const { activeSalesChannels, channelByIdOrCode, reservedStockForProduct, channelProductRows, filteredChannelProductRows, renderStaticOmniWorkspace, renderTikTokConnection, renderChannelSettings, renderOmniWorkspace } = window.ArtFlowPageModules.channels ? window.ArtFlowPageModules.channels.create({ normalizeChannelProduct, normalizeInventoryReservation, normalizeProduct, normalizeSalesChannel, channelSettingsFilters, channels, enhanceResponsiveTables, escapeAttribute, escapeHtml, getSearchTerm: () => searchTerm, hydrateIcons, icon, money, omniFilters, qs, state }) : Object.fromEntries(["activeSalesChannels","channelByIdOrCode","reservedStockForProduct","channelProductRows","filteredChannelProductRows","renderStaticOmniWorkspace","renderTikTokConnection","renderChannelSettings","renderOmniWorkspace"].map(name => [name, function () {}]));
   const { teamOwners, teamDateInRange, teamSearchText, currentTeamItems, setTeamOptions, renderTeamFilters, renderTeamHub, selectedIncenseOfferings, syncIncenseOfferings, renderOfferingTray, renderIncense, submitIncenseWish, teamStatusBadge, renderTeamTasks, renderTeamMeetings, renderTeamPlans, pricingLineAmount, roundedPricingValue, calculatePricingScenario, pricingTotals, renderTeamPricing, teamPricingPageContext, renderTeamPricingPage, submitTeamPricingPageForm, renderTeamDecisions, teamOwnerOptions, teamProductOptions, teamChannelOptions, pricingMarketplaceChannels, pricingChannelOptions, pricingTargetLabel, pricingSuggestedTitle, renderTeamSourceAndComments, appendTeamCommentLog, actionRowsFromText, textFromActionRows, localDateTimeValue, meetingTypeOptions, meetingStatusOptions, actionStatusOptions, splitListText, meetingMinutesIdFromUrl, setMeetingMinutesUrl, renderMinutesTextRows, renderMinutesActions, renderMinutesAttendees, renderMeetingMinutesForm, renderMeetingMinutesList, renderMeetingMinutesPage, valuesFromMinutesRows, syncMeetingMinutesForm, addMinutesTextRow, addMinutesAction, applyMeetingTemplate, parseQuickMeetingNote, cleanMeetingMinutesText, submitMeetingMinutesForm, renderMeetingForm, renderPlanForm, renderPricingForm, renderPricingSelectedProduct, renderPricingProductPicker, renderPricingProductPickerCard, selectPricingProduct, renderPricingLineInput, renderPricingScenarioInput, renderDecisionForm, collectPricingLines, collectPricingScenarios, refreshPricingBuilderState, updatePricingScopeFields, syncPricingTitle, updatePricingLineState, selectPricingScenario, updateTeamPricingPreview, teamApiCollection, teamApiItemType, pricingModelFromForm, validatePricingModel } = window.ArtFlowPageModules.team ? window.ArtFlowPageModules.team.create({ normalizeIncenseWish, normalizePricingLine, normalizePricingModel, normalizePricingScenario, normalizeSalesChannel, normalizeTeamAction, normalizeTeamDecision, normalizeTeamMeeting, normalizeTeamPlan, normalizeWorkspaceTask, apiRequest, byId, channelByIdOrCode, closeModal, currentUser, els, enhanceMoneyInputs, enhanceResponsiveTables, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, hydrateIcons, icon, incenseKinds, incenseOfferings, localDateValue, money, ownerName, productHasShopPrice, productSearchText, qs, renderProductThumb, saveTeamItem, searchTerm, setBusy, showToast, state, teamFilters, teamStatuses, teamViews }) : Object.fromEntries(["teamOwners","teamDateInRange","teamSearchText","currentTeamItems","setTeamOptions","renderTeamFilters","renderTeamHub","selectedIncenseOfferings","syncIncenseOfferings","renderOfferingTray","renderIncense","submitIncenseWish","teamStatusBadge","renderTeamTasks","renderTeamMeetings","renderTeamPlans","pricingLineAmount","roundedPricingValue","calculatePricingScenario","pricingTotals","renderTeamPricing","teamPricingPageContext","renderTeamPricingPage","submitTeamPricingPageForm","renderTeamDecisions","teamOwnerOptions","teamProductOptions","teamChannelOptions","pricingMarketplaceChannels","pricingChannelOptions","pricingTargetLabel","pricingSuggestedTitle","renderTeamSourceAndComments","appendTeamCommentLog","actionRowsFromText","textFromActionRows","localDateTimeValue","meetingTypeOptions","meetingStatusOptions","actionStatusOptions","splitListText","meetingMinutesIdFromUrl","setMeetingMinutesUrl","renderMinutesTextRows","renderMinutesActions","renderMinutesAttendees","renderMeetingMinutesForm","renderMeetingMinutesList","renderMeetingMinutesPage","valuesFromMinutesRows","syncMeetingMinutesForm","addMinutesTextRow","addMinutesAction","applyMeetingTemplate","parseQuickMeetingNote","cleanMeetingMinutesText","submitMeetingMinutesForm","renderMeetingForm","renderPlanForm","renderPricingForm","renderPricingSelectedProduct","renderPricingProductPicker","renderPricingProductPickerCard","selectPricingProduct","renderPricingLineInput","renderPricingScenarioInput","renderDecisionForm","collectPricingLines","collectPricingScenarios","refreshPricingBuilderState","updatePricingScopeFields","syncPricingTitle","updatePricingLineState","selectPricingScenario","updateTeamPricingPreview","teamApiCollection","teamApiItemType","pricingModelFromForm","validatePricingModel"].map(name => [name, function () {}]));
   const { syncAccountingView, commerceChannelLabel, payoutStatusMeta, renderCommerceAccounting, renderAccounting, productProfitRowsFromSnapshot, renderAccountingProfit, renderAccountingLedgerAnalysis, renderAccountingProfitDetails } = window.ArtFlowPageModules.accounting ? window.ArtFlowPageModules.accounting.create({ accountTypeLabel, accountingExportRange, accountingFilters, accountingPayrollRows, accountingRangeLabel, accountingTransactionTarget, accountingTypeLabel, byId, canManageAccounting, channelByIdOrCode, channels, collectedForOrder, els, escapeAttribute, escapeHtml, formatDate, getAccountingAccount, getAccountingCategory, getCustomer, getSupplier, icon, isPayrollTransaction, localDateValue, money, orderAgeDays, orderCost, outstandingForOrder, page, profitSnapshot, purchaseDueDays, reportDayKey, returnedOrderItemQuantity, searchTerm, shiftDateValue, state }) : Object.fromEntries(["syncAccountingView","commerceChannelLabel","payoutStatusMeta","renderCommerceAccounting","renderAccounting","productProfitRowsFromSnapshot","renderAccountingProfit","renderAccountingLedgerAnalysis","renderAccountingProfitDetails"].map(name => [name, function () {}]));

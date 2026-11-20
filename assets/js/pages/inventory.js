@@ -41,6 +41,55 @@
       return 0;
     }
 
+    function activeInventoryProducts() {
+      return (state.products || []).filter(product => product.status === "active");
+    }
+
+    function renderInventoryProductOptions(selectedId = "") {
+      return activeInventoryProducts()
+        .map(product => {
+          const selected = product.id === selectedId ? " selected" : "";
+          const label = `${product.sku} · ${product.name} (${Number(product.stock || 0)} hiện có)`;
+          return `<option value="${escapeAttribute(product.id)}"${selected}>${escapeHtml(label)}</option>`;
+        })
+        .join("");
+    }
+
+    function selectedInventoryProduct(selectedProductId = "") {
+      const products = activeInventoryProducts();
+      return products.find(product => product.id === selectedProductId) || products[0] || null;
+    }
+
+    function renderStockReceiveForm(selectedProductId = "") {
+      const product = selectedInventoryProduct(selectedProductId);
+      const summary = product ? `
+        <div class="modal-summary full">
+          <strong>${escapeHtml(product.name)}</strong>
+          <span>${escapeHtml(product.sku)} · Tồn hiện tại ${Number(product.stock || 0)} · Ngưỡng ${Number(product.lowStock || 0)}</span>
+        </div>` : "";
+      return `
+        ${summary}
+        <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptions(product ? product.id : selectedProductId)}</select></div>
+        <div class="field"><label for="quantity">Số lượng nhập thêm</label><input id="quantity" name="quantity" type="number" min="1" step="1" value="${product ? Math.max(1, inventoryRestockSuggestion(product)) : 1}" required /></div>
+        <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" value="Nhập kho bổ sung" placeholder="Nhập hàng từ nhà cung cấp" /></div>
+      `;
+    }
+
+    function renderStockAdjustForm(selectedProductId = "") {
+      const product = selectedInventoryProduct(selectedProductId);
+      const summary = product ? `
+        <div class="modal-summary full">
+          <strong>${escapeHtml(product.name)}</strong>
+          <span>${escapeHtml(product.sku)} · Tồn hệ thống ${Number(product.stock || 0)} · Ngưỡng ${Number(product.lowStock || 0)}</span>
+        </div>` : "";
+      return `
+        ${summary}
+        <div class="field full"><label for="productId">Sản phẩm</label><select id="productId" name="productId" required>${renderInventoryProductOptions(product ? product.id : selectedProductId)}</select></div>
+        <div class="field"><label for="stock">Tồn thực tế sau kiểm</label><input id="stock" name="stock" type="number" min="0" step="1" value="${product ? Number(product.stock || 0) : 0}" required /></div>
+        <div class="field"><label for="reason">Lý do</label><input id="reason" name="reason" type="text" value="Điều chỉnh kiểm kho" placeholder="Kiểm kho định kỳ, hàng lỗi, thất lạc..." /></div>
+      `;
+    }
+
     function renderInventoryFilters(products) {
       const categoryFilter = document.querySelector('[data-inventory-filter="category"]');
       if (!categoryFilter) return;
@@ -132,7 +181,8 @@
 
     return {
       closeInventoryMovements, inventoryRestockSuggestion, inventoryStockState,
-      openInventoryMovements, renderInventory, renderStockMovements
+      openInventoryMovements, renderInventory, renderStockAdjustForm,
+      renderStockMovements, renderStockReceiveForm
     };
   }
 

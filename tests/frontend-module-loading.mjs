@@ -27,7 +27,7 @@ const expectedModules = {
 };
 
 const appSource = fs.readFileSync(path.join("assets", "js", "app.js"), "utf8");
-for (const controller of ["renderProducts", "renderCustomers", "renderCustomerDetail", "renderInventory", "renderStockMovements", "renderOrdersRows", "renderOrderDetail", "renderUsers", "renderAuditLogs", "renderAuditDetail", "renderContentWorkspace", "renderContentItemForm", "renderOrderCreatePage", "renderProductPicker", "renderOrderItemRowV2", "submitOrderForm"]) {
+for (const controller of ["renderProducts", "renderCustomers", "renderCustomerDetail", "renderInventory", "renderStockMovements", "renderStockReceiveForm", "renderStockAdjustForm", "renderOrdersRows", "renderOrderDetail", "renderUsers", "renderAuditLogs", "renderAuditDetail", "renderContentWorkspace", "renderContentItemForm", "renderOrderCreatePage", "renderProductPicker", "renderOrderItemRowV2", "submitOrderForm"]) {
   assert.ok(!appSource.includes(`function ${controller}(`), `${controller} must remain owned by its page module`);
 }
 

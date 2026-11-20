@@ -13,6 +13,7 @@
     "qa:d1-auth": "node tests/d1-auth.mjs",
     "qa:login-performance": "node tests/login-performance-guards.mjs",
     "qa:frontend-modules": "node tests/frontend-module-loading.mjs",
+    "qa:inventory": "node tests/inventory-controller.mjs",
     "qa:purchase-save": "node tests/purchase-save.mjs",
     "qa:reset": "node tests/artflow-test-data.mjs --reset"
   },
