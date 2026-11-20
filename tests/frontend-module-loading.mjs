@@ -123,6 +123,10 @@ for (const selector of ["data-product-form-template", "name=\"sku\"", "name=\"ca
 }
 assert.ok(!appSource.includes('<div class="product-form-section full"><h3>Thông tin bán hàng</h3>'), "Product form layout must remain owned by its HTML template");
 assert.ok(appSource.includes("hydrateProductForm"), "Product controller must hydrate the HTML-owned form template");
+assert.ok(productsHtml.includes('name="stock" type="number" min="0" step="1" value="0"'), "New products must default stock to zero");
+assert.ok(productsHtml.includes('name="lowStock" type="number" min="0" step="1" value="1"'), "New products must default the low-stock threshold to one");
+assert.ok(appSource.includes('setValue("stock", "stock", 0)'), "Product editing must preserve a zero stock value");
+assert.ok(appSource.includes('setValue("lowStock", "lowStock", 1)'), "Product creation must hydrate the low-stock threshold to one");
 assert.ok(!appSource.includes('<div class="product-detail-hero full">'), "Product detail layout must remain owned by its HTML template");
 assert.ok(appSource.includes("hydrateProductDetail"), "Product controller must hydrate the HTML-owned detail template");
 

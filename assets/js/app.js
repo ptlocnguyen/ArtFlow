@@ -3498,7 +3498,9 @@
     if (brand) brand.innerHTML = renderManagedProductSelect("brand", value("brand"), { placeholder: "Không có thương hiệu" });
     if (unit) unit.innerHTML = renderManagedProductSelect("unit", value("unit") || "cái");
     if (contentOwner) contentOwner.innerHTML = renderContentOwnerSelect(value("contentOwner"));
-    ["sku", "name", "barcode", "costPrice", "salePrice", "stock", "lowStock", "dimensions", "origin", "material", "imageUrl", "shortDescription", "keyFeatures", "targetAudience", "seoKeywords", "contentNote", "websiteProductUrl", "shopeeProductUrl", "tiktokProductUrl", "facebookProductUrl", "contentPostLinks"].forEach(name => setValue(name));
+    ["sku", "name", "barcode", "costPrice", "salePrice", "dimensions", "origin", "material", "imageUrl", "shortDescription", "keyFeatures", "targetAudience", "seoKeywords", "contentNote", "websiteProductUrl", "shopeeProductUrl", "tiktokProductUrl", "facebookProductUrl", "contentPostLinks"].forEach(name => setValue(name));
+    setValue("stock", "stock", 0);
+    setValue("lowStock", "lowStock", 1);
     setValue("weightGrams", "weightGrams", 0);
     setValue("contentStatus", "contentStatus", "not_started");
     const editResourceNote = form.querySelector("[data-product-form-resource-edit]");
