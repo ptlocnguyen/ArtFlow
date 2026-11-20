@@ -62,7 +62,7 @@
       const ordersHost = host.querySelector("[data-customer-detail-orders]");
       if (ordersHost) {
         ordersHost.innerHTML = latestOrders.length
-          ? `<div class="detail-activity-list">${latestOrders.map(order => `<button type="button" data-view-order="${order.id}"><span><strong>${escapeHtml(order.code)}</strong><small>${formatDateTimeShort(order.createdAt)}</small></span><b>${money.format(order.netTotal)}</b></button>`).join("")}</div>`
+          ? `<div class="detail-activity-list">${latestOrders.map(order => `<a href="./orders.html?orderId=${encodeURIComponent(order.id)}"><span><strong>${escapeHtml(order.code)}</strong><small>${formatDateTimeShort(order.createdAt)}</small></span><b>${money.format(order.netTotal)}</b></a>`).join("")}</div>`
           : `<p class="resource-empty-copy">Khách hàng chưa có đơn mua.</p>`;
       }
       const actions = host.querySelector("[data-customer-detail-actions]");

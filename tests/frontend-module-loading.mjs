@@ -107,6 +107,16 @@ const customersSource = fs.readFileSync(path.join("assets", "js", "pages", "cust
 assert.ok(!customersSource.includes('<section class="customer-detail-hero'), "Customer detail layout must remain owned by its HTML template");
 assert.ok(customersSource.includes("hydrateCustomerDetail"), "Customer controller must hydrate the HTML-owned detail template");
 
+const ordersHtml = fs.readFileSync(path.join("pages", "orders.html"), "utf8");
+for (const selector of ["data-order-detail-template", "data-order-detail-code", "data-order-detail-pdf-link", "data-order-detail-customer", "data-order-detail-items", "data-order-detail-note", "data-order-detail-outstanding", "data-order-detail-total"]) {
+  assert.ok(ordersHtml.includes(selector), `orders.html must own ${selector}`);
+}
+const ordersSource = fs.readFileSync(path.join("assets", "js", "pages", "orders.js"), "utf8");
+assert.ok(!ordersSource.includes('<div class="order-detail">'), "Order detail layout must remain owned by its HTML template");
+assert.ok(ordersSource.includes("hydrateOrderDetail"), "Orders controller must hydrate the HTML-owned detail template");
+assert.ok(customersSource.includes("./orders.html?orderId="), "Customer order history must deep-link to the owning Orders page");
+assert.ok(appSource.includes('routeParams.get("orderId")'), "Orders page must accept customer-history deep links");
+
 const authHtml = fs.readFileSync("index.html", "utf8");
 for (const state of ["loading", "backend-error", "form"]) {
   assert.ok(authHtml.includes(`data-auth-state="${state}"`), `index.html must own the ${state} auth state`);

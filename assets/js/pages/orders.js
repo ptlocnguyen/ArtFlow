@@ -46,6 +46,12 @@
     }
 
     function renderOrderDetail(order) {
+      const template = document.querySelector("[data-order-detail-template]");
+      return order && template ? template.innerHTML : "";
+    }
+
+    function hydrateOrderDetail(host, order) {
+      if (!host || !order) return;
       const customer = getCustomer(order);
       const collected = collectedForOrder(order);
       const outstanding = outstandingForOrder(order);
@@ -53,63 +59,53 @@
         const gross = Number(item.unitPrice || 0) * Number(item.quantity || 0);
         return sum + Math.max(0, gross - Number(item.lineTotal || 0));
       }, 0);
-      const itemRows = (order.items || []).map(item => {
-        const gross = Number(item.unitPrice || 0) * Number(item.quantity || 0);
-        const lineDiscountAmount = Math.max(0, gross - Number(item.lineTotal || 0));
-        return `
-          <tr>
-            <td><div class="order-detail-product"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.sku)}</small></div></td>
-            <td>${item.quantity}</td>
-            <td>${money.format(item.unitPrice)}</td>
-            <td>${Number(item.discountPercent || 0) ? `${Number(item.discountPercent).toFixed(1)}%` : "0%"}</td>
-            <td>${lineDiscountAmount ? money.format(lineDiscountAmount) : "—"}</td>
-            <td><strong>${money.format(item.lineTotal)}</strong></td>
-          </tr>
-        `;
-      }).join("");
-      return `
-        <div class="order-detail">
-          <div class="order-detail-head">
-            <div>
-              <span class="eyebrow">Đơn hàng</span>
-              <h3>${escapeHtml(order.code)}</h3>
-              <p>Tạo lúc ${escapeHtml(formatDateTime(order.createdAt))} · Cập nhật ${escapeHtml(formatDateTime(order.updatedAt))}</p>
-            </div>
-            <div class="order-detail-actions">
-              ${order.receiptPdfUrl ? `<a class="button ghost" href="${escapeAttribute(order.receiptPdfUrl)}" target="_blank" rel="noopener">${icon("external")} Mở PDF</a>` : ""}
-              <button class="button ghost" type="button" data-order-receipt-pdf="${order.id}">${icon(order.receiptPdfUrl ? "printer" : "download")} ${order.receiptPdfUrl ? "In lại PDF" : "Tạo PDF"}</button>
-              <button class="button ghost" type="button" data-order-receipt-regenerate="${order.id}">${icon("refresh")} Tạo lại PDF</button>
-            </div>
-          </div>
-          <div class="order-detail-grid">
-            <article><span>Khách hàng</span><strong>${escapeHtml(customer.name || "Khách lẻ")}</strong><small>${escapeHtml(customer.phone || customer.email || "")}</small></article>
-            <article><span>Kênh bán</span><strong>${escapeHtml(channelLabel(order.channel))}</strong><small>${escapeHtml(order.paymentMethod || "cash")}</small></article>
-            <article><span>Trạng thái</span><strong>${escapeHtml(statusLabel(order.status))}</strong><small>${escapeHtml(paymentLabel(order.paymentStatus))}</small></article>
-            <article><span>Vận chuyển</span><strong>${escapeHtml(shippingLabel(order.shippingStatus))}</strong><small>${escapeHtml([carrierLabel(order.carrier), order.trackingCode].filter(Boolean).join(" · "))}</small></article>
-          </div>
-          <div class="table-wrap order-detail-table"><table><thead><tr><th>Sản phẩm</th><th>SL</th><th>Giá bán</th><th>Giảm %</th><th>Giảm tiền</th><th>Thành tiền</th></tr></thead><tbody>${itemRows || `<tr><td colspan="6" class="empty">Không có sản phẩm.</td></tr>`}</tbody></table></div>
-          <div class="order-detail-bottom">
-            <div class="order-detail-note">
-              <strong>Ghi chú</strong>
-              <p>${escapeHtml(order.note || "Không có ghi chú.")}</p>
-              <span>PDF: ${order.receiptPdfUrl ? "Đã lưu trên Drive" : "Chưa tạo"}</span>
-            </div>
-            <div class="order-detail-totals">
-              <div><span>Tạm tính</span><strong>${money.format(order.subtotal)}</strong></div>
-              <div><span>Giảm từng dòng</span><strong>${money.format(lineDiscount)}</strong></div>
-              <div><span>Giảm đơn</span><strong>${money.format(Number(order.discount || 0) + Number(order.loyaltyDiscount || 0))}</strong></div>
-              <div><span>Phí giao hàng</span><strong>${money.format(order.shippingFee)}</strong></div>
-              <div><span>Làm tròn</span><strong>${money.format(order.roundingAmount)}</strong></div>
-              <div><span>Đã thu</span><strong>${money.format(collected || order.cashReceived || 0)}</strong></div>
-              <div><span>Còn phải thu</span><strong>${money.format(outstanding)}</strong></div>
-              <div class="total"><span>Tổng thanh toán</span><strong>${money.format(order.netTotal)}</strong></div>
-            </div>
-          </div>
-        </div>
-      `;
+      const setText = (selector, value) => {
+        const node = host.querySelector(selector);
+        if (node) node.textContent = value;
+      };
+      setText("[data-order-detail-code]", order.code);
+      setText("[data-order-detail-dates]", `Tạo lúc ${formatDateTime(order.createdAt)} · Cập nhật ${formatDateTime(order.updatedAt)}`);
+      setText("[data-order-detail-customer]", customer.name || "Khách lẻ");
+      setText("[data-order-detail-customer-contact]", customer.phone || customer.email || "");
+      setText("[data-order-detail-channel]", channelLabel(order.channel));
+      setText("[data-order-detail-payment-method]", order.paymentMethod || "cash");
+      setText("[data-order-detail-status]", statusLabel(order.status));
+      setText("[data-order-detail-payment-status]", paymentLabel(order.paymentStatus));
+      setText("[data-order-detail-shipping-status]", shippingLabel(order.shippingStatus));
+      setText("[data-order-detail-shipping-meta]", [carrierLabel(order.carrier), order.trackingCode].filter(Boolean).join(" · "));
+      setText("[data-order-detail-note]", order.note || "Không có ghi chú.");
+      setText("[data-order-detail-pdf-status]", `PDF: ${order.receiptPdfUrl ? "Đã lưu trên Drive" : "Chưa tạo"}`);
+      setText("[data-order-detail-subtotal]", money.format(order.subtotal));
+      setText("[data-order-detail-line-discount]", money.format(lineDiscount));
+      setText("[data-order-detail-order-discount]", money.format(Number(order.discount || 0) + Number(order.loyaltyDiscount || 0)));
+      setText("[data-order-detail-shipping-fee]", money.format(order.shippingFee));
+      setText("[data-order-detail-rounding]", money.format(order.roundingAmount));
+      setText("[data-order-detail-collected]", money.format(collected || order.cashReceived || 0));
+      setText("[data-order-detail-outstanding]", money.format(outstanding));
+      setText("[data-order-detail-total]", money.format(order.netTotal));
+      const pdfLink = host.querySelector("[data-order-detail-pdf-link]");
+      if (pdfLink) {
+        pdfLink.href = order.receiptPdfUrl || "";
+        pdfLink.hidden = !order.receiptPdfUrl;
+      }
+      const receiptButton = host.querySelector("[data-order-detail-receipt]");
+      if (receiptButton) receiptButton.dataset.orderReceiptPdf = order.id;
+      setText("[data-order-detail-receipt-label]", order.receiptPdfUrl ? "In lại PDF" : "Tạo PDF");
+      const receiptIcon = host.querySelector("[data-order-detail-receipt-icon]");
+      if (receiptIcon) receiptIcon.dataset.icon = order.receiptPdfUrl ? "printer" : "download";
+      const regenerateButton = host.querySelector("[data-order-detail-regenerate]");
+      if (regenerateButton) regenerateButton.dataset.orderReceiptRegenerate = order.id;
+      const itemRows = host.querySelector("[data-order-detail-items]");
+      if (itemRows) {
+        itemRows.innerHTML = (order.items || []).length ? order.items.map(item => {
+          const gross = Number(item.unitPrice || 0) * Number(item.quantity || 0);
+          const lineDiscountAmount = Math.max(0, gross - Number(item.lineTotal || 0));
+          return `<tr><td><div class="order-detail-product"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.sku)}</small></div></td><td>${item.quantity}</td><td>${money.format(item.unitPrice)}</td><td>${Number(item.discountPercent || 0) ? `${Number(item.discountPercent).toFixed(1)}%` : "0%"}</td><td>${lineDiscountAmount ? money.format(lineDiscountAmount) : "—"}</td><td><strong>${money.format(item.lineTotal)}</strong></td></tr>`;
+        }).join("") : `<tr><td colspan="6" class="empty">Không có sản phẩm.</td></tr>`;
+      }
     }
 
-    return { renderOrderDetail, renderOrdersRows };
+    return { hydrateOrderDetail, renderOrderDetail, renderOrdersRows };
   }
 
   window.ArtFlowPageModules = window.ArtFlowPageModules || {};

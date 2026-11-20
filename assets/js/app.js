@@ -15,6 +15,7 @@
   const purchaseEditId = new URLSearchParams(window.location.search).get("edit") || "";
   const routeParams = new URLSearchParams(window.location.search);
   const accountingTransactionTarget = routeParams.get("transactionId") || "";
+  const orderTarget = routeParams.get("orderId") || "";
   const purchasingOrderTarget = new URLSearchParams(window.location.search).get("purchaseOrderId") || "";
   const supplierTarget = routeParams.get("supplierId") || "";
   let deepLinkFocusHandled = false;
@@ -3254,10 +3255,15 @@
 
   function focusDeepLinkedRecord() {
     if (deepLinkFocusHandled || !pageDataReady) return;
+    const linkedOrder = page === "orders" && orderTarget
+      ? (state.orders || []).find(order => order.id === orderTarget || order.code === orderTarget)
+      : null;
     const linkedPurchaseOrder = page === "purchasing" && purchasingOrderTarget
       ? (state.purchaseOrders || []).find(order => order.id === purchasingOrderTarget || order.code === purchasingOrderTarget)
       : null;
-    const selector = page === "accounting" && accountingTransactionTarget
+    const selector = page === "orders" && orderTarget
+      ? `[data-view-order="${CSS.escape(linkedOrder?.id || orderTarget)}"]`
+      : page === "accounting" && accountingTransactionTarget
       ? `[data-transaction-row="${CSS.escape(accountingTransactionTarget)}"]`
       : page === "purchasing" && purchasingOrderTarget
         ? `[data-purchase-order-row="${CSS.escape(linkedPurchaseOrder?.id || purchasingOrderTarget)}"]`
@@ -3268,7 +3274,10 @@
     deepLinkFocusHandled = true;
     window.requestAnimationFrame(() => {
       const target = document.querySelector(selector);
-      if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        if (page === "orders" && orderTarget) target.click();
+      }
       else showToast("Không tìm thấy bản ghi được liên kết trong dữ liệu hiện tại.", "error");
     });
   }
@@ -5703,6 +5712,7 @@
     els.modalEyebrow.textContent = definition.eyebrow;
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
+    if (type === "orderDetail" && viewingOrder) hydrateOrderDetail(els.modalForm, viewingOrder);
     if (type === "customerDetail" && viewingCustomer) hydrateCustomerDetail(els.modalForm, viewingCustomer);
     if (type === "contentItem") compactContentItemForm(els.modalForm);
     if (type === "contentItem" && !options.contentItem) applyContentAutomation(els.modalForm, "gentle");
@@ -7224,7 +7234,7 @@
   const { renderPurchaseCreatePage } = window.ArtFlowPageModules.purchaseCreate ? window.ArtFlowPageModules.purchaseCreate.create({ canCreatePurchase, els, escapeAttribute, escapeHtml, getPageDataReady: () => pageDataReady, getPurchaseEditId: () => purchaseEditId, icon, money, normalizeSearchText, productSearchText, renderProductThumb, renderPurchaseItemRow, state, syncPurchaseSupplierContext, updatePurchaseTotalPreview }) : { renderPurchaseCreatePage() {} };
   const { renderSettingsPage, renderSettingsPreview } = window.ArtFlowPageModules.settings ? window.ArtFlowPageModules.settings.create({ els, getReceiptSettings }) : { renderSettingsPage() {}, renderSettingsPreview() {} };
   const { applyContentAutomation, archiveContentItem, compactContentItemForm, filteredContentItems, getContentProduct, provisionContentItem, renderContentItemForm, renderContentWorkspace, saveContentItem } = window.ArtFlowPageModules.content ? window.ArtFlowPageModules.content.create({ apiRequest, byId, canManageContent, contentBriefTemplates, contentChannels, contentFilters, contentItemStatuses, contentItemTypes, contentPriorities, defaultContentAssetChecklist, defaultContentChecklist, els, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, getCurrentUser: () => currentUser, getSearchTerm: () => searchTerm, icon, normalizeContentItem, ownerName, renderPage, showToast, state }) : { applyContentAutomation() {}, archiveContentItem: async () => {}, compactContentItemForm() {}, filteredContentItems: () => [], getContentProduct: () => null, provisionContentItem: async () => null, renderContentItemForm: () => "", renderContentWorkspace() {}, saveContentItem: async () => {} };
-  const { renderOrderDetail, renderOrdersRows } = window.ArtFlowPageModules.orders ? window.ArtFlowPageModules.orders.create({ canManageOrders, canReturnOrder, carrierLabel, channelLabel, collectedForOrder, els, escapeAttribute, escapeHtml, formatDateTime, formatDateTimeShort, getCustomer, icon, isAdmin, money, orderItemSummary, outstandingForOrder, paymentLabel, refundableForOrder, shippingLabel, statusLabel }) : { renderOrderDetail() { return ""; }, renderOrdersRows() {} };
+  const { hydrateOrderDetail, renderOrderDetail, renderOrdersRows } = window.ArtFlowPageModules.orders ? window.ArtFlowPageModules.orders.create({ canManageOrders, canReturnOrder, carrierLabel, channelLabel, collectedForOrder, els, escapeAttribute, escapeHtml, formatDateTime, formatDateTimeShort, getCustomer, icon, isAdmin, money, orderItemSummary, outstandingForOrder, paymentLabel, refundableForOrder, shippingLabel, statusLabel }) : { hydrateOrderDetail() {}, renderOrderDetail() { return ""; }, renderOrdersRows() {} };
   const { auditActionLabel, auditEntityLabel, renderAuditDetail, renderAuditLogs, renderUsers } = window.ArtFlowPageModules.admin ? window.ArtFlowPageModules.admin.create({ auditFilters, els, escapeAttribute, escapeHtml, filtered, formatDate, formatDateTime, getAuditHealth: () => auditHealth, getAuditLogs: () => auditLogs, getCurrentUser: () => currentUser, getSearchTerm: () => searchTerm, getStaffUsers: () => staffUsers, icon, roleLabel, statusLabel, userFilters }) : { auditActionLabel: action => action || "Hoạt động hệ thống", auditEntityLabel: type => type || "Hệ thống", renderAuditDetail() { return ""; }, renderAuditLogs() {}, renderUsers() {} };
   const { renderProducts } = window.ArtFlowPageModules.products ? window.ArtFlowPageModules.products.create({ canManageProducts, els, escapeAttribute, escapeHtml, filtered, icon, money, productAssetsComplete, productChannelPrices, productFilters, productGrossProfit, productHasShopPrice, productImageUrl, productMarginRate, qs, state, statusLabel }) : { renderProducts() {} };
   const { hydrateCustomerDetail, renderCustomerDetail, renderCustomers } = window.ArtFlowPageModules.customers ? window.ArtFlowPageModules.customers.create({ canManageCustomers, els, escapeAttribute, escapeHtml, filtered, formatDate, formatDateTime, formatDateTimeShort, icon, loyaltyPointsForCustomer, money, state, statusLabel }) : { hydrateCustomerDetail() {}, renderCustomerDetail() { return ""; }, renderCustomers() {} };

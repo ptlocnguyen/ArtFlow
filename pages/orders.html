@@ -51,6 +51,38 @@
       <div class="loading-card" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><strong data-loading-text>Đang xử lý...</strong></div>
     </div>
   </div>
+  <template data-order-detail-template>
+    <div class="order-detail">
+      <div class="order-detail-head">
+        <div><span class="eyebrow">Đơn hàng</span><h3 data-order-detail-code></h3><p data-order-detail-dates></p></div>
+        <div class="order-detail-actions">
+          <a class="button ghost" href="" target="_blank" rel="noopener" data-order-detail-pdf-link hidden><span data-icon="external"></span> Mở PDF</a>
+          <button class="button ghost" type="button" data-order-receipt-pdf="" data-order-detail-receipt><span data-icon="download" data-order-detail-receipt-icon></span> <span data-order-detail-receipt-label>Tạo PDF</span></button>
+          <button class="button ghost" type="button" data-order-receipt-regenerate="" data-order-detail-regenerate><span data-icon="refresh"></span> Tạo lại PDF</button>
+        </div>
+      </div>
+      <div class="order-detail-grid">
+        <article><span>Khách hàng</span><strong data-order-detail-customer></strong><small data-order-detail-customer-contact></small></article>
+        <article><span>Kênh bán</span><strong data-order-detail-channel></strong><small data-order-detail-payment-method></small></article>
+        <article><span>Trạng thái</span><strong data-order-detail-status></strong><small data-order-detail-payment-status></small></article>
+        <article><span>Vận chuyển</span><strong data-order-detail-shipping-status></strong><small data-order-detail-shipping-meta></small></article>
+      </div>
+      <div class="table-wrap order-detail-table"><table><thead><tr><th>Sản phẩm</th><th>SL</th><th>Giá bán</th><th>Giảm %</th><th>Giảm tiền</th><th>Thành tiền</th></tr></thead><tbody data-order-detail-items></tbody></table></div>
+      <div class="order-detail-bottom">
+        <div class="order-detail-note"><strong>Ghi chú</strong><p data-order-detail-note></p><span data-order-detail-pdf-status></span></div>
+        <div class="order-detail-totals">
+          <div><span>Tạm tính</span><strong data-order-detail-subtotal></strong></div>
+          <div><span>Giảm từng dòng</span><strong data-order-detail-line-discount></strong></div>
+          <div><span>Giảm đơn</span><strong data-order-detail-order-discount></strong></div>
+          <div><span>Phí giao hàng</span><strong data-order-detail-shipping-fee></strong></div>
+          <div><span>Làm tròn</span><strong data-order-detail-rounding></strong></div>
+          <div><span>Đã thu</span><strong data-order-detail-collected></strong></div>
+          <div><span>Còn phải thu</span><strong data-order-detail-outstanding></strong></div>
+          <div class="total"><span>Tổng thanh toán</span><strong data-order-detail-total></strong></div>
+        </div>
+      </div>
+    </div>
+  </template>
   <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/core/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/core/ui.js"></script><script src="../assets/js/core/navigation.js"></script><script src="../assets/js/pages/orders.js"></script><script src="../assets/js/ui/app-shell.js"></script><script src="../assets/js/ui/side-sheet.js"></script><script src="../assets/js/ui/modal.js"></script><script src="../assets/js/ui/popover.js"></script><script src="../assets/js/ui/bottom-sheet.js"></script><script src="../assets/js/ui/command-menu.js"></script><script src="../assets/js/ui/data-table.js"></script><script src="../assets/js/ui/filter-bar.js"></script><script src="../assets/js/ui/toast.js"></script><script src="../assets/js/ui/confirm-dialog.js"></script><script src="../assets/js/app.js"></script>
 </body>
 </html>
