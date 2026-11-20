@@ -4443,31 +4443,6 @@
     return true;
   }
 
-  function renderPurchaseProductPicker() {
-    const products = state.products.filter(product => product.status === "active").sort((a, b) => a.name.localeCompare(b.name));
-    const categories = Array.from(new Set(products.map(product => String(product.category || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-    const brands = Array.from(new Set(products.map(product => String(product.brand || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-    return `
-      <div class="product-picker purchase-product-picker">
-        <div class="product-picker-toolbar"><label class="search-box product-picker-search">${icon("search")}<input type="search" placeholder="Tìm tên, SKU, danh mục hoặc hãng..." data-purchase-product-search /></label><span class="pill" data-purchase-product-count>${products.length} sản phẩm</span></div>
-        <div class="product-picker-filters purchase-product-filters">
-          <select data-purchase-product-category aria-label="Lọc theo danh mục"><option value="all">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(normalizeSearchText(value))}">${escapeHtml(value)}</option>`).join("")}</select>
-          <select data-purchase-product-brand aria-label="Lọc theo hãng"><option value="all">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(normalizeSearchText(value))}">${escapeHtml(value)}</option>`).join("")}</select>
-          <select data-purchase-product-stock aria-label="Lọc theo tồn kho"><option value="all">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="low">Sắp hết hàng</option><option value="empty">Hết hàng</option></select>
-          <select data-purchase-product-supplier aria-label="Lọc theo lịch sử nhà cung cấp"><option value="all">Tất cả nguồn nhập</option><option value="current">Đã nhập từ nhà cung cấp đang chọn</option></select>
-          <button class="button ghost" type="button" data-reset-purchase-product-picker>${icon("refresh")} Đặt lại</button>
-        </div>
-        <div class="product-picker-list" data-purchase-product-list>${products.map(product => `
-          <button class="product-card product-card-rich purchase-product-card" type="button" data-add-product-to-purchase="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-product-category="${escapeAttribute(normalizeSearchText(product.category || ""))}" data-product-brand="${escapeAttribute(normalizeSearchText(product.brand || ""))}" data-product-stock="${Number(product.stock || 0) > 0 ? "available" : "empty"}" data-product-low-stock="${Number(product.stock || 0) > 0 && Number(product.stock || 0) <= Number(product.lowStock || 0) ? "true" : "false"}" aria-pressed="false">
-            ${renderProductThumb(product)}
-            <span class="product-card-main"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.sku)} · ${escapeHtml(product.category || "Chưa phân loại")}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</small><span class="product-card-tags"><em class="${Number(product.stock || 0) > 0 && Number(product.stock || 0) <= Number(product.lowStock || 0) ? "is-low" : ""}">${Number(product.stock || 0)} tồn</em><span class="purchase-stock-threshold ${Number(product.stock || 0) > 0 && Number(product.stock || 0) <= Number(product.lowStock || 0) ? "is-low" : ""}">Ngưỡng ${Number(product.lowStock || 0)}</span><span>Giá vốn ${money.format(product.costPrice)}</span></span><small class="purchase-supplier-history" data-purchase-supplier-history>Chọn nhà cung cấp để xem lịch sử nhập</small></span>
-            <span class="purchase-product-state" data-purchase-product-state>${icon("plus")} Thêm</span>
-          </button>
-        `).join("")}</div>
-      </div>
-    `;
-  }
-
   function renderPurchaseItemRow(productId, values = {}) {
     const catalogProduct = byId("products", productId);
     const product = catalogProduct || (values.productId ? { id: productId, sku: values.sku, name: values.name, stock: 0, costPrice: values.unitCost } : null);
@@ -4657,58 +4632,6 @@
     await loadPurchasingData({ quiet: true });
     window.ArtFlowPosStore.save(state);
     return response.purchaseOrder;
-  }
-
-  function renderPurchaseCreatePage() {
-    if (!els.purchaseCreateForm) return;
-    const editingOrder = purchaseEditId ? byId("purchaseOrders", purchaseEditId) : null;
-    if (purchaseEditId && pageDataReady && !editingOrder) {
-      els.purchaseCreateForm.innerHTML = `<section class="panel empty-state"><h2>Không tìm thấy phiếu mua</h2><p>Phiếu có thể đã bị xóa hoặc đường dẫn không còn hợp lệ.</p><div class="form-actions"><a class="button primary" href="./purchasing.html">Về danh sách phiếu</a></div></section>`;
-      return;
-    }
-    if (editingOrder && editingOrder.status !== "draft") {
-      els.purchaseCreateForm.innerHTML = `<section class="panel empty-state"><h2>Phiếu mua không thể sửa</h2><p>Chỉ phiếu đang ở trạng thái nháp mới được chỉnh sửa.</p><div class="form-actions"><a class="button primary" href="./purchasing.html">Về danh sách phiếu</a></div></section>`;
-      return;
-    }
-    if (!canCreatePurchase()) {
-      els.purchaseCreateForm.innerHTML = `<section class="panel empty-state"><h2>Cần dữ liệu mua hàng</h2><p>Hãy tạo nhà cung cấp và sản phẩm đang hoạt động trước khi lập phiếu mua.</p><div class="form-actions"><a class="button ghost" href="./purchasing.html">Nhà cung cấp</a><a class="button primary" href="./products.html">Sản phẩm</a></div></section>`;
-      return;
-    }
-    els.purchaseCreateForm.dataset.purchaseOrderId = editingOrder ? editingOrder.id : "";
-    if (els.title) els.title.textContent = editingOrder ? `Sửa ${editingOrder.code}` : pages.purchaseCreate.title;
-    const suppliers = state.suppliers.filter(supplier => supplier.status === "active").map(supplier => `<option value="${supplier.id}">${supplier.name} · ${supplier.phone}</option>`).join("");
-    els.purchaseCreateForm.innerHTML = `
-      <section class="order-compose-grid purchase-compose-grid">
-        <div class="order-compose-main">
-          <section class="panel order-compose-section purchase-items-section"><div class="panel-header purchase-items-header"><div><h2>Danh sách hàng nhập</h2><p>Kiểm tra số lượng và đơn giá nhập trước khi lưu phiếu.</p></div><button class="button primary" type="button" data-open-purchase-product-picker>${icon("plus")} Thêm sản phẩm</button></div><div class="purchase-builder-layout"><div class="order-cart-panel purchase-cart-panel"><div class="order-cart-heading"><strong>Sản phẩm đã chọn</strong><span data-purchase-cart-count>0 dòng</span></div><div class="purchase-list-columns" aria-hidden="true"><span>Sản phẩm</span><span>Số lượng</span><span>Đơn giá nhập</span><span>Thành tiền</span><span></span></div><div class="order-empty-cart" data-purchase-empty-cart><span class="empty-state-icon">${icon("package")}</span><strong>Chưa có sản phẩm trong phiếu</strong><small>Mở danh mục để chọn nhanh nhiều sản phẩm cần nhập.</small><button class="button ghost" type="button" data-open-purchase-product-picker>${icon("plus")} Chọn sản phẩm</button></div><div class="order-items order-items-large purchase-items" data-purchase-items></div></div></div></section>
-        </div>
-        <aside class="order-summary-panel purchase-side-panel">
-          <section class="panel order-compose-section order-customer-section purchase-supplier-section"><div class="panel-header"><div><h2>Nhà cung cấp</h2><p>Đối tác và chứng từ mua hàng.</p></div></div><div class="form-grid compact-grid"><div class="field full"><label for="supplierId">Nhà cung cấp</label><select id="supplierId" name="supplierId" required>${suppliers}</select></div><div class="field"><label for="invoiceNumber">Số hóa đơn</label><input id="invoiceNumber" name="invoiceNumber" placeholder="Mẫu số / số hóa đơn" /></div><div class="field"><label for="dueDate">Hạn thanh toán</label><input id="dueDate" name="dueDate" type="date" /></div><div class="field full"><label for="note">Ghi chú</label><input id="note" name="note" placeholder="Điều khoản mua, người giao, số báo giá..." /></div></div></section>
-          <section class="panel order-compose-section sticky-summary"><div class="panel-header"><div><h2>Tổng phiếu mua</h2><p>Lưu nháp tại đây để tiếp tục chỉnh sửa trước khi nhận hàng.</p></div></div><div class="form-grid summary-grid"><div class="field"><label for="discount">Chiết khấu</label><input id="discount" name="discount" type="number" min="0" step="1" value="0" data-purchase-money /></div><div class="field"><label for="shippingFee">Phí vận chuyển</label><input id="shippingFee" name="shippingFee" type="number" min="0" step="1" value="0" data-purchase-money /></div></div><div class="summary-lines"><div><span>Tạm tính</span><strong data-purchase-summary-subtotal>${money.format(0)}</strong></div><div><span>Chiết khấu</span><strong data-purchase-summary-discount>${money.format(0)}</strong></div><div><span>Phí vận chuyển</span><strong data-purchase-summary-shipping>${money.format(0)}</strong></div><div class="summary-total"><span>Tổng phải trả</span><strong data-purchase-summary-total>${money.format(0)}</strong></div></div><div class="form-actions order-submit-actions"><button class="button primary" type="submit">Lưu phiếu mua</button></div></section>
-        </aside>
-        <div class="purchase-product-popup" data-purchase-product-popup hidden>
-          <div class="purchase-product-popup-panel" role="dialog" aria-modal="true" aria-labelledby="purchaseProductPickerTitle">
-            <header class="purchase-product-popup-header"><div><p class="eyebrow">Danh mục sản phẩm</p><h2 id="purchaseProductPickerTitle">Chọn sản phẩm cần nhập</h2><p>Những sản phẩm đã có trong phiếu sẽ được đánh dấu để tránh chọn trùng.</p></div><button class="icon-button" type="button" data-close-purchase-product-picker aria-label="Đóng">${icon("close")}</button></header>
-            ${renderPurchaseProductPicker()}
-            <footer class="purchase-product-popup-footer"><span data-purchase-picker-selected-count>0 đã chọn</span><button class="button primary" type="button" data-close-purchase-product-picker>${icon("check")} Xong</button></footer>
-          </div>
-        </div>
-      </section>
-    `;
-    if (editingOrder) {
-      els.purchaseCreateForm.supplierId.value = editingOrder.supplierId;
-      els.purchaseCreateForm.invoiceNumber.value = editingOrder.invoiceNumber;
-      els.purchaseCreateForm.dueDate.value = editingOrder.dueDate;
-      els.purchaseCreateForm.note.value = editingOrder.note;
-      els.purchaseCreateForm.discount.value = editingOrder.discount;
-      els.purchaseCreateForm.shippingFee.value = editingOrder.shippingFee;
-      const itemList = els.purchaseCreateForm.querySelector("[data-purchase-items]");
-      itemList.innerHTML = editingOrder.items.map(item => renderPurchaseItemRow(item.productId, item)).join("");
-      const submitButton = els.purchaseCreateForm.querySelector("button[type='submit']");
-      if (submitButton) submitButton.textContent = "Lưu thay đổi";
-    }
-    syncPurchaseSupplierContext(els.purchaseCreateForm);
-    updatePurchaseTotalPreview(els.purchaseCreateForm);
   }
 
   function renderSupplierForm(supplier) {
@@ -7387,6 +7310,7 @@
   }
 
   const { addProductToOrder, renderOrderCreatePage, renderOrderItemRow: renderOrderItemRowV2, submitOrderForm, updateOrderTotalPreview: updateOrderTotalPreviewV2 } = window.ArtFlowPageModules.orderCreate ? window.ArtFlowPageModules.orderCreate.create({ apiRequest, byId, canCreateOrder, canManageOrders, carriers, channels, clampNumber, els, ensureOrderReceiptPdf, escapeAttribute, escapeHtml, icon, loadCustomers, loadProducts, loyaltyPointsForCustomer, loyaltyRules, money, openReceiptPdf, openReceiptPrintWindow, paymentStatuses, printReceipt, productHasShopPrice, productSearchText, renderOptions, renderPage, renderProductThumb, saveOrderToState, shippingStatuses, showToast, state }) : { addProductToOrder() {}, renderOrderCreatePage() {}, renderOrderItemRowV2() { return ""; }, submitOrderForm: async () => {}, updateOrderTotalPreviewV2() { return { total: 0, items: [] }; } };
+  const { renderPurchaseCreatePage } = window.ArtFlowPageModules.purchaseCreate ? window.ArtFlowPageModules.purchaseCreate.create({ canCreatePurchase, els, escapeAttribute, escapeHtml, getPageDataReady: () => pageDataReady, getPurchaseEditId: () => purchaseEditId, icon, money, normalizeSearchText, productSearchText, renderProductThumb, renderPurchaseItemRow, state, syncPurchaseSupplierContext, updatePurchaseTotalPreview }) : { renderPurchaseCreatePage() {} };
   const { applyContentAutomation, archiveContentItem, compactContentItemForm, filteredContentItems, getContentProduct, provisionContentItem, renderContentItemForm, renderContentWorkspace, saveContentItem } = window.ArtFlowPageModules.content ? window.ArtFlowPageModules.content.create({ apiRequest, byId, canManageContent, contentBriefTemplates, contentChannels, contentFilters, contentItemStatuses, contentItemTypes, contentPriorities, defaultContentAssetChecklist, defaultContentChecklist, els, escapeAttribute, escapeHtml, formatDate, formatDateTime, formatDateTimeShort, getCurrentUser: () => currentUser, getSearchTerm: () => searchTerm, icon, normalizeContentItem, ownerName, renderPage, showToast, state }) : { applyContentAutomation() {}, archiveContentItem: async () => {}, compactContentItemForm() {}, filteredContentItems: () => [], getContentProduct: () => null, provisionContentItem: async () => null, renderContentItemForm: () => "", renderContentWorkspace() {}, saveContentItem: async () => {} };
   const { renderOrderDetail, renderOrdersRows } = window.ArtFlowPageModules.orders ? window.ArtFlowPageModules.orders.create({ canManageOrders, canReturnOrder, carrierLabel, channelLabel, collectedForOrder, els, escapeAttribute, escapeHtml, formatDateTime, formatDateTimeShort, getCustomer, icon, isAdmin, money, orderItemSummary, outstandingForOrder, paymentLabel, refundableForOrder, shippingLabel, statusLabel }) : { renderOrderDetail() { return ""; }, renderOrdersRows() {} };
   const { auditActionLabel, auditEntityLabel, renderAuditDetail, renderAuditLogs, renderUsers } = window.ArtFlowPageModules.admin ? window.ArtFlowPageModules.admin.create({ auditFilters, els, escapeAttribute, escapeHtml, filtered, formatDate, formatDateTime, getAuditHealth: () => auditHealth, getAuditLogs: () => auditLogs, getCurrentUser: () => currentUser, getSearchTerm: () => searchTerm, getStaffUsers: () => staffUsers, icon, roleLabel, statusLabel, userFilters }) : { auditActionLabel: action => action || "Hoạt động hệ thống", auditEntityLabel: type => type || "Hệ thống", renderAuditDetail() { return ""; }, renderAuditLogs() {}, renderUsers() {} };
