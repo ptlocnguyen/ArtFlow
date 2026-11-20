@@ -146,6 +146,6 @@ assert.ok(baseCss.includes("[hidden]"), "Base CSS must preserve native hidden se
 assert.ok(baseCss.includes("display: none !important"), "Hidden elements must not be overridden by component display rules");
 const appShellCss = fs.readFileSync(path.join("assets", "css", "app-shell.css"), "utf8");
 assert.ok(appShellCss.includes(".context-nav::-webkit-scrollbar"), "The workflow navigation must own a compact scrollbar style");
-assert.ok(appShellCss.includes("scrollbar-color: rgba(0, 0, 0, .42) transparent"), "The workflow navigation scrollbar track must remain transparent");
+assert.ok(appShellCss.includes("scrollbar-color: rgba(126, 169, 218, .68) transparent"), "The workflow navigation scrollbar must stay subtly visible on the dark sidebar");
 
 console.log(`Frontend module loading QA passed for ${Object.keys(expectedModules).length} pages and ${totalReferences} module references.`);
