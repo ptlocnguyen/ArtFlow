@@ -45,7 +45,37 @@
           </div>
           <div class="table-wrap purchasing-table-wrap"><table class="purchase-table"><thead><tr><th>Mã phiếu</th><th>Nhà cung cấp</th><th>Hàng hóa</th><th>Trạng thái</th><th>Phải trả</th><th>Hạn trả</th><th>Thao tác</th></tr></thead><tbody data-purchase-orders-table></tbody></table></div>
         </section>
-        <aside class="management-drawer operation-detail" data-purchase-detail hidden aria-label="Chi tiết phiếu mua"></aside>
+        <aside class="management-drawer operation-detail" data-purchase-detail hidden aria-label="Chi tiết phiếu mua">
+          <header class="drawer-header purchase-detail-header">
+            <div>
+              <p class="section-kicker">Phiếu mua</p>
+              <h2 data-purchase-detail-code></h2>
+              <div class="purchase-detail-header-meta"><strong data-purchase-detail-supplier></strong><span data-purchase-detail-meta></span></div>
+            </div>
+            <button class="icon-button" type="button" data-close-management-drawer aria-label="Đóng" title="Đóng"><span data-icon="close"></span></button>
+          </header>
+          <div class="purchase-detail-statuses"><span class="badge" data-purchase-detail-status></span><span class="badge" data-purchase-detail-payment-status></span></div>
+          <section class="drawer-metrics purchase-detail-metrics">
+            <article><small>Tổng phiếu</small><strong data-purchase-detail-total></strong></article>
+            <article><small>Đã trả</small><strong data-purchase-detail-settled></strong></article>
+            <article data-purchase-detail-outstanding-card><small>Còn phải trả</small><strong data-purchase-detail-outstanding></strong></article>
+            <article><small>Hạn trả</small><strong data-purchase-detail-due-date></strong></article>
+          </section>
+          <section class="drawer-section purchase-detail-items-section">
+            <div class="section-heading-inline"><div><h3>Hàng hóa</h3><p data-purchase-detail-item-summary></p></div><span class="pill" data-purchase-detail-item-count>0</span></div>
+            <div class="purchase-detail-item-table">
+              <div class="purchase-detail-item-head" aria-hidden="true"><span>Sản phẩm</span><span>Số lượng</span><span>Đơn giá</span><span>Thành tiền</span></div>
+              <div class="purchase-detail-item-list" data-purchase-detail-items tabindex="0" aria-label="Danh sách hàng hóa trong phiếu mua"></div>
+            </div>
+          </section>
+          <section class="drawer-section purchase-detail-note" data-purchase-detail-note-section hidden><h3>Ghi chú</h3><p data-purchase-detail-note></p></section>
+          <div class="purchase-detail-actions">
+            <a class="button ghost" href="./purchase-create.html" data-purchase-detail-edit hidden><span data-icon="edit"></span> Sửa phiếu</a>
+            <button class="button primary" type="button" data-receive-purchase="" data-purchase-detail-receive hidden><span data-icon="truck"></span> Nhận hàng</button>
+            <button class="button primary" type="button" data-pay-purchase="" data-purchase-detail-pay hidden><span data-icon="receipt"></span> Thanh toán</button>
+            <button class="button ghost" type="button" data-print-purchase-order="" data-purchase-detail-print><span data-icon="printer"></span> In phiếu</button>
+          </div>
+        </aside>
       </section>
     </main>
   </div>

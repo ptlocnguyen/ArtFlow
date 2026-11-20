@@ -102,7 +102,7 @@
     }
     
     function closeManagementDrawers() {
-      document.querySelectorAll(".management-drawer").forEach(drawer => { drawer.hidden = true; drawer.innerHTML = ""; });
+      document.querySelectorAll(".management-drawer").forEach(drawer => { drawer.hidden = true; });
     }
     
     function openSupplierDetail(supplierId) {
@@ -111,7 +111,43 @@
       if (!drawer || !supplier) return;
       const orders = (state.purchaseOrders || []).filter(order => order.supplierId === supplier.id).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 5);
       const products = supplierProductHistory(supplier.id);
-      drawer.innerHTML = `<header class="drawer-header"><div><p class="section-kicker">${escapeHtml(supplier.code)}</p><h2>${escapeHtml(supplier.name)}</h2><small>${escapeHtml(supplier.phone || "Chưa có điện thoại")}</small></div><button class="icon-button" type="button" data-close-management-drawer aria-label="Đóng" title="Đóng">${icon("close")}</button></header><section class="drawer-metrics"><article><small>Tổng mua</small><strong>${money.format(supplier.totalPurchased)}</strong></article><article class="${supplier.outstanding > 0 ? "has-payable" : ""}"><small>Phải trả</small><strong>${money.format(supplier.outstanding)}</strong></article><article><small>Sản phẩm đã nhập</small><strong>${products.length}</strong></article><article><small>Mua gần nhất</small><strong>${supplier.lastPurchaseAt ? formatDate(supplier.lastPurchaseAt) : "Chưa có"}</strong></article></section><section class="drawer-section supplier-contact-detail"><h3>Thông tin liên hệ</h3><span><small>Điện thoại</small><strong>${escapeHtml(supplier.phone || "Chưa có")}</strong></span><span><small>Email</small><strong>${escapeHtml(supplier.email || "Chưa có")}</strong></span><span><small>Địa chỉ</small><strong>${escapeHtml(supplier.address || "Chưa có")}</strong></span><span><small>Mã số thuế</small><strong>${escapeHtml(supplier.taxCode || "Chưa có")}</strong></span>${supplier.note ? `<span><small>Ghi chú</small><strong>${escapeHtml(supplier.note)}</strong></span>` : ""}</section><section class="drawer-section supplier-product-history-section"><div class="section-heading-inline"><div><h3>Sản phẩm đã nhập</h3><p>Tự tổng hợp từ phiếu đã nhận hàng.</p></div><span class="pill" data-supplier-product-history-count>${products.length}</span></div><label class="search-box compact-search">${icon("search")}<input type="search" placeholder="Tìm tên hoặc SKU..." data-supplier-product-history-search /></label><div class="supply-history-table" data-supplier-product-history-list>${products.length ? products.map(entry => `<a class="supply-history-row supplier-history-row" href="./products.html?productId=${encodeURIComponent(entry.productId)}" data-history-search="${escapeHtml(normalizeSearchText(`${entry.productName} ${entry.productSku}`))}"><span><strong>${escapeHtml(entry.productName)}</strong><small>${escapeHtml(entry.productSku)}</small></span><span><small>Số phiếu</small><strong>${entry.orderCount}</strong></span><span><small>Đã nhập</small><strong>${entry.totalQuantity}</strong></span><span><small>Giá gần nhất</small><strong>${money.format(entry.lastUnitCost)}</strong></span><span><small>Bình quân</small><strong>${money.format(entry.averageUnitCost)}</strong></span><span><small>Lần gần nhất</small><strong>${formatDate(entry.lastPurchasedAt)}</strong></span></a>`).join("") : `<div class="empty compact" data-supplier-product-history-empty>Chưa có sản phẩm từ phiếu đã nhận.</div>`}</div><div class="empty compact" data-supplier-product-history-empty hidden>Không tìm thấy sản phẩm phù hợp.</div></section><section class="drawer-section"><h3>Phiếu mua gần đây</h3><div class="supplier-detail-orders">${orders.length ? orders.map(order => `<a href="./purchasing.html?purchaseOrderId=${encodeURIComponent(order.id)}"><span><strong>${escapeHtml(order.code)}</strong><small>${formatDate(order.createdAt)} · ${statusLabel(order.status)}</small></span><b>${money.format(order.netTotal)}</b></a>`).join("") : `<div class="empty compact">Chưa phát sinh phiếu mua.</div>`}</div></section><div class="supplier-drawer-actions"><a class="button ghost" href="./accounting.html?view=receivables&debt=supplier"><span data-icon="calculator"></span> Xem công nợ</a>${canManagePurchasing() ? `<button class="button primary" type="button" data-edit-supplier="${supplier.id}">${icon("edit")} Sửa hồ sơ</button>` : ""}</div>`;
+      const setText = (selector, value) => {
+        const node = drawer.querySelector(selector);
+        if (node) node.textContent = value;
+      };
+      setText("[data-supplier-detail-code]", supplier.code);
+      setText("[data-supplier-detail-name]", supplier.name);
+      setText("[data-supplier-detail-phone-summary]", supplier.phone || "Chưa có điện thoại");
+      setText("[data-supplier-detail-total]", money.format(supplier.totalPurchased));
+      setText("[data-supplier-detail-payable]", money.format(supplier.outstanding));
+      setText("[data-supplier-detail-product-count]", String(products.length));
+      setText("[data-supplier-detail-last-purchase]", supplier.lastPurchaseAt ? formatDate(supplier.lastPurchaseAt) : "Chưa có");
+      setText("[data-supplier-detail-phone]", supplier.phone || "Chưa có");
+      setText("[data-supplier-detail-email]", supplier.email || "Chưa có");
+      setText("[data-supplier-detail-address]", supplier.address || "Chưa có");
+      setText("[data-supplier-detail-tax-code]", supplier.taxCode || "Chưa có");
+      setText("[data-supplier-detail-note]", supplier.note || "");
+      const payableCard = drawer.querySelector("[data-supplier-detail-payable-card]");
+      if (payableCard) payableCard.classList.toggle("has-payable", supplier.outstanding > 0);
+      const noteRow = drawer.querySelector("[data-supplier-detail-note-row]");
+      if (noteRow) noteRow.hidden = !supplier.note;
+      const historySearch = drawer.querySelector("[data-supplier-product-history-search]");
+      if (historySearch) historySearch.value = "";
+      setText("[data-supplier-product-history-count]", String(products.length));
+      const historyList = drawer.querySelector("[data-supplier-product-history-list]");
+      if (historyList) {
+        historyList.scrollTop = 0;
+        historyList.innerHTML = products.length ? products.map(entry => `<a class="supply-history-row supplier-history-row" href="./products.html?productId=${encodeURIComponent(entry.productId)}" data-history-search="${escapeHtml(normalizeSearchText(`${entry.productName} ${entry.productSku}`))}"><span><strong>${escapeHtml(entry.productName)}</strong><small>${escapeHtml(entry.productSku)}</small></span><span><small>Số phiếu</small><strong>${entry.orderCount}</strong></span><span><small>Đã nhập</small><strong>${entry.totalQuantity}</strong></span><span><small>Giá gần nhất</small><strong>${money.format(entry.lastUnitCost)}</strong></span><span><small>Bình quân</small><strong>${money.format(entry.averageUnitCost)}</strong></span><span><small>Lần gần nhất</small><strong>${formatDate(entry.lastPurchasedAt)}</strong></span></a>`).join("") : `<div class="empty compact">Chưa có sản phẩm từ phiếu đã nhận.</div>`;
+      }
+      const searchEmpty = drawer.querySelector("[data-supplier-product-history-empty]");
+      if (searchEmpty) searchEmpty.hidden = true;
+      const recentOrders = drawer.querySelector("[data-supplier-detail-orders]");
+      if (recentOrders) recentOrders.innerHTML = orders.length ? orders.map(order => `<a href="./purchasing.html?purchaseOrderId=${encodeURIComponent(order.id)}"><span><strong>${escapeHtml(order.code)}</strong><small>${formatDate(order.createdAt)} · ${statusLabel(order.status)}</small></span><b>${money.format(order.netTotal)}</b></a>`).join("") : `<div class="empty compact">Chưa phát sinh phiếu mua.</div>`;
+      const editButton = drawer.querySelector("[data-supplier-detail-edit]");
+      if (editButton) {
+        editButton.dataset.editSupplier = supplier.id;
+        editButton.hidden = !canManagePurchasing();
+      }
       drawer.hidden = false;
       hydrateIcons(drawer);
     }
@@ -124,56 +160,62 @@
       const items = order.items || [];
       const totalQuantity = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
       const statusClass = order.status === "received" ? "active" : order.status === "cancelled" ? "cancelled" : "pending";
-      drawer.innerHTML = `
-        <header class="drawer-header purchase-detail-header">
-          <div>
-            <p class="section-kicker">Phiếu mua</p>
-            <h2>${escapeHtml(order.code)}</h2>
-            <div class="purchase-detail-header-meta">
-              <strong>${escapeHtml(supplier.name)}</strong>
-              <span>Ngày lập ${formatDate(order.createdAt)}${order.invoiceNumber ? ` · Hóa đơn ${escapeHtml(order.invoiceNumber)}` : ""}</span>
-            </div>
+      const setText = (selector, value) => {
+        const node = drawer.querySelector(selector);
+        if (node) node.textContent = value;
+      };
+      const setBadge = (selector, value, className) => {
+        const node = drawer.querySelector(selector);
+        if (!node) return;
+        node.className = `badge ${className}`;
+        node.textContent = value;
+      };
+      setText("[data-purchase-detail-code]", order.code);
+      setText("[data-purchase-detail-supplier]", supplier.name);
+      setText("[data-purchase-detail-meta]", `Ngày lập ${formatDate(order.createdAt)}${order.invoiceNumber ? ` · Hóa đơn ${order.invoiceNumber}` : ""}`);
+      setBadge("[data-purchase-detail-status]", statusLabel(order.status), statusClass);
+      setBadge("[data-purchase-detail-payment-status]", statusLabel(order.paymentStatus), order.outstanding > 0 ? "pending" : "active");
+      setText("[data-purchase-detail-total]", money.format(order.total));
+      setText("[data-purchase-detail-settled]", money.format(order.settledAmount));
+      setText("[data-purchase-detail-outstanding]", money.format(order.outstanding));
+      setText("[data-purchase-detail-due-date]", order.dueDate ? formatDate(order.dueDate) : "Chưa đặt");
+      setText("[data-purchase-detail-item-summary]", `${items.length} mặt hàng · ${totalQuantity} sản phẩm`);
+      setText("[data-purchase-detail-item-count]", String(items.length));
+      setText("[data-purchase-detail-note]", order.note || "");
+      const outstandingCard = drawer.querySelector("[data-purchase-detail-outstanding-card]");
+      if (outstandingCard) outstandingCard.classList.toggle("has-payable", order.outstanding > 0);
+      const itemList = drawer.querySelector("[data-purchase-detail-items]");
+      if (itemList) {
+        itemList.scrollTop = 0;
+        itemList.innerHTML = items.length ? items.map(item => `
+          <div class="purchase-detail-item-row">
+            <a class="purchase-detail-product" href="./products.html?productId=${encodeURIComponent(item.productId)}"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.sku)}</small></a>
+            <span><small>Số lượng</small><strong>${Number(item.quantity || 0)}</strong></span>
+            <span><small>Đơn giá</small><strong>${money.format(item.unitCost)}</strong></span>
+            <span class="purchase-detail-line-total"><small>Thành tiền</small><strong>${money.format(item.lineTotal)}</strong></span>
           </div>
-          <button class="icon-button" type="button" data-close-management-drawer aria-label="Đóng" title="Đóng">${icon("close")}</button>
-        </header>
-        <div class="purchase-detail-statuses">
-          <span class="badge ${statusClass}">${statusLabel(order.status)}</span>
-          <span class="badge ${order.outstanding > 0 ? "pending" : "active"}">${statusLabel(order.paymentStatus)}</span>
-        </div>
-        <section class="drawer-metrics purchase-detail-metrics">
-          <article><small>Tổng phiếu</small><strong>${money.format(order.total)}</strong></article>
-          <article><small>Đã trả</small><strong>${money.format(order.settledAmount)}</strong></article>
-          <article class="${order.outstanding > 0 ? "has-payable" : ""}"><small>Còn phải trả</small><strong>${money.format(order.outstanding)}</strong></article>
-          <article><small>Hạn trả</small><strong>${order.dueDate ? formatDate(order.dueDate) : "Chưa đặt"}</strong></article>
-        </section>
-        <section class="drawer-section purchase-detail-items-section">
-          <div class="section-heading-inline">
-            <div><h3>Hàng hóa</h3><p>${items.length} mặt hàng · ${totalQuantity} sản phẩm</p></div>
-            <span class="pill">${items.length}</span>
-          </div>
-          <div class="purchase-detail-item-table">
-            <div class="purchase-detail-item-head" aria-hidden="true"><span>Sản phẩm</span><span>Số lượng</span><span>Đơn giá</span><span>Thành tiền</span></div>
-            <div class="purchase-detail-item-list" data-purchase-detail-items tabindex="0" aria-label="Danh sách hàng hóa trong phiếu mua">
-              ${items.length ? items.map(item => `
-                <div class="purchase-detail-item-row">
-                  <a class="purchase-detail-product" href="./products.html?productId=${encodeURIComponent(item.productId)}">
-                    <strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.sku)}</small>
-                  </a>
-                  <span><small>Số lượng</small><strong>${Number(item.quantity || 0)}</strong></span>
-                  <span><small>Đơn giá</small><strong>${money.format(item.unitCost)}</strong></span>
-                  <span class="purchase-detail-line-total"><small>Thành tiền</small><strong>${money.format(item.lineTotal)}</strong></span>
-                </div>
-              `).join("") : `<div class="empty compact">Phiếu chưa có hàng hóa.</div>`}
-            </div>
-          </div>
-        </section>
-        ${order.note ? `<section class="drawer-section purchase-detail-note"><h3>Ghi chú</h3><p>${escapeHtml(order.note)}</p></section>` : ""}
-        <div class="purchase-detail-actions">
-          ${order.status === "draft" && canManagePurchasing() ? `<a class="button ghost" href="./purchase-create.html?edit=${order.id}">${icon("edit")} Sửa phiếu</a><button class="button primary" type="button" data-receive-purchase="${order.id}">${icon("truck")} Nhận hàng</button>` : ""}
-          ${order.status === "received" && order.outstanding > 0 && canPayPurchases() ? `<button class="button primary" type="button" data-pay-purchase="${order.id}">${icon("receipt")} Thanh toán</button>` : ""}
-          <button class="button ghost" type="button" data-print-purchase-order="${order.id}">${icon("printer")} In phiếu</button>
-        </div>
-      `;
+        `).join("") : `<div class="empty compact">Phiếu chưa có hàng hóa.</div>`;
+      }
+      const noteSection = drawer.querySelector("[data-purchase-detail-note-section]");
+      if (noteSection) noteSection.hidden = !order.note;
+      const editAction = drawer.querySelector("[data-purchase-detail-edit]");
+      const receiveAction = drawer.querySelector("[data-purchase-detail-receive]");
+      const payAction = drawer.querySelector("[data-purchase-detail-pay]");
+      const printAction = drawer.querySelector("[data-purchase-detail-print]");
+      const canEditDraft = order.status === "draft" && canManagePurchasing();
+      if (editAction) {
+        editAction.href = `./purchase-create.html?edit=${encodeURIComponent(order.id)}`;
+        editAction.hidden = !canEditDraft;
+      }
+      if (receiveAction) {
+        receiveAction.dataset.receivePurchase = order.id;
+        receiveAction.hidden = !canEditDraft;
+      }
+      if (payAction) {
+        payAction.dataset.payPurchase = order.id;
+        payAction.hidden = !(order.status === "received" && order.outstanding > 0 && canPayPurchases());
+      }
+      if (printAction) printAction.dataset.printPurchaseOrder = order.id;
       drawer.hidden = false;
       hydrateIcons(drawer);
     }

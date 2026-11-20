@@ -28,7 +28,37 @@
           <div class="management-toolbar supplier-filter-bar"><label><span>Trạng thái</span><select data-supplier-status-filter><option value="all">Tất cả trạng thái</option><option value="active">Đang hoạt động</option><option value="archived">Đã ẩn</option></select></label><label><span>Số dư</span><select data-supplier-balance-filter><option value="all">Tất cả số dư</option><option value="payable">Còn phải trả</option><option value="credit">Có dư có</option><option value="settled">Đã cân</option></select></label><label><span>Sản phẩm từng nhập</span><select data-supplier-product-filter><option value="all">Tất cả sản phẩm</option></select></label><span class="result-indicator" data-supplier-result-count></span></div>
           <div class="table-wrap supplier-table-wrap"><table class="management-table supplier-table"><thead><tr><th>Nhà cung cấp</th><th>Liên hệ</th><th>Sản phẩm đã nhập</th><th>Tổng mua</th><th>Phải trả</th><th>Dư có</th><th>Mua gần nhất</th><th>Trạng thái</th><th></th></tr></thead><tbody data-suppliers-list></tbody></table></div>
         </section>
-        <aside class="management-drawer" data-supplier-detail hidden aria-label="Chi tiết nhà cung cấp"></aside>
+        <aside class="management-drawer" data-supplier-detail hidden aria-label="Chi tiết nhà cung cấp">
+          <header class="drawer-header">
+            <div><p class="section-kicker" data-supplier-detail-code></p><h2 data-supplier-detail-name></h2><small data-supplier-detail-phone-summary></small></div>
+            <button class="icon-button" type="button" data-close-management-drawer aria-label="Đóng" title="Đóng"><span data-icon="close"></span></button>
+          </header>
+          <section class="drawer-metrics">
+            <article><small>Tổng mua</small><strong data-supplier-detail-total></strong></article>
+            <article data-supplier-detail-payable-card><small>Phải trả</small><strong data-supplier-detail-payable></strong></article>
+            <article><small>Sản phẩm đã nhập</small><strong data-supplier-detail-product-count></strong></article>
+            <article><small>Mua gần nhất</small><strong data-supplier-detail-last-purchase></strong></article>
+          </section>
+          <section class="drawer-section supplier-contact-detail">
+            <h3>Thông tin liên hệ</h3>
+            <span><small>Điện thoại</small><strong data-supplier-detail-phone></strong></span>
+            <span><small>Email</small><strong data-supplier-detail-email></strong></span>
+            <span><small>Địa chỉ</small><strong data-supplier-detail-address></strong></span>
+            <span><small>Mã số thuế</small><strong data-supplier-detail-tax-code></strong></span>
+            <span data-supplier-detail-note-row hidden><small>Ghi chú</small><strong data-supplier-detail-note></strong></span>
+          </section>
+          <section class="drawer-section supplier-product-history-section">
+            <div class="section-heading-inline"><div><h3>Sản phẩm đã nhập</h3><p>Tự tổng hợp từ phiếu đã nhận hàng.</p></div><span class="pill" data-supplier-product-history-count>0</span></div>
+            <label class="search-box compact-search"><span data-icon="search"></span><input type="search" placeholder="Tìm tên hoặc SKU..." data-supplier-product-history-search /></label>
+            <div class="supply-history-table" data-supplier-product-history-list></div>
+            <div class="empty compact" data-supplier-product-history-empty hidden>Không tìm thấy sản phẩm phù hợp.</div>
+          </section>
+          <section class="drawer-section"><h3>Phiếu mua gần đây</h3><div class="supplier-detail-orders" data-supplier-detail-orders></div></section>
+          <div class="supplier-drawer-actions">
+            <a class="button ghost" href="./accounting.html?view=receivables&amp;debt=supplier"><span data-icon="calculator"></span> Xem công nợ</a>
+            <button class="button primary" type="button" data-edit-supplier="" data-supplier-detail-edit><span data-icon="edit"></span> Sửa hồ sơ</button>
+          </div>
+        </aside>
       </section>
     </main>
   </div>

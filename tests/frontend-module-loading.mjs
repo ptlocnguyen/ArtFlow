@@ -85,6 +85,20 @@ const teamSource = fs.readFileSync(path.join("assets", "js", "pages", "team.js")
 const pricingPageController = teamSource.slice(teamSource.indexOf("function renderTeamPricingPage("), teamSource.indexOf("async function submitTeamPricingPageForm("));
 assert.ok(!pricingPageController.includes("container.innerHTML"), "Team pricing page controller must hydrate HTML instead of replacing its layout");
 
+const suppliersHtml = fs.readFileSync(path.join("pages", "suppliers.html"), "utf8");
+for (const selector of ["data-supplier-detail-name", "data-supplier-detail-payable", "data-supplier-detail-note-row", "data-supplier-product-history-list", "data-supplier-detail-orders", "data-supplier-detail-edit"]) {
+  assert.ok(suppliersHtml.includes(selector), `suppliers.html must own ${selector}`);
+}
+assert.ok(!suppliersHtml.includes('<aside class="management-drawer" data-supplier-detail hidden aria-label="Chi tiết nhà cung cấp"></aside>'), "Supplier detail must not be an empty JavaScript mount point");
+
+const purchasingHtml = fs.readFileSync(path.join("pages", "purchasing.html"), "utf8");
+for (const selector of ["data-purchase-detail-code", "data-purchase-detail-status", "data-purchase-detail-outstanding", "data-purchase-detail-items", "data-purchase-detail-note-section", "data-purchase-detail-print"]) {
+  assert.ok(purchasingHtml.includes(selector), `purchasing.html must own ${selector}`);
+}
+assert.ok(!purchasingHtml.includes('<aside class="management-drawer operation-detail" data-purchase-detail hidden aria-label="Chi tiết phiếu mua"></aside>'), "Purchase detail must not be an empty JavaScript mount point");
+const purchasingSource = fs.readFileSync(path.join("assets", "js", "pages", "purchasing.js"), "utf8");
+assert.ok(!purchasingSource.includes("drawer.innerHTML"), "Purchasing drawers must hydrate their HTML-owned structure");
+
 const authHtml = fs.readFileSync("index.html", "utf8");
 for (const state of ["loading", "backend-error", "form"]) {
   assert.ok(authHtml.includes(`data-auth-state="${state}"`), `index.html must own the ${state} auth state`);
