@@ -69,6 +69,52 @@
       <div class="loading-card" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><strong data-loading-text>Đang xử lý...</strong></div>
     </div>
   </div>
+  <template data-product-detail-template>
+    <div class="product-detail-hero full">
+      <img class="product-detail-image" src="" alt="" data-product-detail-image hidden />
+      <div class="product-detail-image placeholder" data-product-detail-image-placeholder>Không có ảnh</div>
+      <div>
+        <span class="badge" data-product-detail-status></span><h3 data-product-detail-name></h3><p data-product-detail-identity></p>
+        <b data-product-detail-shop-price></b><span class="price-status" data-product-detail-price-status></span>
+        <div class="product-detail-actions" data-product-detail-actions>
+          <button class="button info" type="button" data-edit-product-from-detail="" data-product-detail-edit>Sửa sản phẩm</button>
+          <button class="button ghost" type="button" data-open-pricing-for-product="" data-product-detail-pricing>Tính giá</button>
+        </div>
+      </div>
+    </div>
+    <section class="product-detail-section full">
+      <h3>Thông tin sản phẩm</h3>
+      <div class="product-detail-grid">
+        <div><span>Barcode</span><strong data-product-detail-barcode></strong></div><div><span>Đơn vị</span><strong data-product-detail-unit></strong></div>
+        <div><span>Giá vốn</span><strong data-product-detail-cost></strong></div><div><span>Giá shop/offline</span><strong data-product-detail-sale-price></strong></div>
+        <div><span>Lãi gộp / sản phẩm</span><strong data-product-detail-profit></strong></div><div><span>Biên lãi</span><strong data-product-detail-margin></strong></div>
+        <div><span>Tỷ lệ cộng trên vốn</span><strong data-product-detail-markup></strong></div><div><span>Tồn kho</span><strong data-product-detail-stock></strong></div>
+        <div><span>Khối lượng</span><strong data-product-detail-weight></strong></div><div><span>Kích thước</span><strong data-product-detail-dimensions></strong></div>
+        <div><span>Xuất xứ</span><strong data-product-detail-origin></strong></div><div><span>Chất liệu</span><strong data-product-detail-material></strong></div>
+        <div><span>Tạo lúc</span><strong data-product-detail-created></strong></div><div><span>Cập nhật lúc</span><strong data-product-detail-updated></strong></div>
+        <div class="full" data-product-detail-channel-prices></div>
+      </div>
+    </section>
+    <section class="product-detail-section full">
+      <div class="section-heading-inline"><div><h3>Nhà cung cấp đã nhập</h3><p>Dữ liệu tự tổng hợp từ các phiếu mua đã nhận hàng.</p></div><span class="pill" data-product-detail-supplier-count>0 nhà cung cấp</span></div>
+      <div data-product-detail-supplier-history></div>
+    </section>
+    <section class="product-detail-section full">
+      <h3>Content</h3>
+      <div class="product-detail-grid">
+        <div><span>Trạng thái</span><strong data-product-detail-content-status></strong></div><div><span>Phụ trách</span><strong data-product-detail-content-owner></strong></div>
+        <div><span>Đối tượng</span><strong data-product-detail-audience></strong></div><div><span>Từ khóa</span><strong data-product-detail-keywords></strong></div>
+      </div>
+      <div class="product-copy-block"><span>Mô tả ngắn</span><p data-product-detail-description></p></div>
+      <div class="product-copy-block"><span>Điểm nổi bật / USP</span><p class="product-detail-prewrap" data-product-detail-features></p></div>
+      <div class="product-copy-block"><span>Ghi chú</span><p class="product-detail-prewrap" data-product-detail-content-note></p></div>
+    </section>
+    <section class="product-detail-section full"><h3>Kênh bán và bài content</h3><div class="product-resource-grid" data-product-detail-sales-links></div><div data-product-detail-post-links></div></section>
+    <section class="product-detail-section full">
+      <h3>Tài nguyên Google</h3><div class="product-resource-grid" data-product-detail-google-links></div>
+      <button class="button ghost" type="button" data-provision-product="" data-product-detail-provision hidden>Bổ sung tài nguyên còn thiếu</button>
+    </section>
+  </template>
   <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/core/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/core/ui.js"></script><script src="../assets/js/core/navigation.js"></script><script src="../assets/js/pages/products.js"></script><script src="../assets/js/ui/app-shell.js"></script><script src="../assets/js/ui/side-sheet.js"></script><script src="../assets/js/ui/modal.js"></script><script src="../assets/js/ui/popover.js"></script><script src="../assets/js/ui/bottom-sheet.js"></script><script src="../assets/js/ui/command-menu.js"></script><script src="../assets/js/ui/data-table.js"></script><script src="../assets/js/ui/filter-bar.js"></script><script src="../assets/js/ui/toast.js"></script><script src="../assets/js/ui/confirm-dialog.js"></script><script src="../assets/js/app.js"></script>
 </body>
 </html>

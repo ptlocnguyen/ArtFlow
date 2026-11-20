@@ -112,3 +112,4 @@ body[data-page="products"] .products-table thead { position: sticky; z-index: 2;
   body[data-page="products"] .resource-content { overflow: visible; }
   body[data-page="products"] .products-table { min-width: 0; table-layout: auto; }
 }
+.product-detail-prewrap { white-space: pre-wrap; }

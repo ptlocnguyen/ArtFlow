@@ -117,6 +117,13 @@ assert.ok(ordersSource.includes("hydrateOrderDetail"), "Orders controller must h
 assert.ok(customersSource.includes("./orders.html?orderId="), "Customer order history must deep-link to the owning Orders page");
 assert.ok(appSource.includes('routeParams.get("orderId")'), "Orders page must accept customer-history deep links");
 
+const productsHtml = fs.readFileSync(path.join("pages", "products.html"), "utf8");
+for (const selector of ["data-product-detail-template", "data-product-detail-name", "data-product-detail-sale-price", "data-product-detail-channel-prices", "data-product-detail-supplier-history", "data-product-detail-sales-links", "data-product-detail-google-links"]) {
+  assert.ok(productsHtml.includes(selector), `products.html must own ${selector}`);
+}
+assert.ok(!appSource.includes('<div class="product-detail-hero full">'), "Product detail layout must remain owned by its HTML template");
+assert.ok(appSource.includes("hydrateProductDetail"), "Product controller must hydrate the HTML-owned detail template");
+
 const authHtml = fs.readFileSync("index.html", "utf8");
 for (const state of ["loading", "backend-error", "form"]) {
   assert.ok(authHtml.includes(`data-auth-state="${state}"`), `index.html must own the ${state} auth state`);

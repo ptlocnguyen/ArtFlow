@@ -3539,10 +3539,12 @@
   }
 
   function renderProductDetail(product) {
-    const image = product.imageUrl
-      ? `<img class="product-detail-image" src="${escapeAttribute(productImageUrl(product.imageUrl))}" alt="${escapeAttribute(product.name)}" />`
-      : `<div class="product-detail-image placeholder">Không có ảnh</div>`;
-    const info = (label, value) => `<div><span>${label}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
+    const template = document.querySelector("[data-product-detail-template]");
+    return product && template ? template.innerHTML : "";
+  }
+
+  function hydrateProductDetail(host, product) {
+    if (!host || !product) return;
     const postLinks = parseProductContentLinks(product.contentPostLinks);
     const hasShopPrice = productHasShopPrice(product);
     const priceStatus = productPriceStatus(product);
@@ -3551,39 +3553,85 @@
     const grossProfit = productGrossProfit(product);
     const margin = productMarginRate(product);
     const markup = hasShopPrice && Number(product.costPrice || 0) > 0 ? grossProfit / Number(product.costPrice) * 100 : 0;
-    const channelPriceBlock = channelPrices.length
-      ? `<div class="price-channel-list full">${channelPrices.map(entry => `<span class="price-channel-chip"><b>${escapeHtml(entry.channelName || entry.channelCode || "Kênh bán")}</b>${money.format(entry.channelPrice || entry.price || 0)}</span>`).join("")}</div>`
-      : `<p class="resource-empty-copy full">Chưa có giá riêng theo kênh bán.</p>`;
     const supplierHistory = purchasingDataReady ? productSupplierHistory(product.id) : [];
-    const supplierHistoryBlock = purchasingDataPromise
-      ? `<p class="resource-empty-copy" role="status">Đang tải lịch sử nhập hàng...</p>`
-      : purchasingDataError
-        ? `<div class="resource-empty-copy"><p>Chưa thể tải lịch sử nhập hàng. Thông tin sản phẩm vẫn có thể sử dụng bình thường.</p><button class="button ghost" type="button" data-retry-product-purchasing="${escapeAttribute(product.id)}">Thử tải lại</button></div>`
-        : supplierHistory.length
-      ? `<div class="supply-history-table">${supplierHistory.map(entry => `<a class="supply-history-row" href="./suppliers.html?supplierId=${encodeURIComponent(entry.supplierId)}"><span><strong>${escapeHtml(entry.supplierName)}</strong><small>${escapeHtml(entry.supplierCode || "Nhà cung cấp")}</small></span><span><small>Số phiếu</small><strong>${entry.orderCount}</strong></span><span><small>Đã nhập</small><strong>${entry.totalQuantity}</strong></span><span><small>Giá gần nhất</small><strong>${money.format(entry.lastUnitCost)}</strong></span><span><small>Giá bình quân</small><strong>${money.format(entry.averageUnitCost)}</strong></span><span><small>Lần gần nhất</small><strong>${formatDate(entry.lastPurchasedAt)}</strong></span></a>`).join("")}</div>`
-      : `<p class="resource-empty-copy">Sản phẩm chưa có lịch sử nhập từ nhà cung cấp.</p>`;
-    return `
-      <div class="product-detail-hero full">${image}<div><span class="badge ${product.status}">${statusLabel(product.status)}</span><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.sku)} · ${escapeHtml(product.category)}${product.brand ? ` · ${escapeHtml(product.brand)}` : ""}</p><b>${shopPriceLabel}</b><span class="price-status ${priceStatus.key}">${priceStatus.label}</span>${canManageProducts() ? `<div class="product-detail-actions"><button class="button info" type="button" data-edit-product-from-detail="${escapeAttribute(product.id)}">Sửa sản phẩm</button><button class="button ghost" type="button" data-open-pricing-for-product="${escapeAttribute(product.id)}">Tính giá</button></div>` : ""}</div></div>
-      <section class="product-detail-section full"><h3>Thông tin sản phẩm</h3><div class="product-detail-grid">
-        ${info("Barcode", product.barcode)}${info("Đơn vị", product.unit)}${info("Giá vốn", money.format(product.costPrice))}${info("Giá shop/offline", shopPriceLabel)}
-        ${info("Lãi gộp / sản phẩm", hasShopPrice ? money.format(grossProfit) : "Chờ tính giá")}${info("Biên lãi", hasShopPrice ? `${margin.toFixed(1)}%` : "—")}${info("Tỷ lệ cộng trên vốn", hasShopPrice ? `${markup.toFixed(1)}%` : "—")}${info("Tồn kho", `${product.stock} / cảnh báo ${product.lowStock}`)}
-        ${info("Khối lượng", product.weightGrams ? `${product.weightGrams} g` : "")}${info("Kích thước", product.dimensions)}${info("Xuất xứ", product.origin)}${info("Chất liệu", product.material)}
-        ${info("Tạo lúc", formatDateTime(product.createdAt))}${info("Cập nhật lúc", formatDateTime(product.updatedAt))}
-        ${channelPriceBlock}
-      </div></section>
-      <section class="product-detail-section full"><div class="section-heading-inline"><div><h3>Nhà cung cấp đã nhập</h3><p>Dữ liệu tự tổng hợp từ các phiếu mua đã nhận hàng.</p></div><span class="pill">${supplierHistory.length} nhà cung cấp</span></div>${supplierHistoryBlock}</section>
-      <section class="product-detail-section full"><h3>Content</h3><div class="product-detail-grid">${info("Trạng thái", productContentStatuses[product.contentStatus])}${info("Phụ trách", product.contentOwner)}${info("Đối tượng", product.targetAudience)}${info("Từ khóa", product.seoKeywords)}</div>
-        <div class="product-copy-block"><span>Mô tả ngắn</span><p>${escapeHtml(product.shortDescription || "Chưa có mô tả.")}</p></div>
-        <div class="product-copy-block"><span>Điểm nổi bật / USP</span><p>${escapeHtml(product.keyFeatures || "Chưa có nội dung.").replace(/\n/g, "<br>")}</p></div>
-        <div class="product-copy-block"><span>Ghi chú</span><p>${escapeHtml(product.contentNote || "Chưa có ghi chú.").replace(/\n/g, "<br>")}</p></div>
-      </section>
-      <section class="product-detail-section full"><h3>Kênh bán và bài content</h3><div class="product-resource-grid">
-        ${productResourceLink(product.websiteProductUrl, "Sản phẩm trên Website")}${productResourceLink(product.shopeeProductUrl, "Sản phẩm trên Shopee")}${productResourceLink(product.tiktokProductUrl, "Sản phẩm trên TikTok Shop")}${productResourceLink(product.facebookProductUrl, "Sản phẩm trên Facebook")}
-      </div>${postLinks.length ? `<div class="product-post-links">${postLinks.map(link => `<a href="${escapeAttribute(link.url)}" target="_blank" rel="noopener"><span>${escapeHtml(link.label)}</span><small>${escapeHtml(link.url)}</small></a>`).join("")}</div>` : `<p class="resource-empty-copy">Chưa có link bài đăng hoặc video liên quan.</p>`}</section>
-      <section class="product-detail-section full"><h3>Tài nguyên Google</h3><div class="product-resource-grid">
-        ${productResourceLink(product.contentDocUrl, "Google Docs mô tả")}${productResourceLink(product.mediaFolderUrl, "Folder sản phẩm")}${productResourceLink(product.imageFolderUrl, "Folder hình ảnh")}${productResourceLink(product.videoFolderUrl, "Folder video")}
-      </div>${canManageProducts() && (!product.contentDocUrl || !product.mediaFolderUrl || !product.imageFolderUrl || !product.videoFolderUrl) ? `<button class="button ghost" type="button" data-provision-product="${product.id}">Bổ sung tài nguyên còn thiếu</button>` : ""}</section>
-    `;
+    const setText = (selector, value, fallback = "—") => {
+      const node = host.querySelector(selector);
+      if (node) node.textContent = value === undefined || value === null || value === "" ? fallback : value;
+    };
+    const image = host.querySelector("[data-product-detail-image]");
+    const imagePlaceholder = host.querySelector("[data-product-detail-image-placeholder]");
+    if (image) {
+      image.src = product.imageUrl ? productImageUrl(product.imageUrl) : "";
+      image.alt = product.name || "";
+      image.hidden = !product.imageUrl;
+    }
+    if (imagePlaceholder) imagePlaceholder.hidden = Boolean(product.imageUrl);
+    const status = host.querySelector("[data-product-detail-status]");
+    if (status) {
+      status.className = `badge ${product.status}`;
+      status.textContent = statusLabel(product.status);
+    }
+    setText("[data-product-detail-name]", product.name);
+    setText("[data-product-detail-identity]", `${product.sku} · ${product.category}${product.brand ? ` · ${product.brand}` : ""}`);
+    setText("[data-product-detail-shop-price]", shopPriceLabel);
+    const priceState = host.querySelector("[data-product-detail-price-status]");
+    if (priceState) {
+      priceState.className = `price-status ${priceStatus.key}`;
+      priceState.textContent = priceStatus.label;
+    }
+    const actions = host.querySelector("[data-product-detail-actions]");
+    if (actions) actions.hidden = !canManageProducts();
+    const editButton = host.querySelector("[data-product-detail-edit]");
+    const pricingButton = host.querySelector("[data-product-detail-pricing]");
+    if (editButton) editButton.dataset.editProductFromDetail = product.id;
+    if (pricingButton) pricingButton.dataset.openPricingForProduct = product.id;
+    setText("[data-product-detail-barcode]", product.barcode);
+    setText("[data-product-detail-unit]", product.unit);
+    setText("[data-product-detail-cost]", money.format(product.costPrice));
+    setText("[data-product-detail-sale-price]", shopPriceLabel);
+    setText("[data-product-detail-profit]", hasShopPrice ? money.format(grossProfit) : "Chờ tính giá");
+    setText("[data-product-detail-margin]", hasShopPrice ? `${margin.toFixed(1)}%` : "—");
+    setText("[data-product-detail-markup]", hasShopPrice ? `${markup.toFixed(1)}%` : "—");
+    setText("[data-product-detail-stock]", `${product.stock} / cảnh báo ${product.lowStock}`);
+    setText("[data-product-detail-weight]", product.weightGrams ? `${product.weightGrams} g` : "");
+    setText("[data-product-detail-dimensions]", product.dimensions);
+    setText("[data-product-detail-origin]", product.origin);
+    setText("[data-product-detail-material]", product.material);
+    setText("[data-product-detail-created]", formatDateTime(product.createdAt));
+    setText("[data-product-detail-updated]", formatDateTime(product.updatedAt));
+    const channelPriceHost = host.querySelector("[data-product-detail-channel-prices]");
+    if (channelPriceHost) channelPriceHost.innerHTML = channelPrices.length
+      ? `<div class="price-channel-list">${channelPrices.map(entry => `<span class="price-channel-chip"><b>${escapeHtml(entry.channelName || entry.channelCode || "Kênh bán")}</b>${money.format(entry.channelPrice || entry.price || 0)}</span>`).join("")}</div>`
+      : `<p class="resource-empty-copy">Chưa có giá riêng theo kênh bán.</p>`;
+    setText("[data-product-detail-supplier-count]", `${supplierHistory.length} nhà cung cấp`);
+    const supplierHistoryHost = host.querySelector("[data-product-detail-supplier-history]");
+    if (supplierHistoryHost) {
+      supplierHistoryHost.innerHTML = purchasingDataPromise
+        ? `<p class="resource-empty-copy" role="status">Đang tải lịch sử nhập hàng...</p>`
+        : purchasingDataError
+          ? `<div class="resource-empty-copy"><p>Chưa thể tải lịch sử nhập hàng. Thông tin sản phẩm vẫn có thể sử dụng bình thường.</p><button class="button ghost" type="button" data-retry-product-purchasing="${escapeAttribute(product.id)}">Thử tải lại</button></div>`
+          : supplierHistory.length
+            ? `<div class="supply-history-table">${supplierHistory.map(entry => `<a class="supply-history-row" href="./suppliers.html?supplierId=${encodeURIComponent(entry.supplierId)}"><span><strong>${escapeHtml(entry.supplierName)}</strong><small>${escapeHtml(entry.supplierCode || "Nhà cung cấp")}</small></span><span><small>Số phiếu</small><strong>${entry.orderCount}</strong></span><span><small>Đã nhập</small><strong>${entry.totalQuantity}</strong></span><span><small>Giá gần nhất</small><strong>${money.format(entry.lastUnitCost)}</strong></span><span><small>Giá bình quân</small><strong>${money.format(entry.averageUnitCost)}</strong></span><span><small>Lần gần nhất</small><strong>${formatDate(entry.lastPurchasedAt)}</strong></span></a>`).join("")}</div>`
+            : `<p class="resource-empty-copy">Sản phẩm chưa có lịch sử nhập từ nhà cung cấp.</p>`;
+    }
+    setText("[data-product-detail-content-status]", productContentStatuses[product.contentStatus]);
+    setText("[data-product-detail-content-owner]", product.contentOwner);
+    setText("[data-product-detail-audience]", product.targetAudience);
+    setText("[data-product-detail-keywords]", product.seoKeywords);
+    setText("[data-product-detail-description]", product.shortDescription || "Chưa có mô tả.", "Chưa có mô tả.");
+    setText("[data-product-detail-features]", product.keyFeatures || "Chưa có nội dung.", "Chưa có nội dung.");
+    setText("[data-product-detail-content-note]", product.contentNote || "Chưa có ghi chú.", "Chưa có ghi chú.");
+    const salesLinks = host.querySelector("[data-product-detail-sales-links]");
+    if (salesLinks) salesLinks.innerHTML = productResourceLink(product.websiteProductUrl, "Sản phẩm trên Website") + productResourceLink(product.shopeeProductUrl, "Sản phẩm trên Shopee") + productResourceLink(product.tiktokProductUrl, "Sản phẩm trên TikTok Shop") + productResourceLink(product.facebookProductUrl, "Sản phẩm trên Facebook");
+    const postLinksHost = host.querySelector("[data-product-detail-post-links]");
+    if (postLinksHost) postLinksHost.innerHTML = postLinks.length ? `<div class="product-post-links">${postLinks.map(link => `<a href="${escapeAttribute(link.url)}" target="_blank" rel="noopener"><span>${escapeHtml(link.label)}</span><small>${escapeHtml(link.url)}</small></a>`).join("")}</div>` : `<p class="resource-empty-copy">Chưa có link bài đăng hoặc video liên quan.</p>`;
+    const googleLinks = host.querySelector("[data-product-detail-google-links]");
+    if (googleLinks) googleLinks.innerHTML = productResourceLink(product.contentDocUrl, "Google Docs mô tả") + productResourceLink(product.mediaFolderUrl, "Folder sản phẩm") + productResourceLink(product.imageFolderUrl, "Folder hình ảnh") + productResourceLink(product.videoFolderUrl, "Folder video");
+    const provisionButton = host.querySelector("[data-product-detail-provision]");
+    if (provisionButton) {
+      provisionButton.dataset.provisionProduct = product.id;
+      provisionButton.hidden = !(canManageProducts() && (!product.contentDocUrl || !product.mediaFolderUrl || !product.imageFolderUrl || !product.videoFolderUrl));
+    }
   }
 
   function productSearchText(product) {
@@ -5713,6 +5761,7 @@
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
     if (type === "orderDetail" && viewingOrder) hydrateOrderDetail(els.modalForm, viewingOrder);
+    if (type === "productDetail" && editingProduct) hydrateProductDetail(els.modalForm, editingProduct);
     if (type === "customerDetail" && viewingCustomer) hydrateCustomerDetail(els.modalForm, viewingCustomer);
     if (type === "contentItem") compactContentItemForm(els.modalForm);
     if (type === "contentItem" && !options.contentItem) applyContentAutomation(els.modalForm, "gentle");
