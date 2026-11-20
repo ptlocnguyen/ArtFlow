@@ -9,34 +9,20 @@
       renderProductThumb, saveOrderToState, shippingStatuses, showToast, state
     } = runtime;
 
-    function renderProductPicker() {
+    function renderProductPicker(form) {
       const products = state.products
         .filter(product => product.status === "active")
         .sort((a, b) => Number(b.stock > 0) - Number(a.stock > 0) || a.name.localeCompare(b.name));
       const categories = Array.from(new Set(products.map(product => String(product.category || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
       const brands = Array.from(new Set(products.map(product => String(product.brand || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-
-      return `
-        <div class="product-picker">
-          <div class="product-picker-toolbar">
-            <label class="search-box product-picker-search">
-              ${icon("search")}
-              <input type="search" placeholder="Tìm SKU, tên, danh mục, hãng, mã vạch..." data-product-picker-search />
-            </label>
-            <span class="pill" data-product-picker-count>${products.length} sản phẩm</span>
-          </div>
-          <div class="product-picker-filters">
-            <select data-product-picker-filter="category"><option value="">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
-            <select data-product-picker-filter="brand"><option value="">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}</select>
-            <select data-product-picker-filter="stock"><option value="">Tất cả tồn kho</option><option value="available">Còn hàng</option><option value="low">Sắp hết</option><option value="out">Hết hàng</option></select>
-            <select data-product-picker-sort><option value="name">Tên A-Z</option><option value="stock">Tồn kho nhiều</option><option value="priceAsc">Giá thấp</option><option value="priceDesc">Giá cao</option><option value="margin">Biên lãi cao</option></select>
-            <button class="button ghost icon-only" type="button" data-reset-product-picker aria-label="Làm mới" title="Làm mới">${icon("refresh")}</button>
-          </div>
-          <div class="product-picker-list" data-product-picker-list>
-            ${products.map(renderProductPickerCard).join("")}
-          </div>
-        </div>
-      `;
+      const category = form?.querySelector('[data-product-picker-filter="category"]');
+      const brand = form?.querySelector('[data-product-picker-filter="brand"]');
+      const list = form?.querySelector("[data-product-picker-list]");
+      const count = form?.querySelector("[data-product-picker-count]");
+      if (category) category.innerHTML = `<option value="">Tất cả danh mục</option>${categories.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}`;
+      if (brand) brand.innerHTML = `<option value="">Tất cả hãng</option>${brands.map(value => `<option value="${escapeAttribute(value)}">${escapeHtml(value)}</option>`).join("")}`;
+      if (list) list.innerHTML = products.map(renderProductPickerCard).join("");
+      if (count) count.textContent = `${products.length} sản phẩm`;
     }
 
     function renderProductPickerCard(product) {
@@ -45,7 +31,7 @@
       const margin = product.salePrice > 0 ? Math.round(((product.salePrice - product.costPrice) / product.salePrice) * 100) : 0;
       const stockState = product.stock <= 0 ? "out" : (product.stock <= product.lowStock ? "low" : "available");
       return `
-        <button class="product-card product-card-rich" type="button" data-product-picker-card data-add-product-to-order="${product.id}" data-product-search="${escapeAttribute(productSearchText(product))}" data-category="${escapeAttribute(product.category || "")}" data-brand="${escapeAttribute(product.brand || "")}" data-stock-state="${stockState}" data-name="${escapeAttribute(product.name || "")}" data-price="${Number(product.salePrice || 0)}" data-stock="${Number(product.stock || 0)}" data-margin="${margin}" ${disabled}>
+        <button class="product-card product-card-rich" type="button" data-product-picker-card data-add-product-to-order="${escapeAttribute(product.id)}" data-product-search="${escapeAttribute(productSearchText(product))}" data-category="${escapeAttribute(product.category || "")}" data-brand="${escapeAttribute(product.brand || "")}" data-stock-state="${stockState}" data-name="${escapeAttribute(product.name || "")}" data-price="${Number(product.salePrice || 0)}" data-stock="${Number(product.stock || 0)}" data-margin="${margin}" ${disabled}>
           ${renderProductThumb(product)}
           <span class="product-card-main">
             <strong>${escapeHtml(product.name)}</strong>
@@ -74,7 +60,7 @@
           <div class="cart-product-summary">
             <strong>${escapeHtml(product.name)}</strong>
             <small>${escapeHtml(product.sku)} · Giá gốc ${productHasShopPrice(product) ? money.format(product.salePrice) : "chưa có"} · tồn ${product.stock}</small>
-            <input type="hidden" name="productId" value="${product.id}" data-order-product required />
+            <input type="hidden" name="productId" value="${escapeAttribute(product.id)}" data-order-product required />
           </div>
           <div class="field compact-field">
             <label>Số lượng</label>
@@ -249,55 +235,45 @@
     }
 
     function renderOrderCreatePage() {
-      if (!els.orderCreateForm) return;
+      const form = els.orderCreateForm;
+      if (!form) return;
+      const editor = form.querySelector("[data-order-create-editor]");
+      const setPageState = name => {
+        form.querySelectorAll("[data-order-create-state]").forEach(node => {
+          node.hidden = node.dataset.orderCreateState !== name;
+        });
+        if (editor) editor.hidden = name !== "editor";
+      };
       if (!canManageOrders()) {
-        els.orderCreateForm.innerHTML = `<section class="panel empty-state"><h2>Bạn không có quyền tạo đơn</h2><p>Vui lòng dùng tài khoản admin hoặc bán hàng.</p></section>`;
+        setPageState("unauthorized");
         return;
       }
       if (!canCreateOrder()) {
-        els.orderCreateForm.innerHTML = `<section class="panel empty-state"><h2>Cần dữ liệu bán hàng</h2><p>Hãy tạo ít nhất một khách hàng và một sản phẩm đang hoạt động trước khi tạo đơn.</p><div class="form-actions"><a class="button ghost" href="./customers.html">Khách hàng</a><a class="button primary" href="./products.html">Sản phẩm</a></div></section>`;
+        setPageState("missing-data");
         return;
       }
-      const customerOptions = state.customers.filter(customer => customer.status === "active").map(customer => `<option value="${customer.id}">${customer.name} · ${customer.phone}</option>`).join("");
-      els.orderCreateForm.innerHTML = `
-        <section class="order-compose-grid">
-          <div class="order-compose-main">
-            <section class="panel order-compose-section">
-              <div class="panel-header"><div><h2>Giỏ hàng</h2><p>Sản phẩm đã chọn trong hóa đơn hiện tại.</p></div><button class="button primary" type="button" data-open-product-picker>Thêm sản phẩm</button></div>
-              <div class="order-builder-layout"><div class="order-cart-panel"><div class="order-cart-heading"><strong>Sản phẩm đã chọn</strong><span data-order-cart-count>0 dòng</span></div><div class="order-empty-cart" data-order-empty-cart>Bấm “Thêm sản phẩm” để tìm và thêm hàng vào hóa đơn.</div><div class="order-items order-items-large" data-order-items></div></div></div>
-            </section>
-            <section class="panel order-compose-section order-customer-section">
-              <div class="panel-header"><div><h2>Khách hàng và kênh bán</h2><p>Chọn người mua, nguồn đơn và ghi chú xử lý.</p></div></div>
-              <div class="form-grid compact-grid">
-                <div class="field order-customer-picker"><label for="customerId">Khách hàng</label><div class="inline-control"><select id="customerId" name="customerId" required>${customerOptions}</select><button class="button ghost" type="button" data-open-customer data-order-quick-customer>Thêm nhanh</button></div></div>
-                <div class="field"><label for="channel">Kênh bán</label><select id="channel" name="channel" required>${renderOptions(channels, "pos")}</select></div>
-                <div class="field"><label for="paymentMethod">Phương thức</label><select id="paymentMethod" name="paymentMethod" required><option value="cash">Tiền mặt</option><option value="transfer">Chuyển khoản</option><option value="cod">COD</option><option value="ecommerce">Sàn TMĐT</option></select></div>
-                <small class="loyalty-status-line" data-loyalty-status>Chọn khách hàng để xem điểm tích lũy.</small>
-                <div class="field full"><label for="note">Ghi chú nội bộ</label><input id="note" name="note" type="text" placeholder="Yêu cầu giao hàng, nguồn inbox, mã đơn sàn..." /></div>
-              </div>
-            </section>
-          </div>
-          <aside class="order-summary-panel"><section class="panel order-compose-section sticky-summary">
-            <div class="panel-header"><div><h2>Thanh toán và giao hàng</h2><p>Hoàn tất trạng thái trước khi lưu đơn.</p></div></div>
-            <div class="form-grid summary-grid">
-              <div class="field"><label for="status">Trạng thái đơn</label><select id="status" name="status" required><option value="pending">Chờ xử lý</option><option value="confirmed">Đã xác nhận</option><option value="packed">Đã đóng gói</option><option value="shipping">Đang giao</option><option value="completed" selected>Hoàn tất</option></select></div>
-              <div class="field"><label for="paymentStatus">Thanh toán</label><select id="paymentStatus" name="paymentStatus" required>${renderOptions(paymentStatuses, "paid")}</select></div>
-              <div class="field"><label for="discountPercent">Giảm giá %</label><input id="discountPercent" name="discountPercent" type="number" min="0" max="100" step="0.1" value="0" data-order-money /></div>
-              <div class="field"><label for="discount">Giảm tiền</label><input id="discount" name="discount" type="number" min="0" step="1000" value="0" data-order-money /></div>
-              <div class="field"><label for="loyaltyPointsUsed">Dùng điểm</label><input id="loyaltyPointsUsed" name="loyaltyPointsUsed" type="number" min="0" step="1" value="0" data-order-money /></div>
-              <div class="field"><label for="shippingFee">Phí giao hàng</label><input id="shippingFee" name="shippingFee" type="number" min="0" step="1000" value="0" data-order-money /></div>
-              <div class="field"><label for="roundingStep">Làm tròn</label><select id="roundingStep" name="roundingStep" data-order-money><option value="0">Không</option><option value="1000" selected>1.000đ</option><option value="5000">5.000đ</option></select></div>
-              <div class="field"><label for="cashReceived">Tiền đã nhận</label><input id="cashReceived" name="cashReceived" type="number" min="0" step="1000" value="0" data-order-money /></div>
-              <details class="order-extra-settings full"><summary>Giao hàng / vận đơn</summary><div class="form-grid summary-subgrid"><div class="field"><label for="shippingStatus">Vận chuyển</label><select id="shippingStatus" name="shippingStatus" required>${renderOptions(shippingStatuses, "none")}</select></div><div class="field"><label for="carrier">Đơn vị giao</label><select id="carrier" name="carrier">${renderOptions(carriers, "none")}</select></div><div class="field full"><label for="trackingCode">Mã vận đơn</label><input id="trackingCode" name="trackingCode" type="text" placeholder="SPXVN..., GHTK..., GHN..." /></div></div></details>
-              <div class="field checkbox-field receipt-actions full"><label><input type="checkbox" name="printAfterSave" checked /> In phiếu</label><label><input type="checkbox" name="receiptPdf" checked /> Lưu PDF</label><button class="link-button icon-only" type="button" data-open-receipt-settings aria-label="Cài đặt phiếu in" title="Cài đặt phiếu in">${icon("settings")}</button></div>
-            </div>
-            <div class="summary-lines"><div><span>Tạm tính</span><strong data-summary-subtotal>${money.format(0)}</strong></div><div><span>Giảm từng dòng</span><strong data-summary-line-discount>${money.format(0)}</strong></div><div><span>Giảm giá</span><strong data-summary-discount>${money.format(0)}</strong></div><div><span>Đổi điểm</span><strong data-summary-loyalty>${money.format(0)}</strong></div><div><span>Phí giao hàng</span><strong data-summary-shipping>${money.format(0)}</strong></div><div><span>Làm tròn</span><strong data-summary-rounding>${money.format(0)}</strong></div><div><span>Tiền nhận</span><strong data-summary-received>${money.format(0)}</strong></div><div><span>Tiền thối</span><strong data-summary-change>${money.format(0)}</strong></div><div class="summary-total"><span>Tổng thanh toán</span><strong data-summary-total>${money.format(0)}</strong></div></div>
-            <div class="form-actions order-submit-actions"><a class="button ghost" href="./orders.html">Hủy</a><button class="button primary" type="submit">Tạo đơn hàng</button></div>
-          </section></aside>
-          <div class="order-product-popup" data-order-product-popup hidden><div class="order-product-popup-panel"><div class="order-product-popup-header"><div><h2>Thêm sản phẩm</h2><p>Tìm SKU, tên, danh mục hoặc thương hiệu rồi bấm sản phẩm để thêm vào giỏ.</p></div><button class="icon-button" type="button" data-close-product-picker aria-label="Đóng">${icon("close")}</button></div>${renderProductPicker()}</div></div>
-        </section>
-      `;
-      updateOrderTotalPreview(els.orderCreateForm);
+      setPageState("editor");
+      form.reset();
+      const items = form.querySelector("[data-order-items]");
+      if (items) items.innerHTML = "";
+      const popup = form.querySelector("[data-order-product-popup]");
+      if (popup) popup.hidden = true;
+      const customerOptions = state.customers
+        .filter(customer => customer.status === "active")
+        .map(customer => `<option value="${escapeAttribute(customer.id)}">${escapeHtml(customer.name)} · ${escapeHtml(customer.phone)}</option>`)
+        .join("");
+      const customerSelect = form.querySelector("[data-order-customer-options]");
+      const channelSelect = form.querySelector("[data-order-channel-options]");
+      const paymentSelect = form.querySelector("[data-order-payment-options]");
+      const shippingSelect = form.querySelector("[data-order-shipping-options]");
+      const carrierSelect = form.querySelector("[data-order-carrier-options]");
+      if (customerSelect) customerSelect.innerHTML = customerOptions;
+      if (channelSelect) channelSelect.innerHTML = renderOptions(channels, "pos");
+      if (paymentSelect) paymentSelect.innerHTML = renderOptions(paymentStatuses, "paid");
+      if (shippingSelect) shippingSelect.innerHTML = renderOptions(shippingStatuses, "none");
+      if (carrierSelect) carrierSelect.innerHTML = renderOptions(carriers, "none");
+      renderProductPicker(form);
+      updateOrderTotalPreview(form);
     }
 
     return {

@@ -62,4 +62,10 @@ for (const preview of ["data-settings-preview-store", "data-settings-preview-leg
 }
 assert.ok(!settingsHtml.includes('<form class="panel form-grid settings-form" data-settings-form></form>'), "Settings HTML must not be an empty JavaScript mount point");
 
+const orderCreateHtml = fs.readFileSync(path.join("pages", "order-create.html"), "utf8");
+for (const selector of ["data-order-create-editor", "data-order-items", "data-order-customer-options", "data-product-picker-list", "data-summary-total"]) {
+  assert.ok(orderCreateHtml.includes(selector), `order-create.html must own ${selector}`);
+}
+assert.ok(!orderCreateHtml.includes('<form class="order-create-form" data-order-create-form></form>'), "Order editor HTML must not be an empty JavaScript mount point");
+
 console.log(`Frontend module loading QA passed for ${Object.keys(expectedModules).length} pages and ${totalReferences} module references.`);
