@@ -1,0 +1,6 @@
+body[data-page="customers"] .management-page,
+body[data-page="customers"] .resource-index {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}

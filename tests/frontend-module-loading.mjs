@@ -100,9 +100,13 @@ const purchasingSource = fs.readFileSync(path.join("assets", "js", "pages", "pur
 assert.ok(!purchasingSource.includes("drawer.innerHTML"), "Purchasing drawers must hydrate their HTML-owned structure");
 
 const customersHtml = fs.readFileSync(path.join("pages", "customers.html"), "utf8");
+assert.ok(customersHtml.includes("assets/css/customers.css"), "customers.html must load its page-width layout rules");
 for (const selector of ["data-customer-detail-template", "data-customer-detail-avatar", "data-customer-detail-spent", "data-customer-detail-phone", "data-customer-detail-orders", "data-customer-detail-note", "data-customer-detail-actions"]) {
   assert.ok(customersHtml.includes(selector), `customers.html must own ${selector}`);
 }
+const customersCss = fs.readFileSync(path.join("assets", "css", "customers.css"), "utf8");
+assert.ok(customersCss.includes('body[data-page="customers"] .resource-index'), "Customer table panel must fill its content area");
+assert.ok(customersCss.includes("width: 100%"), "Customer table panel must use the available content width");
 const customersSource = fs.readFileSync(path.join("assets", "js", "pages", "customers.js"), "utf8");
 assert.ok(!customersSource.includes('<section class="customer-detail-hero'), "Customer detail layout must remain owned by its HTML template");
 assert.ok(customersSource.includes("hydrateCustomerDetail"), "Customer controller must hydrate the HTML-owned detail template");
