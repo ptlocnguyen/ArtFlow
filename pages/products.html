@@ -69,6 +69,44 @@
       <div class="loading-card" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><strong data-loading-text>Đang xử lý...</strong></div>
     </div>
   </div>
+  <template data-product-form-template>
+    <div class="product-form-section full"><h3>Thông tin bán hàng</h3><p>Các trường dùng cho danh mục, kho và đơn hàng.</p></div>
+    <div class="field"><label for="sku">SKU</label><input id="sku" name="sku" placeholder="AF-NEW-001" required /></div>
+    <div class="field"><label for="name">Tên sản phẩm</label><input id="name" name="name" placeholder="Bộ cọ vẽ chi tiết" required /></div>
+    <div class="field"><label for="category">Danh mục</label><select id="category" name="category" required></select></div>
+    <div class="field"><label for="brand">Thương hiệu</label><select id="brand" name="brand"></select></div>
+    <div class="field"><label for="barcode">Barcode / Mã vạch</label><input id="barcode" name="barcode" placeholder="893..." /></div>
+    <div class="field"><label for="unit">Đơn vị tính</label><select id="unit" name="unit" required></select></div>
+    <div class="field"><label for="costPrice">Giá vốn</label><input id="costPrice" name="costPrice" type="number" min="0" step="1000" required /></div>
+    <div class="field"><label for="salePrice">Giá shop/offline hiện tại</label><input id="salePrice" name="salePrice" type="number" min="0" step="1000" placeholder="Có thể để trống và tính sau" /><small>Không bắt buộc khi tạo mới. Dùng Team Hub Pricing để tính và áp dụng giá chuẩn.</small></div>
+    <div class="product-pricing-preview full" data-product-pricing-preview></div>
+    <div class="field"><label for="stock">Tồn kho</label><input id="stock" name="stock" type="number" min="0" step="1" required /></div>
+    <div class="field"><label for="lowStock">Ngưỡng cảnh báo</label><input id="lowStock" name="lowStock" type="number" min="0" step="1" required /></div>
+    <div class="product-form-section full"><h3>Thông số sản phẩm</h3><p>Hữu ích khi viết mô tả và đăng lên sàn.</p></div>
+    <div class="field"><label for="weightGrams">Khối lượng (gram)</label><input id="weightGrams" name="weightGrams" type="number" min="0" step="1" /></div>
+    <div class="field"><label for="dimensions">Kích thước</label><input id="dimensions" name="dimensions" placeholder="20 x 10 x 5 cm" /></div>
+    <div class="field"><label for="origin">Xuất xứ</label><input id="origin" name="origin" placeholder="Việt Nam" /></div>
+    <div class="field"><label for="material">Chất liệu</label><input id="material" name="material" placeholder="Gỗ, cotton, nhựa ABS..." /></div>
+    <div class="field full"><label for="imageUrl">Link ảnh đại diện</label><input id="imageUrl" name="imageUrl" type="url" placeholder="https://... (ảnh được chia sẻ để người xem có quyền truy cập)" /></div>
+    <div class="product-form-section full"><h3>Quản lý content</h3><p>Brief nhanh để team content tìm, viết và theo dõi tiến độ.</p></div>
+    <div class="field full"><label for="shortDescription">Mô tả ngắn</label><textarea id="shortDescription" name="shortDescription" rows="3" placeholder="Sản phẩm là gì và giải quyết nhu cầu nào?"></textarea></div>
+    <div class="field full"><label for="keyFeatures">Điểm nổi bật / USP</label><textarea id="keyFeatures" name="keyFeatures" rows="4" placeholder="Mỗi điểm nổi bật một dòng"></textarea></div>
+    <div class="field"><label for="targetAudience">Đối tượng khách hàng</label><input id="targetAudience" name="targetAudience" placeholder="Người mới học vẽ, sinh viên..." /></div>
+    <div class="field"><label for="seoKeywords">Từ khóa tìm kiếm</label><input id="seoKeywords" name="seoKeywords" placeholder="cọ vẽ, cọ chi tiết, dụng cụ mỹ thuật" /></div>
+    <div class="field"><label for="contentOwner">Người phụ trách content</label><select id="contentOwner" name="contentOwner"></select></div>
+    <div class="field"><label for="contentStatus">Trạng thái content</label><select id="contentStatus" name="contentStatus"><option value="not_started">Chưa bắt đầu</option><option value="drafting">Đang soạn</option><option value="review">Chờ duyệt</option><option value="revision">Cần sửa</option><option value="ready">Sẵn sàng</option><option value="published">Đã đăng</option></select></div>
+    <div class="field full"><label for="contentNote">Ghi chú content</label><textarea id="contentNote" name="contentNote" rows="3" placeholder="Yêu cầu hình ảnh, video, deadline, kênh ưu tiên..."></textarea></div>
+    <div class="product-form-section full"><h3>Link bán hàng và bài content</h3><p>Tập hợp nơi sản phẩm đang được bán hoặc đã xuất hiện để team tra cứu nhanh.</p></div>
+    <div class="field"><label for="websiteProductUrl">Link sản phẩm Website</label><input id="websiteProductUrl" name="websiteProductUrl" type="url" placeholder="https://website.vn/san-pham/..." /></div>
+    <div class="field"><label for="shopeeProductUrl">Link sản phẩm Shopee</label><input id="shopeeProductUrl" name="shopeeProductUrl" type="url" placeholder="https://shopee.vn/..." /></div>
+    <div class="field"><label for="tiktokProductUrl">Link sản phẩm TikTok Shop</label><input id="tiktokProductUrl" name="tiktokProductUrl" type="url" placeholder="https://shop.tiktok.com/..." /></div>
+    <div class="field"><label for="facebookProductUrl">Link sản phẩm Facebook</label><input id="facebookProductUrl" name="facebookProductUrl" type="url" placeholder="https://facebook.com/..." /></div>
+    <div class="field full"><label for="contentPostLinks">Các bài đăng / video liên quan</label><textarea id="contentPostLinks" name="contentPostLinks" rows="5" placeholder="TikTok hướng dẫn sử dụng | https://...&#10;Facebook launch sản phẩm | https://...&#10;Video review YouTube | https://..."></textarea><small>Mỗi dòng một link. Có thể dùng định dạng Tên bài | URL hoặc chỉ nhập URL.</small></div>
+    <div class="product-resource-note full" data-product-form-resource-note>
+      <span data-product-form-resource-edit hidden>Link Google Docs và Drive được hệ thống quản lý riêng. Dùng nút <strong>Tạo tài nguyên</strong> trong màn hình chi tiết nếu sản phẩm chưa có link.</span>
+      <span data-product-form-resource-create>Sau khi lưu, hệ thống sẽ tự tạo Google Docs và các folder ảnh/video nếu Script Properties đã được cấu hình.</span>
+    </div>
+  </template>
   <template data-product-detail-template>
     <div class="product-detail-hero full">
       <img class="product-detail-image" src="" alt="" data-product-detail-image hidden />

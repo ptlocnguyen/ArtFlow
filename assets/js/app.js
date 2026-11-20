@@ -3479,42 +3479,32 @@
   }
 
   function renderProductForm(product) {
-    const value = field => escapeAttribute(product ? product[field] : "");
-    return `
-      <div class="product-form-section full"><h3>Thông tin bán hàng</h3><p>Các trường dùng cho danh mục, kho và đơn hàng.</p></div>
-      <div class="field"><label for="sku">SKU</label><input id="sku" name="sku" value="${value("sku")}" placeholder="AF-NEW-001" required /></div>
-      <div class="field"><label for="name">Tên sản phẩm</label><input id="name" name="name" value="${value("name")}" placeholder="Bộ cọ vẽ chi tiết" required /></div>
-      <div class="field"><label for="category">Danh mục</label><select id="category" name="category" required>${renderManagedProductSelect("category", product ? product.category : "")}</select></div>
-      <div class="field"><label for="brand">Thương hiệu</label><select id="brand" name="brand">${renderManagedProductSelect("brand", product ? product.brand : "", { placeholder: "Không có thương hiệu" })}</select></div>
-      <div class="field"><label for="barcode">Barcode / Mã vạch</label><input id="barcode" name="barcode" value="${value("barcode")}" placeholder="893..." /></div>
-      <div class="field"><label for="unit">Đơn vị tính</label><select id="unit" name="unit" required>${renderManagedProductSelect("unit", product ? product.unit : "cái")}</select></div>
-      <div class="field"><label for="costPrice">Giá vốn</label><input id="costPrice" name="costPrice" type="number" min="0" step="1000" value="${value("costPrice")}" required /></div>
-      <div class="field"><label for="salePrice">Giá shop/offline hiện tại</label><input id="salePrice" name="salePrice" type="number" min="0" step="1000" value="${value("salePrice")}" placeholder="Có thể để trống và tính sau" /><small>Không bắt buộc khi tạo mới. Dùng Team Hub Pricing để tính và áp dụng giá chuẩn.</small></div>
-      <div class="product-pricing-preview full" data-product-pricing-preview></div>
-      <div class="field"><label for="stock">Tồn kho</label><input id="stock" name="stock" type="number" min="0" step="1" value="${value("stock")}" required /></div>
-      <div class="field"><label for="lowStock">Ngưỡng cảnh báo</label><input id="lowStock" name="lowStock" type="number" min="0" step="1" value="${value("lowStock")}" required /></div>
-      <div class="product-form-section full"><h3>Thông số sản phẩm</h3><p>Hữu ích khi viết mô tả và đăng lên sàn.</p></div>
-      <div class="field"><label for="weightGrams">Khối lượng (gram)</label><input id="weightGrams" name="weightGrams" type="number" min="0" step="1" value="${value("weightGrams") || 0}" /></div>
-      <div class="field"><label for="dimensions">Kích thước</label><input id="dimensions" name="dimensions" value="${value("dimensions")}" placeholder="20 x 10 x 5 cm" /></div>
-      <div class="field"><label for="origin">Xuất xứ</label><input id="origin" name="origin" value="${value("origin")}" placeholder="Việt Nam" /></div>
-      <div class="field"><label for="material">Chất liệu</label><input id="material" name="material" value="${value("material")}" placeholder="Gỗ, cotton, nhựa ABS..." /></div>
-      <div class="field full"><label for="imageUrl">Link ảnh đại diện</label><input id="imageUrl" name="imageUrl" type="url" value="${value("imageUrl")}" placeholder="https://... (ảnh được chia sẻ để người xem có quyền truy cập)" /></div>
-      <div class="product-form-section full"><h3>Quản lý content</h3><p>Brief nhanh để team content tìm, viết và theo dõi tiến độ.</p></div>
-      <div class="field full"><label for="shortDescription">Mô tả ngắn</label><textarea id="shortDescription" name="shortDescription" rows="3" placeholder="Sản phẩm là gì và giải quyết nhu cầu nào?">${escapeHtml(product ? product.shortDescription : "")}</textarea></div>
-      <div class="field full"><label for="keyFeatures">Điểm nổi bật / USP</label><textarea id="keyFeatures" name="keyFeatures" rows="4" placeholder="Mỗi điểm nổi bật một dòng">${escapeHtml(product ? product.keyFeatures : "")}</textarea></div>
-      <div class="field"><label for="targetAudience">Đối tượng khách hàng</label><input id="targetAudience" name="targetAudience" value="${value("targetAudience")}" placeholder="Người mới học vẽ, sinh viên..." /></div>
-      <div class="field"><label for="seoKeywords">Từ khóa tìm kiếm</label><input id="seoKeywords" name="seoKeywords" value="${value("seoKeywords")}" placeholder="cọ vẽ, cọ chi tiết, dụng cụ mỹ thuật" /></div>
-      <div class="field"><label for="contentOwner">Người phụ trách content</label><select id="contentOwner" name="contentOwner">${renderContentOwnerSelect(product ? product.contentOwner : "")}</select></div>
-      <div class="field"><label for="contentStatus">Trạng thái content</label><select id="contentStatus" name="contentStatus">${Object.entries(productContentStatuses).map(([key, label]) => `<option value="${key}" ${(product ? product.contentStatus : "not_started") === key ? "selected" : ""}>${label}</option>`).join("")}</select></div>
-      <div class="field full"><label for="contentNote">Ghi chú content</label><textarea id="contentNote" name="contentNote" rows="3" placeholder="Yêu cầu hình ảnh, video, deadline, kênh ưu tiên...">${escapeHtml(product ? product.contentNote : "")}</textarea></div>
-      <div class="product-form-section full"><h3>Link bán hàng và bài content</h3><p>Tập hợp nơi sản phẩm đang được bán hoặc đã xuất hiện để team tra cứu nhanh.</p></div>
-      <div class="field"><label for="websiteProductUrl">Link sản phẩm Website</label><input id="websiteProductUrl" name="websiteProductUrl" type="url" value="${value("websiteProductUrl")}" placeholder="https://website.vn/san-pham/..." /></div>
-      <div class="field"><label for="shopeeProductUrl">Link sản phẩm Shopee</label><input id="shopeeProductUrl" name="shopeeProductUrl" type="url" value="${value("shopeeProductUrl")}" placeholder="https://shopee.vn/..." /></div>
-      <div class="field"><label for="tiktokProductUrl">Link sản phẩm TikTok Shop</label><input id="tiktokProductUrl" name="tiktokProductUrl" type="url" value="${value("tiktokProductUrl")}" placeholder="https://shop.tiktok.com/..." /></div>
-      <div class="field"><label for="facebookProductUrl">Link sản phẩm Facebook</label><input id="facebookProductUrl" name="facebookProductUrl" type="url" value="${value("facebookProductUrl")}" placeholder="https://facebook.com/..." /></div>
-      <div class="field full"><label for="contentPostLinks">Các bài đăng / video liên quan</label><textarea id="contentPostLinks" name="contentPostLinks" rows="5" placeholder="TikTok hướng dẫn sử dụng | https://...&#10;Facebook launch sản phẩm | https://...&#10;Video review YouTube | https://...">${escapeHtml(product ? product.contentPostLinks : "")}</textarea><small>Mỗi dòng một link. Có thể dùng định dạng Tên bài | URL hoặc chỉ nhập URL.</small></div>
-      ${product ? `<div class="product-resource-note full">Link Google Docs và Drive được hệ thống quản lý riêng. Dùng nút <strong>Tạo tài nguyên</strong> trong màn hình chi tiết nếu sản phẩm chưa có link.</div>` : `<div class="product-resource-note full">Sau khi lưu, hệ thống sẽ tự tạo Google Docs và các folder ảnh/video nếu Script Properties đã được cấu hình.</div>`}
-    `;
+    const template = document.querySelector("[data-product-form-template]");
+    return template ? template.innerHTML : "";
+  }
+
+  function hydrateProductForm(form, product) {
+    if (!form) return;
+    const value = field => product && product[field] !== undefined && product[field] !== null ? product[field] : "";
+    const setValue = (name, field = name, fallback = "") => {
+      const control = form.elements && form.elements[name];
+      if (control) control.value = value(field) === "" ? fallback : value(field);
+    };
+    const category = form.elements && form.elements.category;
+    const brand = form.elements && form.elements.brand;
+    const unit = form.elements && form.elements.unit;
+    const contentOwner = form.elements && form.elements.contentOwner;
+    if (category) category.innerHTML = renderManagedProductSelect("category", value("category"));
+    if (brand) brand.innerHTML = renderManagedProductSelect("brand", value("brand"), { placeholder: "Không có thương hiệu" });
+    if (unit) unit.innerHTML = renderManagedProductSelect("unit", value("unit") || "cái");
+    if (contentOwner) contentOwner.innerHTML = renderContentOwnerSelect(value("contentOwner"));
+    ["sku", "name", "barcode", "costPrice", "salePrice", "stock", "lowStock", "dimensions", "origin", "material", "imageUrl", "shortDescription", "keyFeatures", "targetAudience", "seoKeywords", "contentNote", "websiteProductUrl", "shopeeProductUrl", "tiktokProductUrl", "facebookProductUrl", "contentPostLinks"].forEach(name => setValue(name));
+    setValue("weightGrams", "weightGrams", 0);
+    setValue("contentStatus", "contentStatus", "not_started");
+    const editResourceNote = form.querySelector("[data-product-form-resource-edit]");
+    const createResourceNote = form.querySelector("[data-product-form-resource-create]");
+    if (editResourceNote) editResourceNote.hidden = !product;
+    if (createResourceNote) createResourceNote.hidden = Boolean(product);
   }
 
   function productResourceLink(url, label) {
@@ -5760,6 +5750,7 @@
     els.modalEyebrow.textContent = definition.eyebrow;
     els.modalTitle.textContent = definition.title;
     els.modalForm.innerHTML = definition.body;
+    if (type === "product") hydrateProductForm(els.modalForm, editingProduct);
     if (type === "orderDetail" && viewingOrder) hydrateOrderDetail(els.modalForm, viewingOrder);
     if (type === "productDetail" && editingProduct) hydrateProductDetail(els.modalForm, editingProduct);
     if (type === "customerDetail" && viewingCustomer) hydrateCustomerDetail(els.modalForm, viewingCustomer);

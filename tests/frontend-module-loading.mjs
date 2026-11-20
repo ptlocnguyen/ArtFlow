@@ -118,9 +118,11 @@ assert.ok(customersSource.includes("./orders.html?orderId="), "Customer order hi
 assert.ok(appSource.includes('routeParams.get("orderId")'), "Orders page must accept customer-history deep links");
 
 const productsHtml = fs.readFileSync(path.join("pages", "products.html"), "utf8");
-for (const selector of ["data-product-detail-template", "data-product-detail-name", "data-product-detail-sale-price", "data-product-detail-channel-prices", "data-product-detail-supplier-history", "data-product-detail-sales-links", "data-product-detail-google-links"]) {
+for (const selector of ["data-product-form-template", "name=\"sku\"", "name=\"category\"", "name=\"contentStatus\"", "name=\"contentPostLinks\"", "data-product-form-resource-note", "data-product-detail-template", "data-product-detail-name", "data-product-detail-sale-price", "data-product-detail-channel-prices", "data-product-detail-supplier-history", "data-product-detail-sales-links", "data-product-detail-google-links"]) {
   assert.ok(productsHtml.includes(selector), `products.html must own ${selector}`);
 }
+assert.ok(!appSource.includes('<div class="product-form-section full"><h3>Thông tin bán hàng</h3>'), "Product form layout must remain owned by its HTML template");
+assert.ok(appSource.includes("hydrateProductForm"), "Product controller must hydrate the HTML-owned form template");
 assert.ok(!appSource.includes('<div class="product-detail-hero full">'), "Product detail layout must remain owned by its HTML template");
 assert.ok(appSource.includes("hydrateProductDetail"), "Product controller must hydrate the HTML-owned detail template");
 
