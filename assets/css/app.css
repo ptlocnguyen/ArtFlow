@@ -101,10 +101,6 @@
   padding: 32px;
 }
 
-.login-card [hidden] {
-  display: none !important;
-}
-
 .login-card > [data-auth-state="form"]:not([hidden]),
 .login-card > [data-auth-state="backend-error"]:not([hidden]) {
   display: grid;
