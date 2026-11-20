@@ -53,7 +53,22 @@
       </section>
     </main>
   </div>
-  <div data-shared-ui></div>
+  <div data-shared-ui>
+    <div class="modal-backdrop" data-modal-backdrop hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <header class="modal-header">
+          <div><p class="eyebrow" data-modal-eyebrow></p><h2 id="modal-title" data-modal-title></h2></div>
+          <button class="icon-button" type="button" data-close-modal aria-label="Đóng"><span data-icon="close"></span></button>
+        </header>
+        <form class="form-grid" data-modal-form></form>
+      </section>
+    </div>
+    <button class="menu-scrim" type="button" data-menu-close aria-label="Đóng menu"></button>
+    <div class="toast" data-toast hidden></div>
+    <div class="loading-overlay" data-loading-overlay hidden>
+      <div class="loading-card" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><strong data-loading-text>Đang xử lý...</strong></div>
+    </div>
+  </div>
   <script src="../assets/js/config.js"></script><script src="../assets/js/data.js"></script><script src="../assets/js/core/data.js"></script><script src="../assets/js/storage.js"></script><script src="../assets/js/core/ui.js"></script><script src="../assets/js/core/navigation.js"></script><script src="../assets/js/pages/products.js"></script><script src="../assets/js/ui/app-shell.js"></script><script src="../assets/js/ui/side-sheet.js"></script><script src="../assets/js/ui/modal.js"></script><script src="../assets/js/ui/popover.js"></script><script src="../assets/js/ui/bottom-sheet.js"></script><script src="../assets/js/ui/command-menu.js"></script><script src="../assets/js/ui/data-table.js"></script><script src="../assets/js/ui/filter-bar.js"></script><script src="../assets/js/ui/toast.js"></script><script src="../assets/js/ui/confirm-dialog.js"></script><script src="../assets/js/app.js"></script>
 </body>
 </html>

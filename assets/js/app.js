@@ -492,28 +492,6 @@
 
   function injectSharedUi() {
     if (!els.sharedUi) return;
-    els.sharedUi.innerHTML = `
-      <div class="modal-backdrop" data-modal-backdrop hidden>
-        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-          <header class="modal-header">
-            <div>
-              <p class="eyebrow" data-modal-eyebrow></p>
-              <h2 id="modal-title" data-modal-title></h2>
-            </div>
-            <button class="icon-button" type="button" data-close-modal aria-label="Đóng">${icon("close")}</button>
-          </header>
-          <form class="form-grid" data-modal-form></form>
-        </section>
-      </div>
-      <button class="menu-scrim" type="button" data-menu-close aria-label="Đóng menu"></button>
-      <div class="toast" data-toast hidden></div>
-      <div class="loading-overlay" data-loading-overlay hidden>
-        <div class="loading-card" role="status" aria-live="polite">
-          <span class="spinner" aria-hidden="true"></span>
-          <strong data-loading-text>Đang xử lý...</strong>
-        </div>
-      </div>
-    `;
     els.toast = qs("[data-toast]");
     els.loadingOverlay = qs("[data-loading-overlay]");
     els.loadingText = qs("[data-loading-text]");

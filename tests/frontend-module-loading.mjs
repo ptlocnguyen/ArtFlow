@@ -42,7 +42,12 @@ for (const [file, expected] of Object.entries(expectedModules)) {
   for (const module of actual) {
     assert.ok(html.indexOf(`assets/js/pages/${module}.js`) < appIndex, `${file} must load ${module} before app.js`);
   }
+  for (const sharedUiPart of ["data-modal-backdrop", "data-modal-form", "data-menu-close", "data-toast", "data-loading-overlay", "data-loading-text"]) {
+    assert.ok(html.includes(sharedUiPart), `${file} must own shared UI structure: ${sharedUiPart}`);
+  }
 }
+
+assert.ok(!appSource.includes("els.sharedUi.innerHTML"), "Shared UI must remain owned by page HTML");
 
 const totalReferences = Object.values(expectedModules).reduce((sum, modules) => sum + modules.length, 0);
 assert.equal(totalReferences, 28, "Page-module budget changed; update the ownership map intentionally");
